@@ -220,14 +220,16 @@ struct ProductDetailView: View {
                 .padding()
                 .alert("Bekreft", isPresented: $showingConfirmation) {
                     Button("Legg til", action: {
-                        appState.logFood(
-                            product: product,
-                            amountG: Float(amountG),
-                            mealType: appState.selectedMealType
-                        )
-                        HapticFeedbackService.shared.trigger(.loggingSuccess)
-                        SoundFeedbackService.shared.play(.loggingSuccess)
-                        showReceipt = true
+                        Task {
+                            await appState.logFood(
+                                product: product,
+                                amountG: Float(amountG),
+                                mealType: appState.selectedMealType
+                            )
+                            HapticFeedbackService.shared.trigger(.loggingSuccess)
+                            SoundFeedbackService.shared.play(.loggingSuccess)
+                            showReceipt = true
+                        }
                     })
                     Button("Avbryt", role: .cancel) {}
                 } message: {
