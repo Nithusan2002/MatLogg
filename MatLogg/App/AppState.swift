@@ -44,7 +44,7 @@ class AppState: ObservableObject {
             self.currentUser = savedUser
             self.authState = .authenticated(user: savedUser)
             loadTodaysGoal()
-            loadTodaysSummary()
+            // loadTodaysSummary is async, will be called from UI onAppear
         }
     }
     
@@ -59,7 +59,7 @@ class AppState: ObservableObject {
             self.currentUser = user
             self.authState = .authenticated(user: user)
             loadTodaysGoal()
-            loadTodaysSummary()
+            await loadTodaysSummary()
         } catch {
             self.errorMessage = error.localizedDescription
             self.authState = .error(error.localizedDescription)

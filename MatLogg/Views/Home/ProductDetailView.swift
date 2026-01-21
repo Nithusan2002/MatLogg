@@ -207,7 +207,7 @@ struct ProductDetailView: View {
                 Button(action: { showingConfirmation = true }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
-                        Text("Legg til \(appState.selectedMealType.rawValue.lowercased())")
+                        Text("Legg til \(appState.selectedMealType.lowercased())")
                             .fontWeight(.semibold)
                     }
                     .font(.headline)
@@ -254,7 +254,9 @@ struct ProductDetailView: View {
     }
     
     private func toggleFavorite() {
-        appState.toggleFavorite(product: product)
+        Task {
+            await appState.toggleFavorite(product: product)
+        }
         isFavorite.toggle()
         HapticFeedbackService.shared.trigger(.favoriteToggle)
     }
