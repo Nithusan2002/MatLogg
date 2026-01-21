@@ -7,10 +7,17 @@ class AppState: ObservableObject {
     
     @Published var authState: AuthState = .notAuthenticated
     @Published var currentUser: User?
-    @Published var currentGoal: Goal?
+    @Published var currentGoal: Goal? = Goal(
+        userId: UUID(),
+        goalType: "maintain",
+        dailyCalories: 2000,
+        proteinTargetG: 150,
+        carbsTargetG: 250,
+        fatTargetG: 65
+    )
     @Published var selectedMealType: String = "lunch" // default meal
     @Published var selectedTab: Int = 0
-    @Published var todaysSummary: DailySummary?
+    @Published var todaysSummary: DailySummary? = DailySummary(date: Date(), totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
     @Published var hapticsFeedbackEnabled: Bool = true
     @Published var soundFeedbackEnabled: Bool = true
     @Published var isOnboarding: Bool = false

@@ -141,39 +141,68 @@ struct StatusCardView: View {
         }
     }
     
+    var remainingCalories: Int {
+        max(0, goal.dailyCalories - summary.totalCalories)
+    }
+    
     var body: some View {
-        VStack(spacing: 16) {
-            // Calorie Circle
-            HStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(summary.totalCalories) / \(goal.dailyCalories)")
-                        .font(.system(size: 20, weight: .bold))
-                    Text("kcal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
+        VStack(spacing: 20) {
+            // Main Calorie Display with Pie Chart
+            HStack(spacing: 20) {
+                // Pie Chart
                 ZStack {
+                    // Background circle
                     Circle()
-                        .stroke(Color(.systemGray6), lineWidth: 10)
+                        .stroke(Color(.systemGray6), lineWidth: 12)
                     
+                    // Colored progress circle
                     Circle()
                         .trim(from: 0, to: min(caloriePercentage, 1.0))
-                        .stroke(calorieColor, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                        .stroke(calorieColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.easeInOut, value: caloriePercentage)
                     
+                    // Center text
                     VStack(spacing: 2) {
                         Text("\(Int(caloriePercentage * 100))%")
-                            .font(.system(size: 18, weight: .bold))
-                        Text("of daily")
+                            .font(.system(size: 20, weight: .bold))
+                        Text("av mål")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
                 }
-                .frame(width: 100, height: 100)
+                .frame(width: 120, height: 120)
+                
+                // Stats Column
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Spist")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(summary.totalCalories) kcal")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Mål")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(goal.dailyCalories) kcal")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.gray)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Igjen")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(remainingCalories) kcal")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(calorieColor)
+                    }
+                }
+                
+                Spacer()
             }
             
             Divider()
