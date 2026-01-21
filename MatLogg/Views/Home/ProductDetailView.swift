@@ -7,18 +7,42 @@ struct ProductDetailView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var amountG: Double = 100
+    @State private var amountText: String = "100"
+    @State private var selectedUnit: WeightUnit = .grams
     @State private var isFavorite = false
     @State private var selectedPortion: String = "100g"
     @State private var showingConfirmation = false
     @State private var showReceipt = false
+    
+    enum WeightUnit: String, CaseIterable {
+        case grams = "g"
+        case deciliters = "dl"
+        
+        func toGrams(_ value: Double) -> Double {
+            switch self {
+            case .grams:
+                return value
+            case .deciliters:
+                return value * 100 // 1 dl ≈ 100g for most foods
+            }
+        }
+        
+        func fromGrams(_ grams: Double) -> Double {
+            switch self {
+            case .grams:
+                return grams
+            case .deciliters:
+                return grams / 100
+            }
+        }
+    }
     
     let standardPortions = [
         ("50g", 50.0),
         ("100g", 100.0),
         ("150g", 150.0),
         ("200g", 200.0),
-        ("250g", 250.0),
-        ("Annen", 0.0)
+        ("250g", 250.0)
     ]
     
     var nutrition: NutritionBreakdown {
@@ -104,65 +128,52 @@ struct ProductDetailView: View {
                         Divider()
                             .padding(.horizontal)
                         
-                        // Amount Selection
-                        VStack(spacing: 16) {
-                            Text("Velg mengde")
+                        // Amount Input Section
+                        VStack(spacing: 12) {
+                            Text("Mengde")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
                             
-                            // Standard Portions
-                            VStack(spacing: 8) {
-                                ForEach(standardPortions, id: \.0) { label, grams in
-                                    if grams > 0 {
-                                        Button(action: {
-                                            amountG = grams
-                                            selectedPortion = label
+                            HStack(spacing: 12) {
+                                TextField("Mengde", text: $amountText)
+                                    .keyboardType(.decimalPad)
+                                    .font(.body)
+                                    .padding(12)
+                                    .background(Color(.systemGray6))
+                                    .cornerRadius(8)
+                                    .onChange(of: amountText) {
+                                        if let value = Double(amountText) {
+                                            amountG = selectedUnit.toGrams(value)
                                             HapticFeedbackService.shared.trigger(.stepperTap)
-                                        }) {
-                                            HStack {
-                                                Text(label)
-                                                    .font(.body)
-                                                Spacer()
-                                                if selectedPortion == label {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundColor(.blue)
-                                                } else {
-                                                    Circle()
-                                                        .stroke(Color.gray, lineWidth: 1)
-                                                        .frame(width: 24, height: 24)
-                                                }
-                                            }
-                                            .padding(.vertical, 12)
-                                            .padding(.horizontal)
-                                            .background(Color(.systemGray6))
-                                            .cornerRadius(8)
-                                            .foregroundColor(.primary)
                                         }
                                     }
-                                }
-                            }
-                            .padding(.horizontal)
-                            
-                            // Custom Amount Slider
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Text("Annen mengde")
-                                        .font(.subheadline)
-                                    Spacer()
-                                    Text("\(Int(amountG)) g")
-                                        .font(.headline)
-                                        .foregroundColor(.blue)
-                                }
                                 
-                                Slider(value: $amountG, in: 10...1000, step: 5)
-                                    .onChange(of: amountG) {
-                                        selectedPortion = "Annen"
-                                        HapticFeedbackService.shared.trigger(.stepperTap)
+                                Picker("Enhet", selection: $selectedUnit) {
+                                    ForEach(WeightUnit.allCases, id: \.self) { unit in
+                                        Text(unit.rawValue).tag(unit)
                                     }
+                                }
+                                .frame(width: 80)
+                                .onChange(of: selectedUnit) {
+                                    if let value = Double(amountText) {
+                                        amountG = selectedUnit.toGrams(value)
+                                    }
+                                    HapticFeedbackService.shared.trigger(.stepperTap)
+                                }
                             }
-                            .padding(.horizontal)
+                            
+                            HStack {
+                                Text("Total:")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(Int(amountG)) g")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.top, 8)
                         }
+                        .padding(.horizontal)
                         
                         Divider()
                             .padding(.horizontal)
@@ -251,6 +262,7 @@ struct ProductDetailView: View {
         }
         .onAppear {
             isFavorite = appState.isFavorite(product)
+            amountText = "100"
             HapticFeedbackService.shared.trigger(.barcodeDetected)
         }
     }
