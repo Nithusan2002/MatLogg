@@ -2,20 +2,14 @@
 //  ContentView.swift
 //  MatLogg
 //
-//  Created by Nithusan Krishnasamymudali on 21/01/2026.
+//  This file is deprecated - use views under Views/ folder instead
 //
 
 import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
+        Text("Deprecated")
     }
 }
 
