@@ -156,7 +156,7 @@ struct ProductDetailView: View {
                                 }
                                 
                                 Slider(value: $amountG, in: 10...1000, step: 5)
-                                    .onChange(of: amountG) { _ in
+                                    .onChange(of: amountG) {
                                         selectedPortion = "Annen"
                                         HapticFeedbackService.shared.trigger(.stepperTap)
                                     }

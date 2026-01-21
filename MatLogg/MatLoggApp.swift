@@ -14,7 +14,7 @@ struct MatLoggApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if let user = appState.currentUser {
+                if appState.currentUser != nil {
                     if appState.isOnboarding {
                         OnboardingView()
                     } else {
