@@ -1,0 +1,59 @@
+# Xcode
+build/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcworkspace/xcuserdata/
+*.xcworkspace/xcshareddata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/xcshareddata/
+DerivedData/
+.DS_Store
+xcuserdata/
+
+# Swift
+.build/
+.swiftpm/
+*.swift.bak
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Carthage
+Carthage/Build
+
+# SwiftPM
+.package/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*~
+.project
+.cproject
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Secrets
+.env
+.env.local
+*.pem
+*.p12
+*.key
+
+# Temporary files
+*.tmp
+.tmp/
+temp/
