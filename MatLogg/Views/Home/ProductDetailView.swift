@@ -22,7 +22,7 @@ struct ProductDetailView: View {
     ]
     
     var nutrition: NutritionBreakdown {
-        product.calculateNutrition(forGrams: amountG)
+        product.calculateNutrition(forGrams: Float(amountG))
     }
     
     var body: some View {
@@ -84,17 +84,17 @@ struct ProductDetailView: View {
                                 )
                                 NutritionRowView(
                                     label: "Protein",
-                                    value: "\(String(format: "%.1f", product.proteinG)) g",
+                                    value: "\(String(format: "%.1f", product.proteinGPer100g)) g",
                                     color: .red
                                 )
                                 NutritionRowView(
                                     label: "Karbohydrat",
-                                    value: "\(String(format: "%.1f", product.carbsG)) g",
+                                    value: "\(String(format: "%.1f", product.carbsGPer100g)) g",
                                     color: .blue
                                 )
                                 NutritionRowView(
                                     label: "Fett",
-                                    value: "\(String(format: "%.1f", product.fatG)) g",
+                                    value: "\(String(format: "%.1f", product.fatGPer100g)) g",
                                     color: .yellow
                                 )
                             }
@@ -182,17 +182,17 @@ struct ProductDetailView: View {
                                 )
                                 NutritionRowView(
                                     label: "Protein",
-                                    value: "\(String(format: "%.1f", nutrition.proteinG)) g",
+                                    value: "\(String(format: "%.1f", nutrition.protein)) g",
                                     color: .red
                                 )
                                 NutritionRowView(
                                     label: "Karbohydrat",
-                                    value: "\(String(format: "%.1f", nutrition.carbsG)) g",
+                                    value: "\(String(format: "%.1f", nutrition.carbs)) g",
                                     color: .blue
                                 )
                                 NutritionRowView(
                                     label: "Fett",
-                                    value: "\(String(format: "%.1f", nutrition.fatG)) g",
+                                    value: "\(String(format: "%.1f", nutrition.fat)) g",
                                     color: .yellow
                                 )
                             }
@@ -248,13 +248,13 @@ struct ProductDetailView: View {
             }
         }
         .onAppear {
-            isFavorite = appState.isFavorite(productId: product.id)
+            isFavorite = appState.isFavorite(product)
             HapticFeedbackService.shared.trigger(.barcodeDetected)
         }
     }
     
     private func toggleFavorite() {
-        appState.toggleFavorite(productId: product.id)
+        appState.toggleFavorite(product: product)
         isFavorite.toggle()
         HapticFeedbackService.shared.trigger(.favoriteToggle)
     }
@@ -291,17 +291,24 @@ struct NutritionRowView: View {
 #Preview {
     let mockProduct = Product(
         id: UUID(),
-        barcode: "1234567890",
         name: "Test Produkt",
+        brand: nil,
+        category: nil,
+        barcodeEan: "1234567890",
+        source: "manual",
         caloriesPer100g: 200,
-        proteinG: 10,
-        carbsG: 20,
-        fatG: 8,
-        source: .manual,
+        proteinGPer100g: 10,
+        carbsGPer100g: 20,
+        fatGPer100g: 8,
+        sugarGPer100g: nil,
+        fiberGPer100g: nil,
+        sodiumMgPer100g: nil,
+        imageUrl: nil,
+        isVerified: false,
         createdAt: Date()
     )
     
     let appState = AppState()
     
-    return ProductDetailView(product: mockProduct, appState: appState)
+    ProductDetailView(product: mockProduct, appState: appState)
 }

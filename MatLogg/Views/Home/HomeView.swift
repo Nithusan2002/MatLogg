@@ -489,13 +489,20 @@ struct CameraView: View {
             // For MVP, create mock product from barcode
             let mockProduct = Product(
                 id: UUID(),
-                barcode: barcode,
                 name: "Produkt \(barcode.prefix(4))",
-                caloriesPer100g: Double.random(in: 50...300),
-                proteinG: Double.random(in: 5...25),
-                carbsG: Double.random(in: 5...50),
-                fatG: Double.random(in: 2...20),
-                source: .database,
+                brand: nil,
+                category: nil,
+                barcodeEan: barcode,
+                source: "database",
+                caloriesPer100g: Int.random(in: 50...300),
+                proteinGPer100g: Float.random(in: 5...25),
+                carbsGPer100g: Float.random(in: 5...50),
+                fatGPer100g: Float.random(in: 2...20),
+                sugarGPer100g: nil,
+                fiberGPer100g: nil,
+                sodiumMgPer100g: nil,
+                imageUrl: nil,
+                isVerified: false,
                 createdAt: Date()
             )
             

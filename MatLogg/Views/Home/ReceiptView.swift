@@ -59,19 +59,19 @@ struct ReceiptView: View {
                         HStack {
                             Text("Protein")
                             Spacer()
-                            Text("\(String(format: "%.1f", nutrition.proteinG))g")
+                            Text("\(String(format: "%.1f", nutrition.protein))g")
                         }
                         
                         HStack {
                             Text("Karb.")
                             Spacer()
-                            Text("\(String(format: "%.1f", nutrition.carbsG))g")
+                            Text("\(String(format: "%.1f", nutrition.carbs))g")
                         }
                         
                         HStack {
                             Text("Fett")
                             Spacer()
-                            Text("\(String(format: "%.1f", nutrition.fatG))g")
+                            Text("\(String(format: "%.1f", nutrition.fat))g")
                         }
                     }
                     .font(.subheadline)
@@ -144,19 +144,26 @@ struct ReceiptView: View {
 #Preview {
     let mockProduct = Product(
         id: UUID(),
-        barcode: "123456",
         name: "Eksempel Produkt",
+        brand: nil,
+        category: nil,
+        barcodeEan: "123456",
+        source: "manual",
         caloriesPer100g: 200,
-        proteinG: 10,
-        carbsG: 25,
-        fatG: 8,
-        source: .manual,
+        proteinGPer100g: 10,
+        carbsGPer100g: 25,
+        fatGPer100g: 8,
+        sugarGPer100g: nil,
+        fiberGPer100g: nil,
+        sodiumMgPer100g: nil,
+        imageUrl: nil,
+        isVerified: false,
         createdAt: Date()
     )
     
     let nutrition = mockProduct.calculateNutrition(forGrams: 150)
     
-    return ReceiptView(
+    ReceiptView(
         product: mockProduct,
         amountG: 150,
         nutrition: nutrition,
