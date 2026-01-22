@@ -51,7 +51,7 @@ Acceptance Criteria:
 □ Hvis >100% kalorier: ring blir rød, "Du har overskredet målet"
 □ Hvis 50–100%: ring blir oransje
 □ Hvis <50%: ring blir grønn
-□ Måltidsrad fast øverst: [Frokost] [Lunsj] [Middag] [Snask] (valgt måltid highlightet)
+□ Måltidsrad fast øverst: [Frokost] [Lunsj] [Middag] [Snacks] (valgt måltid highlightet)
 □ Logg-liste under: dag → måltider → innslag (kronologisk)
 □ Stor skann-knapp i bunnen (5 cm diameter)
 □ Hvis ingen innslag i dag: "Begynn med å skanne eller legge til"
@@ -64,7 +64,7 @@ SOM: bruker
 SÅ AT: jeg ikkje må velge det på nytt når jeg skanner
 
 Acceptance Criteria:
-□ Måltidsrad på Home-skjermen: alltid synlig, knapper for [Frokost] [Lunsj] [Middag] [Snask]
+□ Måltidsrad på Home-skjermen: alltid synlig, knapper for [Frokost] [Lunsj] [Middag] [Snacks]
 □ Default-valg: dagens første måltid (basert på tid)
 □ Valgt måltid highlightet (bakgrunnsfarve, bold tekst)
 □ Tapping måltid oppdaterer "current meal"
@@ -83,7 +83,7 @@ Acceptance Criteria:
 □ Under status: liste med struktur: [Måltid-header] → [innslag 1] [innslag 2] ...
 □ Hvert innslag viser: produktnavn + mengde + kcal
 □ Eksempel: "Brød (50g) → 120 kcal"
-□ Fargekode måltid-headers: Frokost=blå, Lunsj=grønn, Middag=rød, Snask=gul
+□ Fargekode måltid-headers: Frokost=blå, Lunsj=grønn, Middag=rød, Snacks=gul
 □ Tapp innslag → detaljer + slett-knapp
 □ Swipe for å slette (iOS standard)
 ```
@@ -226,7 +226,7 @@ Acceptance Criteria:
 ┌─────────────────────────────────────────────────────────┐
 │ 1. HOME-SKJERMEN                                        │
 │ • Status: 500 / 2000 kcal                               │
-│ • Måltidsrad: [Frokost] [LUNSJ] [Middag] [Snask]        │
+│ • Måltidsrad: [Frokost] [LUNSJ] [Middag] [Snacks]        │
 │ • Stor skann-knapp                                      │
 │ • Logg-liste (tom eller med tidligere innslag)          │
 └─────────────────────────────────────────────────────────┘
@@ -408,4 +408,3 @@ Acceptance Criteria:
 | **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
 | (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
 | **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
-

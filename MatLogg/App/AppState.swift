@@ -226,4 +226,51 @@ class AppState: ObservableObject {
         hapticsFeedbackEnabled = defaults.bool(forKey: "hapticsFeedbackEnabled")
         soundFeedbackEnabled = defaults.bool(forKey: "soundFeedbackEnabled")
     }
+    
+    func enableDebugSession() {
+        if currentUser == nil {
+            let user = User(
+                id: UUID(),
+                email: "dev@matlogg.app",
+                firstName: "Dev",
+                lastName: "User",
+                authProvider: "debug",
+                createdAt: Date()
+            )
+            currentUser = user
+            authState = .authenticated(user: user)
+            isOnboarding = false
+            
+            if currentGoal == nil || currentGoal?.userId != user.id {
+                currentGoal = Goal(
+                    userId: user.id,
+                    goalType: "maintain",
+                    dailyCalories: 2000,
+                    proteinTargetG: 150,
+                    carbsTargetG: 250,
+                    fatTargetG: 65
+                )
+            }
+        }
+    }
+    
+    func saveScannedProduct(_ product: Product) async {
+        guard let user = currentUser else { return }
+        
+        do {
+            try await databaseService.saveProduct(product)
+            try await databaseService.saveScanHistory(userId: user.id, productId: product.id)
+        } catch {
+            self.errorMessage = "Kunne ikke lagre skanning: \(error.localizedDescription)"
+        }
+    }
+    
+    func loadRecentScans(limit: Int = 15) async -> [ScanHistory] {
+        guard let user = currentUser else { return [] }
+        return await databaseService.getRecentScans(userId: user.id, limit: limit)
+    }
+    
+    func getProduct(_ id: UUID) -> Product? {
+        databaseService.getProduct(id)
+    }
 }

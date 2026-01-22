@@ -14,7 +14,9 @@ struct MatLoggApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if appState.currentUser != nil {
+                if skipAuthForDev {
+                    HomeView()
+                } else if appState.currentUser != nil {
                     if appState.isOnboarding {
                         OnboardingView()
                     } else {
@@ -27,7 +29,18 @@ struct MatLoggApp: App {
             .environmentObject(appState)
             .onAppear {
                 appState.loadFeedbackSettings()
+                if skipAuthForDev {
+                    appState.enableDebugSession()
+                }
             }
         }
+    }
+    
+    private var skipAuthForDev: Bool {
+        #if DEBUG
+        return true
+        #else
+        return false
+        #endif
     }
 }

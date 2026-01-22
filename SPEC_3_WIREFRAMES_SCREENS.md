@@ -34,7 +34,7 @@
 │         └─────────────────────────────────┘          │
 │                                                      │
 ├─ MÅLTIDER ────────────────────────────────────────┤
-│ [Frokost] [LUNSJ] [Middag] [Snask]                │
+│ [Frokost] [LUNSJ] [Middag] [Snacks]                │
 ├─ LUNSJ ────────────────────────────────────────────┤
 │ ┌──────────────────────────────────────────────┐   │
 │ │ Pålegg, salami (50g)          170 kcal       │   │
@@ -146,7 +146,7 @@
 │  Total: 240 kcal | P: 8g | C: 45g | F: 3g          │
 │                                                      │
 ├─ MÅLTIDSVALG ──────────────────────────────────────┤
-│  Måltid: [LUNSJ ▼] (eller Frokost, Middag, Snask)  │
+│  Måltid: [LUNSJ ▼] (eller Frokost, Middag, Snacks)  │
 │                                                      │
 ├─────────────────────────────────────────────────────┤
 │                                                      │
@@ -515,4 +515,3 @@ TabView (Root)
 | "Ikke funnet" | Alert / Sheet | "Ja" / "Nei" |
 | Favoritt-share | Action sheet (iOS) | Valg eller Avbryt |
 | Slette-konfirmasjon | Alert dialog | OK / Avbryt |
-

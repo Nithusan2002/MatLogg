@@ -268,7 +268,7 @@ struct MacroView: View {
 struct MealTypeSelector: View {
     @EnvironmentObject var appState: AppState
     
-    let mealTypes = ["Frokost", "Lunsj", "Middag", "Snask"]
+    let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
     let mealTypeKeys = ["breakfast", "lunch", "dinner", "snack"]
     
     var body: some View {
@@ -381,6 +381,7 @@ struct ScanButtonLarge: View {
 }
 
 struct ScanHistoryView: View {
+    @EnvironmentObject var appState: AppState
     @State private var recentScans: [ScanHistory] = []
     
     var body: some View {
@@ -399,7 +400,7 @@ struct ScanHistoryView: View {
                     List(recentScans) { scan in
                         HStack {
                             VStack(alignment: .leading) {
-                                Text("Produkt") // TODO: Fetch name
+                                Text(productName(for: scan))
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                                 Text("Skanner for \(scan.scannedAt.timeAgoDisplay())")
@@ -415,12 +416,21 @@ struct ScanHistoryView: View {
             }
             .presentationDetents([.medium])
         }
+        .task {
+            recentScans = await appState.loadRecentScans()
+        }
+    }
+    
+    private func productName(for scan: ScanHistory) -> String {
+        appState.getProduct(scan.productId)?.name ?? "Ukjent produkt"
     }
 }
 
 struct CameraView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
+    
+    private let apiService = APIService()
     
     @State private var scannedBarcode: String?
     @State private var scannedProduct: Product?
@@ -513,31 +523,33 @@ struct CameraView: View {
         HapticFeedbackService.shared.trigger(.barcodeDetected)
         SoundFeedbackService.shared.play(.barcodeDetected)
         
-        // Simulate API lookup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // For MVP, create mock product from barcode
-            let mockProduct = Product(
-                id: UUID(),
-                name: "Produkt \(barcode.prefix(4))",
-                brand: nil,
-                category: nil,
-                barcodeEan: barcode,
-                source: "database",
-                caloriesPer100g: Int.random(in: 50...300),
-                proteinGPer100g: Float.random(in: 5...25),
-                carbsGPer100g: Float.random(in: 5...50),
-                fatGPer100g: Float.random(in: 2...20),
-                sugarGPer100g: nil,
-                fiberGPer100g: nil,
-                sodiumMgPer100g: nil,
-                imageUrl: nil,
-                isVerified: false,
-                createdAt: Date()
-            )
-            
-            scannedProduct = mockProduct
-            isLoading = false
-            showProductDetail = true
+        Task {
+            do {
+                let product = try await apiService.searchProductByBarcodeOpenFoodFacts(barcode)
+                await MainActor.run {
+                    scannedProduct = product
+                    isLoading = false
+                    showProductDetail = true
+                }
+                await appState.saveScannedProduct(product)
+            } catch let apiError as APIService.APIError {
+                await MainActor.run {
+                    isLoading = false
+                    switch apiError {
+                    case .serverError(let code) where code == 404:
+                        showProductNotFound = true
+                    default:
+                        errorMessage = apiError.localizedDescription
+                        showError = true
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
+            }
         }
     }
     
@@ -772,4 +784,3 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         }
     }
 }
-

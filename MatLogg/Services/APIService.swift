@@ -191,4 +191,105 @@ class APIService {
             createdAt: productResponse.created_at
         )
     }
+    
+    // MARK: - Open Food Facts Lookup
+    
+    func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
+        guard let url = URL(string: "https://no.openfoodfacts.org/api/v0/product/\(ean).json") else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("MatLogg iOS (com.nithusan.MatLogg)", forHTTPHeaderField: "User-Agent")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError("Ugyldig respons")
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        struct OpenFoodFactsResponse: Codable {
+            let status: Int
+            let code: String?
+            let product: OpenFoodFactsProduct?
+        }
+        
+        struct OpenFoodFactsProduct: Codable {
+            let productName: String?
+            let brands: String?
+            let categories: String?
+            let imageUrl: String?
+            let nutriments: Nutriments?
+            
+            struct Nutriments: Codable {
+                let energyKcal100g: Double?
+                let protein100g: Double?
+                let carbs100g: Double?
+                let fat100g: Double?
+                let sugars100g: Double?
+                let fiber100g: Double?
+                let sodium100g: Double?
+                
+                enum CodingKeys: String, CodingKey {
+                    case energyKcal100g = "energy-kcal_100g"
+                    case protein100g = "proteins_100g"
+                    case carbs100g = "carbohydrates_100g"
+                    case fat100g = "fat_100g"
+                    case sugars100g = "sugars_100g"
+                    case fiber100g = "fiber_100g"
+                    case sodium100g = "sodium_100g"
+                }
+            }
+            
+            enum CodingKeys: String, CodingKey {
+                case productName = "product_name"
+                case brands
+                case categories
+                case imageUrl = "image_url"
+                case nutriments
+            }
+        }
+        
+        let decoder = JSONDecoder()
+        let responseData = try decoder.decode(OpenFoodFactsResponse.self, from: data)
+        
+        guard responseData.status == 1, let product = responseData.product else {
+            throw APIError.serverError(404)
+        }
+        
+        let nutriments = product.nutriments
+        let calories = Int((nutriments?.energyKcal100g ?? 0).rounded())
+        let protein = Float(nutriments?.protein100g ?? 0)
+        let carbs = Float(nutriments?.carbs100g ?? 0)
+        let fat = Float(nutriments?.fat100g ?? 0)
+        let sugar = nutriments?.sugars100g.map { Float($0) }
+        let fiber = nutriments?.fiber100g.map { Float($0) }
+        let sodiumMg = nutriments?.sodium100g.map { Int(($0 * 1000).rounded()) }
+        let name = product.productName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = (name?.isEmpty == false) ? name! : "Ukjent produkt"
+        
+        return Product(
+            id: UUID(),
+            name: displayName,
+            brand: product.brands,
+            category: product.categories,
+            barcodeEan: responseData.code ?? ean,
+            source: "openfoodfacts",
+            caloriesPer100g: calories,
+            proteinGPer100g: protein,
+            carbsGPer100g: carbs,
+            fatGPer100g: fat,
+            sugarGPer100g: sugar,
+            fiberGPer100g: fiber,
+            sodiumMgPer100g: sodiumMg,
+            imageUrl: product.imageUrl,
+            isVerified: false,
+            createdAt: Date()
+        )
+    }
 }
