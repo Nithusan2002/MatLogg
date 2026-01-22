@@ -10,6 +10,7 @@ class DatabaseService {
     private var logs: [UUID: FoodLog] = [:]
     private var favorites: [UUID: Favorite] = [:]
     private var scanHistory: [UUID: ScanHistory] = [:]
+    private var matchMappings: [String: ProductMatchMapping] = [:]
     
     func saveGoal(_ goal: Goal) async throws {
         goals[goal.id] = goal
@@ -29,26 +30,30 @@ class DatabaseService {
         logs.removeValue(forKey: id)
     }
     
-    func getTodaysSummary(userId: UUID) async -> DailySummary {
-        let today = Calendar.current.startOfDay(for: Date())
-        let todaysLogs = logs.values.filter { 
-            $0.userId == userId && 
-            Calendar.current.isDate($0.loggedDate, inSameDayAs: today)
+    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+        let day = Calendar.current.startOfDay(for: date)
+        let dayLogs = logs.values.filter {
+            $0.userId == userId &&
+            Calendar.current.isDate($0.loggedDate, inSameDayAs: day)
         }
         
-        let totalCalories = todaysLogs.reduce(0) { $0 + $1.calories }
-        let totalProtein = todaysLogs.reduce(0) { $0 + $1.proteinG }
-        let totalCarbs = todaysLogs.reduce(0) { $0 + $1.carbsG }
-        let totalFat = todaysLogs.reduce(0) { $0 + $1.fatG }
+        let totalCalories = dayLogs.reduce(0) { $0 + $1.calories }
+        let totalProtein = dayLogs.reduce(0) { $0 + $1.proteinG }
+        let totalCarbs = dayLogs.reduce(0) { $0 + $1.carbsG }
+        let totalFat = dayLogs.reduce(0) { $0 + $1.fatG }
         
         return DailySummary(
-            date: today,
+            date: day,
             totalCalories: totalCalories,
             totalProtein: totalProtein,
             totalCarbs: totalCarbs,
             totalFat: totalFat,
-            logs: Array(todaysLogs).sorted { $0.loggedTime < $1.loggedTime }
+            logs: Array(dayLogs).sorted { $0.loggedTime < $1.loggedTime }
         )
+    }
+    
+    func getTodaysSummary(userId: UUID) async -> DailySummary {
+        await getSummary(userId: userId, date: Date())
     }
     
     func saveProduct(_ product: Product) async throws {
@@ -57,6 +62,18 @@ class DatabaseService {
     
     func getProduct(_ id: UUID) -> Product? {
         return products[id]
+    }
+    
+    func getProductByBarcode(_ barcode: String) -> Product? {
+        products.values.first { $0.barcodeEan == barcode }
+    }
+    
+    func saveMatchMapping(_ mapping: ProductMatchMapping) {
+        matchMappings[mapping.barcode] = mapping
+    }
+    
+    func getMatchMapping(for barcode: String) -> ProductMatchMapping? {
+        matchMappings[barcode]
     }
     
     func toggleFavorite(userId: UUID, productId: UUID) async throws {

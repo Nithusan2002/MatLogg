@@ -79,6 +79,18 @@ MatLogg/
 - [Roadmap](SPEC_8_ROADMAP.md)
 - [Risks & Mitigations](SPEC_9_RISKS_MITIGATION.md)
 
+## Design system usage
+
+Use semantic tokens from `MatLogg/DesignSystem/Colors.swift` and `MatLogg/DesignSystem/Typography.swift` instead of hardcoded colors.
+
+Reusable components live under `MatLogg/DesignSystem/Components/`:
+- `CardContainer`
+- `PrimaryButton`
+- `MealChip`
+- `ProgressRow`
+
+Debug-only theme preview is available in Settings → Debug → Theme Preview.
+
 ## Development Status
 
 **Current:** MVP barcode scanning flow

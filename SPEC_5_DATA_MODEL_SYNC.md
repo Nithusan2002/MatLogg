@@ -52,7 +52,7 @@ struct Product {
     brand: String?
     category: String? ("Bakeri", "Kjøtt", "Meieri", "Frukt", etc.)
     barcode_ean: String (indexed, unique per source)
-    source: String ("matvaretabellen" | "user" | "shared")
+    source: String ("matvaretabellen" | "openfoodfacts" | "user" | "shared")
     
     // Nutrition per 100g (always)
     calories_per_100g: Int
@@ -67,6 +67,12 @@ struct Product {
     image_url: String?
     image_local_path: String? (cached)
     standard_portions: [Portion]? (JSON array or separate table)
+    
+    // Proveniens & verifisering
+    nutrition_source: String ("matvaretabellen" | "openfoodfacts" | "user")
+    image_source: String ("openfoodfacts" | "user" | "none")
+    verification_status: String ("verified" | "unverified" | "suggested_match")
+    confidence_score: Float? (0.0–1.0, optional)
     
     // For unverified products
     is_verified: Bool = false
@@ -98,7 +104,7 @@ struct Log {
     id: UUID
     user_id: UUID (indexed)
     product_id: UUID (indexed, foreign key)
-    meal_type: String ("breakfast" | "lunch" | "dinner" | "snack", indexed)
+    meal_type: String ("frokost" | "lunsj" | "middag" | "snacks", indexed)
     amount_g: Float (exact, no rounding)
     logged_date: Date (date-only)
     logged_time: DateTime (full timestamp)
@@ -323,6 +329,24 @@ CREATE TABLE sync_events (
 );
 CREATE INDEX idx_sync_events_user_synced ON sync_events(user_id, is_synced);
 ```
+
+## 5.3 Matching & cache-prinsipper (OFF → Matvaretabellen)
+
+**Viktig:** Matvaretabellen brukes som næringskilde, ikke som GTIN/strekkode‑registry.
+
+**Confidence score (0.0–1.0):**
+- + for identisk navn (normalisert), samme kategori/matvaregruppe, merke, nøkkelord
+- − for store avvik i energi per 100g, helt ulik kategori
+
+**Terskler:**
+- `>= 0.85` → auto‑link (bruk Matvaretabellen næring + OFF bilde)
+- `0.60–0.85` → suggested match (moderering eller A/B)
+- `< 0.60` → behold OFF og merk unverified
+
+**Cache / latency:**
+- Lokal cache: `ean -> productSnapshot`
+- Stale‑while‑revalidate i bakgrunnen
+- Ved OFF‑nedetid: fallback til cache + “prøv igjen”
 
 ---
 
@@ -639,4 +663,3 @@ Sync Event Retention:
 • Local: deleted after successful sync (after 1 month if never synced)
 • Backend: none (processed and discarded)
 ```
-

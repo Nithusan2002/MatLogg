@@ -70,6 +70,10 @@ Innlogging (email/passord)
 }
 ```
 
+**Attribusjon (påkrevd):**
+- Matvaretabellen og Open Food Facts må krediteres iht. lisensvilkår.
+- `nutrition_source` og `image_source` brukes i UI for å vise kilde i info‑sheet.
+
 **Error (401):**
 ```json
 {
@@ -148,6 +152,10 @@ GET /products/barcode/5900423000890
   "category": "Bakeri",
   "barcode_ean": "5900423000890",
   "source": "matvaretabellen",
+  "nutrition_source": "matvaretabellen",
+  "image_source": "openfoodfacts",
+  "verification_status": "verified",
+  "confidence_score": 0.92,
   "calories_per_100g": 240,
   "protein_g_per_100g": 8.0,
   "carbs_g_per_100g": 45.0,
@@ -791,4 +799,3 @@ API Keys:
 • Not used in MVP (JWT only)
 • Rate limiting per user_id from token
 ```
-

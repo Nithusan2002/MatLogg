@@ -187,6 +187,9 @@ class APIService {
             fiberGPer100g: productResponse.fiber_g_per_100g,
             sodiumMgPer100g: productResponse.sodium_mg_per_100g,
             imageUrl: productResponse.image_url,
+            nutritionSource: .matvaretabellen,
+            imageSource: productResponse.image_url == nil ? .none : .openFoodFacts,
+            verificationStatus: .verified,
             isVerified: productResponse.is_verified,
             createdAt: productResponse.created_at
         )
@@ -288,6 +291,9 @@ class APIService {
             fiberGPer100g: fiber,
             sodiumMgPer100g: sodiumMg,
             imageUrl: product.imageUrl,
+            nutritionSource: .openFoodFacts,
+            imageSource: product.imageUrl == nil ? .none : .openFoodFacts,
+            verificationStatus: .unverified,
             isVerified: false,
             createdAt: Date()
         )

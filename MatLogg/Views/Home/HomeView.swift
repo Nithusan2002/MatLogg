@@ -47,41 +47,106 @@ struct HomeTabView: View {
     @EnvironmentObject var appState: AppState
     @State private var showScanCamera = false
     @State private var showHistoryPanel = false
+    @State private var showManualAdd = false
+    @State private var selectedDate: Date = Date()
+    @State private var selectedSummary: DailySummary?
+    @State private var yesterdaySummary: DailySummary?
+    @State private var recentScans: [ScanHistory] = []
+    @State private var showReceipt = false
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var pendingScanAfterReceipt = false
+    @State private var showProductDetail = false
+    @State private var selectedProduct: Product?
+    @State private var showDatePicker = false
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Status Card
-                if let summary = appState.todaysSummary, let goal = appState.currentGoal {
-                    StatusCardView(summary: summary, goal: goal)
-                        .padding(16)
-                }
+            ZStack {
+                AppColors.background.ignoresSafeArea()
                 
-                // Meal Type Selector
-                MealTypeSelector()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-                
-                // Logging List
-                if let summary = appState.todaysSummary, !summary.logs.isEmpty {
-                    LogListView(summary: summary)
-                        .padding(.horizontal, 16)
-                } else {
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray)
-                        Text("Ingenting logget ennå")
-                            .font(.headline)
-                        Text("Begynn med å scanne eller legge til produkt")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                ScrollView {
+                    VStack(spacing: 0) {
+                    HStack {
+                        Button(action: { shiftSelectedDate(by: -1) }) {
+                            Image(systemName: "chevron.left")
+                        }
+                        .frame(width: 44, height: 44)
+                        
+                        Spacer()
+                        
+                        Button(action: { showDatePicker = true }) {
+                            HStack(spacing: 6) {
+                                Text(dayTitle)
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                                Image(systemName: "calendar")
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: { shiftSelectedDate(by: 1) }) {
+                            Image(systemName: "chevron.right")
+                        }
+                        .frame(width: 44, height: 44)
+                        .opacity(canGoToNextDay ? 1 : 0.3)
+                        .disabled(!canGoToNextDay)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(20)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                    
+                    if isTodaySelected, let yesterdaySummary, !yesterdaySummary.logs.isEmpty {
+                        Button(action: copyYesterdayLogs) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Legg til det samme som i går")
+                            }
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(AppColors.surface)
+                            .cornerRadius(12)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                    }
+                    
+                    // Status Card
+                    if let summary = selectedSummary, let goal = appState.currentGoal {
+                        StatusCardView(
+                            summary: summary,
+                            goal: goal,
+                            dayLabel: isTodaySelected ? "Spist i dag" : "Spist \(dayTitle.lowercased())"
+                        )
+                        .padding(16)
+                    }
+                    
+                    // Logging List
+                    if let summary = selectedSummary, !summary.logs.isEmpty {
+                        LogListView(summary: summary)
+                            .padding(.horizontal, 16)
+                    } else {
+                        VStack(spacing: 12) {
+                            Image(systemName: "circle.dashed")
+                                .font(.system(size: 48))
+                                .foregroundColor(AppColors.textSecondary)
+                            Text(isTodaySelected ? "Ingenting logget ennå" : "Ingen logging denne dagen")
+                                .font(AppTypography.title)
+                                .foregroundColor(AppColors.ink)
+                            Text(isTodaySelected ? "Begynn med å scanne eller legge til produkt" : "Velg en annen dag for å logge mat")
+                                .font(AppTypography.body)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                        .padding(.horizontal, 20)
+                    }
+                    }
+                    .padding(.bottom, 140)
                 }
-                
-                Spacer()
             }
             .navigationTitle("MatLogg")
             .toolbar {
@@ -95,18 +160,55 @@ struct HomeTabView: View {
                 ScanHistoryView()
             }
         }
-        .overlay(alignment: .bottom) {
+        .task {
+            await refreshSummaries()
+        }
+        .onChange(of: selectedDate) {
+            Task {
+                await loadSelectedSummary()
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
             VStack(spacing: 12) {
+                if !recentScans.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(recentScans.prefix(6)) { scan in
+                                if let product = appState.getProduct(scan.productId) {
+                                    Button(action: {
+                                        selectedProduct = product
+                                        showProductDetail = true
+                                    }) {
+                                        Text(product.name)
+                                            .font(AppTypography.body)
+                                            .foregroundColor(AppColors.ink)
+                                            .lineLimit(1)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(AppColors.surface)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 16)
+                                                    .stroke(AppColors.separator, lineWidth: 1)
+                                            )
+                                            .cornerRadius(16)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+                
                 ScanButtonLarge(action: { showScanCamera = true })
                 
                 HStack(spacing: 12) {
-                    NavigationLink(destination: ManualAddView()) {
+                    Button(action: { showManualAdd = true }) {
                         HStack(spacing: 6) {
                             Image(systemName: "plus.circle")
                             Text("Legg til manuelt")
                         }
-                        .font(.subheadline)
-                        .foregroundColor(.blue)
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.brand)
                     }
                     
                     Spacer()
@@ -114,11 +216,136 @@ struct HomeTabView: View {
                 .padding(.horizontal, 16)
             }
             .padding(16)
-            .background(Color(.systemBackground))
+            .background(AppColors.background)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .sheet(isPresented: $showScanCamera) {
-            CameraView()
+            CameraView(onLogComplete: { payload in
+                Task {
+                    await refreshSummaries()
+                }
+                receiptPayload = payload
+                showScanCamera = false
+                showReceipt = true
+            })
+        }
+        .fullScreenCover(isPresented: $showReceipt, onDismiss: {
+            if pendingScanAfterReceipt {
+                showScanCamera = true
+                pendingScanAfterReceipt = false
+            }
+        }) {
+            if let payload = receiptPayload {
+                ReceiptView(
+                    product: payload.product,
+                    amountG: payload.amountG,
+                    nutrition: payload.nutrition,
+                    mealType: payload.mealType,
+                    onAction: handleReceiptAction
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showManualAdd) {
+            ManualAddView()
+        }
+        .sheet(isPresented: $showProductDetail) {
+            if let product = selectedProduct {
+                ProductDetailView(
+                    product: product,
+                    appState: appState,
+                    onLogComplete: { payload in
+                        receiptPayload = payload
+                        showReceipt = true
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showDatePicker) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    Text("Velg dato")
+                        .font(AppTypography.title)
+                        .foregroundColor(AppColors.ink)
+                    
+                    DatePicker(
+                        "Velg dato",
+                        selection: $selectedDate,
+                        in: ...Date(),
+                        displayedComponents: [.date]
+                    )
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                }
+                .padding(16)
+                .background(AppColors.background.ignoresSafeArea())
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Ferdig") { showDatePicker = false }
+                            .foregroundColor(AppColors.brand)
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+    }
+    
+    private func refreshSummaries() async {
+        await loadSelectedSummary()
+        yesterdaySummary = await appState.fetchSummary(for: yesterdayDate())
+        recentScans = await appState.loadRecentScans(limit: 6)
+    }
+    
+    private func loadSelectedSummary() async {
+        selectedSummary = await appState.fetchSummary(for: selectedDate)
+    }
+    
+    private func copyYesterdayLogs() {
+        Task {
+            await appState.copyLogs(from: yesterdayDate(), to: Date())
+            await refreshSummaries()
+        }
+    }
+    
+    private func yesterdayDate() -> Date {
+        Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+    }
+    
+    private func handleReceiptAction(_ action: ReceiptAction) {
+        switch action {
+        case .scanNext:
+            pendingScanAfterReceipt = true
+        case .addAgain, .close:
+            break
+        }
+    }
+
+    private var isTodaySelected: Bool {
+        Calendar.current.isDateInToday(selectedDate)
+    }
+    
+    private var canGoToNextDay: Bool {
+        !Calendar.current.isDateInToday(selectedDate)
+    }
+    
+    private var dayTitle: String {
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "I dag"
+        }
+        if Calendar.current.isDateInYesterday(selectedDate) {
+            return "I går"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "nb_NO")
+        formatter.dateFormat = "d. MMM"
+        return formatter.string(from: selectedDate)
+    }
+    
+    private func shiftSelectedDate(by days: Int) {
+        if days > 0, Calendar.current.isDateInToday(selectedDate) {
+            return
+        }
+        if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) {
+            selectedDate = newDate
         }
     }
 }
@@ -126,142 +353,72 @@ struct HomeTabView: View {
 struct StatusCardView: View {
     let summary: DailySummary
     let goal: Goal
-    
-    var caloriePercentage: Double {
-        Double(summary.totalCalories) / Double(goal.dailyCalories)
-    }
-    
-    var calorieColor: Color {
-        if caloriePercentage < 0.5 {
-            return .green
-        } else if caloriePercentage < 1.0 {
-            return .orange
-        } else {
-            return .red
-        }
-    }
+    let dayLabel: String
     
     var remainingCalories: Int {
         max(0, goal.dailyCalories - summary.totalCalories)
     }
     
-    var body: some View {
-        VStack(spacing: 20) {
-            // Main Calorie Display with Pie Chart
-            HStack(spacing: 20) {
-                // Pie Chart
-                ZStack {
-                    // Background circle
-                    Circle()
-                        .stroke(Color(.systemGray6), lineWidth: 12)
-                    
-                    // Colored progress circle
-                    Circle()
-                        .trim(from: 0, to: min(caloriePercentage, 1.0))
-                        .stroke(calorieColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut, value: caloriePercentage)
-                    
-                    // Center text
-                    VStack(spacing: 2) {
-                        Text("\(Int(caloriePercentage * 100))%")
-                            .font(.system(size: 20, weight: .bold))
-                        Text("av mål")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .frame(width: 120, height: 120)
-                
-                // Stats Column
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Spist")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(summary.totalCalories) kcal")
-                            .font(.system(size: 18, weight: .semibold))
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Mål")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(goal.dailyCalories) kcal")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.gray)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Igjen")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("\(remainingCalories) kcal")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(calorieColor)
-                    }
-                }
-                
-                Spacer()
-            }
-            
-            Divider()
-            
-            // Macros
-            HStack(spacing: 12) {
-                MacroView(
-                    label: "P",
-                    value: Int(summary.totalProtein),
-                    target: Int(goal.proteinTargetG),
-                    unit: "g",
-                    color: .red
-                )
-                MacroView(
-                    label: "C",
-                    value: Int(summary.totalCarbs),
-                    target: Int(goal.carbsTargetG),
-                    unit: "g",
-                    color: .orange
-                )
-                MacroView(
-                    label: "F",
-                    value: Int(summary.totalFat),
-                    target: Int(goal.fatTargetG),
-                    unit: "g",
-                    color: .yellow
-                )
-            }
-        }
-        .padding(16)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+    var overCalories: Int {
+        max(0, summary.totalCalories - goal.dailyCalories)
     }
-}
-
-struct MacroView: View {
-    let label: String
-    let value: Int
-    let target: Int
-    let unit: String
-    let color: Color
     
     var body: some View {
-        VStack(spacing: 8) {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        CardContainer {
+            VStack(spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(dayLabel)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                        Text("\(summary.totalCalories) kcal")
+                            .font(AppTypography.hero)
+                            .foregroundColor(AppColors.ink)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(overCalories > 0 ? "Over mål" : "Igjen")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                        Text("\(overCalories > 0 ? overCalories : remainingCalories) kcal")
+                            .font(AppTypography.hero)
+                            .foregroundColor(AppColors.ink)
+                    }
+                }
+                
+                Text("Mål: \(goal.dailyCalories) kcal")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
             
-            Text("\(value)")
-                .font(.headline)
-            
-            Text("\(target)\(unit)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                Divider()
+                    .overlay(AppColors.separator)
+                
+                VStack(spacing: 12) {
+                    ProgressRow(
+                        label: "Proteiner",
+                        valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
+                        progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG))
+                    )
+                    ProgressRow(
+                        label: "Karbohydrater",
+                        valueText: "\(Int(summary.totalCarbs))g / \(Int(goal.carbsTargetG))g",
+                        progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG))
+                    )
+                    ProgressRow(
+                        label: "Fett",
+                        valueText: "\(Int(summary.totalFat))g / \(Int(goal.fatTargetG))g",
+                        progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG))
+                    )
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(12)
-        .background(color.opacity(0.1))
-        .cornerRadius(8)
+    }
+    
+    private func progressValue(current: Double, target: Double) -> Double {
+        guard target > 0 else { return 0 }
+        return current / target
     }
 }
 
@@ -269,44 +426,53 @@ struct MealTypeSelector: View {
     @EnvironmentObject var appState: AppState
     
     let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
-    let mealTypeKeys = ["breakfast", "lunch", "dinner", "snack"]
+    let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
     
     var body: some View {
         HStack(spacing: 8) {
             ForEach(0..<mealTypes.count, id: \.self) { index in
-                Button(action: {
-                    appState.selectedMealType = mealTypeKeys[index]
-                }) {
-                    Text(mealTypes[index])
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(
-                            appState.selectedMealType == mealTypeKeys[index] ? .white : .primary
-                        )
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(
-                            appState.selectedMealType == mealTypeKeys[index] ?
-                            Color.blue : Color(.systemGray6)
-                        )
-                        .cornerRadius(6)
-                }
+                MealChip(
+                    title: mealTypes[index],
+                    isSelected: appState.selectedMealType == mealTypeKeys[index],
+                    action: { appState.selectedMealType = mealTypeKeys[index] }
+                )
+                .frame(maxWidth: .infinity)
             }
         }
     }
+}
+
+struct ReceiptPayload {
+    let product: Product
+    let amountG: Double
+    let nutrition: NutritionBreakdown
+    let mealType: String
+}
+
+enum ReceiptAction {
+    case scanNext
+    case addAgain
+    case close
 }
 
 struct LogListView: View {
     @EnvironmentObject var appState: AppState
     let summary: DailySummary
     
+    private let mealTitles: [String: String] = [
+        "frokost": "Frokost",
+        "lunsj": "Lunsj",
+        "middag": "Middag",
+        "snacks": "Snacks"
+    ]
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(summary.logsByMeal.sorted(by: { $0.key < $1.key }), id: \.key) { mealType, logs in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(mealType.capitalized)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    Text(mealTitles[mealType, default: mealType.capitalized])
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
                     
                     ForEach(logs) { log in
                         LogItemView(log: log)
@@ -322,27 +488,30 @@ struct LogItemView: View {
     let log: FoodLog
     @State private var showDeleteConfirm = false
     
+    private var productName: String {
+        appState.getProduct(log.productId)?.name ?? "Ukjent produkt"
+    }
+    
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Produkt navn") // TODO: Fetch product name
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+        CardContainer {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(productName)
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.ink)
+                    
+                    Text("\(Int(log.amountG))g")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
                 
-                Text("\(Int(log.amountG))g")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Spacer()
+                
+                Text("\(log.calories) kcal")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.ink)
             }
-            
-            Spacer()
-            
-            Text("\(log.calories) kcal")
-                .font(.subheadline)
-                .fontWeight(.semibold)
         }
-        .padding(12)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
                 showDeleteConfirm = true
@@ -364,25 +533,15 @@ struct ScanButtonLarge: View {
     let action: () -> Void
     
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: "barcode.viewfinder")
-                    .font(.system(size: 32))
-                Text("SKANN")
-                    .font(.headline)
-            }
-            .foregroundColor(.white)
-            .frame(height: 80)
-            .frame(maxWidth: .infinity)
-            .background(Color.blue)
-            .cornerRadius(12)
-        }
+        PrimaryButton(title: "Skann", systemImage: "barcode.viewfinder", height: 72, action: action)
     }
 }
 
 struct ScanHistoryView: View {
     @EnvironmentObject var appState: AppState
     @State private var recentScans: [ScanHistory] = []
+    @State private var selectedProduct: Product?
+    @State private var showMissingProductAlert = false
     
     var body: some View {
         NavigationStack {
@@ -394,23 +553,32 @@ struct ScanHistoryView: View {
                 
                 if recentScans.isEmpty {
                     Text("Ingen nylige skanninger")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(AppColors.textSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 } else {
                     List(recentScans) { scan in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(productName(for: scan))
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                Text("Skanner for \(scan.scannedAt.timeAgoDisplay())")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                        Button(action: {
+                            if let product = appState.getProduct(scan.productId) {
+                                selectedProduct = product
+                            } else {
+                                showMissingProductAlert = true
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(.gray)
+                        }) {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(productName(for: scan))
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.ink)
+                                    Text("Skanner for \(scan.scannedAt.timeAgoDisplay())")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -418,6 +586,14 @@ struct ScanHistoryView: View {
         }
         .task {
             recentScans = await appState.loadRecentScans()
+        }
+        .sheet(item: $selectedProduct) { product in
+            ProductDetailView(product: product, appState: appState, onLogComplete: nil)
+        }
+        .alert("Produkt ikke tilgjengelig", isPresented: $showMissingProductAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Vi finner ikke produktdata lokalt. Prøv å skanne på nytt.")
         }
     }
     
@@ -429,14 +605,17 @@ struct ScanHistoryView: View {
 struct CameraView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
+    let onLogComplete: (ReceiptPayload) -> Void
     
     private let apiService = APIService()
     
     @State private var scannedBarcode: String?
     @State private var scannedProduct: Product?
     @State private var isLoading = false
-    @State private var errorMessage: String?
-    @State private var showError = false
+    @State private var isTorchOn = false
+    @State private var scanHelpTitle: String?
+    @State private var scanHelpHints: [String] = []
+    @State private var showScanHelp = false
     @State private var showProductDetail = false
     @State private var showProductNotFound = false
     
@@ -447,8 +626,8 @@ struct CameraView: View {
                 HStack {
                     Button("Avbryt") { dismiss() }
                     Spacer()
-                    Button(action: {}) {
-                        Image(systemName: "flashlight.on.fill")
+                    Button(action: { isTorchOn.toggle() }) {
+                        Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                     }
                 }
                 .padding(16)
@@ -459,7 +638,8 @@ struct CameraView: View {
                 // Camera View
                 BarcodeScannerView(
                     onBarcodeDetected: handleBarcodeDetected,
-                    onError: handleError
+                    onError: handleError,
+                    torchOn: $isTorchOn
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
@@ -490,10 +670,42 @@ struct CameraView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.8))
             }
+            
+            if showScanHelp, let scanHelpTitle {
+                VStack(spacing: 8) {
+                    Text(scanHelpTitle)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .fontWeight(.semibold)
+                    ForEach(scanHelpHints, id: \.self) { hint in
+                        Text(hint)
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.85))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .background(Color.black.opacity(0.6))
+                .cornerRadius(12)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 90)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            
+        }
+        .onDisappear {
+            isTorchOn = false
         }
         .sheet(isPresented: $showProductDetail) {
             if let product = scannedProduct {
-                ProductDetailView(product: product, appState: appState)
+                ProductDetailView(
+                    product: product,
+                    appState: appState,
+                    onLogComplete: { payload in
+                        dismiss()
+                        onLogComplete(payload)
+                    }
+                )
             }
         }
         .alert("Produktet finnes ikkje", isPresented: $showProductNotFound) {
@@ -507,11 +719,6 @@ struct CameraView: View {
         } message: {
             Text("Vil du legge produktet til manuelt?")
         }
-        .alert("Feil", isPresented: $showError) {
-            Button("Ok", role: .cancel) { }
-        } message: {
-            Text(errorMessage ?? "Ein feil oppstod")
-        }
     }
     
     private func handleBarcodeDetected(_ barcode: String) {
@@ -520,8 +727,18 @@ struct CameraView: View {
         scannedBarcode = barcode
         isLoading = true
         
-        HapticFeedbackService.shared.trigger(.barcodeDetected)
-        SoundFeedbackService.shared.play(.barcodeDetected)
+        if let cached = appState.getProductByBarcode(barcode) {
+            scannedProduct = cached
+            isLoading = false
+            showProductDetail = true
+            Task {
+                await appState.saveScannedProduct(cached)
+            }
+            return
+        }
+        
+        HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: appState.hapticsFeedbackEnabled)
+        SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: appState.soundFeedbackEnabled)
         
         Task {
             do {
@@ -529,9 +746,18 @@ struct CameraView: View {
                 await MainActor.run {
                     scannedProduct = product
                     isLoading = false
+                    showScanHelp = false
                     showProductDetail = true
                 }
                 await appState.saveScannedProduct(product)
+                Task {
+                    if let upgraded = await appState.upgradeNutritionIfPossible(for: product) {
+                        await MainActor.run {
+                            scannedProduct = upgraded
+                        }
+                        await appState.saveScannedProduct(upgraded)
+                    }
+                }
             } catch let apiError as APIService.APIError {
                 await MainActor.run {
                     isLoading = false
@@ -539,25 +765,58 @@ struct CameraView: View {
                     case .serverError(let code) where code == 404:
                         showProductNotFound = true
                     default:
-                        errorMessage = apiError.localizedDescription
-                        showError = true
+                        HapticFeedbackService.shared.trigger(
+                            .error,
+                            isEnabled: appState.hapticsFeedbackEnabled
+                        )
+                        SoundFeedbackService.shared.play(
+                            .error,
+                            isEnabled: appState.soundFeedbackEnabled
+                        )
+                        presentScanHelp(
+                            title: "Fikk ikke kontakt med produktdatabasen",
+                            hints: ["Sjekk nett", "Prøv igjen", "Hold kamera rolig og skann på nytt"]
+                        )
                     }
                 }
             } catch {
                 await MainActor.run {
                     isLoading = false
-                    errorMessage = error.localizedDescription
-                    showError = true
+                    HapticFeedbackService.shared.trigger(
+                        .error,
+                        isEnabled: appState.hapticsFeedbackEnabled
+                    )
+                    SoundFeedbackService.shared.play(
+                        .error,
+                        isEnabled: appState.soundFeedbackEnabled
+                    )
+                    presentScanHelp(
+                        title: "Noe gikk galt ved skanning",
+                        hints: ["Hold kamera rolig", "Mer lys", "Flytt nærmere strekkoden"]
+                    )
                 }
             }
         }
     }
     
     private func handleError(_ error: String) {
-        errorMessage = error
-        showError = true
-        HapticFeedbackService.shared.trigger(.error)
-        SoundFeedbackService.shared.play(.error)
+        presentScanHelp(
+            title: error,
+            hints: ["Hold kamera rolig", "Mer lys", "Flytt nærmere strekkoden"]
+        )
+        HapticFeedbackService.shared.trigger(.error, isEnabled: appState.hapticsFeedbackEnabled)
+        SoundFeedbackService.shared.play(.error, isEnabled: appState.soundFeedbackEnabled)
+    }
+    
+    private func presentScanHelp(title: String, hints: [String]) {
+        scanHelpTitle = title
+        scanHelpHints = hints
+        showScanHelp = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            if scanHelpTitle == title {
+                showScanHelp = false
+            }
+        }
     }
 }
 
@@ -602,7 +861,7 @@ struct FavoritesTabView: View {
         NavigationStack {
             VStack {
                 Text("Favoritter kommer snart")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
             .navigationTitle("Favoritter")
         }
@@ -614,7 +873,7 @@ struct LoggerTabView: View {
         NavigationStack {
             VStack {
                 Text("Logger-detaljer kommer snart")
-                    .foregroundColor(.secondary)
+                    .foregroundColor(AppColors.textSecondary)
             }
             .navigationTitle("Logger")
         }
@@ -631,6 +890,14 @@ struct SettingsTabView: View {
                     Toggle("Haptics feedback", isOn: $appState.hapticsFeedbackEnabled)
                     Toggle("Lyd", isOn: $appState.soundFeedbackEnabled)
                 }
+                
+                #if DEBUG
+                Section("Debug") {
+                    NavigationLink("Theme Preview") {
+                        ThemePreviewView()
+                    }
+                }
+                #endif
                 
                 Section("Konto") {
                     Button("Logg ut") {
@@ -673,6 +940,7 @@ extension Date {
 struct BarcodeScannerView: UIViewControllerRepresentable {
     let onBarcodeDetected: (String) -> Void
     let onError: (String) -> Void
+    @Binding var torchOn: Bool
     
     func makeUIViewController(context: Context) -> BarcodeScannerViewController {
         let controller = BarcodeScannerViewController()
@@ -681,7 +949,9 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         return controller
     }
     
-    func updateUIViewController(_ uiViewController: BarcodeScannerViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: BarcodeScannerViewController, context: Context) {
+        uiViewController.setTorch(on: torchOn)
+    }
 }
 
 class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
@@ -692,6 +962,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var lastScannedCode: String?
     private var lastScanTime: Date = Date()
+    private var videoDevice: AVCaptureDevice?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -717,6 +988,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             onError?("Kamera er ikkje tilgjengeleg")
             return
         }
+        videoDevice = videoCaptureDevice
         
         let videoInput: AVCaptureDeviceInput
         do {
@@ -761,6 +1033,23 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         
         DispatchQueue.global(qos: .userInitiated).async {
             self.captureSession.startRunning()
+        }
+    }
+    
+    func setTorch(on: Bool) {
+        guard let device = videoDevice, device.hasTorch else { return }
+        DispatchQueue.main.async {
+            do {
+                try device.lockForConfiguration()
+                if on {
+                    try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+                } else {
+                    device.torchMode = .off
+                }
+                device.unlockForConfiguration()
+            } catch {
+                self.onError?("Kunne ikkje slå på lommelykt")
+            }
         }
     }
     

@@ -15,7 +15,7 @@ class AppState: ObservableObject {
         carbsTargetG: 250,
         fatTargetG: 65
     )
-    @Published var selectedMealType: String = "lunch" // default meal
+    @Published var selectedMealType: String = "lunsj" // default meal
     @Published var selectedTab: Int = 0
     @Published var todaysSummary: DailySummary? = DailySummary(date: Date(), totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
     @Published var hapticsFeedbackEnabled: Bool = true
@@ -29,6 +29,8 @@ class AppState: ObservableObject {
     private let authService = AuthService()
     private let databaseService = DatabaseService()
     private let apiService = APIService()
+    private let matvaretabellenService = MatvaretabellenService()
+    private let matchingService = MatchingService()
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Init
@@ -173,6 +175,34 @@ class AppState: ObservableObject {
             self.errorMessage = "Kunne ikke slette logging: \(error.localizedDescription)"
         }
     }
+
+    func copyLogs(from sourceDate: Date, to targetDate: Date) async {
+        guard let user = currentUser else { return }
+        
+        let sourceSummary = await databaseService.getSummary(userId: user.id, date: sourceDate)
+        let targetDay = Calendar.current.startOfDay(for: targetDate)
+        
+        do {
+            for log in sourceSummary.logs {
+                let newLog = FoodLog(
+                    userId: user.id,
+                    productId: log.productId,
+                    mealType: log.mealType,
+                    amountG: log.amountG,
+                    loggedDate: targetDay,
+                    loggedTime: Date(),
+                    calories: log.calories,
+                    proteinG: log.proteinG,
+                    carbsG: log.carbsG,
+                    fatG: log.fatG
+                )
+                try await databaseService.saveLog(newLog)
+            }
+            await loadTodaysSummary()
+        } catch {
+            self.errorMessage = "Kunne ikke kopiere logging: \(error.localizedDescription)"
+        }
+    }
     
     // MARK: - Data Loading
     
@@ -193,6 +223,11 @@ class AppState: ObservableObject {
         DispatchQueue.main.async {
             self.todaysSummary = summary
         }
+    }
+
+    func fetchSummary(for date: Date) async -> DailySummary? {
+        guard let user = currentUser else { return nil }
+        return await databaseService.getSummary(userId: user.id, date: date)
     }
     
     // MARK: - Favorites
@@ -225,6 +260,29 @@ class AppState: ObservableObject {
         let defaults = UserDefaults.standard
         hapticsFeedbackEnabled = defaults.bool(forKey: "hapticsFeedbackEnabled")
         soundFeedbackEnabled = defaults.bool(forKey: "soundFeedbackEnabled")
+    }
+
+    // MARK: - Product Amount Memory
+
+    func getLastUsedAmount(for productId: UUID) -> Double? {
+        let key = lastAmountKey(for: productId)
+        let value = UserDefaults.standard.double(forKey: key)
+        return value > 0 ? value : nil
+    }
+
+    func setLastUsedAmount(_ amount: Double, for productId: UUID) {
+        let key = lastAmountKey(for: productId)
+        UserDefaults.standard.set(amount, forKey: key)
+    }
+
+    func shouldUseLastAmount(for productId: UUID) -> Bool {
+        let key = useLastAmountKey(for: productId)
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    func setUseLastAmount(_ enabled: Bool, for productId: UUID) {
+        let key = useLastAmountKey(for: productId)
+        UserDefaults.standard.set(enabled, forKey: key)
     }
     
     func enableDebugSession() {
@@ -272,5 +330,151 @@ class AppState: ObservableObject {
     
     func getProduct(_ id: UUID) -> Product? {
         databaseService.getProduct(id)
+    }
+    
+    func getProductByBarcode(_ barcode: String) -> Product? {
+        databaseService.getProductByBarcode(barcode)
+    }
+
+    func upgradeNutritionIfPossible(for product: Product) async -> Product? {
+        guard let barcode = product.barcodeEan else { return nil }
+        
+        if let mapping = databaseService.getMatchMapping(for: barcode) {
+            let daysOld = Calendar.current.dateComponents([.day], from: mapping.updatedAt, to: Date()).day ?? 0
+            if daysOld <= 30, mapping.confidenceScore >= 0.85 {
+                let upgraded = Product(
+                    id: product.id,
+                    name: product.name,
+                    brand: product.brand,
+                    category: mapping.category ?? product.category,
+                    barcodeEan: barcode,
+                    source: product.source,
+                    caloriesPer100g: mapping.caloriesPer100g,
+                    proteinGPer100g: mapping.proteinGPer100g,
+                    carbsGPer100g: mapping.carbsGPer100g,
+                    fatGPer100g: mapping.fatGPer100g,
+                    sugarGPer100g: mapping.sugarGPer100g,
+                    fiberGPer100g: mapping.fiberGPer100g,
+                    sodiumMgPer100g: mapping.sodiumMgPer100g,
+                    imageUrl: product.imageUrl,
+                    standardPortions: product.standardPortions,
+                    nutritionSource: .matvaretabellen,
+                    imageSource: product.imageUrl == nil ? .none : product.imageSource,
+                    verificationStatus: .verified,
+                    confidenceScore: mapping.confidenceScore,
+                    isVerified: true,
+                    createdAt: product.createdAt
+                )
+                try? await databaseService.saveProduct(upgraded)
+                return upgraded
+            }
+        }
+        
+        let candidates = (try? await matvaretabellenService.searchProducts(query: product.name)) ?? []
+        guard let best = matchingService.bestMatch(offProduct: product, candidates: candidates) else {
+            return nil
+        }
+        
+        if best.score >= 0.85 {
+            let mapping = ProductMatchMapping(
+                barcode: barcode,
+                matvaretabellenId: best.product.id,
+                matchedName: best.product.name,
+                confidenceScore: best.score,
+                updatedAt: Date(),
+                caloriesPer100g: best.product.caloriesPer100g,
+                proteinGPer100g: best.product.proteinGPer100g,
+                carbsGPer100g: best.product.carbsGPer100g,
+                fatGPer100g: best.product.fatGPer100g,
+                sugarGPer100g: best.product.sugarGPer100g,
+                fiberGPer100g: best.product.fiberGPer100g,
+                sodiumMgPer100g: best.product.sodiumMgPer100g,
+                category: best.product.category
+            )
+            databaseService.saveMatchMapping(mapping)
+            
+            let upgraded = Product(
+                id: product.id,
+                name: product.name,
+                brand: product.brand,
+                category: best.product.category ?? product.category,
+                barcodeEan: barcode,
+                source: product.source,
+                caloriesPer100g: best.product.caloriesPer100g,
+                proteinGPer100g: best.product.proteinGPer100g,
+                carbsGPer100g: best.product.carbsGPer100g,
+                fatGPer100g: best.product.fatGPer100g,
+                sugarGPer100g: best.product.sugarGPer100g,
+                fiberGPer100g: best.product.fiberGPer100g,
+                sodiumMgPer100g: best.product.sodiumMgPer100g,
+                imageUrl: product.imageUrl,
+                standardPortions: product.standardPortions,
+                nutritionSource: .matvaretabellen,
+                imageSource: product.imageUrl == nil ? .none : product.imageSource,
+                verificationStatus: .verified,
+                confidenceScore: best.score,
+                isVerified: true,
+                createdAt: product.createdAt
+            )
+            try? await databaseService.saveProduct(upgraded)
+            return upgraded
+        }
+        
+        if best.score >= 0.60 {
+            let mapping = ProductMatchMapping(
+                barcode: barcode,
+                matvaretabellenId: best.product.id,
+                matchedName: best.product.name,
+                confidenceScore: best.score,
+                updatedAt: Date(),
+                caloriesPer100g: best.product.caloriesPer100g,
+                proteinGPer100g: best.product.proteinGPer100g,
+                carbsGPer100g: best.product.carbsGPer100g,
+                fatGPer100g: best.product.fatGPer100g,
+                sugarGPer100g: best.product.sugarGPer100g,
+                fiberGPer100g: best.product.fiberGPer100g,
+                sodiumMgPer100g: best.product.sodiumMgPer100g,
+                category: best.product.category
+            )
+            databaseService.saveMatchMapping(mapping)
+            
+            let suggested = Product(
+                id: product.id,
+                name: product.name,
+                brand: product.brand,
+                category: product.category,
+                barcodeEan: barcode,
+                source: product.source,
+                caloriesPer100g: product.caloriesPer100g,
+                proteinGPer100g: product.proteinGPer100g,
+                carbsGPer100g: product.carbsGPer100g,
+                fatGPer100g: product.fatGPer100g,
+                sugarGPer100g: product.sugarGPer100g,
+                fiberGPer100g: product.fiberGPer100g,
+                sodiumMgPer100g: product.sodiumMgPer100g,
+                imageUrl: product.imageUrl,
+                standardPortions: product.standardPortions,
+                nutritionSource: product.nutritionSource,
+                imageSource: product.imageUrl == nil ? .none : product.imageSource,
+                verificationStatus: .suggestedMatch,
+                confidenceScore: best.score,
+                isVerified: false,
+                createdAt: product.createdAt
+            )
+            try? await databaseService.saveProduct(suggested)
+            return suggested
+        }
+        
+        return nil
+    }
+
+    private func lastAmountKey(for productId: UUID) -> String {
+        let userId = currentUser?.id.uuidString ?? "anonymous"
+        return "lastAmount.\(userId).\(productId.uuidString)"
+    }
+
+    private func useLastAmountKey(for productId: UUID) -> String {
+        let userId = currentUser?.id.uuidString ?? "anonymous"
+        return "useLastAmount.\(userId).\(productId.uuidString)"
     }
 }

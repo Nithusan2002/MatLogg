@@ -68,6 +68,11 @@ struct Product: Codable, Identifiable {
     let sodiumMgPer100g: Int?
     
     let imageUrl: String?
+    let standardPortions: [StandardPortion]?
+    let nutritionSource: NutritionSource
+    let imageSource: ImageSource
+    let verificationStatus: VerificationStatus
+    let confidenceScore: Double?
     let isVerified: Bool
     let createdAt: Date
     
@@ -89,6 +94,11 @@ struct Product: Codable, Identifiable {
         fiberGPer100g: Float? = nil,
         sodiumMgPer100g: Int? = nil,
         imageUrl: String? = nil,
+        standardPortions: [StandardPortion]? = nil,
+        nutritionSource: NutritionSource = .user,
+        imageSource: ImageSource = .user,
+        verificationStatus: VerificationStatus = .unverified,
+        confidenceScore: Double? = nil,
         isVerified: Bool = false,
         createdAt: Date = Date()
     ) {
@@ -106,6 +116,11 @@ struct Product: Codable, Identifiable {
         self.fiberGPer100g = fiberGPer100g
         self.sodiumMgPer100g = sodiumMgPer100g
         self.imageUrl = imageUrl
+        self.standardPortions = standardPortions
+        self.nutritionSource = nutritionSource
+        self.imageSource = imageSource
+        self.verificationStatus = verificationStatus
+        self.confidenceScore = confidenceScore
         self.isVerified = isVerified
         self.createdAt = createdAt
     }
@@ -122,11 +137,50 @@ struct Product: Codable, Identifiable {
     }
 }
 
+struct StandardPortion: Codable, Hashable {
+    let label: String
+    let grams: Double
+}
+
 struct NutritionBreakdown: Codable {
     let calories: Int
     let protein: Float
     let carbs: Float
     let fat: Float
+}
+
+struct ProductMatchMapping: Codable {
+    let barcode: String
+    let matvaretabellenId: String
+    let matchedName: String
+    let confidenceScore: Double
+    let updatedAt: Date
+    let caloriesPer100g: Int
+    let proteinGPer100g: Float
+    let carbsGPer100g: Float
+    let fatGPer100g: Float
+    let sugarGPer100g: Float?
+    let fiberGPer100g: Float?
+    let sodiumMgPer100g: Int?
+    let category: String?
+}
+
+enum NutritionSource: String, Codable {
+    case matvaretabellen
+    case openFoodFacts
+    case user
+}
+
+enum ImageSource: String, Codable {
+    case openFoodFacts
+    case user
+    case none
+}
+
+enum VerificationStatus: String, Codable {
+    case verified
+    case unverified
+    case suggestedMatch
 }
 
 // MARK: - Logs
@@ -135,7 +189,7 @@ struct FoodLog: Codable, Identifiable {
     let id: UUID
     let userId: UUID
     let productId: UUID
-    let mealType: String // "breakfast", "lunch", "dinner", "snack"
+    let mealType: String // "frokost", "lunsj", "middag", "snacks"
     let amountG: Float // exact, no rounding
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp

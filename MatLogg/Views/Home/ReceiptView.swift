@@ -5,11 +5,9 @@ struct ReceiptView: View {
     let amountG: Double
     let nutrition: NutritionBreakdown
     let mealType: String
+    let onAction: (ReceiptAction) -> Void
     
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var appState: AppState
-    
-    @State private var autoClosing = false
     
     var body: some View {
         ZStack {
@@ -20,14 +18,15 @@ struct ReceiptView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(.green)
+                        .foregroundColor(AppColors.brand)
                     
                     Text("Logget!")
-                        .font(.headline)
+                        .font(AppTypography.title)
+                        .foregroundColor(AppColors.ink)
                     
                     Text(mealType)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(20)
                 
@@ -38,10 +37,11 @@ struct ReceiptView: View {
                     // Product Info
                     VStack(alignment: .leading, spacing: 4) {
                         Text(product.name)
-                            .font(.headline)
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.ink)
                         Text("\(Int(amountG))g")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(AppTypography.body)
+                            .foregroundColor(AppColors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     
@@ -53,7 +53,8 @@ struct ReceiptView: View {
                             Text("Energi")
                             Spacer()
                             Text("\(Int(nutrition.calories)) kcal")
-                                .fontWeight(.semibold)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.ink)
                         }
                         
                         HStack {
@@ -74,7 +75,8 @@ struct ReceiptView: View {
                             Text("\(String(format: "%.1f", nutrition.fat))g")
                         }
                     }
-                    .font(.subheadline)
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(20)
                 
@@ -82,43 +84,46 @@ struct ReceiptView: View {
                 
                 // Action Buttons
                 VStack(spacing: 12) {
-                    Button(action: { dismiss() }) {
+                    Button(action: {
+                        onAction(.scanNext)
+                        dismiss()
+                    }) {
                         HStack {
                             Image(systemName: "arrow.clockwise")
-                            Text("Skann ein til")
+                            Text("Skann en til")
                         }
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(AppTypography.bodyEmphasis)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
-                        .background(Color.blue)
+                        .background(AppColors.brand)
                         .cornerRadius(8)
                     }
                     
                     HStack(spacing: 12) {
-                        Button(action: { dismiss() }) {
+                        Button(action: {
+                            onAction(.addAgain)
+                            dismiss()
+                        }) {
                             Text("Legg til igjen")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.brand)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 44)
-                                .background(Color(.systemGray6))
+                                .background(AppColors.background)
                                 .cornerRadius(8)
                         }
                         
                         Button(action: {
-                            appState.selectedTab = 0
+                            onAction(.close)
                             dismiss()
                         }) {
                             Text("Lukk")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.blue)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.brand)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 44)
-                                .background(Color(.systemGray6))
+                                .background(AppColors.background)
                                 .cornerRadius(8)
                         }
                     }
@@ -126,7 +131,7 @@ struct ReceiptView: View {
                 .padding(20)
             }
             .frame(maxWidth: .infinity)
-            .background(Color(.systemBackground))
+            .background(AppColors.surface)
             .cornerRadius(16)
             .padding(20)
         }
@@ -157,6 +162,9 @@ struct ReceiptView: View {
         fiberGPer100g: nil,
         sodiumMgPer100g: nil,
         imageUrl: nil,
+        nutritionSource: .user,
+        imageSource: .none,
+        verificationStatus: .unverified,
         isVerified: false,
         createdAt: Date()
     )
@@ -167,7 +175,7 @@ struct ReceiptView: View {
         product: mockProduct,
         amountG: 150,
         nutrition: nutrition,
-        mealType: "Lunsj"
+        mealType: "Lunsj",
+        onAction: { _ in }
     )
-    .environmentObject(AppState())
 }

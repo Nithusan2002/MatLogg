@@ -4,15 +4,20 @@ struct ProductDetailView: View {
     let product: Product
     
     @ObservedObject var appState: AppState
+    let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
+    @FocusState private var amountFieldFocused: Bool
     
     @State private var amountG: Double = 100
     @State private var amountText: String = "100"
     @State private var selectedUnit: WeightUnit = .grams
     @State private var isFavorite = false
-    @State private var selectedPortion: String = "100g"
     @State private var showingConfirmation = false
-    @State private var showReceipt = false
+    @State private var selectedMealType = "lunsj"
+    @State private var showImagePreview = false
+    @State private var showSourceInfo = false
+    @State private var useLastAmountNextTime = false
+    @State private var lastUsedAmountG: Double?
     
     enum WeightUnit: String, CaseIterable {
         case grams = "g"
@@ -37,21 +42,16 @@ struct ProductDetailView: View {
         }
     }
     
-    let standardPortions = [
-        ("50g", 50.0),
-        ("100g", 100.0),
-        ("150g", 150.0),
-        ("200g", 200.0),
-        ("250g", 250.0)
-    ]
-    
     var nutrition: NutritionBreakdown {
         product.calculateNutrition(forGrams: Float(amountG))
     }
     
+    let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
+    let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
+    
     var body: some View {
         ZStack {
-            Color(.systemBackground).ignoresSafeArea()
+            AppColors.background.ignoresSafeArea()
             
             VStack(spacing: 0) {
                 // Header
@@ -61,173 +61,239 @@ struct ProductDetailView: View {
                             Image(systemName: "chevron.left")
                             Text("Tilbake")
                         }
-                        .font(.body)
-                        .foregroundColor(.blue)
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.brand)
                     }
                     Spacer()
+                    
+                    Button(action: { showSourceInfo = true }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18))
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding(.trailing, 8)
                     
                     Button(action: toggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 18))
-                            .foregroundColor(isFavorite ? .red : .gray)
+                            .foregroundColor(isFavorite ? AppColors.brand : AppColors.textSecondary)
                     }
                 }
                 .padding()
                 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // Product Image Placeholder
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemGray6))
-                                .frame(height: 200)
-                            
-                            VStack(spacing: 8) {
-                                Image(systemName: "box.2")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(.gray)
-                                Text(product.name)
-                                    .font(.headline)
-                                    .foregroundColor(.primary)
+                    VStack(spacing: 12) {
+                        // Product Hero
+                        heroView
+                            .onTapGesture {
+                                if product.imageUrl != nil {
+                                    showImagePreview = true
+                                }
+                            }
+                            .padding(.horizontal)
+                        
+                        Text(product.name)
+                            .font(AppTypography.title)
+                            .foregroundColor(AppColors.ink)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 24)
+                        
+                        if product.nutritionSource == .openFoodFacts && product.verificationStatus == .unverified {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Forbedrer næringsdata…")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                        
+                        // Nutrition Facts - Per 100g
+                        CardContainer {
+                            VStack(spacing: 12) {
+                                Text("Næringsinnhold per 100g")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundColor(AppColors.ink)
+                                
+                                VStack(spacing: 8) {
+                                    NutritionRowView(
+                                        label: "Energi",
+                                        value: "\(Int(product.caloriesPer100g)) kcal"
+                                    )
+                                    NutritionRowView(
+                                        label: "Protein",
+                                        value: "\(String(format: "%.1f", product.proteinGPer100g)) g"
+                                    )
+                                    NutritionRowView(
+                                        label: "Karbohydrat",
+                                        value: "\(String(format: "%.1f", product.carbsGPer100g)) g"
+                                    )
+                                    NutritionRowView(
+                                        label: "Fett",
+                                        value: "\(String(format: "%.1f", product.fatGPer100g)) g"
+                                    )
+                                }
                             }
                         }
                         .padding(.horizontal)
                         
-                        // Nutrition Facts - Per 100g
-                        VStack(spacing: 12) {
-                            Text("Næringsinnhold per 100g")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
-                            
-                            VStack(spacing: 8) {
-                                NutritionRowView(
-                                    label: "Energi",
-                                    value: "\(Int(product.caloriesPer100g)) kcal",
-                                    color: .orange
-                                )
-                                NutritionRowView(
-                                    label: "Protein",
-                                    value: "\(String(format: "%.1f", product.proteinGPer100g)) g",
-                                    color: .red
-                                )
-                                NutritionRowView(
-                                    label: "Karbohydrat",
-                                    value: "\(String(format: "%.1f", product.carbsGPer100g)) g",
-                                    color: .blue
-                                )
-                                NutritionRowView(
-                                    label: "Fett",
-                                    value: "\(String(format: "%.1f", product.fatGPer100g)) g",
-                                    color: .yellow
-                                )
-                            }
+                        Divider()
                             .padding(.horizontal)
+                        
+                        CardContainer {
+                            VStack(spacing: 12) {
+                                Text("Måltid")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundColor(AppColors.ink)
+                                
+                                HStack(spacing: 8) {
+                                    ForEach(0..<mealTypes.count, id: \.self) { index in
+                                        MealChip(
+                                            title: mealTypes[index],
+                                            isSelected: selectedMealType == mealTypeKeys[index],
+                                            action: { selectedMealType = mealTypeKeys[index] }
+                                        )
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                }
+                            }
                         }
+                        .padding(.horizontal)
                         
                         Divider()
                             .padding(.horizontal)
                         
                         // Amount Input Section
-                        VStack(spacing: 12) {
-                            Text("Mengde")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            HStack(spacing: 12) {
-                                TextField("Mengde", text: $amountText)
-                                    .keyboardType(.decimalPad)
-                                    .font(.body)
-                                    .padding(12)
-                                    .background(Color(.systemGray6))
-                                    .cornerRadius(8)
-                                    .onChange(of: amountText) {
-                                        if let value = Double(amountText) {
-                                            amountG = selectedUnit.toGrams(value)
-                                            HapticFeedbackService.shared.trigger(.stepperTap)
+                        CardContainer {
+                            VStack(spacing: 12) {
+                                Text("Mengde")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .foregroundColor(AppColors.ink)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(quickAmountChips, id: \.title) { chip in
+                                            Button(action: {
+                                                applyAmount(chip.grams, triggerHaptic: true)
+                                                amountFieldFocused = false
+                                            }) {
+                                                Text(chip.title)
+                                                    .font(AppTypography.body)
+                                                    .padding(.horizontal, 12)
+                                                    .padding(.vertical, 8)
+                                                    .background(AppColors.surface)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 16)
+                                                            .stroke(AppColors.separator, lineWidth: 1)
+                                                    )
+                                                    .cornerRadius(16)
+                                            }
+                                        }
+                                        
+                                        Button(action: {
+                                            amountFieldFocused = true
+                                        }) {
+                                            Text("Tilpass")
+                                                .font(AppTypography.body)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 8)
+                                                .background(AppColors.chipFillSelected)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 16)
+                                                        .stroke(AppColors.separator, lineWidth: 1)
+                                                )
+                                                .cornerRadius(16)
                                         }
                                     }
+                                    .padding(.vertical, 4)
+                                }
                                 
-                                Picker("Enhet", selection: $selectedUnit) {
-                                    ForEach(WeightUnit.allCases, id: \.self) { unit in
-                                        Text(unit.rawValue).tag(unit)
+                                HStack(spacing: 12) {
+                                    TextField("Mengde", text: $amountText)
+                                        .keyboardType(.decimalPad)
+                                        .font(AppTypography.body)
+                                        .padding(12)
+                                        .background(AppColors.surface)
+                                        .cornerRadius(8)
+                                        .focused($amountFieldFocused)
+                                        .onChange(of: amountText) {
+                                            if let value = parseAmountText(amountText) {
+                                                amountG = selectedUnit.toGrams(value)
+                                                HapticFeedbackService.shared.trigger(
+                                                    .stepperTap,
+                                                    isEnabled: appState.hapticsFeedbackEnabled
+                                                )
+                                            }
+                                        }
+                                    
+                                    Picker("Enhet", selection: $selectedUnit) {
+                                        ForEach(WeightUnit.allCases, id: \.self) { unit in
+                                            Text(unit.rawValue).tag(unit)
+                                        }
+                                    }
+                                    .frame(width: 80)
+                                    .onChange(of: selectedUnit) {
+                                        let converted = selectedUnit.fromGrams(amountG)
+                                        amountText = formatAmountText(converted)
+                                        HapticFeedbackService.shared.trigger(
+                                            .stepperTap,
+                                            isEnabled: appState.hapticsFeedbackEnabled
+                                        )
                                     }
                                 }
-                                .frame(width: 80)
-                                .onChange(of: selectedUnit) {
-                                    if let value = Double(amountText) {
-                                        amountG = selectedUnit.toGrams(value)
+                                
+                                HStack(spacing: 12) {
+                                    inlineMacroValue(label: "kcal", value: "\(Int(nutrition.calories))")
+                                    inlineMacroValue(label: "P", value: String(format: "%.1f", nutrition.protein))
+                                    inlineMacroValue(label: "K", value: String(format: "%.1f", nutrition.carbs))
+                                    inlineMacroValue(label: "F", value: String(format: "%.1f", nutrition.fat))
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                HStack {
+                                    Text("Total")
+                                        .font(AppTypography.body)
+                                        .foregroundColor(AppColors.textSecondary)
+                                    Spacer()
+                                    Text("\(Int(amountG)) g")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.ink)
+                                }
+                                .padding(.top, 8)
+                                
+                                if let lastUsedAmountG {
+                                    Toggle(isOn: $useLastAmountNextTime) {
+                                        Text("Bruk sist (\(Int(lastUsedAmountG)) g) neste gang")
+                                            .font(AppTypography.body)
+                                            .foregroundColor(AppColors.textSecondary)
                                     }
-                                    HapticFeedbackService.shared.trigger(.stepperTap)
+                                    .onChange(of: useLastAmountNextTime) {
+                                        appState.setUseLastAmount(useLastAmountNextTime, for: product.id)
+                                    }
                                 }
                             }
-                            
-                            HStack {
-                                Text("Total:")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                Spacer()
-                                Text("\(Int(amountG)) g")
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
-                            }
-                            .padding(.top, 8)
                         }
                         .padding(.horizontal)
                         
                         Divider()
                             .padding(.horizontal)
                         
-                        // Total Nutrition Preview
-                        VStack(spacing: 12) {
-                            Text("For denne mengden (\(Int(amountG)) g)")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal)
-                            
-                            VStack(spacing: 8) {
-                                NutritionRowView(
-                                    label: "Energi",
-                                    value: "\(Int(nutrition.calories)) kcal",
-                                    color: .orange
-                                )
-                                NutritionRowView(
-                                    label: "Protein",
-                                    value: "\(String(format: "%.1f", nutrition.protein)) g",
-                                    color: .red
-                                )
-                                NutritionRowView(
-                                    label: "Karbohydrat",
-                                    value: "\(String(format: "%.1f", nutrition.carbs)) g",
-                                    color: .blue
-                                )
-                                NutritionRowView(
-                                    label: "Fett",
-                                    value: "\(String(format: "%.1f", nutrition.fat)) g",
-                                    color: .yellow
-                                )
-                            }
-                            .padding(.horizontal)
-                        }
-                        .padding(.bottom)
+                        Spacer(minLength: 8)
                     }
                     .padding(.vertical)
                 }
                 
                 // Add Button
-                Button(action: { showingConfirmation = true }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Legg til \(appState.selectedMealType.lowercased())")
-                            .fontWeight(.semibold)
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Color.blue)
-                    .cornerRadius(12)
-                }
+                PrimaryButton(
+                    title: "Legg til \(selectedMealType)",
+                    systemImage: "plus.circle.fill",
+                    action: { showingConfirmation = true }
+                )
                 .padding()
                 .alert("Bekreft", isPresented: $showingConfirmation) {
                     Button("Legg til", action: {
@@ -235,71 +301,295 @@ struct ProductDetailView: View {
                             await appState.logFood(
                                 product: product,
                                 amountG: Float(amountG),
-                                mealType: appState.selectedMealType
+                                mealType: selectedMealType
                             )
-                            HapticFeedbackService.shared.trigger(.loggingSuccess)
-                            SoundFeedbackService.shared.play(.loggingSuccess)
-                            showReceipt = true
+                            appState.setLastUsedAmount(amountG, for: product.id)
+                            lastUsedAmountG = amountG
+                            HapticFeedbackService.shared.trigger(
+                                .loggingSuccess,
+                                isEnabled: appState.hapticsFeedbackEnabled
+                            )
+                            SoundFeedbackService.shared.play(
+                                .loggingSuccess,
+                                isEnabled: appState.soundFeedbackEnabled
+                            )
+                            onLogComplete?(
+                                ReceiptPayload(
+                                    product: product,
+                                    amountG: amountG,
+                                    nutrition: nutrition,
+                                    mealType: selectedMealType
+                                )
+                            )
                         }
                     })
                     Button("Avbryt", role: .cancel) {}
                 } message: {
                     Text("Legge til \(Int(amountG))g av \(product.name)?")
                 }
-                .sheet(isPresented: $showReceipt) {
-                    ReceiptView(
-                        product: product,
-                        amountG: amountG,
-                        nutrition: nutrition,
-                        mealType: appState.selectedMealType
-                    )
-                    .environmentObject(appState)
-                    .onDisappear {
-                        dismiss()
-                    }
-                }
             }
         }
         .onAppear {
             isFavorite = appState.isFavorite(product)
-            amountText = "100"
-            HapticFeedbackService.shared.trigger(.barcodeDetected)
+            lastUsedAmountG = appState.getLastUsedAmount(for: product.id)
+            useLastAmountNextTime = appState.shouldUseLastAmount(for: product.id)
+            let initialAmount = (useLastAmountNextTime ? lastUsedAmountG : nil) ?? 100
+            applyAmount(initialAmount, triggerHaptic: false)
+            selectedMealType = appState.selectedMealType
+            HapticFeedbackService.shared.trigger(
+                .barcodeDetected,
+                isEnabled: appState.hapticsFeedbackEnabled
+            )
+        }
+        .sheet(isPresented: $showImagePreview) {
+            ImagePreviewView(imageUrl: product.imageUrl)
+        }
+        .sheet(isPresented: $showSourceInfo) {
+            ProductSourceInfoView(
+                nutritionSource: product.nutritionSource,
+                imageSource: product.imageSource,
+                verificationStatus: product.verificationStatus,
+                confidenceScore: product.confidenceScore
+            )
         }
     }
+
+    private var quickAmountChips: [(title: String, grams: Double)] {
+        if let portions = product.standardPortions, !portions.isEmpty {
+            return portions.map { (title: $0.label, grams: $0.grams) }
+        }
+        return [
+            ("50g", 50.0),
+            ("100g", 100.0),
+            ("150g", 150.0),
+            ("200g", 200.0)
+        ]
+    }
+    
+    private func applyAmount(_ grams: Double, triggerHaptic: Bool) {
+        amountG = grams
+        let unitValue = selectedUnit.fromGrams(grams)
+        amountText = formatAmountText(unitValue)
+        if triggerHaptic {
+            HapticFeedbackService.shared.trigger(
+                .stepperTap,
+                isEnabled: appState.hapticsFeedbackEnabled
+            )
+        }
+    }
+    
+    private func formatAmountText(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(value))
+        }
+        return String(format: "%.1f", value)
+    }
+    
+    private func parseAmountText(_ text: String) -> Double? {
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        return Double(normalized)
+    }
+    
+    private func inlineMacroValue(label: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+            Text(value)
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.ink)
+        }
+    }
+
+    private var heroView: some View {
+        ProductHeroImageView(url: imageUrl, height: 220, cornerRadius: 18)
+    }
+    
+    private var imageUrl: URL? {
+        guard let urlString = product.imageUrl else { return nil }
+        return URL(string: urlString)
+    }
+    
     
     private func toggleFavorite() {
         Task {
             await appState.toggleFavorite(product: product)
         }
         isFavorite.toggle()
-        HapticFeedbackService.shared.trigger(.favoriteToggle)
+        HapticFeedbackService.shared.trigger(
+            .favoriteToggle,
+            isEnabled: appState.hapticsFeedbackEnabled
+        )
     }
 }
+
+struct ImagePreviewView: View {
+    let imageUrl: String?
+    @Environment(\.dismiss) var dismiss
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    
+    var body: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            
+            VStack(spacing: 12) {
+                HStack {
+                    Spacer()
+                    Button("Lukk") { dismiss() }
+                        .foregroundColor(AppColors.brand)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                
+                Spacer()
+                
+                if let imageUrl, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .padding(16)
+                                .scaleEffect(scale)
+                                .gesture(
+                                    MagnificationGesture()
+                                        .onChanged { value in
+                                            let delta = value / lastScale
+                                            lastScale = value
+                                            scale = min(max(scale * delta, 1.0), 3.0)
+                                        }
+                                        .onEnded { _ in
+                                            lastScale = 1.0
+                                        }
+                                )
+                        case .failure:
+                            Text("Bilde ikke tilgjengelig")
+                                .font(AppTypography.body)
+                                .foregroundColor(AppColors.textSecondary)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                } else {
+                    Text("Bilde ikke tilgjengelig")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                
+                Spacer()
+            }
+        }
+    }
+}
+
+struct ProductSourceInfoView: View {
+    let nutritionSource: NutritionSource
+    let imageSource: ImageSource
+    let verificationStatus: VerificationStatus
+    let confidenceScore: Double?
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 12) {
+                infoRow(title: "Næringskilde", value: sourceLabel(nutritionSource))
+                infoRow(title: "Bildekilde", value: sourceLabel(imageSource))
+                infoRow(title: "Verifisering", value: verificationLabel(verificationStatus))
+                if let confidenceScore {
+                    infoRow(title: "Match-score", value: String(format: "%.2f", confidenceScore))
+                }
+                
+                Text("Kilder vises for å være transparente uten å skape skam. Data kan være oppdatert eller uverifisert.")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.top, 8)
+                
+                Spacer()
+            }
+            .padding(16)
+            .background(AppColors.background.ignoresSafeArea())
+            .navigationTitle("Kilder")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Ferdig") { dismiss() }
+                        .foregroundColor(AppColors.brand)
+                }
+            }
+        }
+    }
+    
+    private func infoRow(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+            Text(value)
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.ink)
+        }
+        .padding(12)
+        .background(AppColors.surface)
+        .cornerRadius(12)
+    }
+    
+    private func sourceLabel(_ source: NutritionSource) -> String {
+        switch source {
+        case .matvaretabellen:
+            return "Matvaretabellen"
+        case .openFoodFacts:
+            return "Open Food Facts"
+        case .user:
+            return "Bruker"
+        }
+    }
+    
+    private func sourceLabel(_ source: ImageSource) -> String {
+        switch source {
+        case .openFoodFacts:
+            return "Open Food Facts"
+        case .user:
+            return "Bruker"
+        case .none:
+            return "Ingen"
+        }
+    }
+    
+    private func verificationLabel(_ status: VerificationStatus) -> String {
+        switch status {
+        case .verified:
+            return "Verifisert"
+        case .unverified:
+            return "Uverifisert"
+        case .suggestedMatch:
+            return "Foreslått match"
+        }
+    }
+}
+
 
 // MARK: - Supporting Views
 
 struct NutritionRowView: View {
     let label: String
     let value: String
-    let color: Color
     
     var body: some View {
         HStack {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 12, height: 12)
-                Text(label)
-                    .font(.body)
-            }
+            Text(label)
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.textSecondary)
             Spacer()
             Text(value)
-                .font(.headline)
-                .foregroundColor(color)
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.ink)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(Color(.systemGray6))
+        .background(AppColors.background)
         .cornerRadius(8)
     }
 }
@@ -320,11 +610,14 @@ struct NutritionRowView: View {
         fiberGPer100g: nil,
         sodiumMgPer100g: nil,
         imageUrl: nil,
+        nutritionSource: .user,
+        imageSource: .none,
+        verificationStatus: .unverified,
         isVerified: false,
         createdAt: Date()
     )
     
     let appState = AppState()
     
-    ProductDetailView(product: mockProduct, appState: appState)
+    ProductDetailView(product: mockProduct, appState: appState, onLogComplete: nil)
 }
