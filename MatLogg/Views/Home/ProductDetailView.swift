@@ -171,23 +171,23 @@ struct ProductDetailView: View {
                                         SummaryPill(
                                             label: "kcal",
                                             value: "\(Int(nutrition.calories))",
-                                            backgroundColor: AppColors.brand
+                                            tintColor: AppColors.brand
                                         )
                                     }
                                     SummaryPill(
                                         label: "Proteiner",
                                         value: String(format: "%.1f g", nutrition.protein),
-                                        backgroundColor: AppColors.macroProteinTint
+                                        tintColor: AppColors.macroProteinTint
                                     )
                                     SummaryPill(
                                         label: "Karbohydrater",
                                         value: String(format: "%.1f g", nutrition.carbs),
-                                        backgroundColor: AppColors.macroCarbTint
+                                        tintColor: AppColors.macroCarbTint
                                     )
                                     SummaryPill(
                                         label: "Fett",
                                         value: String(format: "%.1f g", nutrition.fat),
-                                        backgroundColor: AppColors.macroFatTint
+                                        tintColor: AppColors.macroFatTint
                                     )
                                 }
                                 

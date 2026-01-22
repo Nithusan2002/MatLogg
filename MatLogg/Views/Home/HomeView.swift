@@ -13,10 +13,10 @@ struct HomeView: View {
                 }
                 .tag(0)
             
-            // MARK: - Historikk Tab
-            LoggerTabView()
+            // MARK: - Logg Tab
+            LoggView()
                 .tabItem {
-                    Label("Historikk", systemImage: "list.bullet")
+                    Label("Logg", systemImage: "list.bullet")
                 }
                 .tag(1)
             
@@ -27,19 +27,12 @@ struct HomeView: View {
                 }
                 .tag(2)
             
-            // MARK: - Progress Tab
-            ProgressTabView()
-                .tabItem {
-                    Label("Fremgang", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(3)
-            
             // MARK: - Profile Tab
             ProfileView()
                 .tabItem {
                     Label("Profil", systemImage: "person.crop.circle")
                 }
-                .tag(4)
+                .tag(3)
         }
         .environmentObject(appState)
         .onAppear {
@@ -53,19 +46,16 @@ struct HomeView: View {
 struct HomeTabView: View {
     @EnvironmentObject var appState: AppState
     @State private var showScanCamera = false
-    @State private var showHistoryPanel = false
     @State private var showManualAdd = false
     @State private var showRawMaterials = false
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
-    @State private var yesterdaySummary: DailySummary?
     @State private var recentScans: [ScanHistory] = []
     @State private var showReceipt = false
     @State private var receiptPayload: ReceiptPayload?
     @State private var pendingScanAfterReceipt = false
     @State private var showProductDetail = false
     @State private var selectedProduct: Product?
-    @State private var showDatePicker = false
     
     var body: some View {
         NavigationStack {
@@ -75,78 +65,45 @@ struct HomeTabView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                     HStack {
-                        Button(action: { shiftSelectedDate(by: -1) }) {
-                            Image(systemName: "chevron.left")
-                        }
-                        .frame(width: 44, height: 44)
-                        
+                        Text("I dag")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.ink)
                         Spacer()
-                        
-                        Button(action: { showDatePicker = true }) {
-                            HStack(spacing: 6) {
-                                Text(dayTitle)
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundColor(AppColors.ink)
-                                Image(systemName: "calendar")
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        Button(action: { shiftSelectedDate(by: 1) }) {
-                            Image(systemName: "chevron.right")
-                        }
-                        .frame(width: 44, height: 44)
-                        .opacity(canGoToNextDay ? 1 : 0.3)
-                        .disabled(!canGoToNextDay)
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
                     
-                    if isTodaySelected, let yesterdaySummary, !yesterdaySummary.logs.isEmpty {
-                        Button(action: copyYesterdayLogs) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.clockwise")
-                                Text("Legg til det samme som i går")
-                            }
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.ink)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(AppColors.surface)
-                            .cornerRadius(12)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
-                    }
                     
                     // Status Card
                     if appState.showGoalStatusOnHome, let summary = selectedSummary, let goal = appState.currentGoal {
                         StatusCardView(
                             summary: summary,
                             goal: goal,
-                            dayLabel: isTodaySelected ? "Spist i dag" : "Spist \(dayTitle.lowercased())",
+                            dayLabel: "Spist i dag",
                             hideGoals: appState.safeModeHideGoals,
                             hideCalories: appState.safeModeHideCalories
                         )
                         .padding(16)
                     }
                     
-                    // Logging List
+                    // Dagens måltider (kompakt)
                     if let summary = selectedSummary, !summary.logs.isEmpty {
-                        LogListView(summary: summary)
-                            .padding(.horizontal, 16)
+                        CompactLogListView(summary: summary, maxPerMeal: 4) { mealType in
+                            appState.logSelectedDate = selectedDate
+                            appState.logSelectedMeal = mealType
+                            appState.selectedTab = 1
+                        }
+                        .padding(.horizontal, 16)
                     } else {
                         VStack(spacing: 12) {
                             Image(systemName: "circle.dashed")
                                 .font(.system(size: 48))
                                 .foregroundColor(AppColors.textSecondary)
-                            Text(isTodaySelected ? "Ingenting logget ennå" : "Ingen logging denne dagen")
+                            Text("Ingenting logget ennå")
                                 .font(AppTypography.title)
                                 .foregroundColor(AppColors.ink)
-                            Text(isTodaySelected ? "Begynn med å scanne eller legge til produkt" : "Velg en annen dag for å logge mat")
+                            Text("Begynn med å scanne eller legge til produkt")
                                 .font(AppTypography.body)
                                 .foregroundColor(AppColors.textSecondary)
                         }
@@ -159,24 +116,9 @@ struct HomeTabView: View {
                 }
             }
             .navigationTitle("MatLogg")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showHistoryPanel = true }) {
-                        Image(systemName: "clock.fill")
-                    }
-                }
-            }
-            .sheet(isPresented: $showHistoryPanel) {
-                ScanHistoryView()
-            }
         }
         .task {
             await refreshSummaries()
-        }
-        .onChange(of: selectedDate) {
-            Task {
-                await loadSelectedSummary()
-            }
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 12) {
@@ -287,54 +229,17 @@ struct HomeTabView: View {
                 )
             }
         }
-        .sheet(isPresented: $showDatePicker) {
-            NavigationStack {
-                VStack(spacing: 16) {
-                    Text("Velg dato")
-                        .font(AppTypography.title)
-                        .foregroundColor(AppColors.ink)
-                    
-                    DatePicker(
-                        "Velg dato",
-                        selection: $selectedDate,
-                        in: ...Date(),
-                        displayedComponents: [.date]
-                    )
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                }
-                .padding(16)
-                .background(AppColors.background.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Ferdig") { showDatePicker = false }
-                            .foregroundColor(AppColors.brand)
-                    }
-                }
-            }
-            .presentationDetents([.medium, .large])
-        }
+        
     }
     
     private func refreshSummaries() async {
+        selectedDate = Date()
         await loadSelectedSummary()
-        yesterdaySummary = await appState.fetchSummary(for: yesterdayDate())
         recentScans = await appState.loadRecentScans(limit: 6)
     }
     
     private func loadSelectedSummary() async {
         selectedSummary = await appState.fetchSummary(for: selectedDate)
-    }
-    
-    private func copyYesterdayLogs() {
-        Task {
-            await appState.copyLogs(from: yesterdayDate(), to: Date())
-            await refreshSummaries()
-        }
-    }
-    
-    private func yesterdayDate() -> Date {
-        Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     }
     
     private func handleReceiptAction(_ action: ReceiptAction) {
@@ -346,35 +251,6 @@ struct HomeTabView: View {
         }
     }
 
-    private var isTodaySelected: Bool {
-        Calendar.current.isDateInToday(selectedDate)
-    }
-    
-    private var canGoToNextDay: Bool {
-        !Calendar.current.isDateInToday(selectedDate)
-    }
-    
-    private var dayTitle: String {
-        if Calendar.current.isDateInToday(selectedDate) {
-            return "I dag"
-        }
-        if Calendar.current.isDateInYesterday(selectedDate) {
-            return "I går"
-        }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "d. MMM"
-        return formatter.string(from: selectedDate)
-    }
-    
-    private func shiftSelectedDate(by days: Int) {
-        if days > 0, Calendar.current.isDateInToday(selectedDate) {
-            return
-        }
-        if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) {
-            selectedDate = newDate
-        }
-    }
 }
 
 struct StatusCardView: View {
@@ -486,82 +362,6 @@ enum ReceiptAction {
     case scanNext
     case addAgain
     case close
-}
-
-struct LogListView: View {
-    @EnvironmentObject var appState: AppState
-    let summary: DailySummary
-    
-    private let mealTitles: [String: String] = [
-        "frokost": "Frokost",
-        "lunsj": "Lunsj",
-        "middag": "Middag",
-        "snacks": "Snacks"
-    ]
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(summary.logsByMeal.sorted(by: { $0.key < $1.key }), id: \.key) { mealType, logs in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(mealTitles[mealType, default: mealType.capitalized])
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                    
-                    ForEach(logs) { log in
-                        LogItemView(log: log)
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct LogItemView: View {
-    @EnvironmentObject var appState: AppState
-    let log: FoodLog
-    @State private var showDeleteConfirm = false
-    
-    private var productName: String {
-        appState.getProduct(log.productId)?.name ?? "Ukjent produkt"
-    }
-    
-    var body: some View {
-        CardContainer {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(productName)
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.ink)
-                    
-                    Text("\(Int(log.amountG))g")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
-                Spacer()
-                
-                if !appState.safeModeHideCalories {
-                    Text("\(log.calories) kcal")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.ink)
-                }
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                showDeleteConfirm = true
-            } label: {
-                Label("Slett", systemImage: "trash")
-            }
-        }
-        .alert("Slett logging?", isPresented: $showDeleteConfirm) {
-            Button("Slett", role: .destructive) {
-                Task {
-                    await appState.deleteLog(log)
-                }
-            }
-        }
-    }
 }
 
 struct ScanButtonLarge: View {
@@ -921,18 +721,6 @@ struct FavoritesTabView: View {
                     .foregroundColor(AppColors.textSecondary)
             }
             .navigationTitle("Favoritter")
-        }
-    }
-}
-
-struct LoggerTabView: View {
-    var body: some View {
-        NavigationStack {
-            VStack {
-                Text("Historikk kommer snart")
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            .navigationTitle("Historikk")
         }
     }
 }

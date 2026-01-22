@@ -17,6 +17,8 @@ class AppState: ObservableObject {
     )
     @Published var selectedMealType: String = "lunsj" // default meal
     @Published var selectedTab: Int = 0
+    @Published var logSelectedDate: Date = Date()
+    @Published var logSelectedMeal: String?
     @Published var todaysSummary: DailySummary? = DailySummary(date: Date(), totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
     @Published var hapticsFeedbackEnabled: Bool = true { didSet { storeBool(hapticsFeedbackEnabled, key: "hapticsFeedbackEnabled") } }
     @Published var soundFeedbackEnabled: Bool = true { didSet { storeBool(soundFeedbackEnabled, key: "soundFeedbackEnabled") } }
@@ -218,6 +220,33 @@ class AppState: ObservableObject {
             await loadTodaysSummary()
         } catch {
             self.errorMessage = "Kunne ikke slette logging: \(error.localizedDescription)"
+        }
+    }
+    
+    func updateLog(_ log: FoodLog, amountG: Float, mealType: String) async {
+        guard let product = getProduct(log.productId) else { return }
+        let nutrition = product.calculateNutrition(forGrams: amountG)
+        let updated = FoodLog(
+            id: log.id,
+            userId: log.userId,
+            productId: log.productId,
+            mealType: mealType,
+            amountG: amountG,
+            loggedDate: log.loggedDate,
+            loggedTime: log.loggedTime,
+            calories: nutrition.calories,
+            proteinG: nutrition.protein,
+            carbsG: nutrition.carbs,
+            fatG: nutrition.fat,
+            createdAt: log.createdAt,
+            isSynced: log.isSynced
+        )
+        
+        do {
+            try await databaseService.saveLog(updated)
+            await loadTodaysSummary()
+        } catch {
+            self.errorMessage = "Kunne ikke oppdatere logging: \(error.localizedDescription)"
         }
     }
 

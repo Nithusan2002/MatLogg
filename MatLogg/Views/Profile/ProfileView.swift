@@ -20,6 +20,11 @@ struct ProfileView: View {
                             .environmentObject(appState)
                     }
                     
+                    NavigationLink("Fremgang") {
+                        ProgressTabView()
+                            .environmentObject(appState)
+                    }
+                    
                     if let summary = personalSummary {
                         Text(summary)
                             .font(AppTypography.caption)
