@@ -13,10 +13,10 @@ struct HomeView: View {
                 }
                 .tag(0)
             
-            // MARK: - Logger Tab
+            // MARK: - Historikk Tab
             LoggerTabView()
                 .tabItem {
-                    Label("Logger", systemImage: "list.bullet")
+                    Label("Historikk", systemImage: "list.bullet")
                 }
                 .tag(1)
             
@@ -27,12 +27,19 @@ struct HomeView: View {
                 }
                 .tag(2)
             
-            // MARK: - Settings Tab
-            SettingsTabView()
+            // MARK: - Progress Tab
+            ProgressTabView()
                 .tabItem {
-                    Label("Innstillinger", systemImage: "gear")
+                    Label("Fremgang", systemImage: "chart.line.uptrend.xyaxis")
                 }
                 .tag(3)
+            
+            // MARK: - Profile Tab
+            ProfileView()
+                .tabItem {
+                    Label("Profil", systemImage: "person.crop.circle")
+                }
+                .tag(4)
         }
         .environmentObject(appState)
         .onAppear {
@@ -48,6 +55,7 @@ struct HomeTabView: View {
     @State private var showScanCamera = false
     @State private var showHistoryPanel = false
     @State private var showManualAdd = false
+    @State private var showRawMaterials = false
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var yesterdaySummary: DailySummary?
@@ -115,11 +123,13 @@ struct HomeTabView: View {
                     }
                     
                     // Status Card
-                    if let summary = selectedSummary, let goal = appState.currentGoal {
+                    if appState.showGoalStatusOnHome, let summary = selectedSummary, let goal = appState.currentGoal {
                         StatusCardView(
                             summary: summary,
                             goal: goal,
-                            dayLabel: isTodaySelected ? "Spist i dag" : "Spist \(dayTitle.lowercased())"
+                            dayLabel: isTodaySelected ? "Spist i dag" : "Spist \(dayTitle.lowercased())",
+                            hideGoals: appState.safeModeHideGoals,
+                            hideCalories: appState.safeModeHideCalories
                         )
                         .padding(16)
                     }
@@ -202,6 +212,17 @@ struct HomeTabView: View {
                 ScanButtonLarge(action: { showScanCamera = true })
                 
                 HStack(spacing: 12) {
+                    Button(action: { showRawMaterials = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "leaf")
+                            Text("Søk / Råvarer")
+                        }
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.ink)
+                    }
+                    
+                    Spacer()
+                    
                     Button(action: { showManualAdd = true }) {
                         HStack(spacing: 6) {
                             Image(systemName: "plus.circle")
@@ -210,8 +231,6 @@ struct HomeTabView: View {
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.brand)
                     }
-                    
-                    Spacer()
                 }
                 .padding(.horizontal, 16)
             }
@@ -246,7 +265,15 @@ struct HomeTabView: View {
             }
         }
         .fullScreenCover(isPresented: $showManualAdd) {
-            ManualAddView()
+            ManualAddView(onOpenRawMaterials: {
+                showManualAdd = false
+                showRawMaterials = true
+            })
+            .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $showRawMaterials) {
+            RawMaterialsSearchView()
+                .environmentObject(appState)
         }
         .sheet(isPresented: $showProductDetail) {
             if let product = selectedProduct {
@@ -354,6 +381,8 @@ struct StatusCardView: View {
     let summary: DailySummary
     let goal: Goal
     let dayLabel: String
+    let hideGoals: Bool
+    let hideCalories: Bool
     
     var remainingCalories: Int {
         max(0, goal.dailyCalories - summary.totalCalories)
@@ -371,46 +400,50 @@ struct StatusCardView: View {
                         Text(dayLabel)
                             .font(AppTypography.caption)
                             .foregroundColor(AppColors.textSecondary)
-                        Text("\(summary.totalCalories) kcal")
+                        Text(hideCalories ? "—" : "\(summary.totalCalories) kcal")
                             .font(AppTypography.hero)
                             .foregroundColor(AppColors.ink)
                     }
                     
                     Spacer()
                     
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(overCalories > 0 ? "Over mål" : "Igjen")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                        Text("\(overCalories > 0 ? overCalories : remainingCalories) kcal")
-                            .font(AppTypography.hero)
-                            .foregroundColor(AppColors.ink)
+                    if !hideGoals {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(overCalories > 0 ? "Over mål" : "Igjen")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                            Text(hideCalories ? "—" : "\(overCalories > 0 ? overCalories : remainingCalories) kcal")
+                                .font(AppTypography.hero)
+                                .foregroundColor(AppColors.ink)
+                        }
                     }
                 }
                 
-                Text("Mål: \(goal.dailyCalories) kcal")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
-            
-                Divider()
-                    .overlay(AppColors.separator)
+                if !hideGoals {
+                    Text("Mål: \(goal.dailyCalories) kcal")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
                 
-                VStack(spacing: 12) {
-                    ProgressRow(
-                        label: "Proteiner",
-                        valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
-                        progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG))
-                    )
-                    ProgressRow(
-                        label: "Karbohydrater",
-                        valueText: "\(Int(summary.totalCarbs))g / \(Int(goal.carbsTargetG))g",
-                        progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG))
-                    )
-                    ProgressRow(
-                        label: "Fett",
-                        valueText: "\(Int(summary.totalFat))g / \(Int(goal.fatTargetG))g",
-                        progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG))
-                    )
+                    Divider()
+                        .overlay(AppColors.separator)
+                    
+                    VStack(spacing: 12) {
+                        ProgressRow(
+                            label: "Proteiner",
+                            valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
+                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG))
+                        )
+                        ProgressRow(
+                            label: "Karbohydrater",
+                            valueText: "\(Int(summary.totalCarbs))g / \(Int(goal.carbsTargetG))g",
+                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG))
+                        )
+                        ProgressRow(
+                            label: "Fett",
+                            valueText: "\(Int(summary.totalFat))g / \(Int(goal.fatTargetG))g",
+                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG))
+                        )
+                    }
                 }
             }
         }
@@ -507,9 +540,11 @@ struct LogItemView: View {
                 
                 Spacer()
                 
-                Text("\(log.calories) kcal")
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.ink)
+                if !appState.safeModeHideCalories {
+                    Text("\(log.calories) kcal")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.ink)
+                }
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -644,17 +679,6 @@ struct CameraView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
                 Spacer()
-                
-                // Viewfinder Overlay
-                VStack(spacing: 12) {
-                    Text("Pek kamera mot strekkode")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(40)
-                
-                Spacer()
             }
             .background(Color.black)
             
@@ -691,6 +715,17 @@ struct CameraView: View {
                 .padding(.bottom, 90)
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            
+            // Centered Viewfinder Overlay
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.9), lineWidth: 3)
+                .frame(width: 240, height: 240)
+                .overlay(
+                    Text("Skann strekkoden her")
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             
         }
         .onDisappear {
@@ -822,6 +857,7 @@ struct CameraView: View {
 
 struct ManualAddView: View {
     @Environment(\.dismiss) var dismiss
+    let onOpenRawMaterials: (() -> Void)?
     @State private var productName = ""
     @State private var calories = ""
     @State private var protein = ""
@@ -831,6 +867,21 @@ struct ManualAddView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Råvarer") {
+                    Button(action: {
+                        dismiss()
+                        onOpenRawMaterials?()
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "leaf")
+                            Text("Søk / Råvarer")
+                        }
+                    }
+                    Text("Bruk Matvaretabellen for rask logging uten strekkode.")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                
                 Section("Produktdetaljer") {
                     TextField("Produktnavn", text: $productName)
                     TextField("Kalorier (per 100g)", text: $calories)
@@ -844,12 +895,18 @@ struct ManualAddView: View {
                 }
             }
             .navigationTitle("Legg til produkt")
+            .scrollDismissesKeyboard(.interactively)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Avbryt") { dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Legg til") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Ferdig") { hideKeyboard() }
+                        .foregroundColor(AppColors.brand)
                 }
             }
         }
@@ -872,53 +929,10 @@ struct LoggerTabView: View {
     var body: some View {
         NavigationStack {
             VStack {
-                Text("Logger-detaljer kommer snart")
+                Text("Historikk kommer snart")
                     .foregroundColor(AppColors.textSecondary)
             }
-            .navigationTitle("Logger")
-        }
-    }
-}
-
-struct SettingsTabView: View {
-    @EnvironmentObject var appState: AppState
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Feedback") {
-                    Toggle("Haptics feedback", isOn: $appState.hapticsFeedbackEnabled)
-                    Toggle("Lyd", isOn: $appState.soundFeedbackEnabled)
-                }
-                
-                #if DEBUG
-                Section("Debug") {
-                    NavigationLink("Theme Preview") {
-                        ThemePreviewView()
-                    }
-                }
-                #endif
-                
-                Section("Konto") {
-                    Button("Logg ut") {
-                        appState.logout()
-                    }
-                    .foregroundColor(.red)
-                }
-            }
-            .navigationTitle("Innstillinger")
-            .onChange(of: appState.hapticsFeedbackEnabled) { _, newValue in
-                appState.updateFeedbackSettings(
-                    haptics: newValue,
-                    sound: appState.soundFeedbackEnabled
-                )
-            }
-            .onChange(of: appState.soundFeedbackEnabled) { _, newValue in
-                appState.updateFeedbackSettings(
-                    haptics: appState.hapticsFeedbackEnabled,
-                    sound: newValue
-                )
-            }
+            .navigationTitle("Historikk")
         }
     }
 }

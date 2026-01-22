@@ -14,6 +14,10 @@ enum AppColors {
     static let chipStroke = separator
     static let progressTrack = separator
     static let progressFill = brand.opacity(0.22)
+    
+    static let macroProteinTint = Color(UIColor.appProteinTint)
+    static let macroCarbTint = Color(UIColor.appCarbTint)
+    static let macroFatTint = Color(UIColor.appFatTint)
 }
 
 private extension UIColor {
@@ -24,6 +28,9 @@ private extension UIColor {
     static let appSeparator = UIColor.dynamic(light: 0xE6EAF0, dark: 0x232B3A)
     static let appBrand = UIColor.dynamic(light: 0xFF5A3C, dark: 0xFF6B52)
     static let appAccent = UIColor.dynamic(light: 0xFFB020, dark: 0xFFC04D)
+    static let appProteinTint = UIColor(hex: 0x3B82F6)
+    static let appCarbTint = UIColor(hex: 0x8B5CF6)
+    static let appFatTint = UIColor(hex: 0xF59E0B)
     
     static func dynamic(light: UInt32, dark: UInt32) -> UIColor {
         UIColor { trait in

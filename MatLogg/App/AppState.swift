@@ -18,8 +18,22 @@ class AppState: ObservableObject {
     @Published var selectedMealType: String = "lunsj" // default meal
     @Published var selectedTab: Int = 0
     @Published var todaysSummary: DailySummary? = DailySummary(date: Date(), totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
-    @Published var hapticsFeedbackEnabled: Bool = true
-    @Published var soundFeedbackEnabled: Bool = true
+    @Published var hapticsFeedbackEnabled: Bool = true { didSet { storeBool(hapticsFeedbackEnabled, key: "hapticsFeedbackEnabled") } }
+    @Published var soundFeedbackEnabled: Bool = true { didSet { storeBool(soundFeedbackEnabled, key: "soundFeedbackEnabled") } }
+    @Published var showGoalStatusOnHome: Bool = true { didSet { storeBool(showGoalStatusOnHome, key: "showGoalStatusOnHome") } }
+    @Published var safeModeEnabled: Bool = false {
+        didSet {
+            storeBool(safeModeEnabled, key: "safeModeEnabled")
+            if safeModeEnabled {
+                safeModeHideCalories = true
+                safeModeHideGoals = true
+            }
+        }
+    }
+    @Published var safeModeHideCalories: Bool = false { didSet { storeBool(safeModeHideCalories, key: "safeModeHideCalories") } }
+    @Published var safeModeHideGoals: Bool = false { didSet { storeBool(safeModeHideGoals, key: "safeModeHideGoals") } }
+    @Published var showNutritionSource: Bool = true { didSet { storeBool(showNutritionSource, key: "showNutritionSource") } }
+    @Published var personalDetails: PersonalDetails = .empty { didSet { storePersonalDetails() } }
     @Published var isOnboarding: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
@@ -37,11 +51,37 @@ class AppState: ObservableObject {
     
     init() {
         setupBindings()
+        loadPreferences()
         checkExistingSession()
     }
     
     private func setupBindings() {
         // Any reactive setup needed
+    }
+    
+    private func loadPreferences() {
+        let defaults = UserDefaults.standard
+        hapticsFeedbackEnabled = defaults.object(forKey: "hapticsFeedbackEnabled") as? Bool ?? true
+        soundFeedbackEnabled = defaults.object(forKey: "soundFeedbackEnabled") as? Bool ?? true
+        showGoalStatusOnHome = defaults.object(forKey: "showGoalStatusOnHome") as? Bool ?? true
+        safeModeEnabled = defaults.object(forKey: "safeModeEnabled") as? Bool ?? false
+        safeModeHideCalories = defaults.object(forKey: "safeModeHideCalories") as? Bool ?? false
+        safeModeHideGoals = defaults.object(forKey: "safeModeHideGoals") as? Bool ?? false
+        showNutritionSource = defaults.object(forKey: "showNutritionSource") as? Bool ?? true
+        if let data = defaults.data(forKey: "personalDetails"),
+           let decoded = try? JSONDecoder().decode(PersonalDetails.self, from: data) {
+            personalDetails = decoded
+        }
+    }
+    
+    private func storeBool(_ value: Bool, key: String) {
+        UserDefaults.standard.set(value, forKey: key)
+    }
+    
+    private func storePersonalDetails() {
+        if let data = try? JSONEncoder().encode(personalDetails) {
+            UserDefaults.standard.set(data, forKey: "personalDetails")
+        }
     }
     
     // MARK: - Auth Methods
@@ -138,6 +178,11 @@ class AppState: ObservableObject {
         self.currentUser = nil
         self.currentGoal = nil
         self.authState = .notAuthenticated
+    }
+
+    func deleteAccount() async {
+        // TODO: Call backend delete when available.
+        logout()
     }
     
     // MARK: - Logging Methods
@@ -252,14 +297,10 @@ class AppState: ObservableObject {
     func updateFeedbackSettings(haptics: Bool, sound: Bool) {
         hapticsFeedbackEnabled = haptics
         soundFeedbackEnabled = sound
-        UserDefaults.standard.set(haptics, forKey: "hapticsFeedbackEnabled")
-        UserDefaults.standard.set(sound, forKey: "soundFeedbackEnabled")
     }
     
     func loadFeedbackSettings() {
-        let defaults = UserDefaults.standard
-        hapticsFeedbackEnabled = defaults.bool(forKey: "hapticsFeedbackEnabled")
-        soundFeedbackEnabled = defaults.bool(forKey: "soundFeedbackEnabled")
+        loadPreferences()
     }
 
     // MARK: - Product Amount Memory
@@ -336,6 +377,43 @@ class AppState: ObservableObject {
         databaseService.getProductByBarcode(barcode)
     }
 
+    func loadRecentProducts(kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
+        guard let user = currentUser else { return [] }
+        return await databaseService.getRecentProducts(userId: user.id, kind: kind, limit: limit)
+    }
+    
+    func loadFavoriteProducts(kind: ProductKind? = nil) async -> [Product] {
+        guard let user = currentUser else { return [] }
+        return await databaseService.getFavorites(userId: user.id, kind: kind)
+    }
+    
+    func loadRawFoodSuggestions() async -> [MatvaretabellenProduct] {
+        if let cached = databaseService.getMatvaretabellenCache(maxAgeDays: 30) {
+            return cached
+        }
+        let items = (try? await matvaretabellenService.fetchCommonFoods()) ?? []
+        databaseService.saveMatvaretabellenCache(items)
+        return items
+    }
+    
+    func searchRawFoods(query: String) async -> [MatvaretabellenProduct] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        
+        if let cached = databaseService.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
+            let filtered = cached.filter { normalize($0.name).contains(normalize(trimmed)) }
+            if !filtered.isEmpty {
+                return filtered
+            }
+        }
+        
+        let items = (try? await matvaretabellenService.searchProducts(query: trimmed)) ?? []
+        if items.isEmpty, let cached = databaseService.getMatvaretabellenCache(maxAgeDays: 30) {
+            return cached.filter { normalize($0.name).contains(normalize(trimmed)) }
+        }
+        return items
+    }
+
     func upgradeNutritionIfPossible(for product: Product) async -> Product? {
         guard let barcode = product.barcodeEan else { return nil }
         
@@ -349,6 +427,7 @@ class AppState: ObservableObject {
                     category: mapping.category ?? product.category,
                     barcodeEan: barcode,
                     source: product.source,
+                    kind: product.kind,
                     caloriesPer100g: mapping.caloriesPer100g,
                     proteinGPer100g: mapping.proteinGPer100g,
                     carbsGPer100g: mapping.carbsGPer100g,
@@ -400,6 +479,7 @@ class AppState: ObservableObject {
                 category: best.product.category ?? product.category,
                 barcodeEan: barcode,
                 source: product.source,
+                kind: product.kind,
                 caloriesPer100g: best.product.caloriesPer100g,
                 proteinGPer100g: best.product.proteinGPer100g,
                 carbsGPer100g: best.product.carbsGPer100g,
@@ -445,6 +525,7 @@ class AppState: ObservableObject {
                 category: product.category,
                 barcodeEan: barcode,
                 source: product.source,
+                kind: product.kind,
                 caloriesPer100g: product.caloriesPer100g,
                 proteinGPer100g: product.proteinGPer100g,
                 carbsGPer100g: product.carbsGPer100g,
@@ -466,6 +547,72 @@ class AppState: ObservableObject {
         }
         
         return nil
+    }
+
+    func exportUserData() async -> URL? {
+        guard let user = currentUser else { return nil }
+        let logs = await databaseService.getAllLogs(userId: user.id)
+        let payload: [String: Any] = [
+            "user_id": user.id.uuidString,
+            "email": user.email,
+            "exported_at": ISO8601DateFormatter().string(from: Date()),
+            "logs": logs.map { log in
+                [
+                    "product_id": log.productId.uuidString,
+                    "meal_type": log.mealType,
+                    "amount_g": log.amountG,
+                    "logged_date": ISO8601DateFormatter().string(from: log.loggedDate),
+                    "calories": log.calories,
+                    "protein_g": log.proteinG,
+                    "carbs_g": log.carbsG,
+                    "fat_g": log.fatG
+                ]
+            }
+        ]
+        
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]) else {
+            return nil
+        }
+        
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export.json")
+        do {
+            try data.write(to: url)
+            return url
+        } catch {
+            return nil
+        }
+    }
+    
+    // MARK: - Weight Tracking
+    
+    func saveWeightEntry(date: Date, weightKg: Double) async {
+        guard let user = currentUser else { return }
+        let entry = WeightEntry(userId: user.id, date: date, weightKg: weightKg)
+        do {
+            try await databaseService.saveWeightEntry(entry)
+        } catch {
+            self.errorMessage = "Kunne ikke lagre vekt: \(error.localizedDescription)"
+        }
+    }
+    
+    func loadWeightEntries() async -> [WeightEntry] {
+        guard let user = currentUser else { return [] }
+        return await databaseService.getWeightEntries(userId: user.id)
+    }
+    
+    func deleteWeightEntry(_ entry: WeightEntry) async {
+        do {
+            try await databaseService.deleteWeightEntry(entry.id)
+        } catch {
+            self.errorMessage = "Kunne ikke slette vekt: \(error.localizedDescription)"
+        }
+    }
+
+    private func normalize(_ text: String) -> String {
+        let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let allowed = folded.map { $0.isLetter || $0.isNumber ? $0 : " " }
+        let cleaned = String(allowed).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func lastAmountKey(for productId: UUID) -> String {

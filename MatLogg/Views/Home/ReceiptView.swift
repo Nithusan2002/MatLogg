@@ -154,6 +154,7 @@ struct ReceiptView: View {
         category: nil,
         barcodeEan: "123456",
         source: "manual",
+        kind: .packaged,
         caloriesPer100g: 200,
         proteinGPer100g: 10,
         carbsGPer100g: 25,

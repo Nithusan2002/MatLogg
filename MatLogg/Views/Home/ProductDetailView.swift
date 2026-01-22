@@ -6,41 +6,17 @@ struct ProductDetailView: View {
     @ObservedObject var appState: AppState
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
-    @FocusState private var amountFieldFocused: Bool
     
-    @State private var amountG: Double = 100
+    @State private var amountG: Int = 100
     @State private var amountText: String = "100"
-    @State private var selectedUnit: WeightUnit = .grams
     @State private var isFavorite = false
     @State private var showingConfirmation = false
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
     @State private var showSourceInfo = false
+    @State private var showNutritionImproving = true
     @State private var useLastAmountNextTime = false
-    @State private var lastUsedAmountG: Double?
-    
-    enum WeightUnit: String, CaseIterable {
-        case grams = "g"
-        case deciliters = "dl"
-        
-        func toGrams(_ value: Double) -> Double {
-            switch self {
-            case .grams:
-                return value
-            case .deciliters:
-                return value * 100 // 1 dl ≈ 100g for most foods
-            }
-        }
-        
-        func fromGrams(_ grams: Double) -> Double {
-            switch self {
-            case .grams:
-                return grams
-            case .deciliters:
-                return grams / 100
-            }
-        }
-    }
+    @State private var lastUsedAmountG: Int?
     
     var nutrition: NutritionBreakdown {
         product.calculateNutrition(forGrams: Float(amountG))
@@ -66,12 +42,14 @@ struct ProductDetailView: View {
                     }
                     Spacer()
                     
-                    Button(action: { showSourceInfo = true }) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 18))
-                            .foregroundColor(AppColors.textSecondary)
+                    if appState.showNutritionSource {
+                        Button(action: { showSourceInfo = true }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 18))
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .padding(.trailing, 8)
                     }
-                    .padding(.trailing, 8)
                     
                     Button(action: toggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -100,7 +78,7 @@ struct ProductDetailView: View {
                             .minimumScaleFactor(0.8)
                             .padding(.horizontal, 24)
                         
-                        if product.nutritionSource == .openFoodFacts && product.verificationStatus == .unverified {
+                        if showNutritionImproving, product.nutritionSource == .openFoodFacts, product.verificationStatus == .unverified {
                             HStack(spacing: 6) {
                                 ProgressView()
                                     .scaleEffect(0.8)
@@ -119,10 +97,12 @@ struct ProductDetailView: View {
                                     .foregroundColor(AppColors.ink)
                                 
                                 VStack(spacing: 8) {
-                                    NutritionRowView(
-                                        label: "Energi",
-                                        value: "\(Int(product.caloriesPer100g)) kcal"
-                                    )
+                                    if !appState.safeModeHideCalories {
+                                        NutritionRowView(
+                                            label: "Energi",
+                                            value: "\(Int(product.caloriesPer100g)) kcal"
+                                        )
+                                    }
                                     NutritionRowView(
                                         label: "Protein",
                                         value: "\(String(format: "%.1f", product.proteinGPer100g)) g"
@@ -170,113 +150,68 @@ struct ProductDetailView: View {
                         // Amount Input Section
                         CardContainer {
                             VStack(spacing: 12) {
-                                Text("Mengde")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .foregroundColor(AppColors.ink)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(quickAmountChips, id: \.title) { chip in
-                                            Button(action: {
-                                                applyAmount(chip.grams, triggerHaptic: true)
-                                                amountFieldFocused = false
-                                            }) {
-                                                Text(chip.title)
-                                                    .font(AppTypography.body)
-                                                    .padding(.horizontal, 12)
-                                                    .padding(.vertical, 8)
-                                                    .background(AppColors.surface)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 16)
-                                                            .stroke(AppColors.separator, lineWidth: 1)
-                                                    )
-                                                    .cornerRadius(16)
-                                            }
-                                        }
-                                        
-                                        Button(action: {
-                                            amountFieldFocused = true
-                                        }) {
-                                            Text("Tilpass")
-                                                .font(AppTypography.body)
-                                                .padding(.horizontal, 12)
-                                                .padding(.vertical, 8)
-                                                .background(AppColors.chipFillSelected)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 16)
-                                                        .stroke(AppColors.separator, lineWidth: 1)
-                                                )
-                                                .cornerRadius(16)
-                                        }
-                                    }
-                                    .padding(.vertical, 4)
-                                }
-                                
-                                HStack(spacing: 12) {
-                                    TextField("Mengde", text: $amountText)
-                                        .keyboardType(.decimalPad)
-                                        .font(AppTypography.body)
-                                        .padding(12)
-                                        .background(AppColors.surface)
-                                        .cornerRadius(8)
-                                        .focused($amountFieldFocused)
-                                        .onChange(of: amountText) {
-                                            if let value = parseAmountText(amountText) {
-                                                amountG = selectedUnit.toGrams(value)
-                                                HapticFeedbackService.shared.trigger(
-                                                    .stepperTap,
-                                                    isEnabled: appState.hapticsFeedbackEnabled
-                                                )
-                                            }
-                                        }
-                                    
-                                    Picker("Enhet", selection: $selectedUnit) {
-                                        ForEach(WeightUnit.allCases, id: \.self) { unit in
-                                            Text(unit.rawValue).tag(unit)
-                                        }
-                                    }
-                                    .frame(width: 80)
-                                    .onChange(of: selectedUnit) {
-                                        let converted = selectedUnit.fromGrams(amountG)
-                                        amountText = formatAmountText(converted)
+                                AmountInputRow(
+                                    gramsText: $amountText,
+                                    placeholder: "0",
+                                    onFocus: {
                                         HapticFeedbackService.shared.trigger(
                                             .stepperTap,
                                             isEnabled: appState.hapticsFeedbackEnabled
                                         )
                                     }
+                                )
+                                
+                                Text("Din mengde")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                LazyVGrid(columns: summaryColumns, spacing: 8) {
+                                    if !appState.safeModeHideCalories {
+                                        SummaryPill(
+                                            label: "kcal",
+                                            value: "\(Int(nutrition.calories))",
+                                            backgroundColor: AppColors.brand
+                                        )
+                                    }
+                                    SummaryPill(
+                                        label: "Proteiner",
+                                        value: String(format: "%.1f g", nutrition.protein),
+                                        backgroundColor: AppColors.macroProteinTint
+                                    )
+                                    SummaryPill(
+                                        label: "Karbohydrater",
+                                        value: String(format: "%.1f g", nutrition.carbs),
+                                        backgroundColor: AppColors.macroCarbTint
+                                    )
+                                    SummaryPill(
+                                        label: "Fett",
+                                        value: String(format: "%.1f g", nutrition.fat),
+                                        backgroundColor: AppColors.macroFatTint
+                                    )
                                 }
                                 
-                                HStack(spacing: 12) {
-                                    inlineMacroValue(label: "kcal", value: "\(Int(nutrition.calories))")
-                                    inlineMacroValue(label: "P", value: String(format: "%.1f", nutrition.protein))
-                                    inlineMacroValue(label: "K", value: String(format: "%.1f", nutrition.carbs))
-                                    inlineMacroValue(label: "F", value: String(format: "%.1f", nutrition.fat))
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                HStack {
-                                    Text("Total")
-                                        .font(AppTypography.body)
+                                if amountG == 0 {
+                                    Text("Skriv inn mengde i gram")
+                                        .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
-                                    Spacer()
-                                    Text("\(Int(amountG)) g")
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.ink)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                 }
-                                .padding(.top, 8)
                                 
                                 if let lastUsedAmountG {
                                     Toggle(isOn: $useLastAmountNextTime) {
-                                        Text("Bruk sist (\(Int(lastUsedAmountG)) g) neste gang")
+                                        Text("Bruk sist (\(lastUsedAmountG) g) neste gang")
                                             .font(AppTypography.body)
                                             .foregroundColor(AppColors.textSecondary)
                                     }
-                                    .onChange(of: useLastAmountNextTime) {
-                                        appState.setUseLastAmount(useLastAmountNextTime, for: product.id)
+                                    .onChange(of: useLastAmountNextTime) { _, newValue in
+                                        appState.setUseLastAmount(newValue, for: product.id)
                                     }
                                 }
                             }
+                        }
+                        .onChange(of: amountText) { _, newValue in
+                            updateAmountFromText(newValue)
                         }
                         .padding(.horizontal)
                         
@@ -287,6 +222,7 @@ struct ProductDetailView: View {
                     }
                     .padding(.vertical)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 
                 // Add Button
                 PrimaryButton(
@@ -295,6 +231,8 @@ struct ProductDetailView: View {
                     action: { showingConfirmation = true }
                 )
                 .padding()
+                .disabled(amountG <= 0)
+                .opacity(amountG > 0 ? 1.0 : 0.5)
                 .alert("Bekreft", isPresented: $showingConfirmation) {
                     Button("Legg til", action: {
                         Task {
@@ -303,7 +241,7 @@ struct ProductDetailView: View {
                                 amountG: Float(amountG),
                                 mealType: selectedMealType
                             )
-                            appState.setLastUsedAmount(amountG, for: product.id)
+                            appState.setLastUsedAmount(Double(amountG), for: product.id)
                             lastUsedAmountG = amountG
                             HapticFeedbackService.shared.trigger(
                                 .loggingSuccess,
@@ -316,7 +254,7 @@ struct ProductDetailView: View {
                             onLogComplete?(
                                 ReceiptPayload(
                                     product: product,
-                                    amountG: amountG,
+                                    amountG: Double(amountG),
                                     nutrition: nutrition,
                                     mealType: selectedMealType
                                 )
@@ -325,21 +263,34 @@ struct ProductDetailView: View {
                     })
                     Button("Avbryt", role: .cancel) {}
                 } message: {
-                    Text("Legge til \(Int(amountG))g av \(product.name)?")
+                    Text("Legge til \(amountG) g av \(product.name)?")
                 }
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Ferdig") { hideKeyboard() }
+                    .foregroundColor(AppColors.brand)
             }
         }
         .onAppear {
             isFavorite = appState.isFavorite(product)
-            lastUsedAmountG = appState.getLastUsedAmount(for: product.id)
+            if let lastAmount = appState.getLastUsedAmount(for: product.id) {
+                lastUsedAmountG = Int(lastAmount)
+            }
             useLastAmountNextTime = appState.shouldUseLastAmount(for: product.id)
             let initialAmount = (useLastAmountNextTime ? lastUsedAmountG : nil) ?? 100
-            applyAmount(initialAmount, triggerHaptic: false)
+            setAmount(initialAmount)
             selectedMealType = appState.selectedMealType
             HapticFeedbackService.shared.trigger(
                 .barcodeDetected,
                 isEnabled: appState.hapticsFeedbackEnabled
             )
+            showNutritionImproving = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                showNutritionImproving = false
+            }
         }
         .sheet(isPresented: $showImagePreview) {
             ImagePreviewView(imageUrl: product.imageUrl)
@@ -354,51 +305,35 @@ struct ProductDetailView: View {
         }
     }
 
-    private var quickAmountChips: [(title: String, grams: Double)] {
-        if let portions = product.standardPortions, !portions.isEmpty {
-            return portions.map { (title: $0.label, grams: $0.grams) }
-        }
-        return [
-            ("50g", 50.0),
-            ("100g", 100.0),
-            ("150g", 150.0),
-            ("200g", 200.0)
-        ]
+    private let amountRange: ClosedRange<Int> = 0...5000
+    private let summaryColumns = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+    
+    private func setAmount(_ grams: Int) {
+        let clamped = min(max(grams, amountRange.lowerBound), amountRange.upperBound)
+        amountG = clamped
+        amountText = clamped > 0 ? String(clamped) : ""
     }
     
-    private func applyAmount(_ grams: Double, triggerHaptic: Bool) {
-        amountG = grams
-        let unitValue = selectedUnit.fromGrams(grams)
-        amountText = formatAmountText(unitValue)
-        if triggerHaptic {
-            HapticFeedbackService.shared.trigger(
-                .stepperTap,
-                isEnabled: appState.hapticsFeedbackEnabled
-            )
+    private func updateAmountFromText(_ text: String) {
+        let sanitized = text.filter { $0.isNumber }
+        if sanitized != text {
+            amountText = sanitized
+            return
         }
-    }
-    
-    private func formatAmountText(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
+        
+        guard !sanitized.isEmpty, let value = Int(sanitized) else {
+            amountG = 0
+            return
         }
-        return String(format: "%.1f", value)
-    }
-    
-    private func parseAmountText(_ text: String) -> Double? {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
-    }
-    
-    private func inlineMacroValue(label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-            Text(value)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.ink)
+        
+        let clamped = min(max(value, amountRange.lowerBound), amountRange.upperBound)
+        if clamped != value {
+            amountText = String(clamped)
         }
+        amountG = clamped
     }
 
     private var heroView: some View {
@@ -602,6 +537,7 @@ struct NutritionRowView: View {
         category: nil,
         barcodeEan: "1234567890",
         source: "manual",
+        kind: .packaged,
         caloriesPer100g: 200,
         proteinGPer100g: 10,
         carbsGPer100g: 20,

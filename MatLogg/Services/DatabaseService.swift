@@ -11,6 +11,8 @@ class DatabaseService {
     private var favorites: [UUID: Favorite] = [:]
     private var scanHistory: [UUID: ScanHistory] = [:]
     private var matchMappings: [String: ProductMatchMapping] = [:]
+    private var matvaretabellenCache: MatvaretabellenCache?
+    private var weightEntries: [UUID: WeightEntry] = [:]
     
     func saveGoal(_ goal: Goal) async throws {
         goals[goal.id] = goal
@@ -28,6 +30,10 @@ class DatabaseService {
     
     func deleteLog(_ id: UUID) async throws {
         logs.removeValue(forKey: id)
+    }
+
+    func getAllLogs(userId: UUID) async -> [FoodLog] {
+        logs.values.filter { $0.userId == userId }
     }
     
     func getSummary(userId: UUID, date: Date) async -> DailySummary {
@@ -98,4 +104,71 @@ class DatabaseService {
         let userScans = scanHistory.values.filter { $0.userId == userId }
         return Array(userScans.sorted { $0.scannedAt > $1.scannedAt }.prefix(limit))
     }
+    
+    func saveWeightEntry(_ entry: WeightEntry) async throws {
+        if let existing = weightEntries.values.first(where: {
+            $0.userId == entry.userId && Calendar.current.isDate($0.date, inSameDayAs: entry.date)
+        }) {
+            weightEntries.removeValue(forKey: existing.id)
+        }
+        weightEntries[entry.id] = entry
+    }
+    
+    func deleteWeightEntry(_ id: UUID) async throws {
+        weightEntries.removeValue(forKey: id)
+    }
+    
+    func getWeightEntries(userId: UUID) async -> [WeightEntry] {
+        let entries = weightEntries.values.filter { $0.userId == userId }
+        return entries.sorted { $0.date < $1.date }
+    }
+    
+    func getFavorites(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
+        let userFavorites = favorites.values.filter { $0.userId == userId }
+        var productsList: [Product] = []
+        for favorite in userFavorites {
+            if let product = products[favorite.productId] {
+                if let kind, product.kind != kind {
+                    continue
+                }
+                productsList.append(product)
+            }
+        }
+        return productsList
+    }
+    
+    func getRecentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
+        let userLogs = logs.values.filter { $0.userId == userId }
+        let sortedLogs = userLogs.sorted { $0.loggedTime > $1.loggedTime }
+        var seen = Set<UUID>()
+        var results: [Product] = []
+        for log in sortedLogs {
+            guard let product = products[log.productId] else { continue }
+            if let kind, product.kind != kind {
+                continue
+            }
+            if seen.insert(product.id).inserted {
+                results.append(product)
+            }
+            if results.count >= limit {
+                break
+            }
+        }
+        return results
+    }
+    
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {
+        matvaretabellenCache = MatvaretabellenCache(items: items, updatedAt: Date())
+    }
+    
+    func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? {
+        guard let cache = matvaretabellenCache else { return nil }
+        let age = Calendar.current.dateComponents([.day], from: cache.updatedAt, to: Date()).day ?? 0
+        return age <= maxAgeDays ? cache.items : nil
+    }
+}
+
+private struct MatvaretabellenCache {
+    let items: [MatvaretabellenProduct]
+    let updatedAt: Date
 }

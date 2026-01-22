@@ -56,7 +56,8 @@ struct Product: Codable, Identifiable {
     let brand: String?
     let category: String?
     let barcodeEan: String?
-    let source: String // "matvaretabellen", "user", "shared"
+    let source: String // "matvaretabellen", "openfoodfacts", "user", "shared"
+    let kind: ProductKind
     
     // Nutrition per 100g
     let caloriesPer100g: Int
@@ -86,6 +87,7 @@ struct Product: Codable, Identifiable {
         category: String? = nil,
         barcodeEan: String? = nil,
         source: String = "user",
+        kind: ProductKind = .packaged,
         caloriesPer100g: Int,
         proteinGPer100g: Float,
         carbsGPer100g: Float,
@@ -108,6 +110,7 @@ struct Product: Codable, Identifiable {
         self.category = category
         self.barcodeEan = barcodeEan
         self.source = source
+        self.kind = kind
         self.caloriesPer100g = caloriesPer100g
         self.proteinGPer100g = proteinGPer100g
         self.carbsGPer100g = carbsGPer100g
@@ -181,6 +184,75 @@ enum VerificationStatus: String, Codable {
     case verified
     case unverified
     case suggestedMatch
+}
+
+enum ProductKind: String, Codable {
+    case packaged
+    case genericFood
+}
+
+struct WeightEntry: Codable, Identifiable {
+    let id: UUID
+    let userId: UUID
+    let date: Date // date-only
+    let weightKg: Double
+    let createdAt: Date
+    
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        date: Date,
+        weightKg: Double,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.date = Calendar.current.startOfDay(for: date)
+        self.weightKg = weightKg
+        self.createdAt = createdAt
+    }
+}
+
+struct PersonalDetails: Codable {
+    var weightKg: Double?
+    var heightCm: Double?
+    var birthDate: Date?
+    var gender: GenderOption?
+    var activityLevel: ActivityLevel?
+    
+    static let empty = PersonalDetails()
+}
+
+enum GenderOption: String, Codable, CaseIterable {
+    case kvinne
+    case mann
+    case annet
+    case ikkeOppgi
+    
+    var label: String {
+        switch self {
+        case .kvinne: return "Kvinne"
+        case .mann: return "Mann"
+        case .annet: return "Annet"
+        case .ikkeOppgi: return "Ønsker ikke å oppgi"
+        }
+    }
+}
+
+enum ActivityLevel: String, Codable, CaseIterable {
+    case lav
+    case moderat
+    case hoy
+    case ikkeOppgi
+    
+    var label: String {
+        switch self {
+        case .lav: return "Lav"
+        case .moderat: return "Moderat"
+        case .hoy: return "Høy"
+        case .ikkeOppgi: return "Ønsker ikke å oppgi"
+        }
+    }
 }
 
 // MARK: - Logs
