@@ -31,7 +31,7 @@ struct AmountInputRow: View {
             
             SelectAllTextField(text: $gramsText, placeholder: placeholder, onFocus: onFocus)
                 .font(.system(size: 22, weight: .semibold))
-                .keyboardType(.numberPad)
+                .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .padding(.horizontal, 10)
                 .frame(width: 76)
@@ -59,7 +59,7 @@ struct SelectAllTextField: UIViewRepresentable {
         let field = UITextField()
         field.delegate = context.coordinator
         field.textAlignment = .right
-        field.keyboardType = .numberPad
+        field.keyboardType = .decimalPad
         field.placeholder = placeholder
         field.addTarget(context.coordinator, action: #selector(Coordinator.editingChanged), for: .editingChanged)
         return field

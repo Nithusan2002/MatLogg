@@ -4,6 +4,7 @@ struct ProgressRow: View {
     let label: String
     let valueText: String
     let progress: Double
+    let tint: Color
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -23,7 +24,7 @@ struct ProgressRow: View {
                     Capsule()
                         .fill(AppColors.progressTrack)
                     Capsule()
-                        .fill(AppColors.progressFill)
+                        .fill(tint.opacity(0.75))
                         .frame(width: proxy.size.width * clamped)
                 }
             }

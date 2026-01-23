@@ -8,6 +8,7 @@ struct LoggView: View {
     @State private var showDatePicker = false
     @State private var searchText = ""
     @State private var mealFilter: String?
+    @State private var showFilterSheet = false
     @State private var showAddActions = false
     @State private var activeSheet: AddSheet?
     @State private var editingLog: FoodLog?
@@ -38,13 +39,7 @@ struct LoggView: View {
             .navigationTitle("Logg")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("Alle måltider") { mealFilter = nil }
-                        Button("Frokost") { mealFilter = "frokost" }
-                        Button("Lunsj") { mealFilter = "lunsj" }
-                        Button("Middag") { mealFilter = "middag" }
-                        Button("Snacks") { mealFilter = "snacks" }
-                    } label: {
+                    Button(action: { showFilterSheet = true }) {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                     .disabled(!hasLogs)
@@ -68,6 +63,11 @@ struct LoggView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showFilterSheet) {
+                LoggFilterSheet(selected: $mealFilter)
+                    .presentationDetents([.fraction(0.32)])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
@@ -162,6 +162,7 @@ struct LoggView: View {
                         Image(systemName: "chevron.left")
                     }
                     .frame(width: 44, height: 44)
+                    .buttonStyle(.plain)
                     
                     Spacer()
                     
@@ -172,6 +173,7 @@ struct LoggView: View {
                             Image(systemName: "calendar")
                         }
                     }
+                    .buttonStyle(.plain)
                     
                     Spacer()
                     
@@ -181,34 +183,47 @@ struct LoggView: View {
                     .frame(width: 44, height: 44)
                     .opacity(canGoToNextDay ? 1 : 0.3)
                     .disabled(!canGoToNextDay)
+                    .buttonStyle(.plain)
                 }
                 .foregroundColor(AppColors.ink)
                 .padding(.vertical, 4)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { showDatePicker = true }
             .listRowBackground(AppColors.background)
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowSeparator(.hidden)
             
             if hasLogs {
                 Section {
-                    CardContainer {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Dagsoppsummering")
-                                .font(AppTypography.caption)
-                                .foregroundColor(AppColors.textSecondary)
-                            HStack(spacing: 12) {
-                                if !appState.safeModeHideCalories {
-                                    Text("\(selectedSummary?.totalCalories ?? 0) kcal")
+                    Button(action: {
+                        mealFilter = nil
+                        searchText = ""
+                    }) {
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Dagsoppsummering")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                    Spacer()
+                                    Text("\(selectedSummary?.logs.count ?? 0) innslag")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
                                 }
-                                Text("P \(Int(selectedSummary?.totalProtein ?? 0)) g")
-                                Text("K \(Int(selectedSummary?.totalCarbs ?? 0)) g")
-                                Text("F \(Int(selectedSummary?.totalFat ?? 0)) g")
+                                
+                                if !appState.safeModeHideCalories {
+                                    HStack(spacing: 12) {
+                                        Text("\(selectedSummary?.totalCalories ?? 0) kcal")
+                                        Text("P \(Int(selectedSummary?.totalProtein ?? 0)) g")
+                                        Text("K \(Int(selectedSummary?.totalCarbs ?? 0)) g")
+                                        Text("F \(Int(selectedSummary?.totalFat ?? 0)) g")
+                                    }
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                                }
                             }
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.ink)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
                 .listRowBackground(AppColors.background)
                 .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -274,9 +289,13 @@ struct LoggView: View {
                             .background(AppColors.brand)
                             .cornerRadius(12)
                     }
+                    .buttonStyle(.plain)
                     
                     if !isTodaySelected {
-                        Button(action: { selectedDate = Date() }) {
+                        Button(action: {
+                            showAddActions = false
+                            selectedDate = Date()
+                        }) {
                             Text("Gå til i dag")
                                 .font(AppTypography.bodyEmphasis)
                                 .foregroundColor(AppColors.ink)
@@ -289,6 +308,7 @@ struct LoggView: View {
                                 )
                                 .cornerRadius(12)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -299,11 +319,7 @@ struct LoggView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         
-        if hasLogs {
-            baseList.searchable(text: $searchText, prompt: "Søk i logg")
-        } else {
-            baseList
-        }
+        baseList.searchable(text: $searchText, prompt: hasLogs ? "Søk i dagens logg" : "Søk i logg")
     }
     
     private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
@@ -364,6 +380,51 @@ struct LoggView: View {
             yesterdaySummary = await appState.fetchSummary(for: yesterdayDate())
         } else {
             yesterdaySummary = nil
+        }
+    }
+}
+
+struct LoggFilterSheet: View {
+    @Binding var selected: String?
+    @Environment(\.dismiss) private var dismiss
+    
+    private let options: [(label: String, value: String?)] = [
+        ("Alle måltider", nil),
+        ("Frokost", "frokost"),
+        ("Lunsj", "lunsj"),
+        ("Middag", "middag"),
+        ("Snacks", "snacks")
+    ]
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(options, id: \.label) { option in
+                    Button(action: {
+                        selected = option.value
+                        dismiss()
+                    }) {
+                        HStack {
+                            Text(option.label)
+                                .foregroundColor(AppColors.ink)
+                            Spacer()
+                            if selected == option.value {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(AppColors.brand)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Filter")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Nullstill") {
+                        selected = nil
+                    }
+                    .foregroundColor(AppColors.brand)
+                }
+            }
         }
     }
 }

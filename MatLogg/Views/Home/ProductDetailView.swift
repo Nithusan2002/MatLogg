@@ -7,16 +7,14 @@ struct ProductDetailView: View {
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
     
-    @State private var amountG: Int = 100
+    @State private var amountG: Double = 100
     @State private var amountText: String = "100"
     @State private var isFavorite = false
-    @State private var showingConfirmation = false
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
     @State private var showSourceInfo = false
     @State private var showNutritionImproving = true
-    @State private var useLastAmountNextTime = false
-    @State private var lastUsedAmountG: Int?
+    @State private var showPer100g = false
     
     var nutrition: NutritionBreakdown {
         product.calculateNutrition(forGrams: Float(amountG))
@@ -79,23 +77,12 @@ struct ProductDetailView: View {
                             .padding(.horizontal, 24)
                         
                         if showNutritionImproving, product.nutritionSource == .openFoodFacts, product.verificationStatus == .unverified {
-                            HStack(spacing: 6) {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("Forbedrer næringsdata…")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
+                            EmptyView()
                         }
                         
-                        // Nutrition Facts - Per 100g
+                        // Per 100 g (collapsible)
                         CardContainer {
-                            VStack(spacing: 12) {
-                                Text("Næringsinnhold per 100g")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .foregroundColor(AppColors.ink)
-                                
+                            DisclosureGroup(isExpanded: $showPer100g) {
                                 VStack(spacing: 8) {
                                     if !appState.safeModeHideCalories {
                                         NutritionRowView(
@@ -116,6 +103,11 @@ struct ProductDetailView: View {
                                         value: "\(String(format: "%.1f", product.fatGPer100g)) g"
                                     )
                                 }
+                                .padding(.top, 8)
+                            } label: {
+                                Text("Vis per 100 g")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
                             }
                         }
                         .padding(.horizontal)
@@ -130,7 +122,7 @@ struct ProductDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .foregroundColor(AppColors.ink)
                                 
-                                HStack(spacing: 8) {
+                                LazyVGrid(columns: mealColumns, spacing: 8) {
                                     ForEach(0..<mealTypes.count, id: \.self) { index in
                                         MealChip(
                                             title: mealTypes[index],
@@ -161,6 +153,32 @@ struct ProductDetailView: View {
                                     }
                                 )
                                 
+                                if let servings = product.servings, !servings.isEmpty {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(servings) { option in
+                                                Button(action: {
+                                                    setAmount(option.grams)
+                                                }) {
+                                                    Text(option.label)
+                                                        .font(AppTypography.body)
+                                                        .foregroundColor(AppColors.ink)
+                                                        .lineLimit(1)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(AppColors.surface)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 16)
+                                                                .stroke(AppColors.separator, lineWidth: 1)
+                                                        )
+                                                        .cornerRadius(16)
+                                                }
+                                            }
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
+                                }
+                                
                                 Text("Din mengde")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
@@ -169,8 +187,8 @@ struct ProductDetailView: View {
                                 LazyVGrid(columns: summaryColumns, spacing: 8) {
                                     if !appState.safeModeHideCalories {
                                         SummaryPill(
-                                            label: "kcal",
-                                            value: "\(Int(nutrition.calories))",
+                                            label: "Energi",
+                                            value: "\(Int(nutrition.calories)) kcal",
                                             tintColor: AppColors.brand
                                         )
                                     }
@@ -191,23 +209,14 @@ struct ProductDetailView: View {
                                     )
                                 }
                                 
-                                if amountG == 0 {
+                                if amountG <= 0.0001 {
                                     Text("Skriv inn mengde i gram")
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 
-                                if let lastUsedAmountG {
-                                    Toggle(isOn: $useLastAmountNextTime) {
-                                        Text("Bruk sist (\(lastUsedAmountG) g) neste gang")
-                                            .font(AppTypography.body)
-                                            .foregroundColor(AppColors.textSecondary)
-                                    }
-                                    .onChange(of: useLastAmountNextTime) { _, newValue in
-                                        appState.setUseLastAmount(newValue, for: product.id)
-                                    }
-                                }
+                                
                             }
                         }
                         .onChange(of: amountText) { _, newValue in
@@ -218,9 +227,9 @@ struct ProductDetailView: View {
                         Divider()
                             .padding(.horizontal)
                         
-                        Spacer(minLength: 8)
                     }
                     .padding(.vertical)
+                    .padding(.bottom, 24)
                 }
                 .scrollDismissesKeyboard(.interactively)
                 
@@ -228,43 +237,11 @@ struct ProductDetailView: View {
                 PrimaryButton(
                     title: "Legg til \(selectedMealType)",
                     systemImage: "plus.circle.fill",
-                    action: { showingConfirmation = true }
+                    action: logProduct
                 )
                 .padding()
-                .disabled(amountG <= 0)
-                .opacity(amountG > 0 ? 1.0 : 0.5)
-                .alert("Bekreft", isPresented: $showingConfirmation) {
-                    Button("Legg til", action: {
-                        Task {
-                            await appState.logFood(
-                                product: product,
-                                amountG: Float(amountG),
-                                mealType: selectedMealType
-                            )
-                            appState.setLastUsedAmount(Double(amountG), for: product.id)
-                            lastUsedAmountG = amountG
-                            HapticFeedbackService.shared.trigger(
-                                .loggingSuccess,
-                                isEnabled: appState.hapticsFeedbackEnabled
-                            )
-                            SoundFeedbackService.shared.play(
-                                .loggingSuccess,
-                                isEnabled: appState.soundFeedbackEnabled
-                            )
-                            onLogComplete?(
-                                ReceiptPayload(
-                                    product: product,
-                                    amountG: Double(amountG),
-                                    nutrition: nutrition,
-                                    mealType: selectedMealType
-                                )
-                            )
-                        }
-                    })
-                    Button("Avbryt", role: .cancel) {}
-                } message: {
-                    Text("Legge til \(amountG) g av \(product.name)?")
-                }
+                .disabled(amountG <= 0.0001)
+                .opacity(amountG > 0.0001 ? 1.0 : 0.5)
             }
         }
         .toolbar {
@@ -276,12 +253,7 @@ struct ProductDetailView: View {
         }
         .onAppear {
             isFavorite = appState.isFavorite(product)
-            if let lastAmount = appState.getLastUsedAmount(for: product.id) {
-                lastUsedAmountG = Int(lastAmount)
-            }
-            useLastAmountNextTime = appState.shouldUseLastAmount(for: product.id)
-            let initialAmount = (useLastAmountNextTime ? lastUsedAmountG : nil) ?? 100
-            setAmount(initialAmount)
+            setAmount(100)
             selectedMealType = appState.selectedMealType
             HapticFeedbackService.shared.trigger(
                 .barcodeDetected,
@@ -305,35 +277,77 @@ struct ProductDetailView: View {
         }
     }
 
-    private let amountRange: ClosedRange<Int> = 0...5000
+    private let amountRange: ClosedRange<Double> = 0...5000
     private let summaryColumns = [
         GridItem(.flexible(), spacing: 8),
         GridItem(.flexible(), spacing: 8)
     ]
+    private let mealColumns = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+
+    private func logProduct() {
+        Task {
+            await appState.logFood(
+                product: product,
+                amountG: Float(amountG),
+                mealType: selectedMealType
+            )
+            appState.setLastUsedAmount(Double(amountG), for: product.id)
+            HapticFeedbackService.shared.trigger(
+                .loggingSuccess,
+                isEnabled: appState.hapticsFeedbackEnabled
+            )
+            SoundFeedbackService.shared.play(
+                .loggingSuccess,
+                isEnabled: appState.soundFeedbackEnabled
+            )
+            onLogComplete?(
+                ReceiptPayload(
+                    product: product,
+                    amountG: Double(amountG),
+                    nutrition: nutrition,
+                    mealType: selectedMealType
+                )
+            )
+        }
+    }
     
-    private func setAmount(_ grams: Int) {
+    private func setAmount(_ grams: Double) {
         let clamped = min(max(grams, amountRange.lowerBound), amountRange.upperBound)
         amountG = clamped
-        amountText = clamped > 0 ? String(clamped) : ""
+        amountText = clamped > 0 ? formatAmountText(clamped) : ""
     }
     
     private func updateAmountFromText(_ text: String) {
-        let sanitized = text.filter { $0.isNumber }
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        let allowed = normalized.filter { $0.isNumber || $0 == "." }
+        let parts = allowed.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+        let sanitized = parts.count > 1 ? "\(parts[0]).\(parts[1])" : String(allowed)
+        
         if sanitized != text {
             amountText = sanitized
             return
         }
         
-        guard !sanitized.isEmpty, let value = Int(sanitized) else {
+        guard !sanitized.isEmpty, let value = Double(sanitized) else {
             amountG = 0
             return
         }
         
         let clamped = min(max(value, amountRange.lowerBound), amountRange.upperBound)
         if clamped != value {
-            amountText = String(clamped)
+            amountText = formatAmountText(clamped)
         }
         amountG = clamped
+    }
+
+    private func formatAmountText(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(value))
+        }
+        return String(format: "%.1f", value)
     }
 
     private var heroView: some View {

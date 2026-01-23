@@ -36,7 +36,7 @@ struct ThemePreviewView: View {
                             ProgressRow(
                                 label: "Proteiner",
                                 valueText: "45g / 120g",
-                                progress: 0.38
+                            progress: 0.38, tint: AppColors.brand
                             )
                         }
                     }

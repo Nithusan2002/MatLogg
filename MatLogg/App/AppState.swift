@@ -13,7 +13,11 @@ class AppState: ObservableObject {
         dailyCalories: 2000,
         proteinTargetG: 150,
         carbsTargetG: 250,
-        fatTargetG: 65
+        fatTargetG: 65,
+        intent: .maintain,
+        pace: .calm,
+        activityLevel: .moderat,
+        safeModeEnabled: false
     )
     @Published var selectedMealType: String = "lunsj" // default meal
     @Published var selectedTab: Int = 0
@@ -223,6 +227,26 @@ class AppState: ObservableObject {
         }
     }
     
+    func undoLatestLog(productId: UUID, mealType: String, amountG: Float, date: Date = Date()) async {
+        guard let user = currentUser else { return }
+        let logs = await databaseService.getAllLogs(userId: user.id)
+        let day = Calendar.current.startOfDay(for: date)
+        let candidates = logs.filter {
+            $0.productId == productId &&
+            $0.mealType == mealType &&
+            $0.amountG == amountG &&
+            Calendar.current.isDate($0.loggedDate, inSameDayAs: day)
+        }
+        guard let latest = candidates.max(by: { $0.loggedTime < $1.loggedTime }) else { return }
+        
+        do {
+            try await databaseService.deleteLog(latest.id)
+            await loadTodaysSummary()
+        } catch {
+            self.errorMessage = "Kunne ikke angre logging: \(error.localizedDescription)"
+        }
+    }
+    
     func updateLog(_ log: FoodLog, amountG: Float, mealType: String) async {
         guard let product = getProduct(log.productId) else { return }
         let nutrition = product.calculateNutrition(forGrams: amountG)
@@ -376,7 +400,11 @@ class AppState: ObservableObject {
                     dailyCalories: 2000,
                     proteinTargetG: 150,
                     carbsTargetG: 250,
-                    fatTargetG: 65
+                    fatTargetG: 65,
+                    intent: .maintain,
+                    pace: .calm,
+                    activityLevel: .moderat,
+                    safeModeEnabled: safeModeEnabled
                 )
             }
         }
@@ -466,6 +494,7 @@ class AppState: ObservableObject {
                     sodiumMgPer100g: mapping.sodiumMgPer100g,
                     imageUrl: product.imageUrl,
                     standardPortions: product.standardPortions,
+                    servings: product.servings,
                     nutritionSource: .matvaretabellen,
                     imageSource: product.imageUrl == nil ? .none : product.imageSource,
                     verificationStatus: .verified,
@@ -518,6 +547,7 @@ class AppState: ObservableObject {
                 sodiumMgPer100g: best.product.sodiumMgPer100g,
                 imageUrl: product.imageUrl,
                 standardPortions: product.standardPortions,
+                servings: product.servings,
                 nutritionSource: .matvaretabellen,
                 imageSource: product.imageUrl == nil ? .none : product.imageSource,
                 verificationStatus: .verified,
@@ -564,6 +594,7 @@ class AppState: ObservableObject {
                 sodiumMgPer100g: product.sodiumMgPer100g,
                 imageUrl: product.imageUrl,
                 standardPortions: product.standardPortions,
+                servings: product.servings,
                 nutritionSource: product.nutritionSource,
                 imageSource: product.imageUrl == nil ? .none : product.imageSource,
                 verificationStatus: .suggestedMatch,

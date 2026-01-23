@@ -25,50 +25,53 @@ struct ProductHeroImageView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        Group {
-            if let image {
-                heroView(with: Image(uiImage: image))
-            } else if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        heroPlaceholder
-                    case .success(let image):
-                        heroView(with: image)
-                    case .failure:
-                        heroPlaceholder
-                    @unknown default:
-                        heroPlaceholder
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            Group {
+                if let image {
+                    heroView(with: Image(uiImage: image), width: width)
+                } else if let url {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            heroPlaceholder(width: width)
+                        case .success(let image):
+                            heroView(with: image, width: width)
+                        case .failure:
+                            heroPlaceholder(width: width)
+                        @unknown default:
+                            heroPlaceholder(width: width)
+                        }
                     }
+                } else {
+                    heroPlaceholder(width: width)
                 }
-            } else {
-                heroPlaceholder
             }
+            .frame(width: width, height: height)
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(AppColors.separator.opacity(0.7), lineWidth: 1)
+            )
+            .clipped()
         }
-        .frame(maxWidth: .infinity)
         .frame(height: height)
-        .background(AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(AppColors.separator.opacity(0.7), lineWidth: 1)
-        )
-        .clipped()
     }
     
-    private func heroView(with image: Image) -> some View {
+    private func heroView(with image: Image, width: CGFloat) -> some View {
         ZStack {
             image
                 .resizable()
                 .scaledToFill()
-                .frame(height: height)
+                .frame(width: width, height: height)
                 .blur(radius: 18)
                 .overlay(washOverlay)
             
             image
                 .resizable()
                 .scaledToFit()
-                .frame(height: thumbnailHeight)
+                .frame(width: width * 0.7, height: thumbnailHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .shadow(color: AppColors.ink.opacity(0.12), radius: 10, x: 0, y: 6)
         }
@@ -79,7 +82,7 @@ struct ProductHeroImageView: View {
         return AppColors.ink.opacity(opacity)
     }
     
-    private var heroPlaceholder: some View {
+    private func heroPlaceholder(width: CGFloat) -> some View {
         ZStack {
             AppColors.surface
             
@@ -92,5 +95,6 @@ struct ProductHeroImageView: View {
                     .foregroundColor(AppColors.textSecondary)
             }
         }
+        .frame(width: width, height: height)
     }
 }

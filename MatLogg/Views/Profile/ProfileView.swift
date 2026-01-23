@@ -6,11 +6,6 @@ struct ProfileView: View {
     @State private var showShareSheet = false
     @State private var exportURL: URL?
     
-    @State private var dailyCalories = ""
-    @State private var proteinTarget = ""
-    @State private var carbsTarget = ""
-    @State private var fatTarget = ""
-    
     var body: some View {
         NavigationStack {
             Form {
@@ -65,21 +60,34 @@ struct ProfileView: View {
                 }
                 
                 Section("Mål") {
-                    TextField("Kalorier per dag", text: $dailyCalories)
-                        .keyboardType(.numberPad)
-                    TextField("Protein (g)", text: $proteinTarget)
-                        .keyboardType(.decimalPad)
-                    TextField("Karbohydrater (g)", text: $carbsTarget)
-                        .keyboardType(.decimalPad)
-                    TextField("Fett (g)", text: $fatTarget)
-                        .keyboardType(.decimalPad)
+                    if let goal = appState.currentGoal {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Nåværende mål")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                            
+                            if appState.safeModeHideCalories {
+                                Text("Mål per dag er satt")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                            } else {
+                                Text("\(goal.dailyCalories) kcal per dag")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                            }
+                            
+                            Text("Protein \(Int(goal.proteinTargetG)) g · Karbohydrater \(Int(goal.carbsTargetG)) g · Fett \(Int(goal.fatTargetG)) g")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                    }
+                    
+                    NavigationLink("Endre mål") {
+                        GoalOnboardingFlowView(mode: .edit)
+                            .environmentObject(appState)
+                    }
                     
                     Toggle("Vis målstatus på Home", isOn: $appState.showGoalStatusOnHome)
-                    
-                    Button("Lagre mål") {
-                        saveGoals()
-                    }
-                    .foregroundColor(AppColors.brand)
                 }
                 
                 Section("Preferanser") {
@@ -134,16 +142,6 @@ struct ProfileView: View {
             }
             .navigationTitle("Profil")
             .scrollDismissesKeyboard(.interactively)
-            .onAppear {
-                loadGoalFields()
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.brand)
-                }
-            }
             .alert("Slett konto?", isPresented: $showDeleteConfirm) {
                 Button("Slett", role: .destructive) {
                     Task { await appState.deleteAccount() }
@@ -162,32 +160,6 @@ struct ProfileView: View {
     
     private var authProviderLabel: String {
         appState.currentUser?.authProvider.capitalized ?? "Ukjent"
-    }
-    
-    private func loadGoalFields() {
-        guard let goal = appState.currentGoal else { return }
-        dailyCalories = String(goal.dailyCalories)
-        proteinTarget = String(format: "%.0f", goal.proteinTargetG)
-        carbsTarget = String(format: "%.0f", goal.carbsTargetG)
-        fatTarget = String(format: "%.0f", goal.fatTargetG)
-    }
-    
-    private func saveGoals() {
-        guard let user = appState.currentUser else { return }
-        let calories = Int(dailyCalories) ?? appState.currentGoal?.dailyCalories ?? 0
-        let protein = Float(proteinTarget.replacingOccurrences(of: ",", with: ".")) ?? appState.currentGoal?.proteinTargetG ?? 0
-        let carbs = Float(carbsTarget.replacingOccurrences(of: ",", with: ".")) ?? appState.currentGoal?.carbsTargetG ?? 0
-        let fat = Float(fatTarget.replacingOccurrences(of: ",", with: ".")) ?? appState.currentGoal?.fatTargetG ?? 0
-        
-        let goal = Goal(
-            userId: user.id,
-            goalType: appState.currentGoal?.goalType ?? "maintain",
-            dailyCalories: calories,
-            proteinTargetG: protein,
-            carbsTargetG: carbs,
-            fatTargetG: fat
-        )
-        appState.currentGoal = goal
     }
     
     private var personalSummary: String? {

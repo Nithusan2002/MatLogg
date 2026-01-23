@@ -6,12 +6,9 @@ struct HomeView: View {
     @State private var showScanCamera = false
     @State private var showManualAdd = false
     @State private var showRawMaterials = false
-    @State private var showReceipt = false
-    @State private var receiptPayload: ReceiptPayload?
-    @State private var pendingScanAfterReceipt = false
-    @State private var showAddActions = false
-    @State private var showAddSheet = false
-    @State private var lastRealTab: Int = 0
+    @State private var toastPayload: ReceiptPayload?
+    @State private var showToast = false
+    @State private var toastId = UUID()
     
     var body: some View {
         TabView(selection: $appState.selectedTab) {
@@ -22,8 +19,7 @@ struct HomeView: View {
                 showRawMaterials: $showRawMaterials,
                 onLogComplete: { payload in
                     Task { await appState.loadTodaysSummary() }
-                    receiptPayload = payload
-                    showReceipt = true
+                    showLogToast(payload)
                 }
             )
                 .tabItem {
@@ -38,80 +34,29 @@ struct HomeView: View {
                 }
                 .tag(1)
             
-            AddTabView()
-                .tabItem {
-                    Label("Legg til", systemImage: "plus.circle.fill")
-                }
-                .tag(2)
-            
             // MARK: - Favoritter Tab
             FavoritesTabView()
                 .tabItem {
                     Label("Favoritter", systemImage: "star.fill")
                 }
-                .tag(3)
+                .tag(2)
             
             // MARK: - Profile Tab
             ProfileView()
                 .tabItem {
                     Label("Profil", systemImage: "person.crop.circle")
                 }
-                .tag(4)
+                .tag(3)
         }
         .environmentObject(appState)
-        .onChange(of: appState.selectedTab) { _, newValue in
-            if newValue == 2 {
-                appState.selectedTab = lastRealTab
-                DispatchQueue.main.async {
-                    showAddSheet = true
-                }
-            } else {
-                lastRealTab = newValue
-            }
-        }
-        .sheet(isPresented: $showAddSheet) {
-            AddActionSheet(
-                onScan: {
-                    showAddSheet = false
-                    showScanCamera = true
-                },
-                onRaw: {
-                    showAddSheet = false
-                    showRawMaterials = true
-                },
-                onManual: {
-                    showAddSheet = false
-                    showManualAdd = true
-                }
-            )
-            .presentationDetents([.fraction(0.28)])
-            .presentationDragIndicator(.visible)
-        }
         .sheet(isPresented: $showScanCamera) {
             CameraView(onLogComplete: { payload in
                 Task {
                     await appState.loadTodaysSummary()
                 }
-                receiptPayload = payload
                 showScanCamera = false
-                showReceipt = true
+                showLogToast(payload)
             })
-        }
-        .fullScreenCover(isPresented: $showReceipt, onDismiss: {
-            if pendingScanAfterReceipt {
-                showScanCamera = true
-                pendingScanAfterReceipt = false
-            }
-        }) {
-            if let payload = receiptPayload {
-                ReceiptView(
-                    product: payload.product,
-                    amountG: payload.amountG,
-                    nutrition: payload.nutrition,
-                    mealType: payload.mealType,
-                    onAction: handleReceiptAction
-                )
-            }
         }
         .fullScreenCover(isPresented: $showManualAdd) {
             ManualAddView(onOpenRawMaterials: {
@@ -124,6 +69,33 @@ struct HomeView: View {
             RawMaterialsSearchView()
                 .environmentObject(appState)
         }
+        .overlay(alignment: .bottom) {
+            if showToast, let toastPayload {
+                LogToastView(
+                    payload: toastPayload,
+                    onUndo: {
+                        Task {
+                            await appState.undoLatestLog(
+                                productId: toastPayload.product.id,
+                                mealType: toastPayload.mealType,
+                                amountG: Float(toastPayload.amountG)
+                            )
+                        }
+                        hideToast()
+                    },
+                    onScanNext: {
+                        hideToast()
+                        showScanCamera = true
+                    },
+                    onDismiss: {
+                        hideToast()
+                    }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .onAppear {
             Task {
                 await appState.loadTodaysSummary()
@@ -131,12 +103,21 @@ struct HomeView: View {
         }
     }
     
-    private func handleReceiptAction(_ action: ReceiptAction) {
-        switch action {
-        case .scanNext:
-            pendingScanAfterReceipt = true
-        case .addAgain, .close:
-            break
+    private func showLogToast(_ payload: ReceiptPayload) {
+        toastPayload = payload
+        showToast = true
+        let currentId = UUID()
+        toastId = currentId
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            if toastId == currentId {
+                hideToast()
+            }
+        }
+    }
+    
+    private func hideToast() {
+        withAnimation {
+            showToast = false
         }
     }
 }
@@ -211,42 +192,13 @@ struct HomeTabView: View {
                     .padding(.bottom, 140)
                 }
             }
-            .navigationTitle("MatLogg")
+            .navigationTitle("Hjem")
         }
         .task {
             await refreshSummaries()
         }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 12) {
-                if !recentScans.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(recentScans.prefix(6)) { scan in
-                                if let product = appState.getProduct(scan.productId) {
-                                    Button(action: {
-                                        selectedProduct = product
-                                        showProductDetail = true
-                                    }) {
-                                        Text(product.name)
-                                            .font(AppTypography.body)
-                                            .foregroundColor(AppColors.ink)
-                                            .lineLimit(1)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 8)
-                                            .background(AppColors.surface)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 16)
-                                                    .stroke(AppColors.separator, lineWidth: 1)
-                                            )
-                                            .cornerRadius(16)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                }
-                
                 ScanButtonLarge(action: { showScanCamera = true })
                 
                 HStack(spacing: 12) {
@@ -305,66 +257,6 @@ struct HomeTabView: View {
     
 }
 
-struct AddTabView: View {
-    var body: some View {
-        Color.clear
-            .ignoresSafeArea()
-    }
-}
-
-struct AddActionSheet: View {
-    let onScan: () -> Void
-    let onRaw: () -> Void
-    let onManual: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            Capsule()
-                .fill(AppColors.separator)
-                .frame(width: 40, height: 4)
-                .padding(.top, 8)
-            
-            Button(action: onScan) {
-                actionRow(title: "Skann", systemImage: "barcode.viewfinder")
-            }
-            
-            Button(action: onRaw) {
-                actionRow(title: "Søk / Råvarer", systemImage: "leaf")
-            }
-            
-            Button(action: onManual) {
-                actionRow(title: "Legg til manuelt", systemImage: "plus.circle")
-            }
-            
-            Spacer(minLength: 4)
-        }
-        .padding(16)
-        .background(AppColors.background)
-    }
-    
-    private func actionRow(title: String, systemImage: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(AppColors.brand)
-                .frame(width: 28)
-            
-            Text(title)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.ink)
-            
-            Spacer()
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(AppColors.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppColors.separator, lineWidth: 1)
-        )
-        .cornerRadius(12)
-    }
-}
 
 struct StatusCardView: View {
     let summary: DailySummary
@@ -420,17 +312,20 @@ struct StatusCardView: View {
                         ProgressRow(
                             label: "Proteiner",
                             valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
-                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG))
+                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
+                            tint: AppColors.macroProteinTint
                         )
                         ProgressRow(
                             label: "Karbohydrater",
                             valueText: "\(Int(summary.totalCarbs))g / \(Int(goal.carbsTargetG))g",
-                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG))
+                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
+                            tint: AppColors.macroCarbTint
                         )
                         ProgressRow(
                             label: "Fett",
                             valueText: "\(Int(summary.totalFat))g / \(Int(goal.fatTargetG))g",
-                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG))
+                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
+                            tint: AppColors.macroFatTint
                         )
                     }
                 }
@@ -644,7 +539,11 @@ struct CameraView: View {
         .onDisappear {
             isTorchOn = false
         }
-        .sheet(isPresented: $showProductDetail) {
+        .sheet(isPresented: $showProductDetail, onDismiss: {
+            scannedBarcode = nil
+            scannedProduct = nil
+            isLoading = false
+        }) {
             if let product = scannedProduct {
                 ProductDetailView(
                     product: product,
@@ -887,7 +786,9 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         if !captureSession.isRunning {
-            captureSession.startRunning()
+            DispatchQueue.global(qos: .userInitiated).async { [captureSession] in
+                captureSession.startRunning()
+            }
         }
     }
     

@@ -12,7 +12,7 @@ enum AppColors {
     
     static let chipFillSelected = brand.opacity(0.12)
     static let chipStroke = separator
-    static let progressTrack = separator
+    static let progressTrack = AppColors.ink.opacity(0.08)
     static let progressFill = brand.opacity(0.22)
     
     static let macroProteinTint = Color(UIColor.appProteinTint)

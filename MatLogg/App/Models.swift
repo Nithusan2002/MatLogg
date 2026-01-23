@@ -25,6 +25,10 @@ struct Goal: Codable, Identifiable {
     let proteinTargetG: Float
     let carbsTargetG: Float
     let fatTargetG: Float
+    let intent: GoalIntent?
+    let pace: GoalPace?
+    let activityLevel: ActivityLevel?
+    let safeModeEnabled: Bool
     let createdDate: Date
     
     init(
@@ -35,6 +39,10 @@ struct Goal: Codable, Identifiable {
         proteinTargetG: Float,
         carbsTargetG: Float,
         fatTargetG: Float,
+        intent: GoalIntent? = nil,
+        pace: GoalPace? = nil,
+        activityLevel: ActivityLevel? = nil,
+        safeModeEnabled: Bool = false,
         createdDate: Date = Date()
     ) {
         self.id = id
@@ -44,7 +52,46 @@ struct Goal: Codable, Identifiable {
         self.proteinTargetG = proteinTargetG
         self.carbsTargetG = carbsTargetG
         self.fatTargetG = fatTargetG
+        self.intent = intent
+        self.pace = pace
+        self.activityLevel = activityLevel
+        self.safeModeEnabled = safeModeEnabled
         self.createdDate = createdDate
+    }
+}
+
+enum GoalIntent: String, Codable, CaseIterable {
+    case lose
+    case maintain
+    case gain
+    
+    var label: String {
+        switch self {
+        case .lose: return "Gå ned i vekt"
+        case .maintain: return "Holde vekten"
+        case .gain: return "Gå opp i vekt"
+        }
+    }
+}
+
+enum GoalPace: String, Codable, CaseIterable {
+    case calm
+    case standard
+    case fast
+    
+    var label: String {
+        switch self {
+        case .calm: return "Rolig"
+        case .standard: return "Standard"
+        case .fast: return "Rask"
+        }
+    }
+    
+    var note: String? {
+        switch self {
+        case .fast: return "Ikke for alle"
+        default: return nil
+        }
     }
 }
 
@@ -70,6 +117,7 @@ struct Product: Codable, Identifiable {
     
     let imageUrl: String?
     let standardPortions: [StandardPortion]?
+    let servings: [ServingOption]?
     let nutritionSource: NutritionSource
     let imageSource: ImageSource
     let verificationStatus: VerificationStatus
@@ -97,6 +145,7 @@ struct Product: Codable, Identifiable {
         sodiumMgPer100g: Int? = nil,
         imageUrl: String? = nil,
         standardPortions: [StandardPortion]? = nil,
+        servings: [ServingOption]? = nil,
         nutritionSource: NutritionSource = .user,
         imageSource: ImageSource = .user,
         verificationStatus: VerificationStatus = .unverified,
@@ -120,6 +169,7 @@ struct Product: Codable, Identifiable {
         self.sodiumMgPer100g = sodiumMgPer100g
         self.imageUrl = imageUrl
         self.standardPortions = standardPortions
+        self.servings = servings
         self.nutritionSource = nutritionSource
         self.imageSource = imageSource
         self.verificationStatus = verificationStatus
@@ -143,6 +193,34 @@ struct Product: Codable, Identifiable {
 struct StandardPortion: Codable, Hashable {
     let label: String
     let grams: Double
+}
+
+struct ServingOption: Codable, Identifiable, Hashable {
+    let id: UUID
+    let label: String
+    let grams: Double
+    let source: ServingSource
+    let isDefaultSuggestion: Bool
+    
+    init(
+        id: UUID = UUID(),
+        label: String,
+        grams: Double,
+        source: ServingSource,
+        isDefaultSuggestion: Bool = false
+    ) {
+        self.id = id
+        self.label = label
+        self.grams = grams
+        self.source = source
+        self.isDefaultSuggestion = isDefaultSuggestion
+    }
+}
+
+enum ServingSource: String, Codable {
+    case openFoodFacts
+    case heuristic
+    case user
 }
 
 struct NutritionBreakdown: Codable {
@@ -243,6 +321,7 @@ enum ActivityLevel: String, Codable, CaseIterable {
     case lav
     case moderat
     case hoy
+    case veldigHoy
     case ikkeOppgi
     
     var label: String {
@@ -250,7 +329,23 @@ enum ActivityLevel: String, Codable, CaseIterable {
         case .lav: return "Lav"
         case .moderat: return "Moderat"
         case .hoy: return "Høy"
+        case .veldigHoy: return "Veldig høy"
         case .ikkeOppgi: return "Ønsker ikke å oppgi"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .lav:
+            return "Mest stillesitting. Lite hverdagsbevegelse."
+        case .moderat:
+            return "Noe daglig bevegelse. En del gåing/standing."
+        case .hoy:
+            return "Mye bevegelse gjennom dagen. Ofte aktiv."
+        case .veldigHoy:
+            return "Fysisk krevende dager. Høyt tempo og belastning."
+        case .ikkeOppgi:
+            return "Ønsker ikke å oppgi."
         }
     }
 }
