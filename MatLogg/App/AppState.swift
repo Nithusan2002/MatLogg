@@ -39,6 +39,19 @@ class AppState: ObservableObject {
     @Published var safeModeHideCalories: Bool = false { didSet { storeBool(safeModeHideCalories, key: "safeModeHideCalories") } }
     @Published var safeModeHideGoals: Bool = false { didSet { storeBool(safeModeHideGoals, key: "safeModeHideGoals") } }
     @Published var showNutritionSource: Bool = true { didSet { storeBool(showNutritionSource, key: "showNutritionSource") } }
+    @Published var analyticsEnabled: Bool = false {
+        didSet {
+            storeBool(analyticsEnabled, key: "analyticsEnabled")
+            AnalyticsManager.shared.setEnabled(analyticsEnabled)
+        }
+    }
+    @Published var crashReportsEnabled: Bool = false {
+        didSet {
+            storeBool(crashReportsEnabled, key: "crashReportsEnabled")
+            CrashReportingManager.shared.setEnabled(crashReportsEnabled)
+        }
+    }
+    @Published var hasSeenPrivacyChoices: Bool = false { didSet { storeBool(hasSeenPrivacyChoices, key: "hasSeenPrivacyChoices") } }
     @Published var personalDetails: PersonalDetails = .empty { didSet { storePersonalDetails() } }
     @Published var isOnboarding: Bool = false
     @Published var isLoading: Bool = false
@@ -74,10 +87,15 @@ class AppState: ObservableObject {
         safeModeHideCalories = defaults.object(forKey: "safeModeHideCalories") as? Bool ?? false
         safeModeHideGoals = defaults.object(forKey: "safeModeHideGoals") as? Bool ?? false
         showNutritionSource = defaults.object(forKey: "showNutritionSource") as? Bool ?? true
+        analyticsEnabled = defaults.object(forKey: "analyticsEnabled") as? Bool ?? false
+        crashReportsEnabled = defaults.object(forKey: "crashReportsEnabled") as? Bool ?? false
+        hasSeenPrivacyChoices = defaults.object(forKey: "hasSeenPrivacyChoices") as? Bool ?? false
         if let data = defaults.data(forKey: "personalDetails"),
            let decoded = try? JSONDecoder().decode(PersonalDetails.self, from: data) {
             personalDetails = decoded
         }
+        AnalyticsManager.shared.setEnabled(analyticsEnabled)
+        CrashReportingManager.shared.setEnabled(crashReportsEnabled)
     }
     
     private func storeBool(_ value: Bool, key: String) {

@@ -461,6 +461,7 @@ struct CameraView: View {
     @State private var showScanHelp = false
     @State private var showProductDetail = false
     @State private var showProductNotFound = false
+    @State private var showCameraPrePrompt = false
     
     var body: some View {
         ZStack {
@@ -479,12 +480,33 @@ struct CameraView: View {
                 Spacer()
                 
                 // Camera View
-                BarcodeScannerView(
-                    onBarcodeDetected: handleBarcodeDetected,
-                    onError: handleError,
-                    torchOn: $isTorchOn
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if showCameraPrePrompt {
+                    VStack(spacing: 12) {
+                        Text("Vi trenger kamera for å skanne strekkoder.")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        Text("Du kan gi tilgang når du er klar.")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.85))
+                        Button(action: { showCameraPrePrompt = false }) {
+                            Text("Fortsett")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(Color.white)
+                                .cornerRadius(12)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    BarcodeScannerView(
+                        onBarcodeDetected: handleBarcodeDetected,
+                        onError: handleError,
+                        torchOn: $isTorchOn
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 
                 Spacer()
             }
@@ -524,20 +546,26 @@ struct CameraView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
             
-            // Centered Viewfinder Overlay
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.9), lineWidth: 3)
-                .frame(width: 240, height: 240)
-                .overlay(
-                    Text("Skann strekkoden her")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            if !showCameraPrePrompt {
+                // Centered Viewfinder Overlay
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(0.9), lineWidth: 3)
+                    .frame(width: 240, height: 240)
+                    .overlay(
+                        Text("Skann strekkoden her")
+                            .font(.subheadline)
+                            .foregroundColor(.white)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            }
             
         }
         .onDisappear {
             isTorchOn = false
+        }
+        .onAppear {
+            let status = AVCaptureDevice.authorizationStatus(for: .video)
+            showCameraPrePrompt = (status == .notDetermined)
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
             scannedBarcode = nil

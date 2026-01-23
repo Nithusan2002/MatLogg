@@ -10,6 +10,7 @@ struct GoalOnboardingFlowView: View {
         case intent
         case pace
         case activity
+        case privacy
         case data
         case result
         case macros
@@ -37,6 +38,8 @@ struct GoalOnboardingFlowView: View {
     @State private var didSetInitialCalories = false
     @State private var didAdjustCalories = false
     @State private var lastSuggestedCalories: Int = 0
+    @State private var showPrivacyPolicy = false
+    @State private var showPrivacyChoices = false
     
     var body: some View {
         NavigationStack {
@@ -52,6 +55,8 @@ struct GoalOnboardingFlowView: View {
                     paceStep
                 case .activity:
                     activityStep
+                case .privacy:
+                    privacyStep
                 case .data:
                     dataStep
                 case .result:
@@ -99,6 +104,14 @@ struct GoalOnboardingFlowView: View {
             }
             .onChange(of: gender) { _, _ in
                 refreshSuggestedCalories()
+            }
+            .sheet(isPresented: $showPrivacyPolicy) {
+                SafariView(url: PrivacyConstants.privacyPolicyURL)
+            }
+            .sheet(isPresented: $showPrivacyChoices) {
+                if let url = PrivacyConstants.privacyChoicesURL {
+                    SafariView(url: url)
+                }
             }
         }
     }
@@ -243,6 +256,14 @@ struct GoalOnboardingFlowView: View {
                 }
             }
         }
+    }
+    
+    private var privacyStep: some View {
+        PrivacyChoicesContentView(
+            onOpenPolicy: { showPrivacyPolicy = true },
+            onOpenChoices: PrivacyConstants.privacyChoicesURL == nil ? nil : { showPrivacyChoices = true }
+        )
+        .environmentObject(appState)
     }
     
     private var dataStep: some View {
@@ -422,6 +443,9 @@ struct GoalOnboardingFlowView: View {
         }
         withAnimation {
             let nextStep = Step(rawValue: step.rawValue + 1) ?? .summary
+            if step == .privacy {
+                appState.hasSeenPrivacyChoices = true
+            }
             if nextStep == .result, !didAdjustCalories {
                 kcalTarget = suggestedCalories()
                 didSetInitialCalories = true

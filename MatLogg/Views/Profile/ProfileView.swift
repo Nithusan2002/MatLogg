@@ -15,6 +15,11 @@ struct ProfileView: View {
                             .environmentObject(appState)
                     }
                     
+                    NavigationLink("Personvern & valg") {
+                        PrivacyChoicesView()
+                            .environmentObject(appState)
+                    }
+                    
                     NavigationLink("Fremgang") {
                         ProgressTabView()
                             .environmentObject(appState)
