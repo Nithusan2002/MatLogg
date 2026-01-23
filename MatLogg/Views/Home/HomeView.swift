@@ -3,11 +3,29 @@ import AVFoundation
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
+    @State private var showScanCamera = false
+    @State private var showManualAdd = false
+    @State private var showRawMaterials = false
+    @State private var showReceipt = false
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var pendingScanAfterReceipt = false
+    @State private var showAddActions = false
+    @State private var showAddSheet = false
+    @State private var lastRealTab: Int = 0
     
     var body: some View {
         TabView(selection: $appState.selectedTab) {
             // MARK: - Home Tab
-            HomeTabView()
+            HomeTabView(
+                showScanCamera: $showScanCamera,
+                showManualAdd: $showManualAdd,
+                showRawMaterials: $showRawMaterials,
+                onLogComplete: { payload in
+                    Task { await appState.loadTodaysSummary() }
+                    receiptPayload = payload
+                    showReceipt = true
+                }
+            )
                 .tabItem {
                     Label("Hjem", systemImage: "house.fill")
                 }
@@ -20,40 +38,118 @@ struct HomeView: View {
                 }
                 .tag(1)
             
+            AddTabView()
+                .tabItem {
+                    Label("Legg til", systemImage: "plus.circle.fill")
+                }
+                .tag(2)
+            
             // MARK: - Favoritter Tab
             FavoritesTabView()
                 .tabItem {
                     Label("Favoritter", systemImage: "star.fill")
                 }
-                .tag(2)
+                .tag(3)
             
             // MARK: - Profile Tab
             ProfileView()
                 .tabItem {
                     Label("Profil", systemImage: "person.crop.circle")
                 }
-                .tag(3)
+                .tag(4)
         }
         .environmentObject(appState)
+        .onChange(of: appState.selectedTab) { _, newValue in
+            if newValue == 2 {
+                appState.selectedTab = lastRealTab
+                DispatchQueue.main.async {
+                    showAddSheet = true
+                }
+            } else {
+                lastRealTab = newValue
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddActionSheet(
+                onScan: {
+                    showAddSheet = false
+                    showScanCamera = true
+                },
+                onRaw: {
+                    showAddSheet = false
+                    showRawMaterials = true
+                },
+                onManual: {
+                    showAddSheet = false
+                    showManualAdd = true
+                }
+            )
+            .presentationDetents([.fraction(0.28)])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showScanCamera) {
+            CameraView(onLogComplete: { payload in
+                Task {
+                    await appState.loadTodaysSummary()
+                }
+                receiptPayload = payload
+                showScanCamera = false
+                showReceipt = true
+            })
+        }
+        .fullScreenCover(isPresented: $showReceipt, onDismiss: {
+            if pendingScanAfterReceipt {
+                showScanCamera = true
+                pendingScanAfterReceipt = false
+            }
+        }) {
+            if let payload = receiptPayload {
+                ReceiptView(
+                    product: payload.product,
+                    amountG: payload.amountG,
+                    nutrition: payload.nutrition,
+                    mealType: payload.mealType,
+                    onAction: handleReceiptAction
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showManualAdd) {
+            ManualAddView(onOpenRawMaterials: {
+                showManualAdd = false
+                showRawMaterials = true
+            })
+            .environmentObject(appState)
+        }
+        .fullScreenCover(isPresented: $showRawMaterials) {
+            RawMaterialsSearchView()
+                .environmentObject(appState)
+        }
         .onAppear {
             Task {
                 await appState.loadTodaysSummary()
             }
         }
     }
+    
+    private func handleReceiptAction(_ action: ReceiptAction) {
+        switch action {
+        case .scanNext:
+            pendingScanAfterReceipt = true
+        case .addAgain, .close:
+            break
+        }
+    }
 }
 
 struct HomeTabView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showScanCamera = false
-    @State private var showManualAdd = false
-    @State private var showRawMaterials = false
+    @Binding var showScanCamera: Bool
+    @Binding var showManualAdd: Bool
+    @Binding var showRawMaterials: Bool
+    let onLogComplete: (ReceiptPayload) -> Void
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var recentScans: [ScanHistory] = []
-    @State private var showReceipt = false
-    @State private var receiptPayload: ReceiptPayload?
-    @State private var pendingScanAfterReceipt = false
     @State private var showProductDetail = false
     @State private var selectedProduct: Product?
     
@@ -180,54 +276,19 @@ struct HomeTabView: View {
             .background(AppColors.background)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .sheet(isPresented: $showScanCamera) {
-            CameraView(onLogComplete: { payload in
-                Task {
-                    await refreshSummaries()
-                }
-                receiptPayload = payload
-                showScanCamera = false
-                showReceipt = true
-            })
-        }
-        .fullScreenCover(isPresented: $showReceipt, onDismiss: {
-            if pendingScanAfterReceipt {
-                showScanCamera = true
-                pendingScanAfterReceipt = false
-            }
-        }) {
-            if let payload = receiptPayload {
-                ReceiptView(
-                    product: payload.product,
-                    amountG: payload.amountG,
-                    nutrition: payload.nutrition,
-                    mealType: payload.mealType,
-                    onAction: handleReceiptAction
-                )
-            }
-        }
-        .fullScreenCover(isPresented: $showManualAdd) {
-            ManualAddView(onOpenRawMaterials: {
-                showManualAdd = false
-                showRawMaterials = true
-            })
-            .environmentObject(appState)
-        }
-        .fullScreenCover(isPresented: $showRawMaterials) {
-            RawMaterialsSearchView()
-                .environmentObject(appState)
-        }
         .sheet(isPresented: $showProductDetail) {
             if let product = selectedProduct {
                 ProductDetailView(
                     product: product,
                     appState: appState,
                     onLogComplete: { payload in
-                        receiptPayload = payload
-                        showReceipt = true
+                        onLogComplete(payload)
                     }
                 )
             }
+        }
+        .onChange(of: appState.todaysSummary?.logs.count ?? 0) { _, _ in
+            Task { await loadSelectedSummary() }
         }
         
     }
@@ -242,15 +303,67 @@ struct HomeTabView: View {
         selectedSummary = await appState.fetchSummary(for: selectedDate)
     }
     
-    private func handleReceiptAction(_ action: ReceiptAction) {
-        switch action {
-        case .scanNext:
-            pendingScanAfterReceipt = true
-        case .addAgain, .close:
-            break
-        }
-    }
+}
 
+struct AddTabView: View {
+    var body: some View {
+        Color.clear
+            .ignoresSafeArea()
+    }
+}
+
+struct AddActionSheet: View {
+    let onScan: () -> Void
+    let onRaw: () -> Void
+    let onManual: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            Capsule()
+                .fill(AppColors.separator)
+                .frame(width: 40, height: 4)
+                .padding(.top, 8)
+            
+            Button(action: onScan) {
+                actionRow(title: "Skann", systemImage: "barcode.viewfinder")
+            }
+            
+            Button(action: onRaw) {
+                actionRow(title: "Søk / Råvarer", systemImage: "leaf")
+            }
+            
+            Button(action: onManual) {
+                actionRow(title: "Legg til manuelt", systemImage: "plus.circle")
+            }
+            
+            Spacer(minLength: 4)
+        }
+        .padding(16)
+        .background(AppColors.background)
+    }
+    
+    private func actionRow(title: String, systemImage: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(AppColors.brand)
+                .frame(width: 28)
+            
+            Text(title)
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.ink)
+            
+            Spacer()
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(AppColors.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppColors.separator, lineWidth: 1)
+        )
+        .cornerRadius(12)
+    }
 }
 
 struct StatusCardView: View {

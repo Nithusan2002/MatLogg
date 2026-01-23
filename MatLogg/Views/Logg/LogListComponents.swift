@@ -5,6 +5,7 @@ struct LogRowView: View {
     let log: FoodLog
     let showCalories: Bool
     let onEdit: (() -> Void)?
+    let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
     
     private var productName: String {
@@ -40,6 +41,14 @@ struct LogRowView: View {
                 } label: {
                     Label("Slett", systemImage: "trash")
                 }
+            }
+            if let onMove {
+                Button {
+                    onMove()
+                } label: {
+                    Label("Flytt", systemImage: "arrow.left.arrow.right")
+                }
+                .tint(AppColors.textSecondary)
             }
             if let onEdit {
                 Button {
@@ -87,6 +96,7 @@ struct CompactLogListView: View {
                             log: log,
                             showCalories: !appState.safeModeHideCalories,
                             onEdit: nil,
+                            onMove: nil,
                             onDelete: nil
                         )
                     }

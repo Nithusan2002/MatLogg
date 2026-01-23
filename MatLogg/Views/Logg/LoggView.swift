@@ -33,95 +33,7 @@ struct LoggView: View {
             ZStack {
                 AppColors.background.ignoresSafeArea()
                 
-                List {
-                    Section {
-                        HStack {
-                            Button(action: { shiftSelectedDate(by: -1) }) {
-                                Image(systemName: "chevron.left")
-                            }
-                            .frame(width: 44, height: 44)
-                            
-                            Spacer()
-                            
-                            Button(action: { showDatePicker = true }) {
-                                HStack(spacing: 6) {
-                                    Text(dayTitle)
-                                        .font(AppTypography.bodyEmphasis)
-                                    Image(systemName: "calendar")
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            Button(action: { shiftSelectedDate(by: 1) }) {
-                                Image(systemName: "chevron.right")
-                            }
-                            .frame(width: 44, height: 44)
-                            .opacity(canGoToNextDay ? 1 : 0.3)
-                            .disabled(!canGoToNextDay)
-                        }
-                        .foregroundColor(AppColors.ink)
-                        .padding(.vertical, 4)
-                    }
-                    .listRowBackground(AppColors.background)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    
-                    if isTodaySelected, let yesterdaySummary, !yesterdaySummary.logs.isEmpty {
-                        Section {
-                            Button("Kopier fra i går") {
-                                Task {
-                                    await appState.copyLogs(from: yesterdayDate(), to: selectedDate)
-                                    await loadSelectedSummary()
-                                }
-                            }
-                            .foregroundColor(AppColors.brand)
-                        }
-                    }
-                    
-                    ForEach(groupedLogs, id: \.mealType) { group in
-                        Section {
-                            ForEach(group.logs) { log in
-                                LogRowView(
-                                    log: log,
-                                    showCalories: !appState.safeModeHideCalories,
-                                    onEdit: {
-                                        editingLog = log
-                                    },
-                                    onDelete: {
-                                        logPendingDelete = log
-                                        showDeleteConfirm = true
-                                    }
-                                )
-                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                .listRowBackground(AppColors.background)
-                            }
-                        } header: {
-                            Text(LogSummaryService.title(for: group.mealType))
-                                .font(AppTypography.caption)
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-                    }
-                    
-                    if groupedLogs.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "tray")
-                                .font(.system(size: 42))
-                                .foregroundColor(AppColors.textSecondary)
-                            Text("Ingen logging denne dagen")
-                                .font(AppTypography.title)
-                                .foregroundColor(AppColors.ink)
-                            Text("Legg til eller velg en annen dag.")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(AppColors.background)
-                        .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 24, trailing: 16))
-                    }
-                }
-                .listStyle(.plain)
-                .searchable(text: $searchText, prompt: "Søk i logg")
-                .scrollContentBackground(.hidden)
+                logList
             }
             .navigationTitle("Logg")
             .toolbar {
@@ -135,6 +47,7 @@ struct LoggView: View {
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
+                    .disabled(!hasLogs)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -147,6 +60,14 @@ struct LoggView: View {
                 Button("Skann") { activeSheet = .scan }
                 Button("Søk / Råvarer") { activeSheet = .raw }
                 Button("Legg til manuelt") { activeSheet = .manual }
+                if canCopyFromYesterday {
+                    Button("Kopier fra i går") {
+                        Task {
+                            await appState.copyLogs(from: yesterdayDate(), to: selectedDate)
+                            await loadSelectedSummary()
+                        }
+                    }
+                }
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
@@ -232,6 +153,159 @@ struct LoggView: View {
         }
     }
     
+    @ViewBuilder
+    private var logList: some View {
+        let baseList = List {
+            Section {
+                HStack {
+                    Button(action: { shiftSelectedDate(by: -1) }) {
+                        Image(systemName: "chevron.left")
+                    }
+                    .frame(width: 44, height: 44)
+                    
+                    Spacer()
+                    
+                    Button(action: { showDatePicker = true }) {
+                        HStack(spacing: 6) {
+                            Text(dayTitle)
+                                .font(AppTypography.bodyEmphasis)
+                            Image(systemName: "calendar")
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: { shiftSelectedDate(by: 1) }) {
+                        Image(systemName: "chevron.right")
+                    }
+                    .frame(width: 44, height: 44)
+                    .opacity(canGoToNextDay ? 1 : 0.3)
+                    .disabled(!canGoToNextDay)
+                }
+                .foregroundColor(AppColors.ink)
+                .padding(.vertical, 4)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { showDatePicker = true }
+            .listRowBackground(AppColors.background)
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            
+            if hasLogs {
+                Section {
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Dagsoppsummering")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                            HStack(spacing: 12) {
+                                if !appState.safeModeHideCalories {
+                                    Text("\(selectedSummary?.totalCalories ?? 0) kcal")
+                                }
+                                Text("P \(Int(selectedSummary?.totalProtein ?? 0)) g")
+                                Text("K \(Int(selectedSummary?.totalCarbs ?? 0)) g")
+                                Text("F \(Int(selectedSummary?.totalFat ?? 0)) g")
+                            }
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.ink)
+                        }
+                    }
+                }
+                .listRowBackground(AppColors.background)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            }
+            
+            if canCopyFromYesterday {
+                Section {
+                    Button("Kopier fra i går") {
+                        Task {
+                            await appState.copyLogs(from: yesterdayDate(), to: selectedDate)
+                            await loadSelectedSummary()
+                        }
+                    }
+                    .foregroundColor(AppColors.brand)
+                }
+            }
+            
+            ForEach(groupedLogs, id: \.mealType) { group in
+                Section {
+                    ForEach(group.logs) { log in
+                        LogRowView(
+                            log: log,
+                            showCalories: !appState.safeModeHideCalories,
+                            onEdit: {
+                                editingLog = log
+                            },
+                            onMove: {
+                                editingLog = log
+                            },
+                            onDelete: {
+                                logPendingDelete = log
+                                showDeleteConfirm = true
+                            }
+                        )
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowBackground(AppColors.background)
+                    }
+                } header: {
+                    Text(LogSummaryService.title(for: group.mealType))
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+            }
+            
+            if groupedLogs.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 42))
+                        .foregroundColor(AppColors.textSecondary)
+                    Text("Ingen logging denne dagen")
+                        .font(AppTypography.title)
+                        .foregroundColor(AppColors.ink)
+                    Text("Legg til for denne dagen eller gå til i dag.")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
+                    
+                    Button(action: { showAddActions = true }) {
+                        Text("Legg til for denne dagen")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(AppColors.brand)
+                            .cornerRadius(12)
+                    }
+                    
+                    if !isTodaySelected {
+                        Button(action: { selectedDate = Date() }) {
+                            Text("Gå til i dag")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.ink)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(AppColors.surface)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(AppColors.separator, lineWidth: 1)
+                                )
+                                .cornerRadius(12)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(AppColors.background)
+                .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 24, trailing: 16))
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        
+        if hasLogs {
+            baseList.searchable(text: $searchText, prompt: "Søk i logg")
+        } else {
+            baseList
+        }
+    }
+    
     private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
         let logs = selectedSummary?.logs ?? []
         return LogSummaryService.groupedLogs(
@@ -240,6 +314,14 @@ struct LoggView: View {
             mealFilter: mealFilter,
             productNameLookup: { appState.getProduct($0)?.name ?? "" }
         )
+    }
+    
+    private var hasLogs: Bool {
+        !(selectedSummary?.logs.isEmpty ?? true)
+    }
+    
+    private var canCopyFromYesterday: Bool {
+        isTodaySelected && !(yesterdaySummary?.logs.isEmpty ?? true)
     }
     
     private var isTodaySelected: Bool {
