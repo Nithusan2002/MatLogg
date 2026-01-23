@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct MatLoggApp: App {
     @StateObject private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
     
     var body: some Scene {
         WindowGroup {
@@ -31,6 +32,12 @@ struct MatLoggApp: App {
                 appState.loadFeedbackSettings()
                 if skipAuthForDev {
                     appState.enableDebugSession()
+                }
+                Task { await appState.triggerSync(reason: .appLaunch) }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await appState.triggerSync(reason: .foreground) }
                 }
             }
         }

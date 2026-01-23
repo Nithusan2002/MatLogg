@@ -2,60 +2,30 @@ import Foundation
 
 class DatabaseService {
     static let shared = DatabaseService()
-    
-    // In-memory storage for MVP (will be replaced with SQLite later)
-    private var users: [UUID: User] = [:]
-    private var goals: [UUID: Goal] = [:]
-    private var products: [UUID: Product] = [:]
-    private var logs: [UUID: FoodLog] = [:]
-    private var favorites: [UUID: Favorite] = [:]
-    private var scanHistory: [UUID: ScanHistory] = [:]
-    private var matchMappings: [String: ProductMatchMapping] = [:]
-    private var matvaretabellenCache: MatvaretabellenCache?
-    private var weightEntries: [UUID: WeightEntry] = [:]
+    private let store = LocalStore.shared
     
     func saveGoal(_ goal: Goal) async throws {
-        goals[goal.id] = goal
+        try store.saveGoal(goal)
     }
     
     func getLatestGoal(userId: UUID, completion: @escaping (Goal?) -> Void) {
-        let userGoals = goals.values.filter { $0.userId == userId }
-        let latest = userGoals.max { $0.createdDate < $1.createdDate }
-        completion(latest)
+        completion(store.getLatestGoal(userId: userId))
     }
     
     func saveLog(_ log: FoodLog) async throws {
-        logs[log.id] = log
+        try store.saveLog(log)
     }
     
     func deleteLog(_ id: UUID) async throws {
-        logs.removeValue(forKey: id)
+        try store.deleteLog(id)
     }
 
     func getAllLogs(userId: UUID) async -> [FoodLog] {
-        logs.values.filter { $0.userId == userId }
+        store.getAllLogs(userId: userId)
     }
     
     func getSummary(userId: UUID, date: Date) async -> DailySummary {
-        let day = Calendar.current.startOfDay(for: date)
-        let dayLogs = logs.values.filter {
-            $0.userId == userId &&
-            Calendar.current.isDate($0.loggedDate, inSameDayAs: day)
-        }
-        
-        let totalCalories = dayLogs.reduce(0) { $0 + $1.calories }
-        let totalProtein = dayLogs.reduce(0) { $0 + $1.proteinG }
-        let totalCarbs = dayLogs.reduce(0) { $0 + $1.carbsG }
-        let totalFat = dayLogs.reduce(0) { $0 + $1.fatG }
-        
-        return DailySummary(
-            date: day,
-            totalCalories: totalCalories,
-            totalProtein: totalProtein,
-            totalCarbs: totalCarbs,
-            totalFat: totalFat,
-            logs: Array(dayLogs).sorted { $0.loggedTime < $1.loggedTime }
-        )
+        store.getSummary(userId: userId, date: date)
     }
     
     func getTodaysSummary(userId: UUID) async -> DailySummary {
@@ -63,112 +33,94 @@ class DatabaseService {
     }
     
     func saveProduct(_ product: Product) async throws {
-        products[product.id] = product
+        try store.saveProduct(product)
     }
     
     func getProduct(_ id: UUID) -> Product? {
-        return products[id]
+        store.getProduct(id)
     }
     
     func getProductByBarcode(_ barcode: String) -> Product? {
-        products.values.first { $0.barcodeEan == barcode }
+        store.getProductByBarcode(barcode)
     }
     
     func saveMatchMapping(_ mapping: ProductMatchMapping) {
-        matchMappings[mapping.barcode] = mapping
+        store.saveMatchMapping(mapping)
     }
     
     func getMatchMapping(for barcode: String) -> ProductMatchMapping? {
-        matchMappings[barcode]
+        store.getMatchMapping(for: barcode)
     }
     
     func toggleFavorite(userId: UUID, productId: UUID) async throws {
-        if let existing = favorites.values.first(where: { $0.userId == userId && $0.productId == productId }) {
-            favorites.removeValue(forKey: existing.id)
-        } else {
-            let favorite = Favorite(userId: userId, productId: productId)
-            favorites[favorite.id] = favorite
-        }
+        try store.toggleFavorite(userId: userId, productId: productId)
     }
     
     func isFavorite(userId: UUID, productId: UUID) -> Bool {
-        return favorites.values.contains { $0.userId == userId && $0.productId == productId }
+        store.isFavorite(userId: userId, productId: productId)
     }
     
     func saveScanHistory(userId: UUID, productId: UUID) async throws {
-        let scanHistory = ScanHistory(userId: userId, productId: productId)
-        self.scanHistory[scanHistory.id] = scanHistory
+        try store.saveScanHistory(userId: userId, productId: productId)
     }
     
     func getRecentScans(userId: UUID, limit: Int = 15) async -> [ScanHistory] {
-        let userScans = scanHistory.values.filter { $0.userId == userId }
-        return Array(userScans.sorted { $0.scannedAt > $1.scannedAt }.prefix(limit))
+        store.getRecentScans(userId: userId, limit: limit)
     }
     
     func saveWeightEntry(_ entry: WeightEntry) async throws {
-        if let existing = weightEntries.values.first(where: {
-            $0.userId == entry.userId && Calendar.current.isDate($0.date, inSameDayAs: entry.date)
-        }) {
-            weightEntries.removeValue(forKey: existing.id)
-        }
-        weightEntries[entry.id] = entry
+        try store.saveWeightEntry(entry)
     }
     
     func deleteWeightEntry(_ id: UUID) async throws {
-        weightEntries.removeValue(forKey: id)
+        try store.deleteWeightEntry(id)
     }
     
     func getWeightEntries(userId: UUID) async -> [WeightEntry] {
-        let entries = weightEntries.values.filter { $0.userId == userId }
-        return entries.sorted { $0.date < $1.date }
+        store.getWeightEntries(userId: userId)
     }
     
     func getFavorites(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
-        let userFavorites = favorites.values.filter { $0.userId == userId }
-        var productsList: [Product] = []
-        for favorite in userFavorites {
-            if let product = products[favorite.productId] {
-                if let kind, product.kind != kind {
-                    continue
-                }
-                productsList.append(product)
-            }
-        }
-        return productsList
+        store.getFavorites(userId: userId, kind: kind)
     }
     
     func getRecentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
-        let userLogs = logs.values.filter { $0.userId == userId }
-        let sortedLogs = userLogs.sorted { $0.loggedTime > $1.loggedTime }
-        var seen = Set<UUID>()
-        var results: [Product] = []
-        for log in sortedLogs {
-            guard let product = products[log.productId] else { continue }
-            if let kind, product.kind != kind {
-                continue
-            }
-            if seen.insert(product.id).inserted {
-                results.append(product)
-            }
-            if results.count >= limit {
-                break
-            }
-        }
-        return results
+        store.getRecentProducts(userId: userId, kind: kind, limit: limit)
     }
     
     func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {
-        matvaretabellenCache = MatvaretabellenCache(items: items, updatedAt: Date())
+        store.saveMatvaretabellenCache(items)
     }
     
     func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? {
-        guard let cache = matvaretabellenCache else { return nil }
-        let age = Calendar.current.dateComponents([.day], from: cache.updatedAt, to: Date()).day ?? 0
-        return age <= maxAgeDays ? cache.items : nil
+        store.getMatvaretabellenCache(maxAgeDays: maxAgeDays)
     }
-}
-
-private struct MatvaretabellenCache {
-    let items: [MatvaretabellenProduct]
-    let updatedAt: Date
+    
+    func pendingSyncCount() async -> Int {
+        store.pendingSyncCount()
+    }
+    
+    func fetchPendingEvents(limit: Int) async -> [SyncEvent] {
+        store.fetchPendingEvents(limit: limit)
+    }
+    
+    func markEventsInFlight(_ eventIds: [UUID]) async {
+        store.markEventsInFlight(eventIds)
+    }
+    
+    func markEventsAcked(_ eventIds: [UUID]) async {
+        store.markEventsAcked(eventIds)
+    }
+    
+    func markEventForRetry(_ eventId: UUID, error: String?, backoffSeconds: TimeInterval) async {
+        store.markEventForRetry(eventId, error: error, backoffSeconds: backoffSeconds)
+    }
+    
+    func resetInFlightEvents() async {
+        store.resetInFlightToPending()
+    }
+    
+    func cleanupAckedEvents(olderThanDays: Int) async {
+        store.cleanupAckedEvents(olderThanDays: olderThanDays)
+    }
 }

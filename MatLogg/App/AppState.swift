@@ -56,6 +56,10 @@ class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var pendingSyncCount: Int = 0
+    @Published var lastSyncAt: Date?
+    @Published var lastSyncError: String?
+    @Published var lastSyncSucceeded: Bool?
     
     // MARK: - Private Properties
     
@@ -72,6 +76,7 @@ class AppState: ObservableObject {
         setupBindings()
         loadPreferences()
         checkExistingSession()
+        Task { await refreshSyncStatus() }
     }
     
     private func setupBindings() {
@@ -190,6 +195,7 @@ class AppState: ObservableObject {
             self.currentGoal = goal
             self.authState = .authenticated(user: user)
             self.isOnboarding = false
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke lagre mål: \(error.localizedDescription)"
         }
@@ -207,6 +213,26 @@ class AppState: ObservableObject {
     func deleteAccount() async {
         // TODO: Call backend delete when available.
         logout()
+    }
+    
+    // MARK: - Sync Status
+    
+    func refreshSyncStatus() async {
+        let count = await databaseService.pendingSyncCount()
+        pendingSyncCount = count
+    }
+    
+    func triggerSync(reason: SyncReason) async {
+        let result = await SyncEngine.shared.syncPendingEvents()
+        lastSyncAt = Date()
+        if FeatureFlags.backendSyncEnabled {
+            lastSyncSucceeded = result.success
+            lastSyncError = result.errorMessage
+        } else {
+            lastSyncSucceeded = nil
+            lastSyncError = nil
+        }
+        await refreshSyncStatus()
     }
     
     // MARK: - Logging Methods
@@ -231,6 +257,7 @@ class AppState: ObservableObject {
         do {
             try await databaseService.saveLog(log)
             await loadTodaysSummary()
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke lagre logging: \(error.localizedDescription)"
         }
@@ -240,6 +267,7 @@ class AppState: ObservableObject {
         do {
             try await databaseService.deleteLog(log.id)
             await loadTodaysSummary()
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke slette logging: \(error.localizedDescription)"
         }
@@ -260,6 +288,7 @@ class AppState: ObservableObject {
         do {
             try await databaseService.deleteLog(latest.id)
             await loadTodaysSummary()
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke angre logging: \(error.localizedDescription)"
         }
@@ -287,6 +316,7 @@ class AppState: ObservableObject {
         do {
             try await databaseService.saveLog(updated)
             await loadTodaysSummary()
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke oppdatere logging: \(error.localizedDescription)"
         }
@@ -315,6 +345,7 @@ class AppState: ObservableObject {
                 try await databaseService.saveLog(newLog)
             }
             await loadTodaysSummary()
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke kopiere logging: \(error.localizedDescription)"
         }
@@ -353,6 +384,7 @@ class AppState: ObservableObject {
         
         do {
             try await databaseService.toggleFavorite(userId: user.id, productId: product.id)
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke oppdatere favoritt: \(error.localizedDescription)"
         }
@@ -434,6 +466,7 @@ class AppState: ObservableObject {
         do {
             try await databaseService.saveProduct(product)
             try await databaseService.saveScanHistory(userId: user.id, productId: product.id)
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke lagre skanning: \(error.localizedDescription)"
         }
@@ -521,6 +554,7 @@ class AppState: ObservableObject {
                     createdAt: product.createdAt
                 )
                 try? await databaseService.saveProduct(upgraded)
+                await refreshSyncStatus()
                 return upgraded
             }
         }
@@ -574,6 +608,7 @@ class AppState: ObservableObject {
                 createdAt: product.createdAt
             )
             try? await databaseService.saveProduct(upgraded)
+            await refreshSyncStatus()
             return upgraded
         }
         
@@ -621,6 +656,7 @@ class AppState: ObservableObject {
                 createdAt: product.createdAt
             )
             try? await databaseService.saveProduct(suggested)
+            await refreshSyncStatus()
             return suggested
         }
         
@@ -668,6 +704,7 @@ class AppState: ObservableObject {
         let entry = WeightEntry(userId: user.id, date: date, weightKg: weightKg)
         do {
             try await databaseService.saveWeightEntry(entry)
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke lagre vekt: \(error.localizedDescription)"
         }
@@ -681,6 +718,7 @@ class AppState: ObservableObject {
     func deleteWeightEntry(_ entry: WeightEntry) async {
         do {
             try await databaseService.deleteWeightEntry(entry.id)
+            await refreshSyncStatus()
         } catch {
             self.errorMessage = "Kunne ikke slette vekt: \(error.localizedDescription)"
         }

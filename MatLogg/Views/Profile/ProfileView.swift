@@ -124,11 +124,19 @@ struct ProfileView: View {
                     HStack {
                         Text("Status")
                         Spacer()
-                        Text("Alt synket")
+                        Text(syncStatusText)
                             .foregroundColor(AppColors.textSecondary)
                     }
-                    Button("Prøv igjen nå") {}
-                        .foregroundColor(AppColors.brand)
+                    if let error = appState.lastSyncError, appState.lastSyncSucceeded == false {
+                        Text(error)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    
+                    Button("Forsøk synk") {
+                        Task { await appState.triggerSync(reason: .userInitiated) }
+                    }
+                    .foregroundColor(AppColors.brand)
                     
                     CardContainer {
                         Text("Offline-first: Du kan logge uten nett. Synk skjer når nettet er tilbake.")
@@ -147,6 +155,9 @@ struct ProfileView: View {
             }
             .navigationTitle("Profil")
             .scrollDismissesKeyboard(.interactively)
+            .onAppear {
+                Task { await appState.refreshSyncStatus() }
+            }
             .alert("Slett konto?", isPresented: $showDeleteConfirm) {
                 Button("Slett", role: .destructive) {
                     Task { await appState.deleteAccount() }
@@ -165,6 +176,25 @@ struct ProfileView: View {
     
     private var authProviderLabel: String {
         appState.currentUser?.authProvider.capitalized ?? "Ukjent"
+    }
+    
+    private var syncStatusText: String {
+        if !FeatureFlags.backendSyncEnabled {
+            if appState.pendingSyncCount == 0 {
+                return "Venter på synk (backend ikke aktiv)"
+            }
+            return "\(appState.pendingSyncCount) venter på synk"
+        }
+        if appState.pendingSyncCount > 0 {
+            return "\(appState.pendingSyncCount) venter på synk"
+        }
+        if appState.lastSyncSucceeded == true {
+            return "Alt synket"
+        }
+        if appState.lastSyncSucceeded == false {
+            return "Synk feilet"
+        }
+        return "Venter på synk"
     }
     
     private var personalSummary: String? {

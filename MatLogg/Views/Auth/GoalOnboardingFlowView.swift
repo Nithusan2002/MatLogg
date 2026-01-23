@@ -534,6 +534,7 @@ struct GoalOnboardingFlowView: View {
         Task {
             try? await DatabaseService.shared.saveGoal(goal)
             appState.currentGoal = goal
+            await appState.refreshSyncStatus()
             appState.isOnboarding = false
             dismiss()
         }

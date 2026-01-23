@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  events    EventInbox[]
+  logs      Log[]
+  goals     Goal?
+  favorites Favorite[]
+  weights   Weight[]
+}
+
+model EventInbox {
+  eventId       String   @id
+  userId        String
+  deviceId      String
+  type          String
+  createdAt     DateTime
+  schemaVersion Int
+  payloadJson   Json
+  receivedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Log {
+  id         String   @id
+  userId     String
+  date       DateTime
+  meal       String
+  grams      Float
+  kcal       Int
+  protein    Float
+  carbs      Float
+  fat        Float
+  productRef String?
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Goal {
+  userId        String  @id
+  kcalTarget    Int
+  proteinTarget Float
+  carbTarget    Float
+  fatTarget     Float
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Favorite {
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, productId])
+}
+
+model Weight {
+  id        String   @id @default(uuid())
+  userId    String
+  date      DateTime
+  weightKg  Float
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Product {
+  id                String   @id
+  userId            String?
+  name              String
+  brand             String?
+  barcode           String?
+  nutrientsPer100g  Json
+  imageUrl          String?
+  source            String
+  updatedAt         DateTime @updatedAt
+}

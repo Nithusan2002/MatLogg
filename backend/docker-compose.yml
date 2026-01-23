@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: matlogg
+      POSTGRES_PASSWORD: matlogg
+      POSTGRES_DB: matlogg
+    ports:
+      - "5432:5432"
+    volumes:
+      - matlogg_db:/var/lib/postgresql/data
+volumes:
+  matlogg_db:

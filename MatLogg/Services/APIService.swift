@@ -9,6 +9,9 @@ class APIService {
         case networkError(String)
         case decodingError
         case serverError(Int)
+        case backendNotConfigured
+        case batchLimitExceeded(Int)
+        case payloadTooLarge(Int)
         
         var errorDescription: String? {
             switch self {
@@ -20,8 +23,49 @@ class APIService {
                 return "Kunne ikke tolke svar fra server"
             case .serverError(let code):
                 return "Server feil: \(code)"
+            case .backendNotConfigured:
+                return "Backend ikke konfigurert"
+            case .batchLimitExceeded(let limit):
+                return "For mange sync-events i batch (maks \(limit))"
+            case .payloadTooLarge(let limit):
+                return "For stor payload i sync-event (maks \(limit) bytes)"
             }
         }
+    }
+
+    struct UploadResult {
+        let ackedEventIds: [UUID]
+        let rejected: [RejectedEvent]
+    }
+    
+    struct RejectedEvent {
+        let eventId: UUID
+        let code: String
+        let message: String
+    }
+    
+    struct SyncEventEnvelope: Codable {
+        let eventId: UUID
+        let type: String
+        let createdAt: Date
+        let entityId: String?
+        let schemaVersion: Int
+        let payloadBase64: String
+    }
+    
+    struct UploadEventsRequest: Codable {
+        let events: [SyncEventEnvelope]
+    }
+    
+    struct UploadEventsResponse: Codable {
+        let ackedEventIds: [UUID]
+        let rejected: [RejectedEventResponse]?
+    }
+    
+    struct RejectedEventResponse: Codable {
+        let eventId: UUID
+        let code: String
+        let message: String
     }
     
     // MARK: - Auth Endpoints
@@ -123,6 +167,79 @@ class APIService {
         )
         
         return (user, authResponse.token)
+    }
+    
+    // MARK: - Sync (stub)
+    
+    func uploadEvents(_ events: [SyncEvent]) async throws -> UploadResult {
+        guard FeatureFlags.backendSyncEnabled else {
+            throw APIError.backendNotConfigured
+        }
+        
+        let maxBatchSize = 50
+        let maxPayloadBytes = 256_000
+        if events.count > maxBatchSize {
+            throw APIError.batchLimitExceeded(maxBatchSize)
+        }
+        if let oversize = events.first(where: { $0.payload.count > maxPayloadBytes }) {
+            throw APIError.payloadTooLarge(maxPayloadBytes)
+        }
+        
+        let url = URL(string: "\(baseURL)/sync/events")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let envelopes = events.map { event in
+            SyncEventEnvelope(
+                eventId: event.eventId,
+                type: event.type,
+                createdAt: event.createdAt,
+                entityId: event.entityId,
+                schemaVersion: 1,
+                payloadBase64: event.payload.base64EncodedString()
+            )
+        }
+        
+        let payload = UploadEventsRequest(events: envelopes)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        request.httpBody = try encoder.encode(payload)
+        
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError("Ugyldig respons")
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(UploadEventsResponse.self, from: data)
+        let rejected = decoded.rejected?.map {
+            RejectedEvent(eventId: $0.eventId, code: $0.code, message: $0.message)
+        } ?? []
+        
+        #if DEBUG
+        if !rejected.isEmpty {
+            let rejectedSet = Set(rejected.map { $0.eventId })
+            for event in events where rejectedSet.contains(event.eventId) {
+                if let json = try? JSONSerialization.jsonObject(with: event.payload),
+                   let pretty = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted]),
+                   let text = String(data: pretty, encoding: .utf8) {
+                    print("Sync rejected \(event.eventId):\n\(text)")
+                } else if let text = String(data: event.payload, encoding: .utf8) {
+                    print("Sync rejected \(event.eventId):\n\(text)")
+                } else {
+                    print("Sync rejected \(event.eventId): payload \(event.payload.count) bytes")
+                }
+            }
+        }
+        #endif
+        
+        return UploadResult(ackedEventIds: decoded.ackedEventIds, rejected: rejected)
     }
     
     // MARK: - Product Barcode Lookup

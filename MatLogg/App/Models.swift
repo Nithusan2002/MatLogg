@@ -461,6 +461,28 @@ struct DailySummary {
     }
 }
 
+// MARK: - Sync
+
+enum SyncEventStatus: String {
+    case pending
+    case inFlight
+    case acked
+    case deadLetter
+}
+
+struct SyncEvent {
+    let eventId: UUID
+    let type: String
+    let createdAt: Date
+    let entityId: String?
+    let payload: Data
+    let status: SyncEventStatus
+    let attemptCount: Int
+    let lastAttemptAt: Date?
+    let nextRetryAt: Date?
+    let lastError: String?
+}
+
 // MARK: - Auth State
 
 enum AuthState {
