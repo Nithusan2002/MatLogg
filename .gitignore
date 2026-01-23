@@ -57,3 +57,4 @@ Carthage/Build
 *.tmp
 .tmp/
 temp/
+backend/node_modules/
