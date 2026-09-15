@@ -58,3 +58,4 @@ Carthage/Build
 .tmp/
 temp/
 backend/node_modules/
+backend/dist/

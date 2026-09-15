@@ -69,15 +69,11 @@ MatLogg/
 
 ## Documentation
 
-- [MVP Scope & KPIs](SPEC_1_MVP_SCOPE.md)
-- [User Stories & Flows](SPEC_2_USER_STORIES_FLOWS.md)
-- [Wireframes & Screens](SPEC_3_WIREFRAMES_SCREENS.md)
-- [Microinteractions](SPEC_4_MICROINTERACTIONS.md)
-- [Data Model & Sync](SPEC_5_DATA_MODEL_SYNC.md)
-- [API Endpoints](SPEC_6_API_ENDPOINTS.md)
-- [Edge Cases](SPEC_7_EDGE_CASES.md)
-- [Roadmap](SPEC_8_ROADMAP.md)
-- [Risks & Mitigations](SPEC_9_RISKS_MITIGATION.md)
+Start with the [documentation index](docs/README.md). Product, UX, data, API,
+roadmap, and risk specifications live under `docs/specs/`.
+
+Agent instructions and project-specific workflows live in `AGENTS.md` and
+`.agents/skills/`.
 
 ## Design system usage
 
