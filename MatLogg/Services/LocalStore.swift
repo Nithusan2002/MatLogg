@@ -10,6 +10,11 @@ final class LocalStore {
     private var db: OpaquePointer?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    private let syncEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
     
     private init() {
         openDatabase()
@@ -21,7 +26,8 @@ final class LocalStore {
     
     func saveGoal(_ goal: Goal) throws {
         let data = try encoder.encode(goal)
-        queue.sync {
+        let payload = try syncEncoder.encode(GoalSyncPayload(goal: goal))
+        try performAtomicWrite(type: .goalSet, entityId: goal.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO goals(id, userId, createdDate, json)
             VALUES(?, ?, ?, ?);
@@ -32,10 +38,9 @@ final class LocalStore {
             sqlite3_bind_text(stmt, 2, goal.userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(stmt, 3, goal.createdDate.timeIntervalSince1970)
             bindBlob(stmt, index: 4, data: data)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
         }
-        enqueueSyncEvent(type: .goalUpsert, entityId: goal.id.uuidString, payload: data)
     }
     
     func getLatestGoal(userId: UUID) -> Goal? {
@@ -63,7 +68,8 @@ final class LocalStore {
     
     func saveLog(_ log: FoodLog) throws {
         let data = try encoder.encode(log)
-        queue.sync {
+        let payload = try syncEncoder.encode(LogSyncPayload(log: log))
+        try performAtomicWrite(type: .logUpsert, entityId: log.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO logs(id, userId, productId, mealType, loggedDate, loggedTime, calories, protein, carbs, fat, json)
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -81,24 +87,20 @@ final class LocalStore {
             sqlite3_bind_double(stmt, 9, Double(log.carbsG))
             sqlite3_bind_double(stmt, 10, Double(log.fatG))
             bindBlob(stmt, index: 11, data: data)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
         }
-        enqueueSyncEvent(type: .logUpsert, entityId: log.id.uuidString, payload: data)
     }
     
     func deleteLog(_ id: UUID) throws {
-        queue.sync {
+        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+        try performAtomicWrite(type: .logDelete, entityId: id.uuidString, payload: payload) {
             let sql = "DELETE FROM logs WHERE id = ?;"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
-        }
-        let payload = try? encoder.encode(SyncEventIdPayload(id: id.uuidString))
-        if let payload {
-            enqueueSyncEvent(type: .logDelete, entityId: id.uuidString, payload: payload)
         }
     }
     
@@ -170,7 +172,8 @@ final class LocalStore {
     
     func saveProduct(_ product: Product) throws {
         let data = try encoder.encode(product)
-        queue.sync {
+        let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
+        try performAtomicWrite(type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO products(id, barcode, json)
             VALUES(?, ?, ?);
@@ -180,10 +183,9 @@ final class LocalStore {
             sqlite3_bind_text(stmt, 1, product.id.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_text(stmt, 2, product.barcodeEan ?? "", -1, SQLITE_TRANSIENT)
             bindBlob(stmt, index: 3, data: data)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
         }
-        enqueueSyncEvent(type: .productUpsert, entityId: product.id.uuidString, payload: data)
     }
     
     func getProduct(_ id: UUID) -> Product? {
@@ -222,23 +224,21 @@ final class LocalStore {
     
     func toggleFavorite(userId: UUID, productId: UUID) throws {
         if let existingId = favoriteId(userId: userId, productId: productId) {
-            queue.sync {
+            let payload = try syncEncoder.encode(FavoriteSyncPayload(productId: productId.uuidString))
+            try performAtomicWrite(type: .favoriteRemove, entityId: existingId, payload: payload) {
                 let sql = "DELETE FROM favorites WHERE id = ?;"
                 var stmt: OpaquePointer?
                 sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
                 sqlite3_bind_text(stmt, 1, existingId, -1, SQLITE_TRANSIENT)
-                sqlite3_step(stmt)
+                try requireDone(sqlite3_step(stmt))
                 sqlite3_finalize(stmt)
-            }
-            let payload = try? encoder.encode(SyncEventIdPayload(id: existingId))
-            if let payload {
-                enqueueSyncEvent(type: .favoriteRemove, entityId: existingId, payload: payload)
             }
             return
         }
         
         let favorite = Favorite(userId: userId, productId: productId)
-        queue.sync {
+        let payload = try syncEncoder.encode(FavoriteSyncPayload(productId: productId.uuidString))
+        try performAtomicWrite(type: .favoriteAdd, entityId: favorite.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO favorites(id, userId, productId, createdAt)
             VALUES(?, ?, ?, ?);
@@ -249,12 +249,8 @@ final class LocalStore {
             sqlite3_bind_text(stmt, 2, favorite.userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_text(stmt, 3, favorite.productId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(stmt, 4, favorite.createdAt.timeIntervalSince1970)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
-        }
-        let payload = try? encoder.encode(favorite)
-        if let payload {
-            enqueueSyncEvent(type: .favoriteAdd, entityId: favorite.id.uuidString, payload: payload)
         }
     }
     
@@ -342,13 +338,14 @@ final class LocalStore {
     
     func saveWeightEntry(_ entry: WeightEntry) throws {
         let data = try encoder.encode(entry)
-        queue.sync {
+        let payload = try syncEncoder.encode(WeightSyncPayload(entry: entry))
+        try performAtomicWrite(type: .weightUpsert, entityId: entry.id.uuidString, payload: payload) {
             let deleteSql = "DELETE FROM weights WHERE userId = ? AND date = ?;"
             var deleteStmt: OpaquePointer?
             sqlite3_prepare_v2(db, deleteSql, -1, &deleteStmt, nil)
             sqlite3_bind_text(deleteStmt, 1, entry.userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(deleteStmt, 2, entry.date.timeIntervalSince1970)
-            sqlite3_step(deleteStmt)
+            try requireDone(sqlite3_step(deleteStmt))
             sqlite3_finalize(deleteStmt)
             
             let insertSql = """
@@ -361,24 +358,20 @@ final class LocalStore {
             sqlite3_bind_text(stmt, 2, entry.userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(stmt, 3, entry.date.timeIntervalSince1970)
             bindBlob(stmt, index: 4, data: data)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
         }
-        enqueueSyncEvent(type: .weightUpsert, entityId: entry.id.uuidString, payload: data)
     }
     
     func deleteWeightEntry(_ id: UUID) throws {
-        queue.sync {
+        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+        try performAtomicWrite(type: .weightDelete, entityId: id.uuidString, payload: payload) {
             let sql = "DELETE FROM weights WHERE id = ?;"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_step(stmt)
+            try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
-        }
-        let payload = try? encoder.encode(SyncEventIdPayload(id: id.uuidString))
-        if let payload {
-            enqueueSyncEvent(type: .weightDelete, entityId: id.uuidString, payload: payload)
         }
     }
     
@@ -531,7 +524,7 @@ final class LocalStore {
         let now = Date().timeIntervalSince1970
         return queue.sync {
             let sql = """
-            SELECT eventId, type, createdAt, entityId, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError
+            SELECT eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError
             FROM sync_queue
             WHERE status = 'pending' AND (nextRetryAt IS NULL OR nextRetryAt <= ?)
             ORDER BY createdAt ASC
@@ -550,18 +543,20 @@ final class LocalStore {
                 let type = String(cString: typeText)
                 let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
                 let entityId = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
-                let payload = readBlob(stmt, index: 4) ?? Data()
-                let statusRaw = sqlite3_column_text(stmt, 5).map { String(cString: $0) } ?? "pending"
-                let attemptCount = sqlite3_column_type(stmt, 6) == SQLITE_NULL ? 0 : Int(sqlite3_column_int(stmt, 6))
-                let lastAttemptAt = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 7))
-                let nextRetryAt = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8))
-                let lastError = sqlite3_column_text(stmt, 9).map { String(cString: $0) }
+                let schemaVersion = Int(sqlite3_column_int(stmt, 4))
+                let payload = readBlob(stmt, index: 5) ?? Data()
+                let statusRaw = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "pending"
+                let attemptCount = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? 0 : Int(sqlite3_column_int(stmt, 7))
+                let lastAttemptAt = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8))
+                let nextRetryAt = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+                let lastError = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
                 let status = SyncEventStatus(rawValue: statusRaw) ?? .pending
                 results.append(SyncEvent(
                     eventId: eventId,
                     type: type,
                     createdAt: createdAt,
                     entityId: entityId,
+                    schemaVersion: schemaVersion,
                     payload: payload,
                     status: status,
                     attemptCount: attemptCount,
@@ -740,6 +735,7 @@ final class LocalStore {
                 type TEXT,
                 createdAt REAL,
                 entityId TEXT,
+                schemaVersion INTEGER NOT NULL DEFAULT 1,
                 payload BLOB,
                 status TEXT,
                 attemptCount INTEGER,
@@ -778,6 +774,7 @@ final class LocalStore {
             "type": "TEXT",
             "createdAt": "REAL",
             "entityId": "TEXT",
+            "schemaVersion": "INTEGER NOT NULL DEFAULT 1",
             "payload": "BLOB",
             "status": "TEXT",
             "attemptCount": "INTEGER",
@@ -849,27 +846,46 @@ final class LocalStore {
         }
     }
     
-    private func enqueueSyncEvent(type: SyncEventType, entityId: String?, payload: Data) {
-        queue.sync {
-            let sql = """
-            INSERT OR REPLACE INTO sync_queue(eventId, type, createdAt, entityId, payload, status, attemptCount)
-            VALUES(?, ?, ?, ?, ?, 'pending', 0);
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            let eventId = UUID().uuidString
-            sqlite3_bind_text(stmt, 1, eventId, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, type.rawValue, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_double(stmt, 3, Date().timeIntervalSince1970)
-            if let entityId {
-                sqlite3_bind_text(stmt, 4, entityId, -1, SQLITE_TRANSIENT)
-            } else {
-                sqlite3_bind_null(stmt, 4)
+    private func performAtomicWrite(type: SyncEventType, entityId: String?, payload: Data, write: () throws -> Void) throws {
+        try queue.sync {
+            try execute("BEGIN IMMEDIATE TRANSACTION;")
+            do {
+                try write()
+                try enqueueSyncEventLocked(type: type, entityId: entityId, payload: payload)
+                try execute("COMMIT;")
+            } catch {
+                _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                throw error
             }
-            bindBlob(stmt, index: 5, data: payload)
-            sqlite3_step(stmt)
-            sqlite3_finalize(stmt)
         }
+    }
+
+    private func enqueueSyncEventLocked(type: SyncEventType, entityId: String?, payload: Data) throws {
+        let sql = """
+        INSERT INTO sync_queue(eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount)
+        VALUES(?, ?, ?, ?, 1, ?, 'pending', 0);
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, UUID().uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, type.rawValue, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_double(stmt, 3, Date().timeIntervalSince1970)
+        if let entityId { sqlite3_bind_text(stmt, 4, entityId, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 4) }
+        bindBlob(stmt, index: 5, data: payload)
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    private func execute(_ sql: String) throws {
+        guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw databaseError() }
+    }
+
+    private func requireDone(_ result: Int32) throws {
+        guard result == SQLITE_DONE else { throw databaseError() }
+    }
+
+    private func databaseError() -> LocalStoreError {
+        LocalStoreError.sqlite(db.flatMap(sqlite3_errmsg).map { String(cString: $0) } ?? "Ukjent SQLite-feil")
     }
 }
 
@@ -877,13 +893,92 @@ private struct SyncEventIdPayload: Codable {
     let id: String
 }
 
+private struct GoalSyncPayload: Codable {
+    let kcalTarget: Int
+    let proteinTarget: Float
+    let carbTarget: Float
+    let fatTarget: Float
+
+    init(goal: Goal) {
+        kcalTarget = goal.dailyCalories
+        proteinTarget = goal.proteinTargetG
+        carbTarget = goal.carbsTargetG
+        fatTarget = goal.fatTargetG
+    }
+}
+
+private struct LogSyncPayload: Codable {
+    let id: String
+    let date: Date
+    let meal: String
+    let grams: Float
+    let kcal: Int
+    let protein: Float
+    let carbs: Float
+    let fat: Float
+    let productRef: String?
+
+    init(log: FoodLog) {
+        id = log.id.uuidString
+        date = log.loggedTime
+        meal = log.mealType
+        grams = log.amountG
+        kcal = log.calories
+        protein = log.proteinG
+        carbs = log.carbsG
+        fat = log.fatG
+        productRef = log.productId.uuidString
+    }
+}
+
+private struct FavoriteSyncPayload: Codable { let productId: String }
+private struct WeightSyncPayload: Codable {
+    let id: String
+    let date: Date
+    let weightKg: Double
+    init(entry: WeightEntry) { id = entry.id.uuidString; date = entry.date; weightKg = entry.weightKg }
+}
+
+private struct ProductSyncPayload: Codable {
+    let id: String
+    let name: String
+    let brand: String?
+    let barcode: String?
+    let nutrientsPer100g: [String: Double]
+    let imageUrl: String?
+    let source: String
+
+    init(product: Product) {
+        id = product.id.uuidString
+        name = product.name
+        brand = product.brand
+        barcode = product.barcodeEan
+        nutrientsPer100g = [
+            "kcal": Double(product.caloriesPer100g),
+            "protein": Double(product.proteinGPer100g),
+            "carbs": Double(product.carbsGPer100g),
+            "fat": Double(product.fatGPer100g)
+        ]
+        imageUrl = product.imageUrl
+        source = product.source
+    }
+}
+
+private enum LocalStoreError: LocalizedError {
+    case sqlite(String)
+    var errorDescription: String? {
+        if case .sqlite(let message) = self { return "Lokal databasefeil: \(message)" }
+        return nil
+    }
+}
+
 private enum SyncEventType: String {
-    case goalUpsert = "goal_upsert"
-    case logUpsert = "log_upsert"
-    case logDelete = "log_delete"
-    case productUpsert = "product_upsert"
-    case favoriteAdd = "favorite_add"
-    case favoriteRemove = "favorite_remove"
-    case weightUpsert = "weight_upsert"
-    case weightDelete = "weight_delete"
+    case goalSet = "goal.set"
+    case logUpsert = "log.upsert"
+    case logDelete = "log.delete"
+    case productUpsert = "product.upsert"
+    case favoriteAdd = "favorite.add"
+    case favoriteRemove = "favorite.remove"
+    case weightUpsert = "weight.upsert"
+    case weightDelete = "weight.delete"
 }

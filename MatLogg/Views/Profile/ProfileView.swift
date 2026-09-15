@@ -2,6 +2,10 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
+    @EnvironmentObject var userDataExportService: UserDataExportService
     @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
     @State private var exportURL: URL?
@@ -39,7 +43,7 @@ struct ProfileView: View {
                         Text(authProviderLabel)
                             .foregroundColor(AppColors.textSecondary)
                     }
-                    if let email = appState.currentUser?.email, !email.isEmpty {
+                    if let email = authViewModel.currentUser?.email, !email.isEmpty {
                         HStack {
                             Text("E-post")
                             Spacer()
@@ -50,13 +54,14 @@ struct ProfileView: View {
                     
                     Button("Last ned data") {
                         Task {
-                            exportURL = await appState.exportUserData()
+                            guard let user = authViewModel.currentUser else { return }
+                            exportURL = await userDataExportService.export(for: user)
                             showShareSheet = exportURL != nil
                         }
                     }
                     
                     Button("Logg ut", role: .destructive) {
-                        appState.logout()
+                        authViewModel.logout()
                     }
                     
                     Button("Slett konto", role: .destructive) {
@@ -65,13 +70,13 @@ struct ProfileView: View {
                 }
                 
                 Section("Mål") {
-                    if let goal = appState.currentGoal {
+                    if let goal = healthProfileViewModel.currentGoal {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Nåværende mål")
                                 .font(AppTypography.caption)
                                 .foregroundColor(AppColors.textSecondary)
                             
-                            if appState.safeModeHideCalories {
+                            if preferencesViewModel.safeModeHideCalories {
                                 Text("Mål per dag er satt")
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)
@@ -92,13 +97,13 @@ struct ProfileView: View {
                             .environmentObject(appState)
                     }
                     
-                    Toggle("Vis målstatus på Home", isOn: $appState.showGoalStatusOnHome)
+                    Toggle("Vis målstatus på Home", isOn: $preferencesViewModel.showGoalStatusOnHome)
                 }
                 
                 Section("Preferanser") {
-                    Toggle("Haptics", isOn: $appState.hapticsFeedbackEnabled)
-                    Toggle("Lyd", isOn: $appState.soundFeedbackEnabled)
-                    Toggle("Vis datakilde", isOn: $appState.showNutritionSource)
+                    Toggle("Haptics", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
+                    Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
+                    Toggle("Vis datakilde", isOn: $preferencesViewModel.showNutritionSource)
                     
                     HStack {
                         Text("Enheter")
@@ -109,14 +114,14 @@ struct ProfileView: View {
                 }
                 
                 Section("Trygghet") {
-                    Toggle("Trygg modus", isOn: $appState.safeModeEnabled)
+                    Toggle("Trygg modus", isOn: $preferencesViewModel.safeModeEnabled)
                     Text("For en roligere visning")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                     
-                    if !appState.safeModeEnabled {
-                        Toggle("Skjul kalorier", isOn: $appState.safeModeHideCalories)
-                        Toggle("Skjul mål/progresjon", isOn: $appState.safeModeHideGoals)
+                    if !preferencesViewModel.safeModeEnabled {
+                        Toggle("Skjul kalorier", isOn: $preferencesViewModel.safeModeHideCalories)
+                        Toggle("Skjul mål/progresjon", isOn: $preferencesViewModel.safeModeHideGoals)
                     }
                 }
                 
@@ -160,7 +165,7 @@ struct ProfileView: View {
             }
             .alert("Slett konto?", isPresented: $showDeleteConfirm) {
                 Button("Slett", role: .destructive) {
-                    Task { await appState.deleteAccount() }
+                    Task { await authViewModel.deleteAccount() }
                 }
                 Button("Avbryt", role: .cancel) {}
             } message: {
@@ -175,7 +180,7 @@ struct ProfileView: View {
     }
     
     private var authProviderLabel: String {
-        appState.currentUser?.authProvider.capitalized ?? "Ukjent"
+        authViewModel.currentUser?.authProvider.capitalized ?? "Ukjent"
     }
     
     private var syncStatusText: String {
@@ -198,7 +203,7 @@ struct ProfileView: View {
     }
     
     private var personalSummary: String? {
-        let details = appState.personalDetails
+        let details = healthProfileViewModel.personalDetails
         var parts: [String] = []
         
         if let weight = details.weightKg {

@@ -18,6 +18,9 @@ struct GoalOnboardingFlowView: View {
     }
     
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @Environment(\.dismiss) private var dismiss
     
     let mode: Mode
@@ -273,7 +276,7 @@ struct GoalOnboardingFlowView: View {
                 .foregroundColor(AppColors.textSecondary)
             
             VStack(spacing: 12) {
-                if !appState.safeModeEnabled {
+                if !preferencesViewModel.safeModeEnabled {
                     TextField("Vekt (kg)", text: $weightText)
                         .keyboardType(.decimalPad)
                         .textFieldStyle(.roundedBorder)
@@ -309,7 +312,7 @@ struct GoalOnboardingFlowView: View {
     
     private var resultStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if appState.safeModeEnabled {
+            if preferencesViewModel.safeModeEnabled {
                 Text("Forslått mål: \(GoalCalculator.roundedDisplay(kcalTarget))")
                     .font(AppTypography.title)
                     .foregroundColor(AppColors.ink)
@@ -417,7 +420,7 @@ struct GoalOnboardingFlowView: View {
                 .font(AppTypography.title)
                 .foregroundColor(AppColors.ink)
             
-            if appState.safeModeEnabled {
+            if preferencesViewModel.safeModeEnabled {
                 Text("Mål per dag: \(kcalTarget)")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
@@ -444,7 +447,7 @@ struct GoalOnboardingFlowView: View {
         withAnimation {
             let nextStep = Step(rawValue: step.rawValue + 1) ?? .summary
             if step == .privacy {
-                appState.hasSeenPrivacyChoices = true
+                preferencesViewModel.hasSeenPrivacyChoices = true
             }
             if nextStep == .result, !didAdjustCalories {
                 kcalTarget = suggestedCalories()
@@ -478,7 +481,7 @@ struct GoalOnboardingFlowView: View {
     }
     
     private func loadDefaults() {
-        if let goal = appState.currentGoal {
+        if let goal = healthProfileViewModel.currentGoal {
             kcalTarget = goal.dailyCalories
             intent = goal.intent ?? .maintain
             pace = goal.pace ?? .calm
@@ -486,7 +489,7 @@ struct GoalOnboardingFlowView: View {
             didSetInitialCalories = true
             didAdjustCalories = true
         }
-        let details = appState.personalDetails
+        let details = healthProfileViewModel.personalDetails
         if let weight = details.weightKg {
             weightText = formatNumber(weight)
         }
@@ -499,7 +502,7 @@ struct GoalOnboardingFlowView: View {
     }
     
     private func saveGoal() {
-        guard let user = appState.currentUser else {
+        guard let user = authViewModel.currentUser else {
             dismiss()
             return
         }
@@ -514,11 +517,11 @@ struct GoalOnboardingFlowView: View {
             intent: intent,
             pace: pace,
             activityLevel: activity,
-            safeModeEnabled: appState.safeModeEnabled
+            safeModeEnabled: preferencesViewModel.safeModeEnabled
         )
         
-        var updatedDetails = appState.personalDetails
-        if !appState.safeModeEnabled, let weight = parseNumber(weightText) {
+        var updatedDetails = healthProfileViewModel.personalDetails
+        if !preferencesViewModel.safeModeEnabled, let weight = parseNumber(weightText) {
             updatedDetails.weightKg = weight
         }
         if let height = parseNumber(heightText) {
@@ -529,14 +532,18 @@ struct GoalOnboardingFlowView: View {
         }
         updatedDetails.gender = gender == .ikkeOppgi ? nil : gender
         updatedDetails.activityLevel = activity
-        appState.personalDetails = updatedDetails
-        
         Task {
-            try? await DatabaseService.shared.saveGoal(goal)
-            appState.currentGoal = goal
-            await appState.refreshSyncStatus()
-            appState.isOnboarding = false
-            dismiss()
+            guard healthProfileViewModel.savePersonalDetails(updatedDetails) else {
+                appState.errorMessage = healthProfileViewModel.errorMessage
+                return
+            }
+            if await healthProfileViewModel.saveGoal(goal) {
+                await appState.refreshSyncStatus()
+                authViewModel.finishOnboarding()
+                dismiss()
+            } else {
+                appState.errorMessage = healthProfileViewModel.errorMessage
+            }
         }
     }
     

@@ -6,6 +6,19 @@ MatLogg er en norsk iOS-app for enkel matlogging, ernæringsoversikt og måloppf
 
 Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arkitektoniske endringer. Kode og migrasjoner er teknisk sannhetskilde når eldre spesifikasjoner avviker; dokumenter viktige avvik.
 
+`docs/architecture-principles.md` er normativ for alle kodeendringer. Les den før implementering og bruk den aktivt i review og ferdigvurdering. Dersom en foreslått endring bryter prinsippene, skal agenten enten endre løsningen eller synliggjøre avviket og be om avklaring før implementering.
+
+## Arkitekturkrav
+
+- Følg pragmatisk MVVM i iOS-klienten: `View → ViewModel → Repository → Service/local store/API`.
+- Views skal ikke utføre domenelogikk eller IO. ViewModels eier feature-state og brukerhandlinger; repositories skjuler datakilder; services håndterer avgrenset infrastruktur.
+- `AppState` skal bare koordinere appomfattende state og skal ikke være permanent hjem for featurelogikk, domeneregler eller IO.
+- Sett sammen avhengigheter ved app-roten. Bruk små protokoller og injeksjon ved IO-grenser slik at ViewModels kan testes uten ekte database eller nettverk.
+- Bevar local-first. Domenedata og tilhørende synkhendelse skal skrives atomisk lokalt.
+- Alle synkhendelser skal ha stabil event-ID, canonical type og eksplisitt schema-versjon. Klient og backend skal følge `docs/sync-contract-v1.md` og endres samlet ved kontraktsendringer.
+- Backend skal validere input, hente identitet fra token, autorisere mot ressursens eier og skrive inbox/domenedata atomisk.
+- Produksjonssynk skal forbli deaktivert til relevante kontrakt-, retry-, idempotens-, eierskaps- og integrasjonstester er grønne.
+
 ## Grunnregler
 
 - Bygg den enkleste løsningen som dekker avtalt scope. Ikke utvid MVP uten å synliggjøre konsekvensene.
@@ -62,4 +75,6 @@ Forklar konsekvensene og be om avklaring før destruktive datamigrasjoner, slett
 
 ## Ferdigdefinisjon
 
-Rapporter kort: hva som ble endret, berørte filer, skills brukt, verifisering, antakelser og gjenværende risiko eller neste steg.
+Før en kodeendring regnes som ferdig, kontroller den eksplisitt mot `docs/architecture-principles.md`, inkludert avhengighetsretning, local-first, transaksjonsgrenser, eierskap og testbarhet der punktene er relevante.
+
+Rapporter kort: hva som ble endret, berørte filer, skills brukt, verifisering, antakelser, arkitekturavvik og gjenværende risiko eller neste steg.

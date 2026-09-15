@@ -1,8 +1,19 @@
 import Foundation
 
 class APIService {
-    private let baseURL = "https://api.matlogg.app/v1"
-    private let session = URLSession.shared
+    private let baseURL: String
+    private let session: URLSession
+    private let accessTokenProvider: () -> String?
+
+    init(
+        session: URLSession = .shared,
+        baseURL: String = "https://api.matlogg.app/v1",
+        accessTokenProvider: @escaping () -> String? = { nil }
+    ) {
+        self.session = session
+        self.baseURL = baseURL
+        self.accessTokenProvider = accessTokenProvider
+    }
     
     enum APIError: LocalizedError {
         case invalidURL
@@ -12,6 +23,7 @@ class APIService {
         case backendNotConfigured
         case batchLimitExceeded(Int)
         case payloadTooLarge(Int)
+        case missingAccessToken
         
         var errorDescription: String? {
             switch self {
@@ -29,6 +41,8 @@ class APIService {
                 return "For mange sync-events i batch (maks \(limit))"
             case .payloadTooLarge(let limit):
                 return "For stor payload i sync-event (maks \(limit) bytes)"
+            case .missingAccessToken:
+                return "Du må være innlogget for å synkronisere"
             }
         }
     }
@@ -50,10 +64,12 @@ class APIService {
         let createdAt: Date
         let entityId: String?
         let schemaVersion: Int
-        let payloadBase64: String
+        let payload: String
     }
     
     struct UploadEventsRequest: Codable {
+        let deviceId: UUID
+        let clientTime: Date
         let events: [SyncEventEnvelope]
     }
     
@@ -177,18 +193,22 @@ class APIService {
         }
         
         let maxBatchSize = 50
-        let maxPayloadBytes = 256_000
+        let maxPayloadBytes = 64 * 1024
         if events.count > maxBatchSize {
             throw APIError.batchLimitExceeded(maxBatchSize)
         }
-        if let oversize = events.first(where: { $0.payload.count > maxPayloadBytes }) {
+        if events.contains(where: { $0.payload.count > maxPayloadBytes }) {
             throw APIError.payloadTooLarge(maxPayloadBytes)
+        }
+        guard let token = accessTokenProvider(), !token.isEmpty else {
+            throw APIError.missingAccessToken
         }
         
         let url = URL(string: "\(baseURL)/sync/events")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         let envelopes = events.map { event in
             SyncEventEnvelope(
@@ -196,12 +216,16 @@ class APIService {
                 type: event.type,
                 createdAt: event.createdAt,
                 entityId: event.entityId,
-                schemaVersion: 1,
-                payloadBase64: event.payload.base64EncodedString()
+                schemaVersion: event.schemaVersion,
+                payload: event.payload.base64EncodedString()
             )
         }
         
-        let payload = UploadEventsRequest(events: envelopes)
+        let payload = UploadEventsRequest(
+            deviceId: SyncDeviceIdentity.id,
+            clientTime: Date(),
+            events: envelopes
+        )
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         request.httpBody = try encoder.encode(payload)
@@ -561,6 +585,20 @@ class APIService {
             return String(Int(grams))
         }
         return String(format: "%.1f", grams)
+    }
+}
+
+private enum SyncDeviceIdentity {
+    private static let key = "ml_sync_device_id"
+
+    static var id: UUID {
+        if let value = UserDefaults.standard.string(forKey: key),
+           let existing = UUID(uuidString: value) {
+            return existing
+        }
+        let created = UUID()
+        UserDefaults.standard.set(created.uuidString, forKey: key)
+        return created
     }
 }
 

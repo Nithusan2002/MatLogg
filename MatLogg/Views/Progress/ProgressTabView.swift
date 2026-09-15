@@ -5,11 +5,16 @@ import Charts
 
 struct ProgressTabView: View {
     @EnvironmentObject var appState: AppState
-    @State private var entries: [WeightEntry] = []
+    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var weightText = ""
     @State private var selectedDate = Date()
     @State private var showDeleteConfirm = false
     @State private var entryToDelete: WeightEntry?
+
+    private var entries: [WeightEntry] {
+        healthProfileViewModel.weightEntries
+    }
     
     var body: some View {
         NavigationStack {
@@ -122,8 +127,12 @@ struct ProgressTabView: View {
                 Button("Slett", role: .destructive) {
                     if let entryToDelete {
                         Task {
-                            await appState.deleteWeightEntry(entryToDelete)
-                            await reload()
+                            guard let userId = authViewModel.currentUser?.id else { return }
+                            if await healthProfileViewModel.deleteWeight(entryToDelete, userId: userId) {
+                                await appState.refreshSyncStatus()
+                            } else {
+                                appState.errorMessage = healthProfileViewModel.errorMessage
+                            }
                         }
                     }
                 }
@@ -135,13 +144,18 @@ struct ProgressTabView: View {
     private func saveWeight() async {
         let normalized = weightText.replacingOccurrences(of: ",", with: ".")
         guard let weight = Double(normalized), weight > 0 else { return }
-        await appState.saveWeightEntry(date: selectedDate, weightKg: weight)
-        weightText = ""
-        await reload()
+        guard let userId = authViewModel.currentUser?.id else { return }
+        if await healthProfileViewModel.saveWeight(date: selectedDate, weightKg: weight, userId: userId) {
+            weightText = ""
+            await appState.refreshSyncStatus()
+        } else {
+            appState.errorMessage = healthProfileViewModel.errorMessage
+        }
     }
     
     private func reload() async {
-        entries = await appState.loadWeightEntries()
+        guard let userId = authViewModel.currentUser?.id else { return }
+        await healthProfileViewModel.loadWeightEntries(userId: userId)
     }
     
     private func dateLabel(_ date: Date) -> String {

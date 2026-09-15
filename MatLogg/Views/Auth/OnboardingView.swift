@@ -9,4 +9,7 @@ struct OnboardingView: View {
 #Preview {
     OnboardingView()
         .environmentObject(AppState())
+        .environmentObject(HealthProfileViewModel(repository: DatabaseService()))
+        .environmentObject(AuthViewModel())
+        .environmentObject(PreferencesViewModel())
 }

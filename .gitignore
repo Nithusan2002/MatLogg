@@ -57,5 +57,6 @@ Carthage/Build
 *.tmp
 .tmp/
 temp/
+git-xcode-recovery-backup/
 backend/node_modules/
 backend/dist/

@@ -2,6 +2,10 @@ import SwiftUI
 
 struct LoggView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var logViewModel: LogViewModel
+    @EnvironmentObject var productViewModel: ProductViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var yesterdaySummary: DailySummary?
@@ -14,6 +18,11 @@ struct LoggView: View {
     @State private var editingLog: FoodLog?
     @State private var showDeleteConfirm = false
     @State private var logPendingDelete: FoodLog?
+
+    init(initialDate: Date = Date(), initialMealFilter: String? = nil) {
+        _selectedDate = State(initialValue: initialDate)
+        _mealFilter = State(initialValue: initialMealFilter)
+    }
     
     enum AddSheet: Identifiable {
         case scan
@@ -58,7 +67,7 @@ struct LoggView: View {
                 if canCopyFromYesterday {
                     Button("Kopier fra i går") {
                         Task {
-                            await appState.copyLogs(from: yesterdayDate(), to: selectedDate)
+                            await copyLogsFromYesterday()
                             await loadSelectedSummary()
                         }
                     }
@@ -89,7 +98,12 @@ struct LoggView: View {
             .sheet(item: $editingLog) { log in
                 EditLogView(log: log, onSave: { amountG, mealType in
                     Task {
-                        await appState.updateLog(log, amountG: amountG, mealType: mealType)
+                        guard let userId = authViewModel.currentUser?.id else { return }
+                        if await logViewModel.updateLog(log, amountG: amountG, mealType: mealType, userId: userId) {
+                            await appState.refreshSyncStatus()
+                        } else {
+                            appState.errorMessage = logViewModel.errorMessage
+                        }
                         await loadSelectedSummary()
                     }
                 })
@@ -99,7 +113,12 @@ struct LoggView: View {
                 Button("Slett", role: .destructive) {
                     if let log = logPendingDelete {
                         Task {
-                            await appState.deleteLog(log)
+                            guard let userId = authViewModel.currentUser?.id else { return }
+                            if await logViewModel.deleteLog(log, userId: userId) {
+                                await appState.refreshSyncStatus()
+                            } else {
+                                appState.errorMessage = logViewModel.errorMessage
+                            }
                             await loadSelectedSummary()
                         }
                     }
@@ -134,11 +153,11 @@ struct LoggView: View {
                 .presentationDetents([.medium, .large])
             }
             .onAppear {
-                selectedDate = appState.logSelectedDate
-                if let meal = appState.logSelectedMeal {
+                if let meal = appState.logSelectedMeal, mealFilter == nil {
                     mealFilter = meal
                     appState.logSelectedMeal = nil
                 }
+                appState.logSelectedDate = selectedDate
                 Task { await loadSelectedSummary() }
             }
             .onChange(of: selectedDate) { _, newValue in
@@ -210,7 +229,7 @@ struct LoggView: View {
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 
-                                if !appState.safeModeHideCalories {
+                                if !preferencesViewModel.safeModeHideCalories {
                                     HStack(spacing: 12) {
                                         Text("\(selectedSummary?.totalCalories ?? 0) kcal")
                                         Text("P \(Int(selectedSummary?.totalProtein ?? 0)) g")
@@ -233,7 +252,7 @@ struct LoggView: View {
                 Section {
                     Button("Kopier fra i går") {
                         Task {
-                            await appState.copyLogs(from: yesterdayDate(), to: selectedDate)
+                            await copyLogsFromYesterday()
                             await loadSelectedSummary()
                         }
                     }
@@ -246,7 +265,7 @@ struct LoggView: View {
                     ForEach(group.logs) { log in
                         LogRowView(
                             log: log,
-                            showCalories: !appState.safeModeHideCalories,
+                            showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: {
                                 editingLog = log
                             },
@@ -328,7 +347,7 @@ struct LoggView: View {
             logs: logs,
             searchText: searchText,
             mealFilter: mealFilter,
-            productNameLookup: { appState.getProduct($0)?.name ?? "" }
+            productNameLookup: { productViewModel.product(id: $0)?.name ?? "" }
         )
     }
     
@@ -375,11 +394,25 @@ struct LoggView: View {
     }
     
     private func loadSelectedSummary() async {
-        selectedSummary = await appState.fetchSummary(for: selectedDate)
+        guard let userId = authViewModel.currentUser?.id else {
+            selectedSummary = nil
+            yesterdaySummary = nil
+            return
+        }
+        selectedSummary = await logViewModel.fetchSummary(userId: userId, date: selectedDate)
         if Calendar.current.isDateInToday(selectedDate) {
-            yesterdaySummary = await appState.fetchSummary(for: yesterdayDate())
+            yesterdaySummary = await logViewModel.fetchSummary(userId: userId, date: yesterdayDate())
         } else {
             yesterdaySummary = nil
+        }
+    }
+
+    private func copyLogsFromYesterday() async {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        if await logViewModel.copyLogs(from: yesterdayDate(), to: selectedDate, userId: userId) {
+            await appState.refreshSyncStatus()
+        } else {
+            appState.errorMessage = logViewModel.errorMessage
         }
     }
 }

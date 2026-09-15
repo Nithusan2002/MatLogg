@@ -16,7 +16,7 @@ final class SyncEngine {
     static let shared = SyncEngine()
     
     private let databaseService = DatabaseService.shared
-    private let apiService = APIService()
+    private let apiService = APIService(accessTokenProvider: { AuthService().getStoredToken() })
     private var isSyncing = false
     
     private init() {}

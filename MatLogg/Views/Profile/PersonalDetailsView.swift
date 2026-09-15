@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PersonalDetailsView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
     @Environment(\.dismiss) var dismiss
     
     @State private var weightText = ""
@@ -94,7 +95,7 @@ struct PersonalDetailsView: View {
     }
     
     private func load() {
-        let details = appState.personalDetails
+        let details = healthProfileViewModel.personalDetails
         if let weight = details.weightKg {
             weightText = formatNumber(weight)
         }
@@ -113,13 +114,16 @@ struct PersonalDetailsView: View {
     }
     
     private func save() {
-        appState.personalDetails = PersonalDetails(
+        let details = PersonalDetails(
             weightKg: parseNumber(weightText),
             heightCm: parseNumber(heightText),
             birthDate: birthDate,
             gender: gender == .ikkeOppgi ? nil : gender,
             activityLevel: activity == .ikkeOppgi ? nil : activity
         )
+        if !healthProfileViewModel.savePersonalDetails(details) {
+            appState.errorMessage = healthProfileViewModel.errorMessage
+        }
     }
     
     private func parseNumber(_ text: String) -> Double? {

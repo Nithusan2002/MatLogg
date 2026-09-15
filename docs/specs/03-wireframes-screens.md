@@ -6,10 +6,11 @@
 ┌─────────────────────────────────────────┐
 │ MatLogg Root (TabView)                  │
 ├─────────────────────────────────────────┤
-│ Tab 1: HOME (HomeView)                  │
-│ Tab 2: LOGGER (LogHistoryView / DayView)│
-│ Tab 3: FAVORITTER (FavoritesView)       │
-│ Tab 4: INNSTILLINGER (SettingsView)     │
+│ Tab 1: HJEM (dagsstatus og måltider)    │
+│ Tab 2: SØK (råvarer, nylig, favoritter) │
+│ Tab 3: LEGG TIL (handlingsmeny)         │
+│ Tab 4: FREMGANG (vekt og utvikling)     │
+│ Tab 5: PROFIL (mål, trygghet og konto)  │
 └─────────────────────────────────────────┘
 ```
 
@@ -18,6 +19,13 @@
 ## 3.2 Skjermkart (Wireframes)
 
 ### **SKJERM 1: Home (Main)**
+
+Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
+profil. Deretter følger «Dagens fremgang», et kombinert søk-/skannfelt og fire
+alltid synlige måltidskort i rekkefølgen frokost, lunsj, middag og snacks.
+Kortene viser inntil tre innslag, mengde og valgfri kaloriverdi. Trykk åpner
+dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
+Trygg modus skal fjerne kalorier og mål uten å etterlate avslørende etiketter.
 
 ```
 ┌─────────────────────────────────────────────────────┐

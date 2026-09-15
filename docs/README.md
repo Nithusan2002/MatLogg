@@ -2,6 +2,8 @@
 
 Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode, Prisma-skjema og migrasjoner er teknisk sannhetskilde.
 
+Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md). For synk gjelder også [synkkontrakt v1](sync-contract-v1.md).
+
 ## Leserekkefølge
 
 1. [MVP-scope](specs/01-mvp-scope.md)
@@ -23,5 +25,7 @@ Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene be
 - Persistensmodell: `backend/prisma/schema.prisma`
 - Lokal backend-oppskrift: `backend/README.md`
 - Varige prosjektvalg: [beslutningslogg](decisions.md)
+- Normative arkitekturkrav: [arkitekturprinsipper](architecture-principles.md)
+- Gjeldende synkformat: [synkkontrakt v1](sync-contract-v1.md)
 
 Når implementasjonen bevisst avviker fra en spesifikasjon, oppdater dokumentet eller noter beslutningen i samme endring.

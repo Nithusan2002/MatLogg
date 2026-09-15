@@ -2,6 +2,8 @@ import SwiftUI
 
 struct RawMaterialsSearchView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var productViewModel: ProductViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) var dismiss
     @FocusState private var searchFocused: Bool
     
@@ -95,9 +97,10 @@ struct RawMaterialsSearchView: View {
     }
     
     private func loadInitialData() async {
-        curated = await appState.loadRawFoodSuggestions()
-        recentProducts = await appState.loadRecentProducts(kind: .genericFood, limit: 6)
-        favoriteProducts = await appState.loadFavoriteProducts(kind: .genericFood)
+        curated = await productViewModel.rawFoodSuggestions()
+        guard let userId = authViewModel.currentUser?.id else { return }
+        recentProducts = await productViewModel.recentProducts(userId: userId, kind: .genericFood, limit: 6)
+        favoriteProducts = await productViewModel.favoriteProducts(userId: userId, kind: .genericFood)
     }
     
     private func performSearch() async {
@@ -109,7 +112,7 @@ struct RawMaterialsSearchView: View {
         isLoading = true
         try? await Task.sleep(nanoseconds: 300_000_000)
         if Task.isCancelled { return }
-        let results = await appState.searchRawFoods(query: trimmed)
+        let results = await productViewModel.searchRawFoods(query: trimmed)
         if Task.isCancelled { return }
         searchResults = results
         isLoading = false
@@ -119,7 +122,12 @@ struct RawMaterialsSearchView: View {
         Button(action: {
             let product = toProduct(item: item)
             Task {
-                await appState.saveScannedProduct(product)
+                guard let userId = authViewModel.currentUser?.id else { return }
+                if await productViewModel.saveScannedProduct(product, userId: userId) {
+                    await appState.refreshSyncStatus()
+                } else {
+                    appState.errorMessage = productViewModel.errorMessage
+                }
             }
             selectedProduct = product
         }) {

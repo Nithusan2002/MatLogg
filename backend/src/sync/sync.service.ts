@@ -2,60 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncEventsRequestDto, SyncEventDto } from './dto';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
-
-const MAX_EVENTS = 50;
-const MAX_PAYLOAD_BYTES = 64 * 1024;
-
-const eventTypes = new Set([
-  'log.create',
-  'log.update',
-  'log.delete',
-  'goal.set',
-  'favorite.add',
-  'favorite.remove',
-  'weight.add',
-  'product.upsert',
-]);
-
-const logPayloadSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  meal: z.string(),
-  grams: z.number(),
-  kcal: z.number(),
-  protein: z.number(),
-  carbs: z.number(),
-  fat: z.number(),
-  productRef: z.string().optional().nullable(),
-});
-
-const goalPayloadSchema = z.object({
-  kcalTarget: z.number(),
-  proteinTarget: z.number(),
-  carbTarget: z.number(),
-  fatTarget: z.number(),
-});
-
-const favoritePayloadSchema = z.object({
-  productId: z.string(),
-});
-
-const weightPayloadSchema = z.object({
-  id: z.string().optional(),
-  date: z.string(),
-  weightKg: z.number(),
-});
-
-const productPayloadSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  brand: z.string().optional().nullable(),
-  barcode: z.string().optional().nullable(),
-  nutrientsPer100g: z.record(z.any()),
-  imageUrl: z.string().optional().nullable(),
-  source: z.string(),
-});
+import {
+  favoritePayloadSchema, goalPayloadSchema, logPayloadSchema,
+  MAX_SYNC_EVENTS, MAX_SYNC_PAYLOAD_BYTES, productPayloadSchema,
+  SYNC_SCHEMA_VERSION, syncEventTypes, weightPayloadSchema,
+} from './sync.contract';
 
 @Injectable()
 export class SyncService {
@@ -65,13 +16,13 @@ export class SyncService {
     const acked: string[] = [];
     const rejected: { eventId: string; code: string; message: string }[] = [];
 
-    if (body.events.length > MAX_EVENTS) {
+    if (body.events.length > MAX_SYNC_EVENTS) {
       return {
         ackedEventIds: [],
         rejected: body.events.map((event) => ({
           eventId: event.eventId,
           code: 'VALIDATION_ERROR',
-          message: `Maks ${MAX_EVENTS} events per batch`,
+          message: `Maks ${MAX_SYNC_EVENTS} events per batch`,
         })),
       };
     }
@@ -99,7 +50,10 @@ export class SyncService {
   }
 
   private async handleEvent(userId: string, deviceId: string, event: SyncEventDto) {
-    if (!eventTypes.has(event.type)) {
+    if (event.schemaVersion !== SYNC_SCHEMA_VERSION) {
+      return { status: 'rejected' as const, eventId: event.eventId, code: 'UNSUPPORTED_SCHEMA', message: 'Ukjent schema-versjon' };
+    }
+    if (!syncEventTypes.has(event.type)) {
       return { status: 'rejected' as const, eventId: event.eventId, code: 'UNSUPPORTED_TYPE', message: 'Ukjent type' };
     }
 
@@ -110,7 +64,7 @@ export class SyncService {
       return { status: 'rejected' as const, eventId: event.eventId, code: 'VALIDATION_ERROR', message: 'Ugyldig base64' };
     }
 
-    if (payloadBuffer.byteLength > MAX_PAYLOAD_BYTES) {
+    if (payloadBuffer.byteLength > MAX_SYNC_PAYLOAD_BYTES) {
       return { status: 'rejected' as const, eventId: event.eventId, code: 'VALIDATION_ERROR', message: 'Payload for stor' };
     }
 
@@ -153,6 +107,14 @@ export class SyncService {
           message: error.message,
         };
       }
+      if (error instanceof AuthorizationError) {
+        return {
+          status: 'rejected' as const,
+          eventId: event.eventId,
+          code: 'FORBIDDEN',
+          message: error.message,
+        };
+      }
       return {
         status: 'rejected' as const,
         eventId: event.eventId,
@@ -167,15 +129,18 @@ export class SyncService {
   private async applyEvent(tx: PrismaService, userId: string, event: SyncEventDto, payloadJson: any) {
     switch (event.type) {
       case 'log.create':
-      case 'log.update': {
+      case 'log.update':
+      case 'log.upsert': {
         const parsed = logPayloadSchema.safeParse(payloadJson);
         if (!parsed.success) {
           throw new ValidationError('Ugyldig logg-payload');
         }
         const log = parsed.data;
-        await tx.log.upsert({
-          where: { id: log.id },
-          update: {
+        const existing = await tx.log.findUnique({ where: { id: log.id } });
+        if (existing && existing.userId !== userId) {
+          throw new AuthorizationError('Loggen tilhører en annen bruker');
+        }
+        const data = {
             date: new Date(log.date),
             meal: log.meal,
             grams: log.grams,
@@ -184,20 +149,16 @@ export class SyncService {
             carbs: log.carbs,
             fat: log.fat,
             productRef: log.productRef ?? null,
-          },
-          create: {
+        };
+        if (existing) {
+          await tx.log.update({ where: { id: log.id }, data });
+        } else {
+          await tx.log.create({ data: {
             id: log.id,
             userId,
-            date: new Date(log.date),
-            meal: log.meal,
-            grams: log.grams,
-            kcal: Math.round(log.kcal),
-            protein: log.protein,
-            carbs: log.carbs,
-            fat: log.fat,
-            productRef: log.productRef ?? null,
-          },
-        });
+            ...data,
+          } });
+        }
         break;
       }
       case 'log.delete': {
@@ -253,20 +214,30 @@ export class SyncService {
         });
         break;
       }
-      case 'weight.add': {
+      case 'weight.add':
+      case 'weight.upsert': {
         const parsed = weightPayloadSchema.safeParse(payloadJson);
         if (!parsed.success) {
           throw new ValidationError('Ugyldig vekt-payload');
         }
-        const id = parsed.data.id ?? randomUUID();
-        await tx.weight.create({
-          data: {
-            id,
+        const weight = parsed.data;
+        const existing = await tx.weight.findUnique({ where: { id: weight.id } });
+        if (existing && existing.userId !== userId) {
+          throw new AuthorizationError('Vektregistreringen tilhører en annen bruker');
+        }
+        const data = {
             userId,
-            date: new Date(parsed.data.date),
-            weightKg: parsed.data.weightKg,
-          },
-        });
+            date: new Date(weight.date),
+            weightKg: weight.weightKg,
+        };
+        if (existing) await tx.weight.update({ where: { id: weight.id }, data });
+        else await tx.weight.create({ data: { id: weight.id, ...data } });
+        break;
+      }
+      case 'weight.delete': {
+        const parsed = z.object({ id: z.string().uuid() }).safeParse(payloadJson);
+        if (!parsed.success) throw new ValidationError('Ugyldig vekt-delete payload');
+        await tx.weight.deleteMany({ where: { id: parsed.data.id, userId } });
         break;
       }
       case 'product.upsert': {
@@ -274,27 +245,28 @@ export class SyncService {
         if (!parsed.success) {
           throw new ValidationError('Ugyldig produkt-payload');
         }
-        await tx.product.upsert({
-          where: { id: parsed.data.id },
-          update: {
+        const product = parsed.data;
+        const existing = await tx.product.findUnique({ where: { id: product.id } });
+        if (existing && existing.userId !== userId) {
+          throw new AuthorizationError('Produktet kan ikke endres av denne brukeren');
+        }
+        const data = {
             name: parsed.data.name,
             brand: parsed.data.brand ?? null,
             barcode: parsed.data.barcode ?? null,
             nutrientsPer100g: parsed.data.nutrientsPer100g,
             imageUrl: parsed.data.imageUrl ?? null,
             source: parsed.data.source,
-          },
-          create: {
+        };
+        if (existing) {
+          await tx.product.update({ where: { id: product.id }, data });
+        } else {
+          await tx.product.create({ data: {
             id: parsed.data.id,
             userId,
-            name: parsed.data.name,
-            brand: parsed.data.brand ?? null,
-            barcode: parsed.data.barcode ?? null,
-            nutrientsPer100g: parsed.data.nutrientsPer100g,
-            imageUrl: parsed.data.imageUrl ?? null,
-            source: parsed.data.source,
-          },
-        });
+            ...data,
+          } });
+        }
         break;
       }
       default:
@@ -304,3 +276,4 @@ export class SyncService {
 }
 
 class ValidationError extends Error {}
+class AuthorizationError extends Error {}

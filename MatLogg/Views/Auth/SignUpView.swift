@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SignUpView: View {
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -111,7 +111,7 @@ struct SignUpView: View {
                         .cornerRadius(8)
                     }
                     
-                    if let error = appState.errorMessage {
+                    if let error = authViewModel.errorMessage {
                         HStack {
                             Image(systemName: "exclamationmark.circle")
                             Text(error)
@@ -126,7 +126,7 @@ struct SignUpView: View {
             }
             
             Button(action: signupAction) {
-                if appState.isLoading {
+                if authViewModel.isLoading {
                     ProgressView()
                         .tint(.white)
                 } else {
@@ -139,7 +139,7 @@ struct SignUpView: View {
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(8)
-            .disabled(!isFormValid || appState.isLoading)
+            .disabled(!isFormValid || authViewModel.isLoading)
         }
         .padding(20)
         .navigationBarBackButtonHidden(true)
@@ -147,7 +147,7 @@ struct SignUpView: View {
     
     private func signupAction() {
         Task {
-            await appState.signupWithEmail(
+            await authViewModel.signUp(
                 email: email,
                 password: password,
                 firstName: firstName,
@@ -160,6 +160,6 @@ struct SignUpView: View {
 #Preview {
     NavigationStack {
         SignUpView()
-            .environmentObject(AppState())
+            .environmentObject(AuthViewModel())
     }
 }

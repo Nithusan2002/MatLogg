@@ -1,4 +1,4 @@
-import { IsArray, IsISO8601, IsInt, IsOptional, IsString, IsUUID, MaxLength, ValidateNested } from 'class-validator';
+import { IsArray, IsISO8601, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SyncEventDto {
@@ -16,6 +16,8 @@ export class SyncEventDto {
   entityId!: string | null;
 
   @IsInt()
+  @Min(1)
+  @Max(1)
   schemaVersion!: number;
 
   @IsString()

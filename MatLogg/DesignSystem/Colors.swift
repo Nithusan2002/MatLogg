@@ -9,6 +9,10 @@ enum AppColors {
     static let separator = Color(UIColor.appSeparator)
     static let brand = Color(UIColor.appBrand)
     static let accent = Color(UIColor.appAccent)
+    static let success = Color(UIColor.appSuccess)
+    static let info = Color(UIColor.appInfo)
+    static let warmSurface = Color(UIColor.appWarmSurface)
+    static let mutedSurface = Color(UIColor.appMutedSurface)
     
     static let chipFillSelected = brand.opacity(0.12)
     static let chipStroke = separator
@@ -18,19 +22,32 @@ enum AppColors {
     static let macroProteinTint = Color(UIColor.appProteinTint)
     static let macroCarbTint = Color(UIColor.appCarbTint)
     static let macroFatTint = Color(UIColor.appFatTint)
+
+    static func mealTint(for mealType: String) -> Color {
+        switch mealType.lowercased() {
+        case "frokost": return info
+        case "lunsj": return success
+        case "middag": return brand
+        default: return accent
+        }
+    }
 }
 
 private extension UIColor {
-    static let appBackground = UIColor.dynamic(light: 0xF6F7F9, dark: 0x0B0F17)
-    static let appSurface = UIColor.dynamic(light: 0xFFFFFF, dark: 0x121826)
-    static let appInk = UIColor.dynamic(light: 0x0B1220, dark: 0xEAF0FF)
-    static let appTextSecondary = UIColor.dynamic(light: 0x5B6472, dark: 0xAAB3C2)
-    static let appSeparator = UIColor.dynamic(light: 0xE6EAF0, dark: 0x232B3A)
-    static let appBrand = UIColor.dynamic(light: 0xFF5A3C, dark: 0xFF6B52)
-    static let appAccent = UIColor.dynamic(light: 0xFFB020, dark: 0xFFC04D)
-    static let appProteinTint = UIColor(hex: 0x3B82F6)
-    static let appCarbTint = UIColor(hex: 0x8B5CF6)
-    static let appFatTint = UIColor(hex: 0xF59E0B)
+    static let appBackground = UIColor.dynamic(light: 0xFFF5E8, dark: 0x17120F)
+    static let appSurface = UIColor.dynamic(light: 0xFFFCF7, dark: 0x241C18)
+    static let appWarmSurface = UIColor.dynamic(light: 0xFCEBDD, dark: 0x30231D)
+    static let appMutedSurface = UIColor.dynamic(light: 0xF4EDE6, dark: 0x2A2420)
+    static let appInk = UIColor.dynamic(light: 0x24192E, dark: 0xFFF8F1)
+    static let appTextSecondary = UIColor.dynamic(light: 0x756A72, dark: 0xC9BDC3)
+    static let appSeparator = UIColor.dynamic(light: 0xE9DDD4, dark: 0x453832)
+    static let appBrand = UIColor.dynamic(light: 0xFF5268, dark: 0xFF7182)
+    static let appAccent = UIColor.dynamic(light: 0xFFBF3F, dark: 0xFFD06D)
+    static let appSuccess = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)
+    static let appInfo = UIColor.dynamic(light: 0x35B8F4, dark: 0x62C9FA)
+    static let appProteinTint = UIColor.dynamic(light: 0xFF5268, dark: 0xFF7182)
+    static let appCarbTint = UIColor.dynamic(light: 0xFFBF3F, dark: 0xFFD06D)
+    static let appFatTint = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)
     
     static func dynamic(light: UInt32, dark: UInt32) -> UIColor {
         UIColor { trait in

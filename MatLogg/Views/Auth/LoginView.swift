@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LoginView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var authViewModel: AuthViewModel
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
@@ -51,7 +51,7 @@ struct LoginView: View {
                     .cornerRadius(8)
                 }
                 
-                if let error = appState.errorMessage {
+                if let error = authViewModel.errorMessage {
                     HStack {
                         Image(systemName: "exclamationmark.circle")
                         Text(error)
@@ -64,7 +64,7 @@ struct LoginView: View {
                 }
                 
                 Button(action: loginAction) {
-                    if appState.isLoading {
+                    if authViewModel.isLoading {
                         ProgressView()
                             .tint(.white)
                     } else {
@@ -77,7 +77,7 @@ struct LoginView: View {
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(8)
-                .disabled(appState.isLoading || email.isEmpty || password.isEmpty)
+                .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
                 
                 Divider()
                     .padding(.vertical, 8)
@@ -114,12 +114,12 @@ struct LoginView: View {
     
     private func loginAction() {
         Task {
-            await appState.loginWithEmail(email: email, password: password)
+            await authViewModel.login(email: email, password: password)
         }
     }
 }
 
 #Preview {
     LoginView()
-        .environmentObject(AppState())
+        .environmentObject(AuthViewModel())
 }

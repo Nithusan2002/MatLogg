@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LogRowView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var productViewModel: ProductViewModel
     let log: FoodLog
     let showCalories: Bool
     let onEdit: (() -> Void)?
@@ -9,7 +9,7 @@ struct LogRowView: View {
     let onDelete: (() -> Void)?
     
     private var productName: String {
-        appState.getProduct(log.productId)?.name ?? "Ukjent produkt"
+        productViewModel.product(id: log.productId)?.name ?? "Ukjent produkt"
     }
     
     var body: some View {
@@ -63,7 +63,8 @@ struct LogRowView: View {
 }
 
 struct CompactLogListView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
+    @EnvironmentObject var productViewModel: ProductViewModel
     let summary: DailySummary
     let maxPerMeal: Int
     let onSeeAll: (String?) -> Void
@@ -71,7 +72,7 @@ struct CompactLogListView: View {
     var body: some View {
         let groups = LogSummaryService.groupedLogs(
             logs: summary.logs,
-            productNameLookup: { appState.getProduct($0)?.name ?? "" }
+            productNameLookup: { productViewModel.product(id: $0)?.name ?? "" }
         )
         
         VStack(alignment: .leading, spacing: 16) {
@@ -94,7 +95,7 @@ struct CompactLogListView: View {
                     ForEach(LogSummaryService.limitedLogs(group.logs, limit: maxPerMeal)) { log in
                         LogRowView(
                             log: log,
-                            showCalories: !appState.safeModeHideCalories,
+                            showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: nil,
                             onMove: nil,
                             onDelete: nil

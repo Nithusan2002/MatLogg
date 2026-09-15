@@ -2,7 +2,7 @@ import SwiftUI
 import SafariServices
 
 struct PrivacyChoicesView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @Environment(\.dismiss) private var dismiss
     
     @State private var showPolicy = false
@@ -14,14 +14,13 @@ struct PrivacyChoicesView: View {
                 onOpenPolicy: { showPolicy = true },
                 onOpenChoices: PrivacyConstants.privacyChoicesURL == nil ? nil : { showChoices = true }
             )
-            .environmentObject(appState)
             .padding(20)
         }
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Personvern & valg")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            appState.hasSeenPrivacyChoices = true
+            preferencesViewModel.hasSeenPrivacyChoices = true
         }
         .sheet(isPresented: $showPolicy) {
             SafariView(url: PrivacyConstants.privacyPolicyURL)
@@ -36,7 +35,7 @@ struct PrivacyChoicesView: View {
 }
 
 struct PrivacyChoicesContentView: View {
-    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onOpenPolicy: (() -> Void)?
     let onOpenChoices: (() -> Void)?
     
@@ -135,8 +134,8 @@ struct PrivacyChoicesContentView: View {
             )
             
             VStack(alignment: .leading, spacing: 12) {
-                Toggle("Del anonym bruksstatistikk", isOn: $appState.analyticsEnabled)
-                Toggle("Del anonyme krasjrapporter", isOn: $appState.crashReportsEnabled)
+                Toggle("Del anonym bruksstatistikk", isOn: $preferencesViewModel.analyticsEnabled)
+                Toggle("Del anonyme krasjrapporter", isOn: $preferencesViewModel.crashReportsEnabled)
             }
             .padding(16)
             .background(AppColors.surface)

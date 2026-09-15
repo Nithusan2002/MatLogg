@@ -11,6 +11,10 @@ class DatabaseService {
     func getLatestGoal(userId: UUID, completion: @escaping (Goal?) -> Void) {
         completion(store.getLatestGoal(userId: userId))
     }
+
+    func latestGoal(userId: UUID) async -> Goal? {
+        store.getLatestGoal(userId: userId)
+    }
     
     func saveLog(_ log: FoodLog) async throws {
         try store.saveLog(log)

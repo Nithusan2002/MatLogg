@@ -475,6 +475,7 @@ struct SyncEvent {
     let type: String
     let createdAt: Date
     let entityId: String?
+    let schemaVersion: Int
     let payload: Data
     let status: SyncEventStatus
     let attemptCount: Int

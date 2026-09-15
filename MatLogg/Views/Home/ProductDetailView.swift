@@ -4,6 +4,10 @@ struct ProductDetailView: View {
     let product: Product
     
     @ObservedObject var appState: AppState
+    @EnvironmentObject var logViewModel: LogViewModel
+    @EnvironmentObject var productViewModel: ProductViewModel
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
     
@@ -40,7 +44,7 @@ struct ProductDetailView: View {
                     }
                     Spacer()
                     
-                    if appState.showNutritionSource {
+                    if preferencesViewModel.showNutritionSource {
                         Button(action: { showSourceInfo = true }) {
                             Image(systemName: "info.circle")
                                 .font(.system(size: 18))
@@ -84,7 +88,7 @@ struct ProductDetailView: View {
                         CardContainer {
                             DisclosureGroup(isExpanded: $showPer100g) {
                                 VStack(spacing: 8) {
-                                    if !appState.safeModeHideCalories {
+                                    if !preferencesViewModel.safeModeHideCalories {
                                         NutritionRowView(
                                             label: "Energi",
                                             value: "\(Int(product.caloriesPer100g)) kcal"
@@ -148,7 +152,7 @@ struct ProductDetailView: View {
                                     onFocus: {
                                         HapticFeedbackService.shared.trigger(
                                             .stepperTap,
-                                            isEnabled: appState.hapticsFeedbackEnabled
+                                            isEnabled: preferencesViewModel.hapticsFeedbackEnabled
                                         )
                                     }
                                 )
@@ -185,7 +189,7 @@ struct ProductDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 LazyVGrid(columns: summaryColumns, spacing: 8) {
-                                    if !appState.safeModeHideCalories {
+                                    if !preferencesViewModel.safeModeHideCalories {
                                         SummaryPill(
                                             label: "Energi",
                                             value: "\(Int(nutrition.calories)) kcal",
@@ -252,12 +256,14 @@ struct ProductDetailView: View {
             }
         }
         .onAppear {
-            isFavorite = appState.isFavorite(product)
+            if let userId = authViewModel.currentUser?.id {
+                isFavorite = productViewModel.isFavorite(product, userId: userId)
+            }
             setAmount(100)
             selectedMealType = appState.selectedMealType
             HapticFeedbackService.shared.trigger(
                 .barcodeDetected,
-                isEnabled: appState.hapticsFeedbackEnabled
+                isEnabled: preferencesViewModel.hapticsFeedbackEnabled
             )
             showNutritionImproving = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
@@ -289,19 +295,26 @@ struct ProductDetailView: View {
 
     private func logProduct() {
         Task {
-            await appState.logFood(
+            guard let userId = authViewModel.currentUser?.id else { return }
+            guard await logViewModel.logFood(
                 product: product,
                 amountG: Float(amountG),
-                mealType: selectedMealType
-            )
-            appState.setLastUsedAmount(Double(amountG), for: product.id)
+                mealType: selectedMealType,
+                userId: userId
+            ) else {
+                appState.errorMessage = logViewModel.errorMessage
+                return
+            }
+            await logViewModel.loadTodaysSummary(userId: userId)
+            await appState.refreshSyncStatus()
+            preferencesViewModel.setLastUsedAmount(Double(amountG), for: product.id, userId: userId)
             HapticFeedbackService.shared.trigger(
                 .loggingSuccess,
-                isEnabled: appState.hapticsFeedbackEnabled
+                isEnabled: preferencesViewModel.hapticsFeedbackEnabled
             )
             SoundFeedbackService.shared.play(
                 .loggingSuccess,
-                isEnabled: appState.soundFeedbackEnabled
+                isEnabled: preferencesViewModel.soundFeedbackEnabled
             )
             onLogComplete?(
                 ReceiptPayload(
@@ -362,12 +375,17 @@ struct ProductDetailView: View {
     
     private func toggleFavorite() {
         Task {
-            await appState.toggleFavorite(product: product)
+            guard let userId = authViewModel.currentUser?.id else { return }
+            if await productViewModel.toggleFavorite(product, userId: userId) {
+                isFavorite.toggle()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = productViewModel.errorMessage
+            }
         }
-        isFavorite.toggle()
         HapticFeedbackService.shared.trigger(
             .favoriteToggle,
-            isEnabled: appState.hapticsFeedbackEnabled
+            isEnabled: preferencesViewModel.hapticsFeedbackEnabled
         )
     }
 }
@@ -570,4 +588,8 @@ struct NutritionRowView: View {
     let appState = AppState()
     
     ProductDetailView(product: mockProduct, appState: appState, onLogComplete: nil)
+        .environmentObject(LogViewModel(repository: DatabaseService()))
+        .environmentObject(ProductViewModel(repository: DatabaseService()))
+        .environmentObject(AuthViewModel())
+        .environmentObject(PreferencesViewModel())
 }
