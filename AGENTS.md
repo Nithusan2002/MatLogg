@@ -41,7 +41,8 @@ Bruk relevante skills fra `.agents/skills/` for arbeidsområdet.
 | Arbeid | Påkrevd skill |
 | --- | --- |
 | Ny funksjon, endret scope eller større brukerflyt | `product-review` før implementering |
-| SwiftUI, navigasjon, state, design system, tilgjengelighet eller iOS-tester | `ios-swiftui` |
+| Visuell retning, brukerflyt, UX-tekst, skjermkritikk eller designsystem | `product-design` før implementering |
+| SwiftUI, navigasjon, state, tilgjengelighet eller iOS-tester | `ios-swiftui` |
 | Lokal lagring, event queue, konfliktregler eller synkformat | `offline-sync` |
 | NestJS, Prisma, auth, API-kontrakter eller databaseendringer | `backend-api` |
 | Ernæringsdata, måleenheter, målberegning, personvern eller helserelatert språk | `nutrition-privacy` |
@@ -51,7 +52,7 @@ Bruk relevante skills fra `.agents/skills/` for arbeidsområdet.
 
 ## Arbeidsrekkefølge
 
-- Ny brukerfunksjon: produktvurdering → iOS/UX → backend/synk ved behov → implementering → QA.
+- Ny brukerfunksjon: produktvurdering → produktdesign → iOS/UX → backend/synk ved behov → implementering → QA.
 - Data- eller synkendring: offline-sync → backend-api → kompatibilitetsvurdering → implementering → QA.
 - Release: relevante fag-skills → qa-release → eksplisitt go/no-go.
 

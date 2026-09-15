@@ -1,6 +1,6 @@
 import Foundation
 
-struct MatvaretabellenProduct {
+struct MatvaretabellenProduct: Codable {
     let id: String
     let name: String
     let brand: String?

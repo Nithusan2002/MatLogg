@@ -767,7 +767,7 @@ final class LocalStore {
     }
     
     private func bindBlob(_ stmt: OpaquePointer?, index: Int32, data: Data) {
-        data.withUnsafeBytes { buffer in
+        _ = data.withUnsafeBytes { buffer in
             sqlite3_bind_blob(stmt, index, buffer.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
         }
     }
@@ -800,7 +800,7 @@ final class LocalStore {
         }
         
         if existing.contains("id"), !existing.contains("eventId") {
-            queue.sync {
+            _ = queue.sync {
                 sqlite3_exec(db, "ALTER TABLE sync_queue RENAME COLUMN id TO eventId;", nil, nil, nil)
             }
         }
@@ -821,7 +821,7 @@ final class LocalStore {
         
         for (column, definition) in expectedColumns where !refreshed.contains(column) {
             let sql = "ALTER TABLE sync_queue ADD COLUMN \(column) \(definition);"
-            queue.sync {
+            _ = queue.sync {
                 sqlite3_exec(db, sql, nil, nil, nil)
             }
         }
