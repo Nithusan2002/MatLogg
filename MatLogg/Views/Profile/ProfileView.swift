@@ -67,6 +67,7 @@ struct ProfileView: View {
                     Button("Slett konto", role: .destructive) {
                         showDeleteConfirm = true
                     }
+                    .disabled(authViewModel.isDeletingAccount)
                 }
                 
                 Section("Mål") {
@@ -164,12 +165,16 @@ struct ProfileView: View {
                 Task { await appState.refreshSyncStatus() }
             }
             .alert("Slett konto?", isPresented: $showDeleteConfirm) {
-                Button("Slett", role: .destructive) {
-                    Task { await authViewModel.deleteAccount() }
+                Button(authViewModel.isDeletingAccount ? "Sletter …" : "Slett", role: .destructive) {
+                    Task {
+                        if !(await authViewModel.deleteAccount()) {
+                            appState.presentError(title: "Kunne ikke slette kontoen", message: authViewModel.errorMessage)
+                        }
+                    }
                 }
                 Button("Avbryt", role: .cancel) {}
             } message: {
-                Text("Dette kan ikke angres.")
+                Text("Lokale data slettes umiddelbart. Kontoen markeres for permanent sletting etter 30 dager. Dette kan ikke angres i appen.")
             }
             .sheet(isPresented: $showShareSheet) {
                 if let exportURL {

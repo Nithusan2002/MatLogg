@@ -51,6 +51,13 @@ struct MatLoggApp: App {
             .environmentObject(authViewModel)
             .environmentObject(preferencesViewModel)
             .environmentObject(userDataExportService)
+            .alert(item: $appState.activeError) { error in
+                Alert(
+                    title: Text(error.title),
+                    message: Text(error.message),
+                    dismissButton: .default(Text("OK")) { appState.activeError = nil }
+                )
+            }
             .onAppear {
                 if skipAuthForDev {
                     authViewModel.enableDebugSession()
@@ -82,7 +89,9 @@ struct MatLoggApp: App {
     
     private var skipAuthForDev: Bool {
         #if DEBUG
-        return true
+        // Debug builds bypass authentication while the app is under active
+        // development. Use --show-auth to exercise the real auth flow.
+        return !ProcessInfo.processInfo.arguments.contains("--show-auth")
         #else
         return false
         #endif

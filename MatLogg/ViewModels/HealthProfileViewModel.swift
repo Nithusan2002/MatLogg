@@ -11,9 +11,16 @@ final class HealthProfileViewModel: ObservableObject {
     private let repository: any HealthProfileRepository
     private let personalDetailsStore: any PersonalDetailsStore
 
+    convenience init(repository: any HealthProfileRepository) {
+        self.init(
+            repository: repository,
+            personalDetailsStore: UserDefaultsPersonalDetailsStore()
+        )
+    }
+
     init(
         repository: any HealthProfileRepository,
-        personalDetailsStore: any PersonalDetailsStore = UserDefaultsPersonalDetailsStore()
+        personalDetailsStore: any PersonalDetailsStore
     ) {
         self.repository = repository
         self.personalDetailsStore = personalDetailsStore

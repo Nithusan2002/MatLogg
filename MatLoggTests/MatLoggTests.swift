@@ -10,6 +10,9 @@ import Foundation
 @testable import MatLogg
 
 struct MatLoggTests {
+    private static let e2eProductId = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+    private static let e2eEventId = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+
     @Test func appTabsHaveStableFiveTabOrder() {
         #expect(AppTab.allCases == [.home, .search, .add, .progress, .profile])
     }
@@ -120,6 +123,92 @@ struct MatLoggTests {
         let pendingAfterReset = await db.fetchPendingEvents(limit: 50)
         #expect(pendingAfterReset.contains(where: { $0.eventId == event.eventId }))
     }
+
+    @Test func restartRecoversInFlightEventWithStableId() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggSyncRestart-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let databaseURL = directory.appendingPathComponent("restart.sqlite")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var store: LocalStore? = LocalStore(databaseURL: databaseURL)
+        let goal = Goal(
+            userId: UUID(),
+            goalType: "maintain",
+            dailyCalories: 2200,
+            proteinTargetG: 150,
+            carbsTargetG: 275,
+            fatTargetG: 70
+        )
+        try store?.saveGoal(goal)
+
+        let created = try #require(store?.fetchPendingEvents(limit: 10).first)
+        store?.markEventsInFlight([created.eventId])
+        #expect(store?.fetchPendingEvents(limit: 10).isEmpty == true)
+
+        store = nil
+        let reopenedStore = LocalStore(databaseURL: databaseURL)
+        let recovered = try #require(
+            reopenedStore.fetchPendingEvents(limit: 10)
+                .first(where: { $0.entityId == goal.id.uuidString })
+        )
+
+        #expect(recovered.eventId == created.eventId)
+        #expect(recovered.status == .pending)
+        #expect(recovered.attemptCount == 1)
+        #expect(recovered.type == "goal.set")
+        #expect(recovered.payload == created.payload)
+    }
+
+    @Test func swiftClientSyncsThroughHTTPToPostgres() async throws {
+        #if MATLOGG_SYNC_E2E
+        let serverURL = URL(string: "http://127.0.0.1:4000")!
+        var loginRequest = URLRequest(url: serverURL.appendingPathComponent("auth/dev-login"))
+        loginRequest.httpMethod = "POST"
+        loginRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        loginRequest.httpBody = try JSONSerialization.data(withJSONObject: [
+            "email": "ios-client-e2e@integration.matlogg"
+        ])
+        let (loginData, loginResponse) = try await URLSession.shared.data(for: loginRequest)
+        #expect((loginResponse as? HTTPURLResponse)?.statusCode == 201)
+
+        struct LoginResponse: Decodable { let accessToken: String }
+        let token = try JSONDecoder().decode(LoginResponse.self, from: loginData).accessToken
+        let api = APIService(
+            baseURL: serverURL.appendingPathComponent("v1").absoluteString,
+            accessTokenProvider: { token },
+            syncEnabled: { true }
+        )
+        let payload = try JSONSerialization.data(withJSONObject: [
+            "id": Self.e2eProductId.uuidString,
+            "name": "iOS E2E-produkt",
+            "brand": "MatLogg test",
+            "nutrientsPer100g": ["kcal": 42, "protein": 1, "carbs": 9, "fat": 0],
+            "source": "user"
+        ])
+        let event = SyncEvent(
+            eventId: Self.e2eEventId,
+            type: "product.upsert",
+            createdAt: Date(),
+            entityId: Self.e2eProductId.uuidString,
+            schemaVersion: 1,
+            payload: payload,
+            status: .pending,
+            attemptCount: 0,
+            lastAttemptAt: nil,
+            nextRetryAt: nil,
+            lastError: nil
+        )
+
+        let first = try await api.uploadEvents([event])
+        #expect(first.ackedEventIds == [Self.e2eEventId])
+        #expect(first.rejected.isEmpty)
+
+        let replay = try await api.uploadEvents([event])
+        #expect(replay.ackedEventIds == [Self.e2eEventId])
+        #expect(replay.rejected.isEmpty)
+        #endif
+    }
     
     @Test func retryBackoffSkipsUntilReady() async throws {
         let db = DatabaseService.shared
@@ -141,6 +230,61 @@ struct MatLoggTests {
         await db.markEventForRetry(first.eventId, error: "test", backoffSeconds: 60)
         let pendingAfter = await db.fetchPendingEvents(limit: 50)
         #expect(!pendingAfter.contains(where: { $0.eventId == first.eventId }))
+    }
+
+    @Test func updatingScannedProductPreservesExistingMealLog() async throws {
+        let db = DatabaseService.shared
+        let userId = UUID()
+        let product = Product(
+            name: "Gjenskannet testvare",
+            barcodeEan: "test-\(UUID().uuidString)",
+            caloriesPer100g: 200,
+            proteinGPer100g: 10,
+            carbsGPer100g: 20,
+            fatGPer100g: 5
+        )
+        let log = FoodLog(
+            userId: userId,
+            productId: product.id,
+            mealType: "lunsj",
+            amountG: 100,
+            loggedDate: Calendar.current.startOfDay(for: Date()),
+            calories: 200,
+            proteinG: 10,
+            carbsG: 20,
+            fatG: 5
+        )
+
+        try await db.saveProduct(product)
+        try await db.saveLog(log)
+        try await db.saveProduct(product)
+
+        let summary = await db.getTodaysSummary(userId: userId)
+        #expect(summary.logs.contains { $0.id == log.id && $0.mealType == "lunsj" })
+    }
+
+    @Test func localDatabaseUsesLatestFormalSchemaVersion() async {
+        let version = await DatabaseService.shared.localSchemaVersion()
+        #expect(version == LocalStore.latestSchemaVersion)
+    }
+
+    @Test func resetAllDataClearsDomainTablesAndSyncQueue() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggReset-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LocalStore(databaseURL: directory.appendingPathComponent("reset.sqlite"))
+        let userId = UUID()
+        let product = Product(name: "Slettes", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
+        try store.saveProduct(product)
+        try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2000, proteinTargetG: 100, carbsTargetG: 200, fatTargetG: 60))
+        #expect(store.pendingSyncCount() > 0)
+
+        try store.resetAllData()
+
+        #expect(store.getProduct(product.id) == nil)
+        #expect(store.getLatestGoal(userId: userId) == nil)
+        #expect(store.pendingSyncCount() == 0)
     }
 }
 
@@ -396,6 +540,56 @@ struct AuthViewModelTests {
         #expect(!viewModel.isLoading)
     }
 
+    @Test func debugSessionKeepsSameIdentityAcrossAppRestarts() {
+        let first = AuthViewModel(
+            apiClient: AuthAPIClientSpy(user: makeUser()),
+            sessionStore: AuthSessionStoreSpy()
+        )
+        let restarted = AuthViewModel(
+            apiClient: AuthAPIClientSpy(user: makeUser()),
+            sessionStore: AuthSessionStoreSpy()
+        )
+
+        first.enableDebugSession()
+        restarted.enableDebugSession()
+
+        #expect(first.currentUser?.id == restarted.currentUser?.id)
+        #expect(first.currentUser?.authProvider == "debug")
+    }
+
+    @Test func successfulAccountDeletionClearsLocalDataAndCredentials() async {
+        let user = makeUser()
+        let api = AuthAPIClientSpy(user: user)
+        let store = AuthSessionStoreSpy(user: user, token: "token")
+        let resetter = LocalDataResetterSpy()
+        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localDataResetter: resetter)
+
+        let succeeded = await viewModel.deleteAccount()
+
+        #expect(succeeded)
+        #expect(api.deleteCallCount == 1)
+        #expect(resetter.resetCallCount == 1)
+        #expect(store.user == nil)
+        #expect(store.token == nil)
+    }
+
+    @Test func failedAccountDeletionPreservesLocalDataAndSession() async {
+        let user = makeUser()
+        let api = AuthAPIClientSpy(user: user)
+        api.deleteError = TestRepositoryError.saveFailed
+        let store = AuthSessionStoreSpy(user: user, token: "token")
+        let resetter = LocalDataResetterSpy()
+        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localDataResetter: resetter)
+
+        let succeeded = await viewModel.deleteAccount()
+
+        #expect(!succeeded)
+        #expect(resetter.resetCallCount == 0)
+        #expect(store.user?.id == user.id)
+        #expect(store.token == "token")
+        #expect(viewModel.errorMessage != nil)
+    }
+
     private func makeUser() -> User {
         User(
             id: UUID(),
@@ -411,6 +605,8 @@ struct AuthViewModelTests {
 private final class AuthAPIClientSpy: AuthAPIClient {
     let user: User
     let token: String
+    var deleteCallCount = 0
+    var deleteError: Error?
 
     init(user: User, token: String = "token") {
         self.user = user
@@ -423,6 +619,45 @@ private final class AuthAPIClientSpy: AuthAPIClient {
 
     func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, String) {
         (user, token)
+    }
+
+    func deleteAccount() async throws -> AccountDeletionReceipt {
+        deleteCallCount += 1
+        if let deleteError { throw deleteError }
+        return AccountDeletionReceipt(
+            code: "ACCOUNT_PENDING_DELETION",
+            message: "Kontoen er markert for sletting",
+            permanentDeletionAt: Date().addingTimeInterval(30 * 86_400)
+        )
+    }
+}
+
+private final class LocalDataResetterSpy: LocalDataResetting {
+    var resetCallCount = 0
+
+    func resetAllLocalData() async throws {
+        resetCallCount += 1
+    }
+}
+
+@MainActor
+struct AppStateTests {
+    @Test func defaultMealFollowsLocalHourBoundaries() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let base = DateComponents(calendar: calendar, timeZone: calendar.timeZone, year: 2026, month: 9, day: 16)
+        func date(_ hour: Int) -> Date {
+            var components = base
+            components.hour = hour
+            return calendar.date(from: components)!
+        }
+
+        #expect(AppState.defaultMealType(at: date(5), calendar: calendar) == "frokost")
+        #expect(AppState.defaultMealType(at: date(10), calendar: calendar) == "frokost")
+        #expect(AppState.defaultMealType(at: date(11), calendar: calendar) == "lunsj")
+        #expect(AppState.defaultMealType(at: date(16), calendar: calendar) == "middag")
+        #expect(AppState.defaultMealType(at: date(21), calendar: calendar) == "snacks")
+        #expect(AppState.defaultMealType(at: date(4), calendar: calendar) == "snacks")
     }
 }
 
@@ -470,5 +705,84 @@ struct PreferencesViewModelTests {
 
         #expect(viewModel.safeModeHideCalories)
         #expect(viewModel.safeModeHideGoals)
+    }
+}
+
+@MainActor
+struct ManualProductViewModelTests {
+    @Test @MainActor func rejectsProductNameAboveMaximumLength() async {
+        var didSave = false
+        let viewModel = ManualProductViewModel(barcode: nil) { _ in
+            didSave = true
+        }
+        viewModel.name = String(repeating: "a", count: ManualProductViewModel.maximumNameLength + 1)
+        viewModel.calories = "100"
+        viewModel.protein = "10"
+        viewModel.carbs = "20"
+        viewModel.fat = "5"
+
+        let product = await viewModel.save()
+
+        #expect(product == nil)
+        #expect(didSave == false)
+        #expect(viewModel.errorMessage?.contains("maksimalt") == true)
+    }
+
+    @Test func savesUserEnteredNutritionWithoutEstimatingValues() async {
+        var savedProducts: [Product] = []
+        let viewModel = ManualProductViewModel(barcode: "7038010054821") { product in
+            savedProducts.append(product)
+        }
+        viewModel.name = "  Testbrød  "
+        viewModel.calories = "241"
+        viewModel.protein = "8,5"
+        viewModel.carbs = "42.25"
+        viewModel.fat = "3"
+
+        let product = await viewModel.save()
+
+        #expect(product?.name == "Testbrød")
+        #expect(product?.barcodeEan == "7038010054821")
+        #expect(product?.nutritionSource == .user)
+        #expect(product?.verificationStatus == .unverified)
+        #expect(product?.proteinGPer100g == 8.5)
+        #expect(product?.carbsGPer100g == 42.25)
+        #expect(savedProducts.map(\.id) == [product?.id].compactMap { $0 })
+    }
+
+    @Test func missingNutritionIsRejectedInsteadOfDefaultingToZero() async {
+        var savedProducts: [Product] = []
+        let viewModel = ManualProductViewModel(barcode: nil) { product in
+            savedProducts.append(product)
+        }
+        viewModel.name = "Testvare"
+        viewModel.calories = "100"
+        viewModel.protein = ""
+        viewModel.carbs = "10"
+        viewModel.fat = "5"
+
+        let product = await viewModel.save()
+
+        #expect(product == nil)
+        #expect(savedProducts.isEmpty)
+        #expect(viewModel.errorMessage != nil)
+    }
+
+    @Test func impossibleMacroTotalIsRejected() async {
+        var savedProducts: [Product] = []
+        let viewModel = ManualProductViewModel(barcode: nil) { product in
+            savedProducts.append(product)
+        }
+        viewModel.name = "Testvare"
+        viewModel.calories = "500"
+        viewModel.protein = "50"
+        viewModel.carbs = "50"
+        viewModel.fat = "10"
+
+        let product = await viewModel.save()
+
+        #expect(product == nil)
+        #expect(savedProducts.isEmpty)
+        #expect(viewModel.errorMessage?.contains("ikke overstige 100") == true)
     }
 }

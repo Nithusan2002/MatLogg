@@ -4,15 +4,18 @@ class APIService {
     private let baseURL: String
     private let session: URLSession
     private let accessTokenProvider: () -> String?
+    private let syncEnabled: () -> Bool
 
     init(
         session: URLSession = .shared,
         baseURL: String = "https://api.matlogg.app/v1",
-        accessTokenProvider: @escaping () -> String? = { nil }
+        accessTokenProvider: @escaping () -> String? = { nil },
+        syncEnabled: @escaping () -> Bool = { FeatureFlags.backendSyncEnabled }
     ) {
         self.session = session
         self.baseURL = baseURL
         self.accessTokenProvider = accessTokenProvider
+        self.syncEnabled = syncEnabled
     }
     
     enum APIError: LocalizedError {
@@ -184,11 +187,32 @@ class APIService {
         
         return (user, authResponse.token)
     }
+
+    func deleteAccount() async throws -> AccountDeletionReceipt {
+        guard let token = accessTokenProvider(), !token.isEmpty else {
+            throw APIError.missingAccessToken
+        }
+        guard let url = URL(string: "\(baseURL)/user") else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError("Ugyldig respons")
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(AccountDeletionReceipt.self, from: data)
+    }
     
     // MARK: - Sync (stub)
     
     func uploadEvents(_ events: [SyncEvent]) async throws -> UploadResult {
-        guard FeatureFlags.backendSyncEnabled else {
+        guard syncEnabled() else {
             throw APIError.backendNotConfigured
         }
         

@@ -24,11 +24,28 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
+        let app = XCUIApplication()
+        app.launchArguments.append("--show-auth")
+        app.launch()
+        XCTAssertTrue(app.staticTexts["MatLogg"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Logg inn"].exists)
+        XCTAssertFalse(app.buttons["Logg inn med Apple"].exists)
+    }
+
+    @MainActor
+    func testDebugSessionShowsHomeAndPrimaryNavigation() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        let logButton = app.buttons["Loggfør mat"]
+        XCTAssertTrue(logButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Åpne profil"].exists)
+
+        logButton.tap()
+        XCTAssertTrue(app.staticTexts["Loggfør mat"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Logg til:'")).firstMatch.exists
+        )
     }
 
     @MainActor

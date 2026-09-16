@@ -1,6 +1,15 @@
 import SwiftUI
 
 struct RawMaterialsSearchView: View {
+    private enum SearchState {
+        case idle
+        case loading
+        case results
+        case cachedResults
+        case empty
+        case failure(String)
+    }
+
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -12,8 +21,16 @@ struct RawMaterialsSearchView: View {
     @State private var searchResults: [MatvaretabellenProduct] = []
     @State private var recentProducts: [Product] = []
     @State private var favoriteProducts: [Product] = []
-    @State private var isLoading = false
+    @State private var searchState: SearchState = .idle
     @State private var selectedProduct: Product?
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var repeatProduct: Product?
+    @State private var showScanCamera = false
+    let onLogComplete: ((ReceiptPayload) -> Void)?
+
+    init(onLogComplete: ((ReceiptPayload) -> Void)? = nil) {
+        self.onLogComplete = onLogComplete
+    }
     
     var body: some View {
         NavigationStack {
@@ -27,13 +44,14 @@ struct RawMaterialsSearchView: View {
                             .focused($searchFocused)
                             .textInputAutocapitalization(.words)
                             .disableAutocorrection(true)
+                            .onChange(of: query) { _, newValue in
+                                if newValue.count > 80 {
+                                    query = String(newValue.prefix(80))
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, 16)
-                
-                if isLoading {
-                    ProgressView()
-                }
                 
                 List {
                     if query.isEmpty {
@@ -59,10 +77,51 @@ struct RawMaterialsSearchView: View {
                             }
                         }
                     } else {
-                        Section("Resultater") {
-                            ForEach(searchResults, id: \.id) { item in
-                                rawRow(item: item)
+                        switch searchState {
+                        case .loading:
+                            Section {
+                                HStack(spacing: 10) {
+                                    ProgressView()
+                                    Text("Søker …")
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 88)
+                                .accessibilityElement(children: .combine)
                             }
+                        case .failure(let message):
+                            Section {
+                                ContentUnavailableView {
+                                    Label("Kunne ikke søke", systemImage: "wifi.exclamationmark")
+                                } description: {
+                                    Text(message)
+                                } actions: {
+                                    Button("Prøv igjen") {
+                                        Task { await performSearch() }
+                                    }
+                                    Button("Skann strekkode") {
+                                        showScanCamera = true
+                                    }
+                                }
+                            }
+                        case .empty:
+                            Section {
+                                ContentUnavailableView.search(text: query)
+                            }
+                        case .cachedResults, .results:
+                            if case .cachedResults = searchState {
+                                Section {
+                                    Label("Viser lagrede treff. Nye varer kan kreve nett.", systemImage: "internaldrive")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                            }
+                            Section("Resultater") {
+                                ForEach(searchResults, id: \.id) { item in
+                                    rawRow(item: item)
+                                }
+                            }
+                        case .idle:
+                            EmptyView()
                         }
                     }
                 }
@@ -75,12 +134,12 @@ struct RawMaterialsSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
             .task {
@@ -91,7 +150,45 @@ struct RawMaterialsSearchView: View {
                 await performSearch()
             }
             .sheet(item: $selectedProduct) { product in
-                ProductDetailView(product: product, appState: appState, onLogComplete: nil)
+                ProductDetailView(product: product, appState: appState) { payload in
+                    if let onLogComplete {
+                        dismiss()
+                        onLogComplete(payload)
+                    } else {
+                        receiptPayload = payload
+                    }
+                }
+            }
+            .sheet(item: $receiptPayload) { payload in
+                ReceiptView(
+                    product: payload.product,
+                    amountG: payload.amountG,
+                    nutrition: payload.nutrition,
+                    mealType: payload.mealType,
+                    onAction: { action in
+                        switch action {
+                        case .scanNext:
+                            showScanCamera = true
+                        case .addAgain:
+                            appState.selectedMealType = payload.mealType
+                            repeatProduct = payload.product
+                        case .close:
+                            break
+                        }
+                    }
+                )
+                .presentationDetents([.medium])
+            }
+            .sheet(item: $repeatProduct) { product in
+                ProductDetailView(product: product, appState: appState) { payload in
+                    receiptPayload = payload
+                }
+            }
+            .fullScreenCover(isPresented: $showScanCamera) {
+                CameraView { payload in
+                    showScanCamera = false
+                    receiptPayload = payload
+                }
             }
         }
     }
@@ -107,15 +204,32 @@ struct RawMaterialsSearchView: View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             searchResults = []
+            searchState = .idle
             return
         }
-        isLoading = true
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        if Task.isCancelled { return }
-        let results = await productViewModel.searchRawFoods(query: trimmed)
-        if Task.isCancelled { return }
-        searchResults = results
-        isLoading = false
+        searchState = .loading
+        do {
+            try await Task.sleep(nanoseconds: 300_000_000)
+            let outcome = try await productViewModel.searchRawFoodsWithStatus(query: trimmed)
+            guard !Task.isCancelled else { return }
+            searchResults = outcome.items
+            if outcome.items.isEmpty {
+                searchState = .empty
+            } else {
+                switch outcome.source {
+                case .localCache:
+                    searchState = .cachedResults
+                case .remote:
+                    searchState = .results
+                }
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            searchResults = []
+            searchState = .failure("Sjekk forbindelsen og prøv igjen. Du kan fortsatt skanne eller bruke lagrede varer.")
+        }
     }
     
     private func rawRow(item: MatvaretabellenProduct) -> some View {

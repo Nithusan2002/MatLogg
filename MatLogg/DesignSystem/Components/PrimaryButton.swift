@@ -22,7 +22,7 @@ struct PrimaryButton: View {
                 Text(title)
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(.white)
+            .foregroundColor(AppColors.onVibrant)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(AppColors.brand)

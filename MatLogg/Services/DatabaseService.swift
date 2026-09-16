@@ -103,6 +103,15 @@ class DatabaseService {
     func pendingSyncCount() async -> Int {
         store.pendingSyncCount()
     }
+
+    func localSchemaVersion() async -> Int {
+        store.schemaVersion()
+    }
+
+    func resetAllLocalData() async throws {
+        try store.resetAllData()
+        UserDefaults.standard.removeObject(forKey: "personalDetails")
+    }
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {
         store.fetchPendingEvents(limit: limit)

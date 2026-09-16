@@ -4,9 +4,11 @@ import SQLite3
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 final class LocalStore {
-    static let shared = LocalStore()
+    static let shared = LocalStore(databaseURL: nil)
+    static let latestSchemaVersion = 1
     
     private let queue = DispatchQueue(label: "matlogg.localstore.queue")
+    private let configuredDatabaseURL: URL?
     private var db: OpaquePointer?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -16,10 +18,40 @@ final class LocalStore {
         return encoder
     }()
     
-    private init() {
+    init(databaseURL: URL?) {
+        configuredDatabaseURL = databaseURL
         openDatabase()
-        createTables()
+        do {
+            try migrateDatabase()
+        } catch {
+            fatalError("Kunne ikke migrere lokal database: \(error.localizedDescription)")
+        }
         resetInFlightToPending()
+    }
+
+    deinit {
+        if let db {
+            sqlite3_close(db)
+        }
+    }
+
+    func schemaVersion() -> Int {
+        queue.sync { schemaVersionLocked() }
+    }
+
+    func resetAllData() throws {
+        try queue.sync {
+            try execute("BEGIN IMMEDIATE TRANSACTION;")
+            do {
+                for table in ["favorites", "scans", "logs", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                    try execute("DELETE FROM \(table);")
+                }
+                try execute("COMMIT;")
+            } catch {
+                _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                throw error
+            }
+        }
     }
     
     // MARK: - Goals
@@ -175,8 +207,11 @@ final class LocalStore {
         let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
         try performAtomicWrite(type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
             let sql = """
-            INSERT OR REPLACE INTO products(id, barcode, json)
-            VALUES(?, ?, ?);
+            INSERT INTO products(id, barcode, json)
+            VALUES(?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                barcode = excluded.barcode,
+                json = excluded.json;
             """
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
@@ -655,11 +690,41 @@ final class LocalStore {
     // MARK: - Helpers
     
     private func openDatabase() {
-        let url = databaseURL()
-        sqlite3_open(url.path, &db)
+        let url = databaseFileURL()
+        guard sqlite3_open(url.path, &db) == SQLITE_OK else {
+            fatalError("Kunne ikke åpne lokal database")
+        }
     }
-    
-    private func createTables() {
+
+    private func migrateDatabase() throws {
+        try queue.sync {
+            var currentVersion = schemaVersionLocked()
+            guard currentVersion <= Self.latestSchemaVersion else {
+                throw LocalStoreError.unsupportedSchema(currentVersion)
+            }
+
+            while currentVersion < Self.latestSchemaVersion {
+                let targetVersion = currentVersion + 1
+                try execute("BEGIN IMMEDIATE TRANSACTION;")
+                do {
+                    switch targetVersion {
+                    case 1:
+                        try migrateToVersion1Locked()
+                    default:
+                        throw LocalStoreError.unsupportedSchema(targetVersion)
+                    }
+                    try execute("PRAGMA user_version = \(targetVersion);")
+                    try execute("COMMIT;")
+                    currentVersion = targetVersion
+                } catch {
+                    _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                    throw error
+                }
+            }
+        }
+    }
+
+    private func migrateToVersion1Locked() throws {
         let statements = [
             """
             CREATE TABLE IF NOT EXISTS goals(
@@ -745,15 +810,16 @@ final class LocalStore {
             );
             """
         ]
-        queue.sync {
-            for sql in statements {
-                sqlite3_exec(db, sql, nil, nil, nil)
-            }
+        for sql in statements {
+            try execute(sql)
         }
-        ensureSyncQueueSchema()
+        try ensureSyncQueueSchemaLocked()
     }
     
-    private func databaseURL() -> URL {
+    private func databaseFileURL() -> URL {
+        if let configuredDatabaseURL {
+            return configuredDatabaseURL
+        }
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = base.appendingPathComponent("MatLogg", isDirectory: true)
         if !FileManager.default.fileExists(atPath: dir.path) {
@@ -768,9 +834,9 @@ final class LocalStore {
         }
     }
 
-    private func ensureSyncQueueSchema() {
+    private func ensureSyncQueueSchemaLocked() throws {
         let expectedColumns: [String: String] = [
-            "eventId": "TEXT PRIMARY KEY",
+            "eventId": "TEXT",
             "type": "TEXT",
             "createdAt": "REAL",
             "entityId": "TEXT",
@@ -782,46 +848,40 @@ final class LocalStore {
             "nextRetryAt": "REAL",
             "lastError": "TEXT"
         ]
-        let existing = queue.sync { () -> Set<String> in
-            var columns = Set<String>()
-            let sql = "PRAGMA table_info(sync_queue);"
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            defer { sqlite3_finalize(stmt) }
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                if let name = sqlite3_column_text(stmt, 1) {
-                    columns.insert(String(cString: name))
-                }
-            }
-            return columns
-        }
+        let existing = columnNamesLocked(table: "sync_queue")
         
         if existing.contains("id"), !existing.contains("eventId") {
-            _ = queue.sync {
-                sqlite3_exec(db, "ALTER TABLE sync_queue RENAME COLUMN id TO eventId;", nil, nil, nil)
-            }
+            try execute("ALTER TABLE sync_queue RENAME COLUMN id TO eventId;")
         }
         
-        let refreshed = queue.sync { () -> Set<String> in
-            var columns = Set<String>()
-            let sql = "PRAGMA table_info(sync_queue);"
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            defer { sqlite3_finalize(stmt) }
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                if let name = sqlite3_column_text(stmt, 1) {
-                    columns.insert(String(cString: name))
-                }
-            }
-            return columns
-        }
+        let refreshed = columnNamesLocked(table: "sync_queue")
         
         for (column, definition) in expectedColumns where !refreshed.contains(column) {
-            let sql = "ALTER TABLE sync_queue ADD COLUMN \(column) \(definition);"
-            _ = queue.sync {
-                sqlite3_exec(db, sql, nil, nil, nil)
+            try execute("ALTER TABLE sync_queue ADD COLUMN \(column) \(definition);")
+        }
+    }
+
+    private func schemaVersionLocked() -> Int {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        return Int(sqlite3_column_int(stmt, 0))
+    }
+
+    private func columnNamesLocked(table: String) -> Set<String> {
+        var columns = Set<String>()
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "PRAGMA table_info(\(table));", -1, &stmt, nil) == SQLITE_OK else {
+            return columns
+        }
+        defer { sqlite3_finalize(stmt) }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let name = sqlite3_column_text(stmt, 1) {
+                columns.insert(String(cString: name))
             }
         }
+        return columns
     }
     
     private func readBlob(_ stmt: OpaquePointer?, index: Int32) -> Data? {
@@ -966,8 +1026,10 @@ private struct ProductSyncPayload: Codable {
 
 private enum LocalStoreError: LocalizedError {
     case sqlite(String)
+    case unsupportedSchema(Int)
     var errorDescription: String? {
         if case .sqlite(let message) = self { return "Lokal databasefeil: \(message)" }
+        if case .unsupportedSchema(let version) = self { return "Databaseskjema \(version) er nyere enn appen støtter" }
         return nil
     }
 }

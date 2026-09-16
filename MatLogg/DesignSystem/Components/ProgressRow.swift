@@ -24,7 +24,7 @@ struct ProgressRow: View {
                     Capsule()
                         .fill(AppColors.progressTrack)
                     Capsule()
-                        .fill(tint.opacity(0.75))
+                        .fill(AppColors.deepInk)
                         .frame(width: proxy.size.width * clamped)
                 }
             }

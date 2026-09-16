@@ -8,9 +8,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id           String    @id @default(uuid())
+  email        String    @unique
+  firstName    String?
+  lastName     String?
+  passwordHash String?
+  authProvider String    @default("email")
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
   events    EventInbox[]
   logs      Log[]
   goals     Goal?

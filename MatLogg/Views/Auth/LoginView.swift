@@ -79,21 +79,6 @@ struct LoginView: View {
                 .cornerRadius(8)
                 .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
                 
-                Divider()
-                    .padding(.vertical, 8)
-                
-                Button(action: {}) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "applelogo")
-                        Text("Logg inn med Apple")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .background(Color.black)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                
                 Spacer()
                 
                 NavigationLink(destination: SignUpView()) {

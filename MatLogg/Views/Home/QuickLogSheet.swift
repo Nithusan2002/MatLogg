@@ -6,7 +6,7 @@ struct MatLoggTabBar: View {
     private let tabs: [(AppTab, String, String)] = [
         (.home, "Hjem", "house"),
         (.search, "Søk", "magnifyingglass"),
-        (.progress, "Tall", "chart.bar"),
+        (.progress, "Fremgang", "chart.bar"),
         (.profile, "Profil", "person")
     ]
 
@@ -15,21 +15,27 @@ struct MatLoggTabBar: View {
             tabButton(tabs[0])
             tabButton(tabs[1])
             Button { selection = .add } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 64, height: 64)
-                    .background(AppColors.brand, in: Circle())
-                    .overlay(Circle().stroke(AppColors.surface, lineWidth: 4))
-                    .shadow(color: AppColors.deepInk.opacity(0.18), radius: 1, y: 4)
+                VStack(spacing: 1) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 25, weight: .semibold))
+                        .foregroundColor(AppColors.onVibrant)
+                        .frame(width: 56, height: 56)
+                        .background(AppColors.brand, in: Circle())
+                        .overlay(Circle().stroke(AppColors.surface, lineWidth: 4))
+                        .shadow(color: AppColors.deepInk.opacity(0.18), radius: 1, y: 4)
+                    Text("Loggfør")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(AppColors.deepInk)
+                }
+                .frame(minWidth: 64, minHeight: 70)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Legg til mat")
-            .offset(y: -13)
+            .accessibilityLabel("Loggfør mat")
+            .offset(y: -10)
             tabButton(tabs[2])
             tabButton(tabs[3])
         }
-        .frame(height: 66)
+        .frame(height: 70)
         .padding(.horizontal, 10)
         .background(AppColors.surface)
         .background(alignment: .top) {
@@ -46,7 +52,7 @@ struct MatLoggTabBar: View {
                     .font(.system(size: 18, weight: .medium))
                 Text(tab.1).font(.caption2)
             }
-            .foregroundColor(selection == tab.0 ? AppColors.brand : AppColors.textSecondary)
+            .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 52)
         }
         .buttonStyle(.plain)
@@ -55,16 +61,25 @@ struct MatLoggTabBar: View {
 }
 
 struct QuickLogSheet: View {
+    private enum LoadState: Equatable {
+        case loading
+        case content
+        case empty
+        case unavailable
+    }
+
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var productViewModel: ProductViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var products: [Product] = []
     @State private var selectedProduct: Product?
+    @State private var loadState: LoadState = .loading
 
     let onSearch: () -> Void
     let onScan: () -> Void
     let onManualAdd: () -> Void
+    let onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
         ScrollView {
@@ -88,7 +103,26 @@ struct QuickLogSheet: View {
 
                 mealPicker
 
-                if products.isEmpty {
+                if loadState == .loading {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Henter hurtigvalg …")
+                            .font(AppTypography.body)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                    .accessibilityElement(children: .combine)
+                } else if loadState == .unavailable {
+                    VStack(spacing: 10) {
+                        Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
+                            .font(AppTypography.bodyEmphasis)
+                        Button("Prøv igjen") { Task { await loadProducts() } }
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.action)
+                            .frame(minHeight: 44)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 120)
+                } else if loadState == .empty {
                     VStack(spacing: 10) {
                         Text("Ingen hurtigvalg ennå")
                             .font(AppTypography.bodyEmphasis)
@@ -99,7 +133,7 @@ struct QuickLogSheet: View {
                             .multilineTextAlignment(.center)
                         Button("Legg til manuelt", action: onManualAdd)
                             .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.brand)
+                            .foregroundColor(AppColors.action)
                             .frame(minHeight: 44)
                     }
                     .frame(maxWidth: .infinity)
@@ -143,34 +177,53 @@ struct QuickLogSheet: View {
         .background(AppColors.background.ignoresSafeArea())
         .task { await loadProducts() }
         .sheet(item: $selectedProduct) { product in
-            ProductDetailView(product: product, appState: appState, onLogComplete: nil)
-        }
-    }
-
-    private var mealPicker: some View {
-        HStack(spacing: 8) {
-            ForEach(MealPresentation.all) { meal in
-                Button {
-                    appState.selectedMealType = meal.key
-                } label: {
-                    Text(meal.title)
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(appState.selectedMealType == meal.key ? .white : AppColors.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(appState.selectedMealType == meal.key ? AppColors.brand : AppColors.surface, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(appState.selectedMealType == meal.key ? .isSelected : [])
+            ProductDetailView(product: product, appState: appState) { payload in
+                dismiss()
+                onLogComplete(payload)
             }
         }
     }
 
+    private var mealPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Logg til: \(selectedMealTitle)")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.deepInk)
+
+            HStack(spacing: 8) {
+                ForEach(MealPresentation.all) { meal in
+                    Button {
+                        appState.selectedMealType = meal.key
+                    } label: {
+                        Text(meal.title)
+                            .font(AppTypography.captionEmphasis)
+                            .foregroundColor(appState.selectedMealType == meal.key ? AppColors.onVibrant : AppColors.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(appState.selectedMealType == meal.key ? AppColors.brand : AppColors.surface, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Logg til \(meal.title)")
+                    .accessibilityAddTraits(appState.selectedMealType == meal.key ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private var selectedMealTitle: String {
+        MealPresentation.all.first(where: { $0.key == appState.selectedMealType })?.title ?? "måltid"
+    }
+
     private func loadProducts() async {
-        guard let userId = authViewModel.currentUser?.id else { return }
+        loadState = .loading
+        guard let userId = authViewModel.currentUser?.id else {
+            loadState = .unavailable
+            return
+        }
         let favorites = await productViewModel.favoriteProducts(userId: userId)
         let recents = await productViewModel.recentProducts(userId: userId, limit: 8)
         var seen = Set<UUID>()
         products = (favorites + recents).filter { seen.insert($0.id).inserted }.prefix(8).map { $0 }
+        loadState = products.isEmpty ? .empty : .content
     }
 
     private func productSubtitle(_ product: Product) -> String {

@@ -10,7 +10,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/sync-contract.test.ts"
+    "test": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/sync-contract.test.ts",
+    "test:integration": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/sync-integration.test.ts",
+    "test:http-integration": "JWT_SECRET='matlogg-http-integration-only' TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/sync-http-integration.test.ts",
+    "test:auth-integration": "JWT_SECRET='matlogg-auth-integration-only' TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/auth-account-integration.test.ts",
+    "test:ios-e2e:prepare": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/ios-client-e2e-state.ts prepare",
+    "test:ios-e2e:verify": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only test/ios-client-e2e-state.ts verify"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

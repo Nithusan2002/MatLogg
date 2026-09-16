@@ -19,6 +19,8 @@ struct ProductDetailView: View {
     @State private var showSourceInfo = false
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
+    @State private var isLogging = false
+    @State private var logError: String?
     
     var nutrition: NutritionBreakdown {
         product.calculateNutrition(forGrams: Float(amountG))
@@ -40,7 +42,8 @@ struct ProductDetailView: View {
                             Text("Tilbake")
                         }
                         .font(AppTypography.body)
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
+                        .frame(minWidth: 44, minHeight: 44)
                     }
                     Spacer()
                     
@@ -49,14 +52,15 @@ struct ProductDetailView: View {
                             Image(systemName: "info.circle")
                                 .font(.system(size: 18))
                                 .foregroundColor(AppColors.textSecondary)
+                                .frame(width: 44, height: 44)
                         }
-                        .padding(.trailing, 8)
                     }
                     
                     Button(action: toggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 18))
-                            .foregroundColor(isFavorite ? AppColors.brand : AppColors.textSecondary)
+                            .foregroundColor(isFavorite ? AppColors.action : AppColors.textSecondary)
+                            .frame(width: 44, height: 44)
                     }
                 }
                 .padding()
@@ -173,7 +177,7 @@ struct ProductDetailView: View {
                                                         .background(AppColors.surface)
                                                         .overlay(
                                                             RoundedRectangle(cornerRadius: 16)
-                                                                .stroke(AppColors.separator, lineWidth: 1)
+                                                                .stroke(AppColors.controlBorder, lineWidth: 1)
                                                         )
                                                         .cornerRadius(16)
                                                 }
@@ -238,21 +242,36 @@ struct ProductDetailView: View {
                 .scrollDismissesKeyboard(.interactively)
                 
                 // Add Button
+                if let logError {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                        Text(logError)
+                        Spacer()
+                        Button("Prøv igjen", action: logProduct)
+                            .font(AppTypography.captionEmphasis)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.action)
+                    .padding(.horizontal)
+                    .accessibilityElement(children: .combine)
+                }
+
                 PrimaryButton(
-                    title: "Legg til \(selectedMealType)",
+                    title: isLogging ? "Lagrer …" : "Legg til \(selectedMealType)",
                     systemImage: "plus.circle.fill",
                     action: logProduct
                 )
                 .padding()
-                .disabled(amountG <= 0.0001)
-                .opacity(amountG > 0.0001 ? 1.0 : 0.5)
+                .disabled(amountG <= 0.0001 || isLogging)
+                .opacity(amountG > 0.0001 && !isLogging ? 1.0 : 0.5)
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { hideKeyboard() }
-                    .foregroundColor(AppColors.brand)
+                    .foregroundColor(AppColors.action)
             }
         }
         .onAppear {
@@ -294,15 +313,23 @@ struct ProductDetailView: View {
     ]
 
     private func logProduct() {
+        guard !isLogging else { return }
+        isLogging = true
+        logError = nil
         Task {
-            guard let userId = authViewModel.currentUser?.id else { return }
+            guard let userId = authViewModel.currentUser?.id else {
+                logError = "Du må være logget inn for å lagre."
+                isLogging = false
+                return
+            }
             guard await logViewModel.logFood(
                 product: product,
                 amountG: Float(amountG),
                 mealType: selectedMealType,
                 userId: userId
             ) else {
-                appState.errorMessage = logViewModel.errorMessage
+                logError = logViewModel.errorMessage ?? "Kunne ikke lagre på enheten. Prøv igjen."
+                isLogging = false
                 return
             }
             await logViewModel.loadTodaysSummary(userId: userId)
@@ -324,6 +351,8 @@ struct ProductDetailView: View {
                     mealType: selectedMealType
                 )
             )
+            isLogging = false
+            dismiss()
         }
     }
     
@@ -404,7 +433,8 @@ struct ImagePreviewView: View {
                 HStack {
                     Spacer()
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -483,7 +513,7 @@ struct ProductSourceInfoView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
         }

@@ -29,7 +29,7 @@
 
 ### **MVP Features (Frozen)**
 
-✅ Auth (Apple/Google/Email)  
+✅ Auth (e-post/passord; Apple/Google planlegges senere)
 ✅ Onboarding (mål, kalorier, makroer)  
 ✅ Home: status + logg-liste + måltidsrad  
 ✅ Strekkode-skanning  
@@ -63,7 +63,7 @@
 - ✅ App load time <2s, scan-to-productcard <3s
 - ✅ Offline logging works without internet
 - ✅ No data loss during sync
-- ✅ Haptics/sound working on iOS 14+
+- ✅ Haptics/sound working on iOS 17+
 
 ---
 
@@ -445,4 +445,3 @@ Notification: in-app banner + email
 Then: 3-month deprecation warning
 Finally: 410 Gone (archived)
 ```
-

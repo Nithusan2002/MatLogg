@@ -60,13 +60,15 @@ Innlogging (email/passord)
 }
 ```
 
-**Response (200 OK):**
+**Response (201 Created):**
 ```json
 {
   "user_id": "user-uuid-here",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 86400,
-  "refresh_token": "refresh-token-here"
+  "first_name": "Nithu",
+  "last_name": "Doe",
+  "auth_provider": "email",
+  "created_at": "2026-09-16T12:00:00Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
@@ -87,6 +89,9 @@ Innlogging (email/passord)
 ### **POST /auth/oauth**
 
 OAuth-innlogging (Apple/Google)
+
+**Status:** Senere scope. Endepunktet er ikke implementert eller eksponert i
+iOS-klienten.
 
 **Request:**
 ```json
@@ -735,9 +740,15 @@ DELETE /user
 **Response (200):**
 ```json
 {
-  "message": "Kontoen er markert for sletting. Den vil bli permanent slettet etter 30 dager."
+  "code": "ACCOUNT_PENDING_DELETION",
+  "message": "Kontoen er markert for sletting",
+  "permanentDeletionAt": "2026-10-16T12:00:00Z"
 }
 ```
+
+Identiteten hentes fra bearer-tokenet. Kontoen får `deletedAt`, eksisterende
+tokens avvises umiddelbart, og en idempotent jobb sletter domenedata og brukeren
+permanent etter 30 dager. Brukeropprettede produktbidrag beholdes anonymisert.
 
 ---
 

@@ -1,6 +1,16 @@
 import Foundation
 import Combine
 
+struct RawFoodSearchOutcome {
+    enum Source {
+        case localCache
+        case remote
+    }
+
+    let items: [MatvaretabellenProduct]
+    let source: Source
+}
+
 @MainActor
 final class ProductViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
@@ -10,11 +20,20 @@ final class ProductViewModel: ObservableObject {
     private let barcodeService: any BarcodeProductService
     private let matchingService: MatchingService
 
+    convenience init(repository: any ProductRepository) {
+        self.init(
+            repository: repository,
+            catalogService: MatvaretabellenService(),
+            barcodeService: APIService(),
+            matchingService: MatchingService()
+        )
+    }
+
     init(
         repository: any ProductRepository,
-        catalogService: any ProductCatalogService = MatvaretabellenService(),
-        barcodeService: any BarcodeProductService = APIService(),
-        matchingService: MatchingService = MatchingService()
+        catalogService: any ProductCatalogService,
+        barcodeService: any BarcodeProductService,
+        matchingService: MatchingService
     ) {
         self.repository = repository
         self.catalogService = catalogService
@@ -24,6 +43,10 @@ final class ProductViewModel: ObservableObject {
 
     func product(id: UUID) -> Product? {
         repository.getProduct(id)
+    }
+
+    func saveManualProduct(_ product: Product) async throws {
+        try await repository.saveProduct(product)
     }
 
     func cachedProduct(barcode: String) -> Product? {
@@ -49,6 +72,18 @@ final class ProductViewModel: ObservableObject {
 
     func recentScans(userId: UUID, limit: Int = 15) async -> [ScanHistory] {
         await repository.getRecentScans(userId: userId, limit: limit)
+    }
+
+    @discardableResult
+    func recordScan(productId: UUID, userId: UUID) async -> Bool {
+        errorMessage = nil
+        do {
+            try await repository.saveScanHistory(userId: userId, productId: productId)
+            return true
+        } catch {
+            errorMessage = "Skannehistorikken kunne ikke oppdateres."
+            return false
+        }
     }
 
     func recentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
@@ -85,19 +120,24 @@ final class ProductViewModel: ObservableObject {
     }
 
     func searchRawFoods(query: String) async -> [MatvaretabellenProduct] {
+        (try? await searchRawFoodsWithStatus(query: query).items) ?? []
+    }
+
+    func searchRawFoodsWithStatus(query: String) async throws -> RawFoodSearchOutcome {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
+        guard !trimmed.isEmpty else {
+            return RawFoodSearchOutcome(items: [], source: .localCache)
+        }
 
         if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
             let filtered = cached.filter { normalize($0.name).contains(normalize(trimmed)) }
-            if !filtered.isEmpty { return filtered }
+            if !filtered.isEmpty {
+                return RawFoodSearchOutcome(items: filtered, source: .localCache)
+            }
         }
 
-        let items = (try? await catalogService.searchProducts(query: trimmed)) ?? []
-        if items.isEmpty, let cached = repository.getMatvaretabellenCache(maxAgeDays: 30) {
-            return cached.filter { normalize($0.name).contains(normalize(trimmed)) }
-        }
-        return items
+        let items = try await catalogService.searchProducts(query: trimmed)
+        return RawFoodSearchOutcome(items: items, source: .remote)
     }
 
     func upgradeNutritionIfPossible(for product: Product) async -> Product? {

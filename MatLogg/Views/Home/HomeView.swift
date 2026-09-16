@@ -8,9 +8,8 @@ struct HomeView: View {
     @State private var showScanCamera = false
     @State private var showManualAdd = false
     @State private var showRawMaterials = false
-    @State private var toastPayload: ReceiptPayload?
-    @State private var showToast = false
-    @State private var toastId = UUID()
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var repeatProduct: Product?
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
     
@@ -20,9 +19,10 @@ struct HomeView: View {
                 showScanCamera: $showScanCamera,
                 showManualAdd: $showManualAdd,
                 showRawMaterials: $showRawMaterials,
+                onOpenQuickLog: { showAddActions = true },
                 onLogComplete: { payload in
                     Task { await loadTodaysSummary() }
-                    showLogToast(payload)
+                    receiptPayload = payload
                 }
             )
                 .tabItem {
@@ -68,7 +68,7 @@ struct HomeView: View {
                     await loadTodaysSummary()
                 }
                 showScanCamera = false
-                showLogToast(payload)
+                receiptPayload = payload
             })
         }
         .fullScreenCover(isPresented: $showManualAdd) {
@@ -79,41 +79,33 @@ struct HomeView: View {
             .environmentObject(appState)
         }
         .fullScreenCover(isPresented: $showRawMaterials) {
-            RawMaterialsSearchView()
+            RawMaterialsSearchView { payload in
+                showRawMaterials = false
+                receiptPayload = payload
+                Task { await loadTodaysSummary() }
+            }
                 .environmentObject(appState)
         }
-        .overlay(alignment: .bottom) {
-            if showToast, let toastPayload {
-                LogToastView(
-                    payload: toastPayload,
-                    onUndo: {
-                        Task {
-                            guard let userId = authViewModel.currentUser?.id else { return }
-                            if await logViewModel.undoLatestLog(
-                                productId: toastPayload.product.id,
-                                mealType: toastPayload.mealType,
-                                amountG: Float(toastPayload.amountG),
-                                userId: userId
-                            ) {
-                                await loadTodaysSummary()
-                                await appState.refreshSyncStatus()
-                            } else if let message = logViewModel.errorMessage {
-                                appState.errorMessage = message
-                            }
-                        }
-                        hideToast()
-                    },
-                    onScanNext: {
-                        hideToast()
-                        showScanCamera = true
-                    },
-                    onDismiss: {
-                        hideToast()
-                    }
-                )
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+        .sheet(item: $receiptPayload) { payload in
+            ReceiptView(
+                product: payload.product,
+                amountG: payload.amountG,
+                nutrition: payload.nutrition,
+                mealType: payload.mealType
+            ) { action in
+                switch action {
+                case .scanNext: showScanCamera = true
+                case .addAgain:
+                    appState.selectedMealType = payload.mealType
+                    repeatProduct = payload.product
+                case .close: break
+                }
+            }
+            .presentationDetents([.medium])
+        }
+        .sheet(item: $repeatProduct) { product in
+            ProductDetailView(product: product, appState: appState) { payload in
+                receiptPayload = payload
             }
         }
         .onAppear {
@@ -137,6 +129,11 @@ struct HomeView: View {
                 onManualAdd: {
                     showAddActions = false
                     showManualAdd = true
+                },
+                onLogComplete: { payload in
+                    showAddActions = false
+                    receiptPayload = payload
+                    Task { await loadTodaysSummary() }
                 }
             )
             .presentationDetents([.fraction(0.66), .large])
@@ -160,24 +157,6 @@ struct HomeView: View {
         )
     }
     
-    private func showLogToast(_ payload: ReceiptPayload) {
-        toastPayload = payload
-        showToast = true
-        let currentId = UUID()
-        toastId = currentId
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            if toastId == currentId {
-                hideToast()
-            }
-        }
-    }
-    
-    private func hideToast() {
-        withAnimation {
-            showToast = false
-        }
-    }
-
     private func loadTodaysSummary() async {
         guard let userId = authViewModel.currentUser?.id else { return }
         await logViewModel.loadTodaysSummary(userId: userId)
@@ -194,13 +173,14 @@ struct HomeTabView: View {
     @Binding var showScanCamera: Bool
     @Binding var showManualAdd: Bool
     @Binding var showRawMaterials: Bool
+    let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var recentScans: [ScanHistory] = []
-    @State private var showProductDetail = false
     @State private var selectedProduct: Product?
     @State private var selectedMealForLog: MealPresentation?
+    @State private var isSummaryLoading = true
     
     var body: some View {
         NavigationStack {
@@ -208,14 +188,53 @@ struct HomeTabView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     homeHeader
 
-                    if preferencesViewModel.showGoalStatusOnHome, let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
-                        StatusCardView(
-                            summary: summary,
-                            goal: goal,
-                            dayLabel: "Dagens fremgang",
-                            hideGoals: preferencesViewModel.safeModeHideGoals,
-                            hideCalories: preferencesViewModel.safeModeHideCalories
+                    if appState.pendingSyncCount > 0 {
+                        Label(
+                            "\(appState.pendingSyncCount) \(appState.pendingSyncCount == 1 ? "endring" : "endringer") lagret på enheten og venter på synk",
+                            systemImage: "arrow.triangle.2.circlepath"
                         )
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .accessibilityLabel("Endringer lagret på enheten. Venter på synk.")
+                    }
+
+                    if preferencesViewModel.showGoalStatusOnHome {
+                        if isSummaryLoading {
+                            CardContainer {
+                                HStack(spacing: 12) {
+                                    ProgressView()
+                                    Text("Henter dagens oversikt …")
+                                        .font(AppTypography.body)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+                            }
+                            .accessibilityElement(children: .combine)
+                        } else if let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
+                            StatusCardView(
+                                summary: summary,
+                                goal: goal,
+                                dayLabel: "Dagens matinntak",
+                                hideGoals: preferencesViewModel.safeModeHideGoals,
+                                hideCalories: preferencesViewModel.safeModeHideCalories
+                            )
+                        } else {
+                            CardContainer {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Label("Dagens oversikt er ikke klar", systemImage: "chart.bar")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.deepInk)
+                                    Text("Du kan fortsatt loggføre mat. Sett opp et mål i profilen for å se fremgangen her.")
+                                        .font(AppTypography.body)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
                     }
 
                     QuickSearchBar(
@@ -228,7 +247,7 @@ struct HomeTabView: View {
                             .font(AppTypography.sectionTitle)
                             .foregroundColor(AppColors.ink)
                         Spacer()
-                        Text("\(loggedMealCount) av 4 logget")
+                        Text(loggedMealCountLabel)
                             .font(AppTypography.captionEmphasis)
                             .foregroundColor(AppColors.textSecondary)
                     }
@@ -242,7 +261,7 @@ struct HomeTabView: View {
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
                                 appState.selectedMealType = meal.key
-                                showRawMaterials = true
+                                onOpenQuickLog()
                             }
                         )
                     }
@@ -262,16 +281,14 @@ struct HomeTabView: View {
         .task {
             await refreshSummaries()
         }
-        .sheet(isPresented: $showProductDetail) {
-            if let product = selectedProduct {
-                ProductDetailView(
-                    product: product,
-                    appState: appState,
-                    onLogComplete: { payload in
-                        onLogComplete(payload)
-                    }
-                )
-            }
+        .sheet(item: $selectedProduct) { product in
+            ProductDetailView(
+                product: product,
+                appState: appState,
+                onLogComplete: { payload in
+                    onLogComplete(payload)
+                }
+            )
         }
         .onChange(of: logViewModel.todaysSummary.logs.count) { _, _ in
             Task { await loadSelectedSummary() }
@@ -288,6 +305,8 @@ struct HomeTabView: View {
     }
     
     private func loadSelectedSummary() async {
+        isSummaryLoading = true
+        defer { isSummaryLoading = false }
         guard let userId = authViewModel.currentUser?.id else {
             selectedSummary = nil
             return
@@ -299,8 +318,16 @@ struct HomeTabView: View {
         Set(selectedSummary?.logs.map(\.mealType) ?? []).count
     }
 
+    private var loggedMealCountLabel: String {
+        loggedMealCount == 0 ? "Ingen logget ennå" : "\(loggedMealCount) av 4 logget"
+    }
+
     private var quickProducts: [Product] {
-        recentScans.compactMap { productViewModel.product(id: $0.productId) }
+        var seen = Set<UUID>()
+        return recentScans.compactMap { scan in
+            guard seen.insert(scan.productId).inserted else { return nil }
+            return productViewModel.product(id: scan.productId)
+        }
     }
 
     @ViewBuilder
@@ -321,7 +348,6 @@ struct HomeTabView: View {
                         ForEach(quickProducts.prefix(6)) { product in
                             Button {
                                 selectedProduct = product
-                                showProductDetail = true
                             } label: {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Text(product.name)
@@ -349,7 +375,7 @@ struct HomeTabView: View {
         HStack(spacing: 10) {
             Text("MatLogg")
                 .font(AppTypography.title)
-                .foregroundColor(AppColors.brand)
+                .foregroundColor(AppColors.action)
             Spacer()
             Button {
                 appState.selectedTab = .profile
@@ -401,27 +427,25 @@ struct QuickSearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Button(action: onSearch) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundColor(AppColors.info)
-                    Text("Søk etter mat eller råvarer")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 14)
-                .frame(minHeight: 50)
-                .background(AppColors.surface, in: Capsule())
-                .overlay(Capsule().stroke(AppColors.separator, lineWidth: 1))
+                Label("Søk etter mat", systemImage: "magnifyingglass")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.deepInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 50)
+                    .background(AppColors.surface, in: Capsule())
+                    .overlay(Capsule().stroke(AppColors.controlBorder, lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityHint("Åpner matvaresøk")
 
             Button(action: onScan) {
-                Image(systemName: "barcode.viewfinder")
-                    .font(.title3.weight(.bold))
+                Label("Skann", systemImage: "barcode.viewfinder")
+                    .font(AppTypography.bodyEmphasis)
                     .foregroundColor(.white)
-                    .frame(width: 50, height: 50)
-                    .background(AppColors.deepInk, in: Circle())
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 50)
+                    .background(AppColors.deepInk, in: Capsule())
             }
             .accessibilityLabel("Skann strekkode")
         }
@@ -453,7 +477,7 @@ struct MealOverviewCard: View {
                 Button(action: onAdd) {
                     Text("+ Legg til")
                         .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                         .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
@@ -514,7 +538,7 @@ struct MealOverviewCard: View {
         .overlay {
             if logs.isEmpty {
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
-                    .stroke(AppColors.separator, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+                    .stroke(AppColors.controlBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
             }
         }
         .shadow(color: logs.isEmpty ? .clear : AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
@@ -529,7 +553,7 @@ struct MealOverviewCard: View {
     private func macroTag(_ text: String, color: Color) -> some View {
         Text(text)
             .font(AppTypography.captionEmphasis)
-            .foregroundColor(color)
+            .foregroundColor(AppColors.deepInk)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(color.opacity(0.14), in: Capsule())
@@ -584,12 +608,6 @@ struct StatusCardView: View {
             }
 
             if !hideGoals {
-                HStack(spacing: 9) {
-                    macroCard("PROTEIN", value: summary.totalProtein, color: AppColors.macroProteinTint)
-                    macroCard("KARBO", value: summary.totalCarbs, color: AppColors.macroCarbTint)
-                    macroCard("FETT", value: summary.totalFat, color: AppColors.macroFatTint)
-                }
-
                 VStack(spacing: 12) {
                         ProgressRow(
                             label: "Proteiner",
@@ -615,17 +633,6 @@ struct StatusCardView: View {
                 .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
             }
         }
-    }
-
-    private func macroCard(_ label: String, value: Float, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label).font(AppTypography.captionEmphasis)
-            Text("\(Int(value)) g").font(AppTypography.title)
-        }
-        .foregroundColor(label == "KARBO" ? AppColors.deepInk : .white)
-        .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
-        .padding(.horizontal, 14)
-        .background(color, in: Capsule())
     }
 
     private var statusDateLabel: String {
@@ -661,7 +668,8 @@ struct MealTypeSelector: View {
     }
 }
 
-struct ReceiptPayload {
+struct ReceiptPayload: Identifiable {
+    let id = UUID()
     let product: Product
     let amountG: Double
     let nutrition: NutritionBreakdown
@@ -689,6 +697,9 @@ struct ScanHistoryView: View {
     @State private var recentScans: [ScanHistory] = []
     @State private var selectedProduct: Product?
     @State private var showMissingProductAlert = false
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var repeatProduct: Product?
+    @State private var showScanCamera = false
     
     var body: some View {
         NavigationStack {
@@ -737,7 +748,40 @@ struct ScanHistoryView: View {
             }
         }
         .sheet(item: $selectedProduct) { product in
-            ProductDetailView(product: product, appState: appState, onLogComplete: nil)
+            ProductDetailView(product: product, appState: appState) { payload in
+                receiptPayload = payload
+            }
+        }
+        .sheet(item: $receiptPayload) { payload in
+            ReceiptView(
+                product: payload.product,
+                amountG: payload.amountG,
+                nutrition: payload.nutrition,
+                mealType: payload.mealType,
+                onAction: { action in
+                    switch action {
+                    case .scanNext:
+                        showScanCamera = true
+                    case .addAgain:
+                        appState.selectedMealType = payload.mealType
+                        repeatProduct = payload.product
+                    case .close:
+                        break
+                    }
+                }
+            )
+            .presentationDetents([.medium])
+        }
+        .sheet(item: $repeatProduct) { product in
+            ProductDetailView(product: product, appState: appState) { payload in
+                receiptPayload = payload
+            }
+        }
+        .fullScreenCover(isPresented: $showScanCamera) {
+            CameraView { payload in
+                showScanCamera = false
+                receiptPayload = payload
+            }
         }
         .alert("Produkt ikke tilgjengelig", isPresented: $showMissingProductAlert) {
             Button("OK", role: .cancel) {}
@@ -768,6 +812,7 @@ struct CameraView: View {
     @State private var showScanHelp = false
     @State private var showProductDetail = false
     @State private var showProductNotFound = false
+    @State private var showManualProduct = false
     @State private var showCameraPrePrompt = false
     
     var body: some View {
@@ -890,10 +935,29 @@ struct CameraView: View {
                 )
             }
         }
+        .fullScreenCover(isPresented: $showManualProduct, onDismiss: {
+            if scannedProduct != nil {
+                showProductDetail = true
+            }
+        }) {
+            ManualProductView(
+                barcode: scannedBarcode,
+                saveProduct: { product in
+                    try await productViewModel.saveManualProduct(product)
+                }
+            ) { product in
+                scannedProduct = product
+                if let userId = authViewModel.currentUser?.id {
+                    Task {
+                        await productViewModel.recordScan(productId: product.id, userId: userId)
+                        await appState.refreshSyncStatus()
+                    }
+                }
+            }
+        }
         .alert("Produktet finnes ikkje", isPresented: $showProductNotFound) {
             Button("Legg til selv", action: {
-                dismiss()
-                // TODO: Navigate to create product flow
+                showManualProduct = true
             })
             Button("Avbryt", role: .cancel) {
                 scannedBarcode = nil
@@ -914,7 +978,7 @@ struct CameraView: View {
             isLoading = false
             showProductDetail = true
             Task {
-                await saveScannedProduct(cached)
+                await recordCachedScan(cached)
             }
             return
         }
@@ -984,6 +1048,15 @@ struct CameraView: View {
     private func saveScannedProduct(_ product: Product) async {
         guard let userId = authViewModel.currentUser?.id else { return }
         if await productViewModel.saveScannedProduct(product, userId: userId) {
+            await appState.refreshSyncStatus()
+        } else {
+            appState.errorMessage = productViewModel.errorMessage
+        }
+    }
+
+    private func recordCachedScan(_ product: Product) async {
+        guard let userId = authViewModel.currentUser?.id else { return }
+        if await productViewModel.recordScan(productId: product.id, userId: userId) {
             await appState.refreshSyncStatus()
         } else {
             appState.errorMessage = productViewModel.errorMessage
@@ -1062,7 +1135,7 @@ struct ManualAddView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
         }
@@ -1128,8 +1201,8 @@ struct SearchHubView: View {
                         ForEach(recentScans.prefix(6)) { scan in
                             HStack(spacing: 12) {
                                 Image(systemName: "clock.arrow.circlepath")
-                                    .foregroundColor(AppColors.info)
-                                    .frame(width: 40, height: 40)
+                                    .foregroundColor(AppColors.deepInk)
+                                    .frame(width: 44, height: 44)
                                     .background(AppColors.info.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                                 VStack(alignment: .leading) {
                                     Text(productViewModel.product(id: scan.productId)?.name ?? "Ukjent produkt")

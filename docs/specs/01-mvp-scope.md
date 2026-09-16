@@ -5,7 +5,7 @@
 ### MVP-Fase: "Core Logging"
 
 **Tidslinje:** 12 uker  
-**Platform:** iOS 14.0+  
+**Platform:** iOS 17.0+
 **Team:** 1 iOS-engineer, 1 backend-engineer, 1 designer
 
 ---
@@ -14,7 +14,7 @@
 
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
-| **Autentisering** | P0 | Sign in with Apple, Google, email/passord |
+| **Autentisering** | P0 | E-post/passord. Apple og Google er senere scope. |
 | **Onboarding** | P0 | Måltype (weght loss/maintain/gain), kalorimål, makromål, valgfri vektlogg |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), stor skann-knapp, logging-liste |
 | **Strekkode-skanning** | P0 | EAN-skann → produktoppslag → produktkort → logging |
@@ -129,4 +129,4 @@
 - ✅ 100% av P0-features fungerer
 - ✅ <0.5% crash-rate i TestFlight
 - ✅ All offline-funksjonalitet virker
-- ✅ Haptics/lyd-feedback virker på iOS 14+
+- ✅ Haptics/lyd-feedback virker på iOS 17+

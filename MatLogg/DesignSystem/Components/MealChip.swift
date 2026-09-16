@@ -16,10 +16,11 @@ struct MealChip: View {
                 .foregroundColor(AppColors.ink)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 10)
+                .frame(minHeight: 44)
                 .background(isSelected ? AppColors.chipFillSelected : Color.clear)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(AppColors.chipStroke, lineWidth: 1)
+                        .stroke(AppColors.controlBorder, lineWidth: 1)
                 )
                 .cornerRadius(12)
         }

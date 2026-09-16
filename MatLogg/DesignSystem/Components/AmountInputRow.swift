@@ -35,11 +35,11 @@ struct AmountInputRow: View {
                 .multilineTextAlignment(.trailing)
                 .padding(.horizontal, 10)
                 .frame(width: 76)
-                .frame(height: 40)
+                .frame(minHeight: 44)
                 .background(AppColors.surface)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppColors.separator, lineWidth: 1)
+                        .stroke(AppColors.controlBorder, lineWidth: 1)
                 )
                 .cornerRadius(12)
             

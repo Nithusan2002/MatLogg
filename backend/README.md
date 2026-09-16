@@ -5,9 +5,26 @@
 ```bash
 docker compose up -d
 npm install
-npx prisma migrate dev
+npx prisma migrate deploy
 npm run start:dev
 ```
+
+Verifiser synk mot den lokale PostgreSQL-databasen:
+
+```bash
+npm test
+npm run test:integration
+npm run test:http-integration
+npm run test:auth-integration
+```
+
+Integrasjonstestene krever `DATABASE_URL` (verdien i `.env.example` fungerer
+med Docker Compose-oppsettet) og rydder opp alle testdata de oppretter.
+HTTP-testen starter NestJS på en tilfeldig lokal port og bruker en egen
+`JWT_SECRET` kun for testprosessen.
+
+Auth-integrasjonstesten dekker registrering, passordhashing, innlogging,
+token-revokering, soft-delete og permanent purge etter retensjonsperioden.
 
 Health check:
 
@@ -60,4 +77,3 @@ curl -X POST http://localhost:4000/v1/sync/events \
 ## Env
 
 Se `.env.example`.
-

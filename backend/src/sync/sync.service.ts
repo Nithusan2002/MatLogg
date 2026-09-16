@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncEventsRequestDto, SyncEventDto } from './dto';
 import { z } from 'zod';
@@ -126,7 +127,7 @@ export class SyncService {
     return { status: 'acked' as const, eventId: event.eventId };
   }
 
-  private async applyEvent(tx: PrismaService, userId: string, event: SyncEventDto, payloadJson: any) {
+  private async applyEvent(tx: Prisma.TransactionClient, userId: string, event: SyncEventDto, payloadJson: any) {
     switch (event.type) {
       case 'log.create':
       case 'log.update':

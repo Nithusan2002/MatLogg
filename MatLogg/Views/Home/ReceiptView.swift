@@ -8,6 +8,9 @@ struct ReceiptView: View {
     let onAction: (ReceiptAction) -> Void
     
     @Environment(\.dismiss) var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
+    @State private var interactionRevision = 0
     
     var body: some View {
         ZStack {
@@ -18,13 +21,13 @@ struct ReceiptView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                     
                     Text("Logget!")
                         .font(AppTypography.title)
                         .foregroundColor(AppColors.ink)
                     
-                    Text(mealType)
+                    Text(LogSummaryService.title(for: mealType))
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -49,12 +52,14 @@ struct ReceiptView: View {
                     
                     // Nutrition Summary
                     VStack(spacing: 8) {
-                        HStack {
-                            Text("Energi")
-                            Spacer()
-                            Text("\(Int(nutrition.calories)) kcal")
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.ink)
+                        if !preferencesViewModel.safeModeHideCalories {
+                            HStack {
+                                Text("Energi")
+                                Spacer()
+                                Text("\(Int(nutrition.calories)) kcal")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                            }
                         }
                         
                         HStack {
@@ -85,15 +90,15 @@ struct ReceiptView: View {
                 // Action Buttons
                 VStack(spacing: 12) {
                     Button(action: {
-                        onAction(.scanNext)
                         dismiss()
+                        DispatchQueue.main.async { onAction(.scanNext) }
                     }) {
                         HStack {
                             Image(systemName: "arrow.clockwise")
                             Text("Skann en til")
                         }
                         .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.onVibrant)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(AppColors.brand)
@@ -102,12 +107,12 @@ struct ReceiptView: View {
                     
                     HStack(spacing: 12) {
                         Button(action: {
-                            onAction(.addAgain)
                             dismiss()
+                            DispatchQueue.main.async { onAction(.addAgain) }
                         }) {
                             Text("Legg til igjen")
                                 .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.brand)
+                                .foregroundColor(AppColors.action)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 44)
                                 .background(AppColors.background)
@@ -115,12 +120,12 @@ struct ReceiptView: View {
                         }
                         
                         Button(action: {
-                            onAction(.close)
                             dismiss()
+                            DispatchQueue.main.async { onAction(.close) }
                         }) {
                             Text("Lukk")
                                 .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.brand)
+                                .foregroundColor(AppColors.action)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 44)
                                 .background(AppColors.background)
@@ -135,12 +140,14 @@ struct ReceiptView: View {
             .cornerRadius(16)
             .padding(20)
         }
-        .onAppear {
-            // Auto-close after 5 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                withAnimation {
-                    dismiss()
-                }
+        .simultaneousGesture(TapGesture().onEnded { interactionRevision += 1 })
+        .task(id: interactionRevision) {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            if reduceMotion {
+                dismiss()
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) { dismiss() }
             }
         }
     }
@@ -179,4 +186,5 @@ struct ReceiptView: View {
         mealType: "Lunsj",
         onAction: { _ in }
     )
+    .environmentObject(PreferencesViewModel())
 }

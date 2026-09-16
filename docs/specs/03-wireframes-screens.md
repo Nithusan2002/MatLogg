@@ -21,14 +21,29 @@
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger «Dagens fremgang», et kombinert søk-/skannfelt og fire
+profil. Deretter følger «Dagens matinntak», separate søk- og skanneknapper og fire
 alltid synlige måltidskort i rekkefølgen frokost, lunsj, middag og kveldsmat.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-En stor sentral Legg til-knapp åpner et bunnark med søk, skanning, måltidsvalg
+En stor sentral «Loggfør»-knapp åpner et bunnark med søk, skanning, måltidsvalg
 og hurtigvalg fra favoritter og nylig brukte produkter.
 Kortene viser inntil tre innslag, mengde og valgfri kaloriverdi. Trykk åpner
 dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
 Trygg modus skal fjerne kalorier og mål uten å etterlate avslørende etiketter.
+
+Tilstandskrav for Home, hurtigvalg og søk:
+
+- Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting.
+- Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
+- Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
+- Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder søket og tilbyr «Prøv igjen» og strekkodeskanning.
+- Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
+- Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.
+- Produktnavn opprettet av bruker er begrenset til 80 tegn; skjemaet viser tegnantall og forklarer overskridelse.
+- Normal tekst skal ha minst 4,5:1 kontrast, stor tekst og nødvendige UI-symboler minst 3:1. Tekst på sterke makrofarger bruker mørk `onVibrant`, mens handlingslenker bruker det kontrastverifiserte `action`-tokenet.
+- Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
+- Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
+- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Fremgang».
+- Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
 ```
 ┌─────────────────────────────────────────────────────┐

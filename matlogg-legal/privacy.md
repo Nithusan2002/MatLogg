@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 23. januar 2026
+Sist oppdatert: 16. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -13,7 +13,7 @@ Kontakt: nithusank.2002@gmail.com
 2. Hvilke data behandler vi?
 
 Konto og innlogging
-  - Nar du oppretter konto (Sign in with Apple, Google, eller e-post/passord) lagrer vi informasjon som trengs for innlogging og kontoadministrasjon, som e-post (hvis tilgjengelig) og en bruker-ID.
+  - Nar du oppretter konto med e-post/passord lagrer vi e-post, navn, bruker-ID og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst.
 
 Det du logger i appen
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
@@ -49,7 +49,6 @@ MatLogg er “offline-first”, som betyr at data normalt lagres lokalt pa enhet
 6. Deling med tredjepart
 
 Vi kan dele begrensede data med:
-  - Innloggingsleverandorer (Apple/Google) for autentisering.
   - Open Food Facts og Matvaretabellen for oppslag av produkt-/naeringsdata (ved sok/skann).
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
@@ -68,7 +67,7 @@ Disse er valgfritt og kan slas av/pa nar som helst i Profil → Personvern & val
 
 9. Hvor lenge lagrer vi data?
 
-Vi lagrer data sa lenge kontoen din er aktiv eller til du sletter dem. Du kan nar som helst:
+Vi lagrer data sa lenge kontoen din er aktiv eller til du sletter dem. Nar du sletter kontoen, fjernes lokale data umiddelbart. Serverkontoen markeres for sletting, innlogging sperres og kontodata slettes permanent etter 30 dager. Brukeropprettede produktbidrag kan beholdes anonymisert for datakvalitet. Du kan nar som helst:
   - Laste ned dataene dine.
   - Slette konto og tilknyttede data (se punkt 10).
 
