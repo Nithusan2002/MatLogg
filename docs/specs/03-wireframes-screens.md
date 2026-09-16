@@ -22,7 +22,10 @@
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
 profil. Deretter følger «Dagens fremgang», et kombinert søk-/skannfelt og fire
-alltid synlige måltidskort i rekkefølgen frokost, lunsj, middag og snacks.
+alltid synlige måltidskort i rekkefølgen frokost, lunsj, middag og kveldsmat.
+Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
+En stor sentral Legg til-knapp åpner et bunnark med søk, skanning, måltidsvalg
+og hurtigvalg fra favoritter og nylig brukte produkter.
 Kortene viser inntil tre innslag, mengde og valgfri kaloriverdi. Trykk åpner
 dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
 Trygg modus skal fjerne kalorier og mål uten å etterlate avslørende etiketter.

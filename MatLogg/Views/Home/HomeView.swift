@@ -57,6 +57,10 @@ struct HomeView: View {
                 }
                 .tag(AppTab.profile)
         }
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            MatLoggTabBar(selection: tabSelection)
+        }
         .environmentObject(appState)
         .sheet(isPresented: $showScanCamera) {
             CameraView(onLogComplete: { payload in
@@ -120,11 +124,24 @@ struct HomeView: View {
         .onChange(of: appState.selectedTab) { _, newValue in
             if newValue != .add { previousTab = newValue }
         }
-        .confirmationDialog("Legg til mat", isPresented: $showAddActions) {
-            Button("Skann strekkode") { showScanCamera = true }
-            Button("Søk i matvarer") { showRawMaterials = true }
-            Button("Legg til manuelt") { showManualAdd = true }
-            Button("Avbryt", role: .cancel) {}
+        .sheet(isPresented: $showAddActions) {
+            QuickLogSheet(
+                onSearch: {
+                    showAddActions = false
+                    showRawMaterials = true
+                },
+                onScan: {
+                    showAddActions = false
+                    showScanCamera = true
+                },
+                onManualAdd: {
+                    showAddActions = false
+                    showManualAdd = true
+                }
+            )
+            .presentationDetents([.fraction(0.66), .large])
+            .presentationDragIndicator(.hidden)
+            .presentationCornerRadius(36)
         }
     }
 
@@ -188,7 +205,7 @@ struct HomeTabView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 18) {
                     homeHeader
 
                     if preferencesViewModel.showGoalStatusOnHome, let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
@@ -211,7 +228,7 @@ struct HomeTabView: View {
                             .font(AppTypography.sectionTitle)
                             .foregroundColor(AppColors.ink)
                         Spacer()
-                        Text("4 måltider")
+                        Text("\(loggedMealCount) av 4 logget")
                             .font(AppTypography.captionEmphasis)
                             .foregroundColor(AppColors.textSecondary)
                     }
@@ -229,10 +246,12 @@ struct HomeTabView: View {
                             }
                         )
                     }
+
+                    quickLogSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-                .padding(.bottom, 28)
+                .padding(.bottom, 18)
             }
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
@@ -276,33 +295,78 @@ struct HomeTabView: View {
         selectedSummary = await logViewModel.fetchSummary(userId: userId, date: selectedDate)
     }
 
+    private var loggedMealCount: Int {
+        Set(selectedSummary?.logs.map(\.mealType) ?? []).count
+    }
+
+    private var quickProducts: [Product] {
+        recentScans.compactMap { productViewModel.product(id: $0.productId) }
+    }
+
+    @ViewBuilder
+    private var quickLogSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Loggfør på ett trykk")
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.deepInk)
+
+            if quickProducts.isEmpty {
+                Text("Favoritter og nylig brukte matvarer dukker opp her.")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(quickProducts.prefix(6)) { product in
+                            Button {
+                                selectedProduct = product
+                                showProductDetail = true
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(product.name)
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.deepInk)
+                                        .lineLimit(2)
+                                    Text("\(product.caloriesPer100g) kcal per 100 g")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .frame(width: 132, alignment: .leading)
+                                .frame(minHeight: 76, alignment: .leading)
+                                .padding(14)
+                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var homeHeader: some View {
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(AppColors.success)
-                .frame(width: 42, height: 42)
-                .overlay(Image(systemName: "leaf.fill").foregroundColor(.white))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("MatLogg")
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.ink)
-                Text(dateLabel)
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
-            }
+            Text("MatLogg")
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.brand)
             Spacer()
             Button {
                 appState.selectedTab = .profile
             } label: {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(AppColors.ink)
+                Text(profileInitials)
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(.white)
                     .frame(width: 44, height: 44)
-                    .background(AppColors.accent.opacity(0.8), in: Circle())
+                    .background(AppColors.deepInk, in: Circle())
             }
             .accessibilityLabel("Åpne profil")
         }
+    }
+
+    private var profileInitials: String {
+        guard let user = authViewModel.currentUser else { return "ML" }
+        return String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
     }
 
     private var dateLabel: String {
@@ -326,7 +390,7 @@ struct MealPresentation: Identifiable, Hashable {
         .init(key: "frokost", title: "Frokost", icon: "sunrise.fill"),
         .init(key: "lunsj", title: "Lunsj", icon: "sun.max.fill"),
         .init(key: "middag", title: "Middag", icon: "fork.knife"),
-        .init(key: "snacks", title: "Snacks", icon: "sparkles")
+        .init(key: "snacks", title: "Kveldsmat", icon: "moon.stars.fill")
     ]
 }
 
@@ -355,9 +419,9 @@ struct QuickSearchBar: View {
             Button(action: onScan) {
                 Image(systemName: "barcode.viewfinder")
                     .font(.title3.weight(.bold))
-                    .foregroundColor(AppColors.ink)
+                    .foregroundColor(.white)
                     .frame(width: 50, height: 50)
-                    .background(AppColors.accent, in: Circle())
+                    .background(AppColors.deepInk, in: Circle())
             }
             .accessibilityLabel("Skann strekkode")
         }
@@ -375,44 +439,65 @@ struct MealOverviewCard: View {
     private var totalCalories: Int { logs.reduce(0) { $0 + $1.calories } }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Image(systemName: meal.icon)
-                    .foregroundColor(AppColors.ink)
-                    .frame(width: 36, height: 36)
-                    .background(meal.tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 11))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(meal.title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)
-                    Text(logs.isEmpty ? "Ikke logget ennå" : "\(logs.count) innslag")
-                        .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                }
+                Text(String(meal.title.prefix(1)))
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.deepInk)
+                    .frame(width: 34, height: 34)
+                    .background(meal.tint.opacity(0.22), in: Circle())
+                Text(meal.title.uppercased())
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
                 Spacer()
-                if !logs.isEmpty && !hideCalories {
-                    Text("\(totalCalories) kcal").font(AppTypography.captionEmphasis).foregroundColor(AppColors.ink)
+                Button(action: onAdd) {
+                    Text("+ Legg til")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundColor(AppColors.brand)
+                        .frame(minHeight: 44)
                 }
-                Image(systemName: "chevron.right").font(.caption.bold()).foregroundColor(AppColors.textSecondary)
+                .buttonStyle(.plain)
             }
 
             if logs.isEmpty {
-                Button(action: onAdd) {
-                    Label("Legg til i \(meal.title.lowercased())", systemImage: "plus")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.ink)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(meal.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
+                Text("\(meal.title) · ikke logget ennå")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             } else {
-                VStack(spacing: 9) {
+                VStack(spacing: 14) {
                     ForEach(logs.prefix(3)) { log in
-                        HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(productName(log.productId)).font(AppTypography.body).foregroundColor(AppColors.ink).lineLimit(1)
-                                Text("\(Int(log.amountG)) g").font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                            }
-                            Spacer()
-                            if !hideCalories {
-                                Text("\(log.calories) kcal").font(AppTypography.captionEmphasis).foregroundColor(AppColors.ink)
+                        HStack(alignment: .top, spacing: 12) {
+                            Text(String(productName(log.productId).prefix(1)).uppercased())
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.textSecondary)
+                                .frame(width: 54, height: 54)
+                                .background(AppColors.mutedSurface, in: Circle())
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(productName(log.productId))
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.deepInk)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if !hideCalories {
+                                        Text("\(log.calories)")
+                                            .font(AppTypography.title)
+                                            .foregroundColor(AppColors.deepInk)
+                                    }
+                                }
+                                Text("\(Int(log.amountG)) g")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                                HStack(spacing: 6) {
+                                    macroTag("P \(Int(log.proteinG)) g", color: AppColors.macroProteinTint)
+                                    macroTag("K \(Int(log.carbsG)) g", color: AppColors.macroCarbTint)
+                                    macroTag("F \(Int(log.fatG)) g", color: AppColors.macroFatTint)
+                                }
+                                Text(log.loggedTime.formatted(date: .omitted, time: .shortened))
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
                     }
@@ -424,17 +509,30 @@ struct MealOverviewCard: View {
                 }
             }
         }
-        .padding(14)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 3).fill(meal.tint).frame(width: 4).padding(.vertical, 14)
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay {
+            if logs.isEmpty {
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .stroke(AppColors.separator, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+            }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .shadow(color: logs.isEmpty ? .clear : AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
+        .contentShape(RoundedRectangle(cornerRadius: 30))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
         }
         .accessibilityElement(children: .combine)
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
+    }
+
+    private func macroTag(_ text: String, color: Color) -> some View {
+        Text(text)
+            .font(AppTypography.captionEmphasis)
+            .foregroundColor(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(color.opacity(0.14), in: Capsule())
     }
 }
 
@@ -454,59 +552,45 @@ struct StatusCardView: View {
     }
     
     var body: some View {
-        CardContainer {
-            VStack(spacing: 16) {
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(dayLabel)
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                        Text(hideCalories ? "—" : "\(summary.totalCalories) kcal")
-                            .font(AppTypography.hero)
-                            .foregroundColor(AppColors.ink)
-                    }
-                    
-                    Spacer()
-                    
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(dayLabel)
+                    .font(AppTypography.title)
+                    .foregroundColor(AppColors.deepInk)
+                Spacer()
+                Text(statusDateLabel)
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+
+            if !hideCalories {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("KALORIER SPIST")
+                        .font(AppTypography.captionEmphasis)
+                    Text("\(summary.totalCalories)")
+                        .font(AppTypography.display)
                     if !hideGoals {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(overCalories > 0 ? "Utover mål" : "Igjen")
-                                .font(AppTypography.caption)
-                                .foregroundColor(AppColors.textSecondary)
-                            Text(hideCalories ? "—" : "\(overCalories > 0 ? overCalories : remainingCalories) kcal")
-                                .font(AppTypography.hero)
-                                .foregroundColor(AppColors.ink)
-                        }
+                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                            .font(AppTypography.bodyEmphasis)
                     }
                 }
-                
-                if !hideGoals {
-                    Text("Mål: \(goal.dailyCalories) kcal")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                .foregroundColor(AppColors.deepInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
+                .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+                .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
+            }
 
-                    HStack(spacing: 8) {
-                        SummaryPill(
-                            label: "Protein",
-                            value: "\(Int(summary.totalProtein)) g",
-                            tintColor: AppColors.macroProteinTint
-                        )
-                        SummaryPill(
-                            label: "Karbo",
-                            value: "\(Int(summary.totalCarbs)) g",
-                            tintColor: AppColors.macroCarbTint
-                        )
-                        SummaryPill(
-                            label: "Fett",
-                            value: "\(Int(summary.totalFat)) g",
-                            tintColor: AppColors.macroFatTint
-                        )
-                    }
-                
-                    Divider()
-                        .overlay(AppColors.separator)
-                    
-                    VStack(spacing: 12) {
+            if !hideGoals {
+                HStack(spacing: 9) {
+                    macroCard("PROTEIN", value: summary.totalProtein, color: AppColors.macroProteinTint)
+                    macroCard("KARBO", value: summary.totalCarbs, color: AppColors.macroCarbTint)
+                    macroCard("FETT", value: summary.totalFat, color: AppColors.macroFatTint)
+                }
+
+                VStack(spacing: 12) {
                         ProgressRow(
                             label: "Proteiner",
                             valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
@@ -525,10 +609,30 @@ struct StatusCardView: View {
                             progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
                             tint: AppColors.macroFatTint
                         )
-                    }
                 }
+                .padding(16)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
             }
         }
+    }
+
+    private func macroCard(_ label: String, value: Float, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(AppTypography.captionEmphasis)
+            Text("\(Int(value)) g").font(AppTypography.title)
+        }
+        .foregroundColor(label == "KARBO" ? AppColors.deepInk : .white)
+        .frame(maxWidth: .infinity, minHeight: 66, alignment: .leading)
+        .padding(.horizontal, 14)
+        .background(color, in: Capsule())
+    }
+
+    private var statusDateLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "nb_NO")
+        formatter.dateFormat = "EEEE d. MMMM"
+        return formatter.string(from: summary.date).uppercased()
     }
     
     private func progressValue(current: Double, target: Double) -> Double {

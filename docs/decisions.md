@@ -25,3 +25,9 @@ Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datak
 **Begrunnelse:** Tydelige grenser gir testbare features og hindrer at UI, global state og infrastruktur vokser sammen. Atomisk køskriving, idempotens og eierskapskontroll er nødvendig for en trygg local-first-modell.
 
 **Konsekvens:** Nye features skal følge `docs/architecture-principles.md`. Kontraktsendringer må oppdateres på begge sider og dokumenteres. Produksjonssynk aktiveres ikke før integrasjonstester for retry, duplikater og eierskap er grønne.
+## 2026-09-16 – Referansedrevet Home og hurtiglogging
+
+- Home bruker en varm, kortbasert retning med stor kaloristatus, separate makrokort, full måltidsoversikt og en egendefinert femfaners bunnlinje.
+- Den sentrale Legg til-handlingen åpner et tilgjengelig bunnark med måltidsvalg, søk, skanning, manuell registrering, favoritter og nylig brukte produkter.
+- Den kanoniske lagrings- og synkverdien `snacks` beholdes, men presenteres som «Kveldsmat». Dette unngår datamigrering og kontraktsendring.
+- Safe Mode skal fjerne skjulte verdier og tilhørende tilgjengelighetstekst, ikke maskere dem med avslørende plassholdere.

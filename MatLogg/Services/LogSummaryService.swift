@@ -7,7 +7,7 @@ enum LogSummaryService {
         "frokost": "Frokost",
         "lunsj": "Lunsj",
         "middag": "Middag",
-        "snacks": "Snacks"
+        "snacks": "Kveldsmat"
     ]
     
     static func title(for mealType: String) -> String {

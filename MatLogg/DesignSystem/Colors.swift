@@ -13,6 +13,8 @@ enum AppColors {
     static let info = Color(UIColor.appInfo)
     static let warmSurface = Color(UIColor.appWarmSurface)
     static let mutedSurface = Color(UIColor.appMutedSurface)
+    static let deepInk = Color(UIColor.appDeepInk)
+    static let calorieBlue = Color(UIColor.appCalorieBlue)
     
     static let chipFillSelected = brand.opacity(0.12)
     static let chipStroke = separator
@@ -39,6 +41,8 @@ private extension UIColor {
     static let appWarmSurface = UIColor.dynamic(light: 0xFCEBDD, dark: 0x30231D)
     static let appMutedSurface = UIColor.dynamic(light: 0xF4EDE6, dark: 0x2A2420)
     static let appInk = UIColor.dynamic(light: 0x24192E, dark: 0xFFF8F1)
+    static let appDeepInk = UIColor.dynamic(light: 0x231937, dark: 0xFFF8F1)
+    static let appCalorieBlue = UIColor.dynamic(light: 0x49B7ED, dark: 0x318FC0)
     static let appTextSecondary = UIColor.dynamic(light: 0x756A72, dark: 0xC9BDC3)
     static let appSeparator = UIColor.dynamic(light: 0xE9DDD4, dark: 0x453832)
     static let appBrand = UIColor.dynamic(light: 0xFF5268, dark: 0xFF7182)

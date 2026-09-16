@@ -17,6 +17,31 @@ struct MatLoggTests {
     @Test @MainActor func mealPresentationContainsEverySupportedMealOnce() {
         #expect(MealPresentation.all.map(\.key) == ["frokost", "lunsj", "middag", "snacks"])
         #expect(Set(MealPresentation.all.map(\.id)).count == 4)
+        #expect(MealPresentation.all.last?.title == "Kveldsmat")
+        #expect(LogSummaryService.title(for: "snacks") == "Kveldsmat")
+    }
+
+    @Test func mealGroupingKeepsCanonicalStorageOrder() {
+        let userId = UUID()
+        let productId = UUID()
+        let now = Date()
+        let logs = ["snacks", "frokost", "middag"].map { meal in
+            FoodLog(
+                userId: userId,
+                productId: productId,
+                mealType: meal,
+                amountG: 100,
+                loggedDate: now,
+                loggedTime: now,
+                calories: 100,
+                proteinG: 10,
+                carbsG: 10,
+                fatG: 10
+            )
+        }
+
+        let grouped = LogSummaryService.groupedLogs(logs: logs) { _ in "Test" }
+        #expect(grouped.map(\.mealType) == ["frokost", "middag", "snacks"])
     }
 
     @Test func goalCalculatorFallsBackWhenMissingData() async throws {
