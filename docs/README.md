@@ -4,6 +4,10 @@ Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene be
 
 Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md). For synk gjelder også [synkkontrakt v1](sync-contract-v1.md).
 
+For å skille faktisk implementasjon fra planlagt scope, start med
+[gjeldende prosjektstatus](current-state.md). Kommandoer og kvalitetskrav finnes
+i [testveiledningen](testing.md).
+
 ## Leserekkefølge
 
 1. [MVP-scope](specs/01-mvp-scope.md)
@@ -18,6 +22,8 @@ Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md)
 
 ## Praktiske sannhetskilder
 
+- Implementert/delvis/planlagt status: [gjeldende prosjektstatus](current-state.md)
+- Build, test og release-gates: [testveiledningen](testing.md)
 - iOS-oppstart og dependency composition: `MatLogg/MatLoggApp.swift` og `MatLogg/App/AppState.swift`
 - Lokal lagring og synkkø: `MatLogg/Services/LocalStore.swift` og `MatLogg/Services/SyncEngine.swift`
 - API-klient: `MatLogg/Services/APIService.swift`
@@ -29,3 +35,6 @@ Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md)
 - Gjeldende synkformat: [synkkontrakt v1](sync-contract-v1.md)
 
 Når implementasjonen bevisst avviker fra en spesifikasjon, oppdater dokumentet eller noter beslutningen i samme endring.
+
+`specs/06-api-endpoints.md` beskriver også planlagte endepunkter. Et endepunkt
+regnes ikke som implementert før det finnes i `backend/src/` og er verifisert.

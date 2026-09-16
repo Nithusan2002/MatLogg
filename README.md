@@ -1,105 +1,94 @@
-# MatLogg - Norwegian Calorie Tracker
+# MatLogg
 
-A production-ready iOS calorie tracking app built with SwiftUI and offline-first architecture.
+MatLogg er en norsk iOS-app for rask matlogging, ernæringsoversikt og
+måloppfølging. SwiftUI-klienten er local-first: brukerhandlinger lagres i
+SQLite før eventuell synk mot NestJS/PostgreSQL-backenden.
 
-## Features
+## Status
 
-### MVP (Current)
-- ✅ User authentication (email/password signup & login)
-- ✅ Barcode scanning with AVFoundation
-- ✅ Product logging with custom amounts (100g prefill)
-- ✅ Daily calorie & macro tracking
-- ✅ Meal type selection (breakfast, lunch, dinner, snack)
-- ✅ Haptic & audio feedback
-- ✅ Favorites management
-- ✅ Settings (haptics/sound toggle, logout)
+Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
 
-### Coming Soon
-- SQLite persistent storage
-- Offline sync queue
-- Product sharing via links
-- Product not found flow
-- Scan history panel
-- Backend integration
+- Matlogging, dagsoversikt, favoritter, historikk, vekt og ernæringsmål lagres
+  lokalt.
+- Produkter kan finnes via strekkode/Open Food Facts og råvaresøk i
+  Matvaretabellen.
+- En versjonert synkkø, retry/backoff og backend-mottak finnes, men
+  `FeatureFlags.backendSyncEnabled` er avslått.
+- Backend tilbyr foreløpig health check, dev-login og mottak av synkhendelser.
+- Debug-build hopper over ordinær innlogging og bruker en utviklingssesjon.
 
-## Architecture
+Se [gjeldende prosjektstatus](docs/current-state.md) for implementert, delvis
+implementert og planlagt funksjonalitet.
 
-**Stack:**
-- SwiftUI for UI
-- Combine for reactive state
-- AVFoundation for barcode scanning
-- Keychain for secure auth storage
-- (SQLite coming soon)
+## Arkitektur
 
-**State Management:**
-- Centralized `AppState` observable
-- Service layer: Auth, API, Database, Barcode, Haptics, Sound
+iOS-klienten følger pragmatisk MVVM:
 
-## Project Structure
-
-```
-MatLogg/
-├── App/
-│   ├── AppState.swift (reactive state container)
-│   └── Models.swift (domain models)
-├── Services/
-│   ├── AuthService.swift
-│   ├── APIService.swift
-│   ├── DatabaseService.swift
-│   ├── BarcodeScanner.swift
-│   ├── HapticFeedbackService.swift
-│   └── SoundFeedbackService.swift
-├── Views/
-│   ├── Auth/ (LoginView, SignUpView, OnboardingView)
-│   └── Home/ (HomeView, ProductDetailView, ReceiptView)
-└── MatLoggApp.swift (root)
+```text
+View → ViewModel → Repository → Service / LocalStore / API
 ```
 
-## Getting Started
+Viktige prinsipper:
 
-### Requirements
-- iOS 17+
-- Xcode 15+
-- Swift 5.9+
+- logging skal fungere uten nett
+- domenedata og synkhendelse skrives atomisk lokalt
+- synkhendelser har stabil event-ID, canonical type og schema-versjon
+- identitet og eierskap valideres på backend
+- ernæringskilde og måleenhet skal bevares
 
-### Build & Run
-1. Open `MatLogg.xcodeproj` in Xcode
-2. Select target device/simulator
-3. Press ▶️ (Run)
+Les [arkitekturprinsippene](docs/architecture-principles.md) og
+[synkkontrakt v1](docs/sync-contract-v1.md) før relevante endringer.
 
-## Documentation
+## Prosjektstruktur
 
-Start with the [documentation index](docs/README.md). Product, UX, data, API,
-roadmap, and risk specifications live under `docs/specs/`.
+```text
+MatLogg/                 SwiftUI-app
+  App/                   Modeller, appkoordinering og feature flags
+  DesignSystem/          Semantiske tokens og delte komponenter
+  Services/              Lokal lagring, repositories, API, auth og synk
+  ViewModels/            Feature-state og brukerhandlinger
+  Views/                 Feature-sorterte skjermer
+MatLoggTests/            iOS-enhets- og integrasjonstester
+MatLoggUITests/          iOS UI-tester
+backend/                 NestJS, Prisma og PostgreSQL
+docs/                    Produkt- og teknisk dokumentasjon
+matlogg-legal/           Juridiske tekster
+.agents/skills/          Prosjektspesifikke agentarbeidsflyter
+```
 
-Agent instructions and project-specific workflows live in `AGENTS.md` and
-`.agents/skills/`.
+## Lokal oppstart
 
-## Design system usage
+### iOS
 
-Use semantic tokens from `MatLogg/DesignSystem/Colors.swift` and `MatLogg/DesignSystem/Typography.swift` instead of hardcoded colors.
+Krav: en kompatibel versjon av Xcode og en installert iOS-simulator.
 
-Reusable components live under `MatLogg/DesignSystem/Components/`:
-- `CardContainer`
-- `PrimaryButton`
-- `MealChip`
-- `ProgressRow`
+1. Åpne `MatLogg.xcodeproj`.
+2. Velg `MatLogg`-scheme og en simulator.
+3. Bygg og kjør appen.
 
-Debug-only theme preview is available in Settings → Debug → Theme Preview.
+### Backend
 
-## Development Status
+Krav: Node.js, npm og Docker.
 
-**Current:** MVP barcode scanning flow
-- Auth → Onboarding → Home (TabView)
-- Scan barcode → ProductDetailView (100g prefill) → Log → Receipt
-- All views + services implemented
+```bash
+cd backend
+docker compose up -d
+npm install
+npx prisma migrate dev
+npm run start:dev
+```
 
-**Next:** SQLite + Backend integration
+Backend kjører som standard på `http://localhost:4000`. Se
+[backendens README](backend/README.md) for health check, Swagger og dev-login.
 
-## License
+## Testing
 
-Private
+Se [testveiledningen](docs/testing.md) for kommandoer, testnivåer og krav før
+synk eller release.
 
----
+## Dokumentasjon
 
-**Built with ❤️ for Norwegian users** 🇳🇴
+[Dokumentasjonsindeksen](docs/README.md) peker til MVP-scope, brukerflyter,
+datamodell, API-målbilde, roadmap, risikoer og tekniske sannhetskilder.
+
+Prosjektet er privat.
