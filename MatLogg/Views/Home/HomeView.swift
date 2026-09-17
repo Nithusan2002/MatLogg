@@ -47,7 +47,7 @@ struct HomeView: View {
 
             ProgressTabView()
                 .tabItem {
-                    Label("Fremgang", systemImage: "chart.line.uptrend.xyaxis")
+                    Label("Tall", systemImage: "chart.bar")
                 }
                 .tag(AppTab.progress)
 

@@ -24,6 +24,21 @@
 
 ## 3.2 Skjermkart (Wireframes)
 
+### Profil
+
+Profil bruker den samme varme, kortbaserte retningen som Hjem. Øverst vises
+navn, initialer og antall måltidstyper logget i dag. Tre oversiktskort viser
+reelle, lokale verdier for dagens måltider, favoritter og ventende synk; appen
+skal ikke vise konstruerte streaks eller prestasjonstall.
+
+«Dagens mål» viser lagrede kalori- og makromål. Trygg modus og de separate
+valgene for å skjule kalorier eller mål gjelder også her. Hurtigmenyen gir
+tilgang til mål, favoritter og innstillinger. Konto, personvern, eksport,
+preferanser, trygghet og synk beholdes samlet under Innstillinger.
+
+Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt
+trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
+
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og

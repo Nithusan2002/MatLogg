@@ -14,7 +14,7 @@ Release-bygg viser alltid autentisering.
 
 ### iOS
 
-- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Legg til, Fremgang og Profil.
+- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Legg til, Tall og Profil.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
@@ -22,6 +22,8 @@ Release-bygg viser alltid autentisering.
   uten å slette domenedata.
 - Logging med mengde, måltid, kalorier og makronæringsstoffer.
 - Dagsoppsummering og gruppering av logger per måltid.
+- Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
+  måltidsfordeling og vektregistrering. Trygg modus skjuler kalorier og mål.
 - Strekkodeskanning og produktoppslag mot Open Food Facts.
 - Råvaresøk mot Matvaretabellen, med lokal cache.
 - Favoritter, nylig brukte produkter og skannehistorikk.

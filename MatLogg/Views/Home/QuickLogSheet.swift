@@ -6,7 +6,7 @@ struct MatLoggTabBar: View {
     private let tabs: [(AppTab, String, String)] = [
         (.home, "Hjem", "house"),
         (.search, "Søk", "magnifyingglass"),
-        (.progress, "Fremgang", "chart.bar"),
+        (.progress, "Tall", "chart.bar"),
         (.profile, "Profil", "person")
     ]
 

@@ -17,6 +17,35 @@ struct MatLoggTests {
         #expect(AppTab.allCases == [.home, .search, .add, .progress, .profile])
     }
 
+    @Test func progressMetricsCalculateWeeklyAverageAndTodaysMeals() {
+        let userId = UUID()
+        let productId = UUID()
+        let calendar = Calendar(identifier: .gregorian)
+        let firstDay = Date(timeIntervalSince1970: 1_700_000_000)
+        let secondDay = calendar.date(byAdding: .day, value: 1, to: firstDay)!
+        let breakfast = FoodLog(
+            userId: userId,
+            productId: productId,
+            mealType: "frokost",
+            amountG: 100,
+            loggedDate: secondDay,
+            loggedTime: secondDay,
+            calories: 400,
+            proteinG: 20,
+            carbsG: 30,
+            fatG: 10
+        )
+        let metrics = ProgressMetrics(summaries: [
+            DailySummary(date: firstDay, totalCalories: 1_600, totalProtein: 80, totalCarbs: 180, totalFat: 50, logs: []),
+            DailySummary(date: secondDay, totalCalories: 2_000, totalProtein: 100, totalCarbs: 220, totalFat: 60, logs: [breakfast])
+        ])
+
+        #expect(metrics.averageCalories == 1_800)
+        #expect(metrics.today?.date == secondDay)
+        #expect(metrics.calories(forMeal: "frokost") == 400)
+        #expect(metrics.calories(forMeal: "middag") == 0)
+    }
+
     @Test @MainActor func mealPresentationContainsEverySupportedMealOnce() {
         #expect(MealPresentation.all.map(\.key) == ["frokost", "lunsj", "middag", "snacks"])
         #expect(Set(MealPresentation.all.map(\.id)).count == 4)

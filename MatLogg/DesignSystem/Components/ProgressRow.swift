@@ -24,11 +24,13 @@ struct ProgressRow: View {
                     Capsule()
                         .fill(AppColors.progressTrack)
                     Capsule()
-                        .fill(AppColors.deepInk)
+                        .fill(tint)
                         .frame(width: proxy.size.width * clamped)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 10)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(valueText)
     }
 }
