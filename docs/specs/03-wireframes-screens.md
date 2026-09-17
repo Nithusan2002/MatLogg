@@ -1,5 +1,11 @@
 # MatLogg – Skjermkart & iOS Tekstskisser
 
+> **Dokumentstatus:** Detaljerte skjermreferanser. Gjeldende overordnet
+> navigasjon, handlingshierarki og UX-regler finnes i
+> [`../design-and-user-flow.md`](../design-and-user-flow.md), mens visuelle regler
+> finnes i [`../design-system.md`](../design-system.md). ASCII-skisser og eldre
+> beskrivelser nedenfor er referanser og kan ligge bak implementasjonen.
+
 ## 3.1 App-Arkitektur & Tab-struktur
 
 ```
@@ -9,7 +15,7 @@
 │ Tab 1: HJEM (dagsstatus og måltider)    │
 │ Tab 2: SØK (råvarer, nylig, favoritter) │
 │ Tab 3: LEGG TIL (handlingsmeny)         │
-│ Tab 4: FREMGANG (vekt og utvikling)     │
+│ Tab 4: TALL (uke, makroer og utvikling) │
 │ Tab 5: PROFIL (mål, trygghet og konto)  │
 └─────────────────────────────────────────┘
 ```
@@ -42,7 +48,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Normal tekst skal ha minst 4,5:1 kontrast, stor tekst og nødvendige UI-symboler minst 3:1. Tekst på sterke makrofarger bruker mørk `onVibrant`, mens handlingslenker bruker det kontrastverifiserte `action`-tokenet.
 - Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
 - Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
-- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Fremgang».
+- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Tall».
 - Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
 ```

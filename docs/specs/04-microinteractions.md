@@ -1,5 +1,11 @@
 # MatLogg – Mikrointeraksjoner & UX Details
 
+> **Dokumentstatus:** Detaljert og delvis planlagt interaksjonsunderlag.
+> [`../design-and-user-flow.md`](../design-and-user-flow.md) og
+> [`../design-system.md`](../design-system.md) er normative ved konflikt. Lyd,
+> animasjon og haptikk nedenfor regnes ikke som implementert uten støtte i kode
+> og [`../current-state.md`](../current-state.md).
+
 ## 4.1 Haptics & Sound Design
 
 ### **Haptic Feedback Patterns**
@@ -386,4 +392,3 @@ Tap [Last ned MatLogg]:
 • App installs
 • User must return to link for import (or links is cached in clipboard)
 ```
-

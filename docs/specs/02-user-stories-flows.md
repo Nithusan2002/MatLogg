@@ -1,5 +1,11 @@
 # MatLogg – Brukerhistorier & Detaljerte Flyter
 
+> **Dokumentstatus:** Detaljert kravunderlag. For gjeldende overordnet
+> informasjonsarkitektur, terminologi og UX-retning, se
+> [`../design-and-user-flow.md`](../design-and-user-flow.md). Kode og
+> [`../current-state.md`](../current-state.md) avgjør hva som er implementert.
+> Eldre eksempler nedenfor kan beskrive planlagt eller erstattet atferd.
+
 ## 2.1 Brukerhistorier (User Stories)
 
 ### **Epic 1: Autentisering & Onboarding**

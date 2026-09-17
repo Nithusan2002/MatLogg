@@ -2,6 +2,22 @@
 
 Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datakontrakter eller drift. Hold hvert innslag kort: dato, beslutning, begrunnelse og konsekvens.
 
+## 2026-09-17 – Normative produkt- og designdokumenter
+
+**Beslutning:** `product-brief.md`, `design-and-user-flow.md` og
+`design-system.md` er overordnede normative kilder for henholdsvis produktretning,
+UX og visuelle regler. Detaljspesifikasjonene under `docs/specs/` beholdes som
+utdypende krav- og referansemateriale. Kode og `current-state.md` avgjør hva som
+faktisk er implementert.
+
+**Begrunnelse:** Produkt- og designretningen var spredt over flere dokumenter
+med enkelte eldre eller motstridende beskrivelser. Et tydelig hierarki reduserer
+duplisering og gjør fremtidige produkt- og UI-beslutninger enklere å kontrollere.
+
+**Konsekvens:** Varige endringer i produktløfte, informasjonsarkitektur eller
+designregler oppdaterer det relevante normative dokumentet. Berørte
+detaljspesifikasjoner oppdateres samtidig når avviket ellers ville skapt tvil.
+
 ## 2026-09-15 – Prosjektstruktur og agentarbeidsflyt
 
 **Beslutning:** Behold ett Xcode-prosjekt og eksisterende appstruktur, samle spesifikasjoner i `docs/specs/`, og bruk `AGENTS.md` med domeneavgrensede skills i `.agents/skills/`.
