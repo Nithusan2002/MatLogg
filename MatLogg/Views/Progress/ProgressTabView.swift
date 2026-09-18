@@ -28,7 +28,7 @@ struct ProgressTabView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    Text("Tallene dine")
+                    Text("Oversikt")
                         .font(AppTypography.hero)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)

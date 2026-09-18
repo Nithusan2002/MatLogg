@@ -6,7 +6,7 @@ struct MatLoggTabBar: View {
     private let tabs: [(AppTab, String, String)] = [
         (.home, "Hjem", "house"),
         (.search, "Søk", "magnifyingglass"),
-        (.progress, "Tall", "chart.bar"),
+        (.progress, "Oversikt", "chart.bar"),
         (.profile, "Profil", "person")
     ]
 
@@ -15,30 +15,32 @@ struct MatLoggTabBar: View {
             tabButton(tabs[0])
             tabButton(tabs[1])
             Button { selection = .add } label: {
-                VStack(spacing: 1) {
+                VStack(spacing: 4) {
                     Image(systemName: "plus")
                         .font(.system(size: 25, weight: .semibold))
                         .foregroundColor(AppColors.onVibrant)
                         .frame(width: 56, height: 56)
                         .background(AppColors.brand, in: Circle())
-                        .overlay(Circle().stroke(AppColors.surface, lineWidth: 4))
-                        .shadow(color: AppColors.deepInk.opacity(0.18), radius: 1, y: 4)
+                        .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
+                        .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
                     Text("Loggfør")
-                        .font(.caption2.weight(.semibold))
+                        .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.deepInk)
                 }
-                .frame(minWidth: 64, minHeight: 70)
+                .frame(maxWidth: .infinity, minHeight: 70)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Loggfør mat")
-            .offset(y: -10)
+            .padding(.top, -4)
             tabButton(tabs[2])
             tabButton(tabs[3])
         }
-        .frame(height: 70)
+        .frame(minHeight: 70)
+        .padding(.vertical, 8)
         .padding(.horizontal, 10)
         .background(AppColors.surface)
-        .background(alignment: .top) {
+        .overlay(alignment: .top) {
             Rectangle()
                 .fill(AppColors.separator)
                 .frame(height: 1)
@@ -48,12 +50,16 @@ struct MatLoggTabBar: View {
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
         Button { selection = tab.0 } label: {
             VStack(spacing: 4) {
-                Image(systemName: selection == tab.0 ? "\(tab.2).fill" : tab.2)
+                Image(systemName: selection == tab.0 && tab.0 != .search ? "\(tab.2).fill" : tab.2)
                     .font(.system(size: 18, weight: .medium))
-                Text(tab.1).font(.caption2)
+                Text(tab.1)
+                    .font(selection == tab.0 ? AppTypography.captionEmphasis : AppTypography.caption)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 52)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selection == tab.0 ? .isSelected : [])

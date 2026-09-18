@@ -82,9 +82,9 @@ hovedfane. Arket viser alltid «Logg til: [måltid]» og tilbyr:
 Tidspunkt kan foreslå et måltid. Inngang fra et måltidskort overstyrer forslaget.
 Brukeren kan alltid endre måltid før lagring.
 
-### Fremgang
+### Oversikt
 
-Fremgang er valgfri og skal være nøytral. Den kan vise vektregistrering,
+Oversikt er valgfri og skal være nøytral. Den kan vise vektregistrering,
 historikk og graf, men skal ikke bruke gratulasjoner, advarsler eller farge alene
 til å vurdere vektendring. Sletting krever en tydelig bekreftelse.
 

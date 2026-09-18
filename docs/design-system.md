@@ -211,3 +211,12 @@ Før et nytt token eller en ny delt komponent innføres:
 4. legg verdien i `MatLogg/DesignSystem/`, ikke i featureviewet
 5. oppdater dette dokumentet dersom regelen eller skalaen endres
 6. legg en varig produkt-/designbeslutning i `decisions.md` ved større avvik
+
+### Bunnmeny
+
+Bunnmenyen viser Hjem, Søk, Loggfør, Oversikt og Profil. Loggfør er en
+handling som åpner loggingarket og beholder valgt hovedfane. Den korallfargede
+knappen er 56 pt med diskret kant og myk skygge. Valgt hovedfane markeres med
+`action`, kraftigere tekst og fylt ikon der symbolet har en slik variant.
+Etiketter bruker skalerbar caption-typografi og kan bryte over flere linjer;
+menyen vokser i høyden ved større tekst. Alle knapper har minst 44 pt trykkflate.

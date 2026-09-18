@@ -230,7 +230,7 @@ private struct ProfileSettingsView: View {
             Section("Profil og personvern") {
                 NavigationLink("Personlige detaljer") { PersonalDetailsView() }
                 NavigationLink("Personvern & valg") { PrivacyChoicesView() }
-                NavigationLink("Fremgang") { ProgressTabView() }
+                NavigationLink("Oversikt") { ProgressTabView() }
             }
             Section("Preferanser") {
                 Toggle("Vis målstatus på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
