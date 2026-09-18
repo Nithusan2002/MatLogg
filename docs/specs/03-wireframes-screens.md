@@ -445,6 +445,12 @@ Tilstandskrav for Home, hurtigvalg og søk:
 
 ### **SKJERM 9: Favoritter**
 
+Favoritter kan åpnes direkte fra Profil. Listen lastes fra lokal lagring og
+skal derfor fungere uten nett. Trykk på en rad åpner produktkortet med 100 g
+som utgangspunkt. Når produktkortet lukkes, lastes listen på nytt slik at en
+vare som ikke lenger er favoritt forsvinner med en gang. En tom liste viser
+«Ingen favoritter ennå» og en handling til matsøket.
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │  ★ Favoritter                                  12:34│

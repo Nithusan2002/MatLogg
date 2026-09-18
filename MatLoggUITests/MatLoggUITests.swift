@@ -49,6 +49,23 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testProfileOpensFavoritesEmptyState() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let profileTab = app.buttons["Profil"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 3))
+        profileTab.tap()
+
+        let favorites = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Favoritter'")).firstMatch
+        XCTAssertTrue(favorites.waitForExistence(timeout: 2))
+        favorites.tap()
+
+        XCTAssertTrue(app.staticTexts["Ingen favoritter ennå"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Finn matvarer"].exists)
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

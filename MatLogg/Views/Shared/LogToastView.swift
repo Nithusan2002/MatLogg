@@ -11,7 +11,7 @@ struct LogToastView: View {
     var body: some View {
         VStack(spacing: 10) {
             HStack(spacing: 8) {
-                Text("✅ Logget til \(mealTitle)")
+                Label("Logget til \(mealTitle)", systemImage: "checkmark.circle.fill")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.ink)
                 Spacer()
@@ -31,7 +31,7 @@ struct LogToastView: View {
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.brand)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .frame(minHeight: 44)
                         .background(AppColors.surface)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
@@ -43,9 +43,9 @@ struct LogToastView: View {
                 Button(action: onScanNext) {
                     Text("Skann en til")
                         .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.onVibrant)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .frame(minHeight: 44)
                         .background(AppColors.brand)
                         .cornerRadius(12)
                 }

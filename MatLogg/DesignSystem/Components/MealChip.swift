@@ -9,9 +9,6 @@ struct MealChip: View {
         Button(action: action) {
             Text(title)
                 .font(AppTypography.bodyEmphasis)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .allowsTightening(true)
                 .multilineTextAlignment(.center)
                 .foregroundColor(AppColors.ink)
                 .padding(.vertical, 8)
@@ -24,5 +21,7 @@ struct MealChip: View {
                 )
                 .cornerRadius(12)
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

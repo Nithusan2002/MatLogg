@@ -361,7 +361,7 @@ struct HomeTabView: View {
                                 .frame(width: 132, alignment: .leading)
                                 .frame(minHeight: 76, alignment: .leading)
                                 .padding(14)
-                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
@@ -382,7 +382,7 @@ struct HomeTabView: View {
             } label: {
                 Text(profileInitials)
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppColors.background)
                     .frame(width: 44, height: 44)
                     .background(AppColors.deepInk, in: Circle())
             }
@@ -442,7 +442,7 @@ struct QuickSearchBar: View {
             Button(action: onScan) {
                 Label("Skann", systemImage: "barcode.viewfinder")
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppColors.background)
                     .padding(.horizontal, 14)
                     .frame(minHeight: 50)
                     .background(AppColors.deepInk, in: Capsule())
@@ -534,15 +534,15 @@ struct MealOverviewCard: View {
             }
         }
         .padding(16)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
             if logs.isEmpty {
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(AppColors.controlBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
             }
         }
         .shadow(color: logs.isEmpty ? .clear : AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
-        .contentShape(RoundedRectangle(cornerRadius: 30))
+        .contentShape(RoundedRectangle(cornerRadius: 18))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
         }
@@ -603,7 +603,7 @@ struct StatusCardView: View {
                 .foregroundColor(AppColors.deepInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(20)
-                .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 36, style: .continuous))
+                .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
             }
 
@@ -629,7 +629,7 @@ struct StatusCardView: View {
                         )
                 }
                 .padding(16)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
             }
         }

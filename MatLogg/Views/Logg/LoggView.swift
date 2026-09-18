@@ -302,7 +302,7 @@ struct LoggView: View {
                     Button(action: { showAddActions = true }) {
                         Text("Legg til for denne dagen")
                             .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(.white)
+                            .foregroundColor(AppColors.onVibrant)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(AppColors.brand)

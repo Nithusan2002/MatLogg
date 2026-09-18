@@ -28,13 +28,14 @@ struct SignUpView: View {
                             Image(systemName: "chevron.left")
                             Text("Tilbake")
                         }
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppColors.action)
                     }
                     Spacer()
                 }
                 
                 Text("Registrer deg")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(AppTypography.hero)
+                    .foregroundColor(AppColors.deepInk)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.bottom, 10)
@@ -45,14 +46,14 @@ struct SignUpView: View {
                         TextField("Fornavn", text: $firstName)
                             .textContentType(.givenName)
                             .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            .background(AppColors.mutedSurface)
+                            .cornerRadius(12)
                         
                         TextField("Etternavn", text: $lastName)
                             .textContentType(.familyName)
                             .padding(12)
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
+                            .background(AppColors.mutedSurface)
+                            .cornerRadius(12)
                     }
                     
                     TextField("E-post", text: $email)
@@ -60,8 +61,8 @@ struct SignUpView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .padding(12)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                        .background(AppColors.mutedSurface)
+                        .cornerRadius(12)
                     
                     HStack {
                         if showPassword {
@@ -74,18 +75,20 @@ struct SignUpView: View {
                         
                         Button(action: { showPassword.toggle() }) {
                             Image(systemName: showPassword ? "eye.slash" : "eye")
-                                .foregroundColor(.secondary)
+                                .foregroundColor(AppColors.textSecondary)
                                 .padding(.trailing, 12)
                         }
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
                     }
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .background(AppColors.mutedSurface)
+                    .cornerRadius(12)
                     
                     SecureField("Gjenta passord", text: $confirmPassword)
                         .textContentType(.password)
                         .padding(12)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
+                        .background(AppColors.mutedSurface)
+                        .cornerRadius(12)
                     
                     if !password.isEmpty && password != confirmPassword {
                         HStack(spacing: 8) {
@@ -93,10 +96,10 @@ struct SignUpView: View {
                             Text("Passordene stemmer ikke overens")
                                 .font(.caption)
                         }
-                        .foregroundColor(.red)
+                        .foregroundColor(AppColors.ink)
                         .padding(12)
-                        .background(Color(.systemRed).opacity(0.1))
-                        .cornerRadius(8)
+                        .background(AppColors.warmSurface)
+                        .cornerRadius(12)
                     }
                     
                     if password.count < 8 && !password.isEmpty {
@@ -105,10 +108,10 @@ struct SignUpView: View {
                             Text("Passord må være minst 8 tegn")
                                 .font(.caption)
                         }
-                        .foregroundColor(.orange)
+                        .foregroundColor(AppColors.ink)
                         .padding(12)
-                        .background(Color(.systemOrange).opacity(0.1))
-                        .cornerRadius(8)
+                        .background(AppColors.warmSurface)
+                        .cornerRadius(12)
                     }
                     
                     if let error = authViewModel.errorMessage {
@@ -117,10 +120,10 @@ struct SignUpView: View {
                             Text(error)
                                 .font(.caption)
                         }
-                        .foregroundColor(.red)
+                        .foregroundColor(AppColors.ink)
                         .padding(12)
-                        .background(Color(.systemRed).opacity(0.1))
-                        .cornerRadius(8)
+                        .background(AppColors.warmSurface)
+                        .cornerRadius(12)
                     }
                 }
             }
@@ -136,12 +139,14 @@ struct SignUpView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(12)
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
+            .frame(minHeight: 56)
+            .background(AppColors.brand)
+            .foregroundColor(AppColors.onVibrant)
+            .clipShape(Capsule())
             .disabled(!isFormValid || authViewModel.isLoading)
         }
         .padding(20)
+        .background(AppColors.background.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
     }
     

@@ -131,7 +131,7 @@ struct ProgressTabView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
         .padding(18)
-        .background(fill, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .background(fill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 6)
         .accessibilityElement(children: .combine)
     }
@@ -255,8 +255,12 @@ struct ProgressTabView: View {
                 .accessibilityAddTraits(.isHeader)
             content()
         }
-        .padding(24)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
+        )
         .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 7)
     }
 

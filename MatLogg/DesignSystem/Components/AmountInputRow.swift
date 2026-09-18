@@ -30,7 +30,7 @@ struct AmountInputRow: View {
             Spacer()
             
             SelectAllTextField(text: $gramsText, placeholder: placeholder, onFocus: onFocus)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(.title3, design: .rounded, weight: .semibold))
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
                 .padding(.horizontal, 10)
@@ -42,6 +42,8 @@ struct AmountInputRow: View {
                         .stroke(AppColors.controlBorder, lineWidth: 1)
                 )
                 .cornerRadius(12)
+                .accessibilityLabel(title)
+                .accessibilityValue("\(gramsText) \(unit)")
             
             Text(unit)
                 .font(AppTypography.bodyEmphasis)

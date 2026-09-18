@@ -89,20 +89,9 @@ struct ReceiptView: View {
                 
                 // Action Buttons
                 VStack(spacing: 12) {
-                    Button(action: {
+                    PrimaryButton(title: "Skann en til", systemImage: "arrow.clockwise") {
                         dismiss()
                         DispatchQueue.main.async { onAction(.scanNext) }
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Skann en til")
-                        }
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.onVibrant)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(AppColors.brand)
-                        .cornerRadius(8)
                     }
                     
                     HStack(spacing: 12) {

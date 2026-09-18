@@ -22,7 +22,7 @@ struct SummaryPill: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .multilineTextAlignment(.center)
-        .frame(height: height)
+        .frame(minHeight: max(height, 44))
         .padding(.horizontal, 8)
         .background(pillBackground)
         .overlay(

@@ -163,7 +163,7 @@ struct QuickLogSheet: View {
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 .padding(12)
-                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
+                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }

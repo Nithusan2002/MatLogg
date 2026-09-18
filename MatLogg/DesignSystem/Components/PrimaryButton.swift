@@ -24,9 +24,12 @@ struct PrimaryButton: View {
             .font(AppTypography.bodyEmphasis)
             .foregroundColor(AppColors.onVibrant)
             .frame(maxWidth: .infinity)
-            .frame(height: height)
+            .frame(minHeight: max(height, 44))
+            .padding(.vertical, 4)
             .background(AppColors.brand)
-            .cornerRadius(height / 2)
+            .clipShape(Capsule())
         }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isButton)
     }
 }

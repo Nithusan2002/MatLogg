@@ -60,7 +60,7 @@ struct ProfileView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .profileCardShadow()
         }
         .buttonStyle(.plain)
@@ -75,7 +75,7 @@ struct ProfileView: View {
     }
 
     @ViewBuilder private var overviewCardContents: some View {
-        ProfileMetricCard(title: "MÅLTIDER I DAG", value: "\(mealCount)", tint: AppColors.brand, foreground: .white)
+        ProfileMetricCard(title: "MÅLTIDER I DAG", value: "\(mealCount)", tint: AppColors.brand, foreground: AppColors.onVibrant)
         ProfileMetricCard(title: "FAVORITTER", value: "\(favoriteCount)", tint: AppColors.accent, foreground: AppColors.onVibrant)
         ProfileMetricCard(title: "VENTER PÅ SYNK", value: "\(appState.pendingSyncCount)", tint: AppColors.success, foreground: AppColors.onVibrant)
     }
@@ -100,9 +100,9 @@ struct ProfileView: View {
                     .foregroundColor(AppColors.textSecondary)
             }
         }
-        .padding(24)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .profileCardShadow()
         .accessibilityElement(children: .contain)
     }
@@ -115,7 +115,7 @@ struct ProfileView: View {
                 ProfileMenuRow(icon: "target", title: "Daglige mål", value: goalSummary)
             }
             Divider().overlay(AppColors.separator)
-            Button { appState.selectedTab = .search } label: {
+            NavigationLink { ProfileFavoritesView() } label: {
                 ProfileMenuRow(icon: "heart", title: "Favoritter", value: "\(favoriteCount) \(favoriteCount == 1 ? "matvare" : "matvarer")")
             }
             Divider().overlay(AppColors.separator)
@@ -123,9 +123,10 @@ struct ProfileView: View {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger", value: nil)
             }
         }
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .profileCardShadow()
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile-shortcuts")
     }
 
     private var profileName: String {
@@ -172,7 +173,7 @@ private struct ProfileMetricCard: View {
         .foregroundColor(foreground)
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-        .background(tint, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .background(tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .profileCardShadow()
         .accessibilityElement(children: .combine)
     }

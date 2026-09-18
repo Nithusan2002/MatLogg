@@ -153,7 +153,7 @@ struct GoalOnboardingFlowView: View {
             .frame(maxWidth: .infinity)
             .padding(12)
             .background(AppColors.brand)
-            .foregroundColor(.white)
+            .foregroundColor(AppColors.onVibrant)
             .cornerRadius(12)
         }
     }
