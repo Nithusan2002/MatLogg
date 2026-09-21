@@ -48,8 +48,22 @@ Eksisterende iOS-tester dekker blant annet:
 - opprettelse av synkhendelser
 - reset av in-flight-hendelser og retry/backoff
 
-`MatLoggUITests` finnes, men kritiske brukerflyter må fortsatt bygges ut før
-release.
+`DailyGoalsTests` dekker presis bevaring av mål, feltvalidering, avbryt,
+lagringsfeil/retry, gjentatte lagretrykk, skjulte verdier, forslag og gjenåpning
+av lokal database med tilhørende synkhendelse. `DailyGoalsUITests` dekker
+målredigering med omstart, ugyldig input, avbryt, eksplisitt bruk av forslag,
+Trygg modus og svært stor tekst. Øvrige kritiske brukerflyter trenger fortsatt
+utvidet UI-dekning før release.
+
+Målrettet kjøring for daglige mål (legg til en installert simulator):
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<simulatornavn>' \
+  -only-testing:MatLoggTests/DailyGoalsTests \
+  -only-testing:MatLoggUITests/DailyGoalsUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
 
 ## Backend
 

@@ -164,6 +164,8 @@ struct HomeView: View {
 }
 
 struct HomeTabView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
@@ -242,6 +244,31 @@ struct HomeTabView: View {
                         onScan: { showScanCamera = true }
                     )
 
+                    if let receipt = mealReuseViewModel.receipt {
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(receipt.title) lagret på enheten")
+                                    .font(AppTypography.bodyEmphasis)
+                                Button("Angre") {
+                                    Task {
+                                        if await mealReuseViewModel.undo() { await refreshAfterMealReuse() }
+                                    }
+                                }
+                                .frame(minHeight: 44)
+                                .disabled(mealReuseViewModel.isSaving)
+                                .accessibilityIdentifier("meal-reuse-undo")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    if mealReuseViewModel.draft == nil, let error = mealReuseViewModel.errorMessage {
+                        Text(error)
+                            .font(AppTypography.body)
+                            .foregroundColor(AppColors.textSecondary)
+                            .accessibilityIdentifier("meal-reuse-error")
+                    }
+
                     HStack {
                         Text("Måltider i dag")
                             .font(AppTypography.sectionTitle)
@@ -262,7 +289,16 @@ struct HomeTabView: View {
                             onAdd: {
                                 appState.selectedMealType = meal.key
                                 onOpenQuickLog()
-                            }
+                            },
+                            reuseSuggestion: mealReuseViewModel.suggestions.first { $0.mealType == meal.key },
+                            isReusing: mealReuseViewModel.isSaving,
+                            onReuse: { suggestion in
+                                Task {
+                                    if await mealReuseViewModel.log(suggestion) { await refreshAfterMealReuse() }
+                                }
+                            },
+                            onAdjustReuse: { mealReuseViewModel.edit($0) },
+                            onDismissReuse: { mealReuseViewModel.dismissSuggestion(mealType: meal.key) }
                         )
                     }
 
@@ -278,8 +314,20 @@ struct HomeTabView: View {
                 LoggView(initialDate: selectedDate, initialMealFilter: meal.key)
             }
         }
-        .task {
+        .task(id: authViewModel.currentUser?.id) {
             await refreshSummaries()
+        }
+        .sheet(item: Binding(
+            get: { mealReuseViewModel.draft },
+            set: { if $0 == nil { mealReuseViewModel.cancelEditing() } }
+        )) { _ in
+            MealReuseEditorView(onSaved: { await refreshAfterMealReuse() })
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await refreshSummaries() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            Task { await refreshSummaries() }
         }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(
@@ -291,16 +339,25 @@ struct HomeTabView: View {
             )
         }
         .onChange(of: logViewModel.todaysSummary.logs.count) { _, _ in
-            Task { await loadSelectedSummary() }
+            Task { await refreshSummaries() }
         }
         
     }
     
+    private func refreshAfterMealReuse() async {
+        if let userId = authViewModel.currentUser?.id {
+            await logViewModel.loadTodaysSummary(userId: userId)
+        }
+        await appState.refreshSyncStatus()
+        await refreshSummaries()
+    }
+
     private func refreshSummaries() async {
         selectedDate = Date()
         await loadSelectedSummary()
         if let userId = authViewModel.currentUser?.id {
             recentScans = await productViewModel.recentScans(userId: userId, limit: 6)
+            await mealReuseViewModel.load(userId: userId, date: selectedDate)
         }
     }
     
@@ -459,6 +516,11 @@ struct MealOverviewCard: View {
     let productName: (UUID) -> String
     let onOpen: () -> Void
     let onAdd: () -> Void
+    var reuseSuggestion: MealReuseSuggestion? = nil
+    var isReusing = false
+    var onReuse: (MealReuseSuggestion) -> Void = { _ in }
+    var onAdjustReuse: (MealReuseSuggestion) -> Void = { _ in }
+    var onDismissReuse: () -> Void = {}
 
     private var totalCalories: Int { logs.reduce(0) { $0 + $1.calories } }
 
@@ -483,7 +545,15 @@ struct MealOverviewCard: View {
                 .buttonStyle(.plain)
             }
 
-            if logs.isEmpty {
+            if logs.isEmpty, let suggestion = reuseSuggestion {
+                MealReuseSuggestionView(
+                    suggestion: suggestion,
+                    isSaving: isReusing,
+                    onLog: { onReuse(suggestion) },
+                    onAdjust: { onAdjustReuse(suggestion) },
+                    onDismiss: onDismissReuse
+                )
+            } else if logs.isEmpty {
                 Text("\(meal.title) · ikke logget ennå")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.textSecondary)
@@ -546,7 +616,7 @@ struct MealOverviewCard: View {
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
     }
 

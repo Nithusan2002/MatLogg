@@ -1,6 +1,8 @@
 import Foundation
 
 protocol FoodLogRepository {
+    func saveLogs(_ logs: [FoodLog]) async throws
+    func deleteLogs(_ ids: [UUID]) async throws
     func saveLog(_ log: FoodLog) async throws
     func deleteLog(_ id: UUID) async throws
     func getAllLogs(userId: UUID) async -> [FoodLog]

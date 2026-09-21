@@ -110,7 +110,7 @@ struct ProfileView: View {
     private var shortcutCard: some View {
         VStack(spacing: 0) {
             NavigationLink {
-                GoalOnboardingFlowView(mode: .edit).environmentObject(appState)
+                DailyGoalsView()
             } label: {
                 ProfileMenuRow(icon: "target", title: "Daglige mål", value: goalSummary)
             }

@@ -39,9 +39,9 @@ final class PreferencesViewModel: ObservableObject {
         hapticsFeedbackEnabled = defaults.object(forKey: "hapticsFeedbackEnabled") as? Bool ?? true
         soundFeedbackEnabled = defaults.object(forKey: "soundFeedbackEnabled") as? Bool ?? true
         showGoalStatusOnHome = defaults.object(forKey: "showGoalStatusOnHome") as? Bool ?? true
-        safeModeEnabled = defaults.object(forKey: "safeModeEnabled") as? Bool ?? false
-        safeModeHideCalories = defaults.object(forKey: "safeModeHideCalories") as? Bool ?? false
-        safeModeHideGoals = defaults.object(forKey: "safeModeHideGoals") as? Bool ?? false
+        safeModeEnabled = defaults.bool(forKey: "safeModeEnabled")
+        safeModeHideCalories = defaults.bool(forKey: "safeModeHideCalories")
+        safeModeHideGoals = defaults.bool(forKey: "safeModeHideGoals")
         showNutritionSource = defaults.object(forKey: "showNutritionSource") as? Bool ?? true
         analyticsEnabled = defaults.object(forKey: "analyticsEnabled") as? Bool ?? false
         crashReportsEnabled = defaults.object(forKey: "crashReportsEnabled") as? Bool ?? false

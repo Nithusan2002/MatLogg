@@ -23,6 +23,7 @@
 | **Mini-kvittering** | P0 | Etter logging: preview av loggede verdier + "Skann neste" + "Legg til igjen" + "Lukk" |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
 | **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
+| **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |

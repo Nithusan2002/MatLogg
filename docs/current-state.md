@@ -14,6 +14,9 @@ Release-bygg viser alltid autentisering.
 
 ### iOS
 
+- Gjenbruk av gårsdagens enkeltmåltid på Hjem med forhåndsvisning, redigerbare
+  mengder, lokal atomisk lagring og angre. Se [scope og brukertest](meal-reuse.md).
+
 - SwiftUI-app med fem hovedinnganger: Hjem, Søk, Legg til, Tall og Profil.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
@@ -28,6 +31,9 @@ Release-bygg viser alltid autentisering.
 - Råvaresøk mot Matvaretabellen, med lokal cache.
 - Favoritter, nylig brukte produkter og skannehistorikk.
 - Persondetaljer, målberegning, vektregistrering og Safe Mode.
+- Egen redigeringsskjerm for daglige mål med utkast, feltvalidering, eksplisitt
+  godkjenning av nye beregningsforslag og lagringsfeil som bevarer input.
+  Skjermen følger separate visningsvalg for kalorier og mål.
 - Eksport av brukerdata.
 - ViewModels og repository-grenser for sentrale features.
 - Minimumsplattform iOS 17. Logging bruker en felles mini-kvittering, globale
@@ -112,3 +118,18 @@ Før backend-synk aktiveres:
 
 Oppdater dette dokumentet når en funksjon flyttes mellom planlagt, delvis
 implementert og implementert.
+
+### Daglige mål – verifisert 2026-09-21
+
+- Appen bygger for iOS Simulator. `DailyGoalsTests` og `PreferencesViewModelTests`
+  består (15 testfunksjoner, med flere parameteriserte tilfeller).
+- Seks målrettede UI-tester har bestått på iPhone 17 Pro / iOS 26.5 i separate
+  kjøringer: redigering og omstart, ugyldig input og avbryt, forslag som utkast,
+  svært stor tekst, skjulte kalorier og Trygg modus.
+- UI-testene for visningsvalg setter preferanser ved appstart. Betjening av
+  bryterne i Innstillinger ble ikke bekreftet av denne testkjøringen.
+- Arkitekturkontroll: utkast, beregning og validering eies av ViewModels;
+  avhengigheter settes sammen ved app-roten; eksisterende lokal mål/event-
+  transaksjon gjenbrukes. Ingen nye arkitekturavvik eller synkkontraktsendringer.
+- Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.
+  Dette er funksjonsverifisering, ikke en produksjonsgodkjenning.

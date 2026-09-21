@@ -16,6 +16,8 @@ struct GoalCalculationResult {
 }
 
 enum GoalCalculator {
+    static let calorieRange = 1200...4500
+
     static func calculateSuggestion(input: GoalCalculationInput) -> GoalCalculationResult {
         let baseline = baselineCalories(activity: input.activity)
         let tdee = calculateTDEE(input: input) ?? baseline
@@ -42,7 +44,7 @@ enum GoalCalculator {
     }
     
     static func clampCalories(_ value: Int) -> Int {
-        min(max(value, 1200), 4500)
+        min(max(value, calorieRange.lowerBound), calorieRange.upperBound)
     }
     
     static func roundedDisplay(_ value: Int) -> Int {

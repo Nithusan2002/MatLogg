@@ -417,6 +417,15 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     var products: [UUID: Product] = [:]
     var saveError: Error?
 
+    func saveLogs(_ logs: [FoodLog]) async throws {
+        if let saveError { throw saveError }
+        savedLogs.append(contentsOf: logs)
+    }
+
+    func deleteLogs(_ ids: [UUID]) async throws {
+        deletedIds.append(contentsOf: ids)
+    }
+
     func saveLog(_ log: FoodLog) async throws {
         if let saveError { throw saveError }
         savedLogs.append(log)

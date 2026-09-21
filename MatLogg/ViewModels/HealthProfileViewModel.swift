@@ -27,6 +27,10 @@ final class HealthProfileViewModel: ObservableObject {
         self.personalDetails = personalDetailsStore.load()
     }
 
+    func acceptSavedGoal(_ goal: Goal) {
+        currentGoal = goal
+    }
+
     func loadGoal(userId: UUID) async {
         currentGoal = await repository.latestGoal(userId: userId)
     }

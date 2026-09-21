@@ -83,3 +83,32 @@ SwiftUI-implementasjon.
 **Konsekvens:** Apple/Google er senere scope. Brukeropprettede produktbidrag
 anonymiseres ved purge, mens logger, mål, favoritter, vekt og inbox-data slettes.
 Produksjonssynk forblir deaktivert.
+
+## 2026-09-20 – Daglige mål får egen redigering og forslag som utkast
+
+**Beslutning:** Profil åpner en egen målredigering. Beregningsveiviseren lager
+et forslag som brukeren først anvender på utkastet og deretter lagrer.
+Førstegangs-onboarding beholdes. Forslagsveiviseren leser eksisterende
+personopplysninger, men skriver dem ikke.
+
+**Begrunnelse:** Gjentatt redigering skal bevare egendefinerte makromål og være
+raskere enn onboarding. Ingen implisitt nyberegning skal erstatte lagrede mål.
+
+**Konsekvens:** `DailyGoalsViewModel` eier utkast, validering og lagringsstatus,
+og `GoalSuggestionViewModel` eier beregningsvalgene. Avhengigheter settes sammen
+ved app-roten. Eksisterende lokal transaksjon og synkkontrakt gjenbrukes;
+produksjonssynk forblir deaktivert. Uendret lagring skriver ingen ny hendelse.
+Skjulte mål er ikke redigerbare før brukeren endrer visningsvalget i Innstillinger.
+
+## 2026-09-20: Gjenbruk av enkeltmåltid før målbaserte matforslag
+
+**Beslutning:** Første utvidelse er et frivillig forslag om gårsdagens måltid
+på Hjem, med mengdejustering og angre. Ingen mønstermotor, helgeregler eller
+rest-kalkulator innføres. Se [scope](meal-reuse.md).
+
+**Begrunnelse:** Direkte gjenbruk støtter rask logging og kan prøves uten nye
+målberegninger, ekstra innsamling av data eller ekstern AI.
+
+**Konsekvens:** Egen ViewModel injiseres ved app-roten. Repository får atomiske
+batchoperasjoner for logger og tilhørende eksisterende synkhendelser. Ingen
+synkkontrakt eller produksjonsflagg endres. Brukertest gjenstår.

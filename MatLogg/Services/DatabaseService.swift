@@ -16,6 +16,14 @@ class DatabaseService {
         store.getLatestGoal(userId: userId)
     }
     
+    func saveLogs(_ logs: [FoodLog]) async throws {
+        try store.saveLogs(logs)
+    }
+
+    func deleteLogs(_ ids: [UUID]) async throws {
+        try store.deleteLogs(ids)
+    }
+
     func saveLog(_ log: FoodLog) async throws {
         try store.saveLog(log)
     }

@@ -8,6 +8,9 @@
 
 ## 2.1 Brukerhistorier (User Stories)
 
+Gjeldende tillegg for gjenbruk av gårsdagens enkeltmåltid, inkludert
+akseptansekriterier, er beskrevet i [måltidsgjenbruk](../meal-reuse.md).
+
 ### **Epic 1: Autentisering & Onboarding**
 
 #### US-1.1: Bruker registrerer seg
@@ -34,7 +37,7 @@ SÅ AT: jeg kan begynne å logge
 Acceptance Criteria:
 □ Onboarding-flow: 4 skjermbilder (måltype, kalorimål, makromål, valgfri vektlogg)
 □ Måltype: weight loss / maintain / gain (bestemmer baseline-anbefaling)
-□ Kalorimål: input 1000–5000 kcal/dag (med default basert på måltype)
+□ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
 □ Makromål: % eller gram for protein/karb/fett
 □ Valgfri: initiell vektlogg (today's weight)
 □ Lagres til backend + lokal DB
@@ -42,6 +45,17 @@ Acceptance Criteria:
 ```
 
 ---
+
+#### US-1.3: Bruker redigerer daglige mål
+
+- Profil åpner et eget skjema; eksisterende kalorier og makroer bevares.
+- Avbryt og avbrutt forslag skriver ingenting. Uendret lagring lager ingen ny synkhendelse.
+- Kalorier valideres som heltall 1200–4500. Makroer krever endelige,
+  ikke-negative gramverdier som kan vises trygt; tomt felt tolkes ikke som null.
+- Beregn nytt forslag → Se forslag → Bruk forslaget oppdaterer bare utkastet.
+- Feil beholder input; vellykket lokal lagring oppdaterer profil og målstatus.
+- Mål og kalorier følger visningsvalgene også i tilgjengelighetstreet.
+- Lagring virker uten nett, med eksisterende atomiske `goal.set`-hendelse.
 
 ### **Epic 2: Logging & Oversikt (Home)**
 

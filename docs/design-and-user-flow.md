@@ -104,6 +104,14 @@ serveren og eventuell retensjonsperiode før brukeren bekrefter.
 
 ## Kjerneflyter
 
+### Gjenbruk av gårsdagens måltid
+
+Et tomt måltidskort kan vise gårsdagens matvarer og mengder med «Loggfør»,
+«Juster» og «Ikke nå». Brukeren velger selv; appen skriver aldri automatisk.
+En kvittering med «Angre» vises etter atomisk lokal lagring. Forslaget fungerer
+uten nett og uten synlige kalorier eller mål. Detaljer og tilstander er samlet
+i [måltidsgjenbruk](meal-reuse.md).
+
 ### Førstegangsbruk
 
 ```text
@@ -118,6 +126,30 @@ serveren og eventuell retensjonsperiode før brukeren bekrefter.
 
 Målberegninger skal merkes som veiledende. Onboarding skal ikke love medisinsk
 effekt eller gjøre vekt obligatorisk når funksjonen kan fungere uten.
+
+### Redigere daglige mål
+
+Profil → Daglige mål åpner et skjema med lagrede kalorier og makromål i gram.
+Verdiene beholdes nøyaktig, også ved lagring uten endringer. «Avbryt» forkaster
+utkastet. «Lagre endringer» validerer feltene, lagrer lokalt og bekrefter
+«Målene er lagret på enheten». Ved feil beholdes utkastet, og brukeren kan prøve
+igjen. Under lagring er redigering og gjentatte lagretrykk deaktivert.
+
+«Beregn nytt forslag» åpner en separat veiviser med måltype, tempo,
+aktivitetsnivå og makrofordeling. Den bruker lagrede personopplysninger når
+beregningsgrunnlaget er gyldig, ellers et tydelig merket generelt estimat.
+«Bruk forslaget» endrer bare utkastet; vanlig lagring kreves etterpå. Veiviseren
+oppdaterer ikke personopplysninger. Førstegangsoppsett bruker fortsatt onboarding.
+
+Når mål eller Trygg modus er aktivert som skjuling, erstattes skjemaet med en
+kort forklaring om visningsvalget og veien til Innstillinger. Ingen måltall,
+inputfelt eller forslag finnes i tilgjengelighetstreet. Når bare kalorier er
+skjult, kan eksisterende makromål redigeres; kalorimålet beholdes. Opprettelse av
+nye mål og beregning av forslag krever at kalorivisning er slått på.
+
+Feltene har synlige etiketter og enheter, norsk desimaltegn og feil ved feltet.
+Skjermen ruller ved tastatur og stor tekst. Eksisterende `CardContainer`,
+`PrimaryButton`, typografi og semantiske farger brukes uten nye design-tokens.
 
 ### Logge en kjent matvare
 

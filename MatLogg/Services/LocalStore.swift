@@ -99,43 +99,68 @@ final class LocalStore {
     // MARK: - Logs
     
     func saveLog(_ log: FoodLog) throws {
-        let data = try encoder.encode(log)
-        let payload = try syncEncoder.encode(LogSyncPayload(log: log))
-        try performAtomicWrite(type: .logUpsert, entityId: log.id.uuidString, payload: payload) {
-            let sql = """
-            INSERT OR REPLACE INTO logs(id, userId, productId, mealType, loggedDate, loggedTime, calories, protein, carbs, fat, json)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            sqlite3_bind_text(stmt, 1, log.id.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, log.userId.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 3, log.productId.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 4, log.mealType, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_double(stmt, 5, log.loggedDate.timeIntervalSince1970)
-            sqlite3_bind_double(stmt, 6, log.loggedTime.timeIntervalSince1970)
-            sqlite3_bind_int(stmt, 7, Int32(log.calories))
-            sqlite3_bind_double(stmt, 8, Double(log.proteinG))
-            sqlite3_bind_double(stmt, 9, Double(log.carbsG))
-            sqlite3_bind_double(stmt, 10, Double(log.fatG))
-            bindBlob(stmt, index: 11, data: data)
-            try requireDone(sqlite3_step(stmt))
-            sqlite3_finalize(stmt)
+        try saveLogs([log])
+    }
+
+    /// A meal and every corresponding sync event commit together.
+    func saveLogs(_ logs: [FoodLog]) throws {
+        guard !logs.isEmpty else { return }
+        try performTransaction {
+            for log in logs {
+                let data = try encoder.encode(log)
+                let payload = try syncEncoder.encode(LogSyncPayload(log: log))
+                try saveLogLocked(log, data: data)
+                try enqueueSyncEventLocked(type: .logUpsert, entityId: log.id.uuidString, payload: payload)
+            }
         }
     }
-    
+
+    private func saveLogLocked(_ log: FoodLog, data: Data) throws {
+        let sql = """
+        INSERT OR REPLACE INTO logs(id, userId, productId, mealType, loggedDate, loggedTime, calories, protein, carbs, fat, json)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, log.id.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, log.userId.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 3, log.productId.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 4, log.mealType, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_double(stmt, 5, log.loggedDate.timeIntervalSince1970)
+        sqlite3_bind_double(stmt, 6, log.loggedTime.timeIntervalSince1970)
+        sqlite3_bind_int(stmt, 7, Int32(log.calories))
+        sqlite3_bind_double(stmt, 8, Double(log.proteinG))
+        sqlite3_bind_double(stmt, 9, Double(log.carbsG))
+        sqlite3_bind_double(stmt, 10, Double(log.fatG))
+        bindBlob(stmt, index: 11, data: data)
+        try requireDone(sqlite3_step(stmt))
+    }
+
     func deleteLog(_ id: UUID) throws {
-        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
-        try performAtomicWrite(type: .logDelete, entityId: id.uuidString, payload: payload) {
-            let sql = "DELETE FROM logs WHERE id = ?;"
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
-            try requireDone(sqlite3_step(stmt))
-            sqlite3_finalize(stmt)
+        try deleteLogs([id])
+    }
+
+    func deleteLogs(_ ids: [UUID]) throws {
+        guard !ids.isEmpty else { return }
+        try performTransaction {
+            for id in ids {
+                let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+                try deleteLogLocked(id)
+                try enqueueSyncEventLocked(type: .logDelete, entityId: id.uuidString, payload: payload)
+            }
         }
     }
-    
+
+    private func deleteLogLocked(_ id: UUID) throws {
+        let sql = "DELETE FROM logs WHERE id = ?;"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+        try requireDone(sqlite3_step(stmt))
+    }
+
     func getAllLogs(userId: UUID) -> [FoodLog] {
         queue.sync {
             let sql = """
@@ -907,11 +932,17 @@ final class LocalStore {
     }
     
     private func performAtomicWrite(type: SyncEventType, entityId: String?, payload: Data, write: () throws -> Void) throws {
+        try performTransaction {
+            try write()
+            try enqueueSyncEventLocked(type: type, entityId: entityId, payload: payload)
+        }
+    }
+
+    private func performTransaction(_ write: () throws -> Void) throws {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
                 try write()
-                try enqueueSyncEventLocked(type: type, entityId: entityId, payload: payload)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)

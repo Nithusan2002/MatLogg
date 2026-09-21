@@ -1,8 +1,11 @@
 import Foundation
 
-protocol HealthProfileRepository {
+protocol GoalRepository {
     func saveGoal(_ goal: Goal) async throws
     func latestGoal(userId: UUID) async -> Goal?
+}
+
+protocol HealthProfileRepository: GoalRepository {
     func saveWeightEntry(_ entry: WeightEntry) async throws
     func deleteWeightEntry(_ id: UUID) async throws
     func getWeightEntries(userId: UUID) async -> [WeightEntry]

@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 16. september 2026
+Sist oppdatert: 21. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -31,6 +31,7 @@ Deling
 
 Vi bruker data for a:
   - La deg logge mat og se historikk over tid.
+  - Vise garsdagens maltid som et valgfritt forslag til raskere logging. Dette beregnes lokalt pa enheten, uten a sende spisehistorikk til en ekstern AI-tjeneste. Et forslag lagres som et nytt maltid bare nar du velger a loggfore det.
   - Lagra data pa tvers av enheter nar du er innlogget.
   - Gi raskere oppslag ved skanning (cache/historikk).
   - Forbedre datakvalitet (f.eks. markere kilde og handtere “ikke funnet”/brukeropprettede produkter).
