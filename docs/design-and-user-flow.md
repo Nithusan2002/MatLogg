@@ -40,6 +40,11 @@ pressende budskap.
 ### Hjem
 
 Hjem svarer på «Hva har jeg registrert i dag?» og gir rask vei til ny logging.
+Datoen kan flyttes én dag om gangen med piler eller velges fra en kalender.
+Fortidige og fremtidige datoer kan velges. Valgt dato gjelder både
+dagsoversikten, måltidslisten og nye registreringer, og vises derfor også i
+loggføringsflyten. En fremtidig registrering er en vanlig datert logg; den
+utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 
 Prioritet:
 

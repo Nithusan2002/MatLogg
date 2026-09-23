@@ -368,6 +368,63 @@ struct LogViewModelTests {
         #expect(viewModel.errorMessage?.hasPrefix("Kunne ikke lagre logging:") == true)
     }
 
+    @Test func loggingUsesTheSelectedHistoricalDate() async throws {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDate = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 9, day: 18, hour: 14, minute: 35))
+        )
+        let product = Product(
+            name: "Historisk testvare",
+            caloriesPer100g: 200,
+            proteinGPer100g: 10,
+            carbsGPer100g: 20,
+            fatGPer100g: 5
+        )
+
+        let succeeded = await viewModel.logFood(
+            product: product,
+            amountG: 100,
+            mealType: "middag",
+            userId: UUID(),
+            date: selectedDate
+        )
+
+        let savedLog = try #require(repository.savedLogs.first)
+        #expect(succeeded)
+        #expect(calendar.isDate(savedLog.loggedDate, inSameDayAs: selectedDate))
+        #expect(savedLog.loggedTime == selectedDate)
+        #expect(viewModel.mutationRevision == 1)
+    }
+
+    @Test func loggingUsesTheSelectedFutureDate() async throws {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let calendar = Calendar(identifier: .gregorian)
+        let selectedDate = try #require(calendar.date(byAdding: .day, value: 7, to: Date()))
+        let product = Product(
+            name: "Fremtidig testvare",
+            caloriesPer100g: 200,
+            proteinGPer100g: 10,
+            carbsGPer100g: 20,
+            fatGPer100g: 5
+        )
+
+        let succeeded = await viewModel.logFood(
+            product: product,
+            amountG: 100,
+            mealType: "middag",
+            userId: UUID(),
+            date: selectedDate
+        )
+
+        let savedLog = try #require(repository.savedLogs.first)
+        #expect(succeeded)
+        #expect(calendar.isDate(savedLog.loggedDate, inSameDayAs: selectedDate))
+        #expect(savedLog.loggedTime == selectedDate)
+    }
+
     @Test func undoDeletesTheLatestMatchingLog() async {
         let repository = FoodLogRepositorySpy()
         let viewModel = LogViewModel(repository: repository)

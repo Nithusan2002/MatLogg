@@ -49,6 +49,28 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testHomeCanNavigateAcrossPastAndFutureDates() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let dateButton = app.buttons["day-navigation-date"]
+        XCTAssertTrue(dateButton.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Neste dag"].isEnabled)
+
+        dateButton.tap()
+        XCTAssertTrue(app.staticTexts["Velg dato"].waitForExistence(timeout: 2))
+        app.buttons["Ferdig"].tap()
+
+        app.buttons["Forrige dag"].tap()
+
+        XCTAssertTrue(app.staticTexts["Måltider i går"].waitForExistence(timeout: 2))
+        app.buttons["Neste dag"].tap()
+        XCTAssertTrue(app.staticTexts["Måltider i dag"].waitForExistence(timeout: 2))
+        app.buttons["Neste dag"].tap()
+        XCTAssertTrue(app.staticTexts["Måltider i morgen"].waitForExistence(timeout: 2))
+    }
+
+    @MainActor
     func testProfileOpensFavoritesEmptyState() throws {
         let app = XCUIApplication()
         app.launch()

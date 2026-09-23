@@ -5,6 +5,7 @@ import Combine
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
     @Published private(set) var errorMessage: String?
+    @Published private(set) var mutationRevision = 0
 
     private let repository: any FoodLogRepository
 
@@ -147,6 +148,7 @@ final class LogViewModel: ObservableObject {
         errorMessage = nil
         do {
             try await operation()
+            mutationRevision += 1
             return true
         } catch {
             errorMessage = "\(errorPrefix): \(error.localizedDescription)"

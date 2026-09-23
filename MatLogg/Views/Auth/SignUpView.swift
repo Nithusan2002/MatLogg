@@ -45,12 +45,14 @@ struct SignUpView: View {
                     HStack(spacing: 12) {
                         TextField("Fornavn", text: $firstName)
                             .textContentType(.givenName)
+                            .foregroundColor(AppColors.ink)
                             .padding(12)
                             .background(AppColors.mutedSurface)
                             .cornerRadius(12)
                         
                         TextField("Etternavn", text: $lastName)
                             .textContentType(.familyName)
+                            .foregroundColor(AppColors.ink)
                             .padding(12)
                             .background(AppColors.mutedSurface)
                             .cornerRadius(12)
@@ -58,6 +60,7 @@ struct SignUpView: View {
                     
                     TextField("E-post", text: $email)
                         .textContentType(.emailAddress)
+                        .foregroundColor(AppColors.ink)
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .padding(12)
@@ -67,9 +70,11 @@ struct SignUpView: View {
                     HStack {
                         if showPassword {
                             TextField("Passord (min. 8 tegn)", text: $password)
+                                .foregroundColor(AppColors.ink)
                                 .padding(12)
                         } else {
                             SecureField("Passord (min. 8 tegn)", text: $password)
+                                .foregroundColor(AppColors.ink)
                                 .padding(12)
                         }
                         
@@ -86,6 +91,7 @@ struct SignUpView: View {
                     
                     SecureField("Gjenta passord", text: $confirmPassword)
                         .textContentType(.password)
+                        .foregroundColor(AppColors.ink)
                         .padding(12)
                         .background(AppColors.mutedSurface)
                         .cornerRadius(12)
@@ -131,7 +137,7 @@ struct SignUpView: View {
             Button(action: signupAction) {
                 if authViewModel.isLoading {
                     ProgressView()
-                        .tint(.white)
+                        .tint(AppColors.onVibrant)
                 } else {
                     Text("Registrer deg")
                         .fontWeight(.semibold)

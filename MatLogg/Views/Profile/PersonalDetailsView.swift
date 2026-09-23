@@ -20,6 +20,7 @@ struct PersonalDetailsView: View {
                     .font(AppTypography.caption)
                     .foregroundColor(AppColors.textSecondary)
             }
+            .listRowBackground(AppColors.surface)
             
             Section("Om deg") {
                 HStack {
@@ -61,7 +62,11 @@ struct PersonalDetailsView: View {
                     }
                 }
             }
+            .listRowBackground(AppColors.surface)
         }
+        .scrollContentBackground(.hidden)
+        .background(AppColors.background.ignoresSafeArea())
+        .tint(AppColors.action)
         .navigationTitle("Personlige detaljer")
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
@@ -70,12 +75,12 @@ struct PersonalDetailsView: View {
                     save()
                     dismiss()
                 }
-                .foregroundColor(AppColors.brand)
+                .foregroundColor(AppColors.action)
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { hideKeyboard() }
-                    .foregroundColor(AppColors.brand)
+                    .foregroundColor(AppColors.action)
             }
         }
         .onAppear {
@@ -203,7 +208,7 @@ struct ActivityLevelSheet: View {
                     onShowHelp()
                 }
                 .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.brand)
+                .foregroundColor(AppColors.action)
                 
                 Spacer()
             }
@@ -212,7 +217,7 @@ struct ActivityLevelSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
         }
@@ -269,7 +274,7 @@ struct ActivityLevelHelpSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
         }

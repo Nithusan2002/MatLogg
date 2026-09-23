@@ -146,7 +146,7 @@ Acceptance Criteria:
   - Product ID
   - Mengde (exact value, no rounding)
   - Måltid (fra AppState)
-  - Dato
+  - Valgt dato (fortid, i dag eller fremtid)
   - Timestamp
 □ Lokal DB-insert umiddelbar
 □ Network sync enqueued (background)

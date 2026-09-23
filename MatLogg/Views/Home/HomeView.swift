@@ -29,6 +29,7 @@ struct HomeView: View {
                     Label("Hjem", systemImage: "house.fill")
                 }
                 .tag(AppTab.home)
+                .matLoggSystemTabBarHidden()
             
             SearchHubView(
                 onScan: { showScanCamera = true },
@@ -38,26 +39,29 @@ struct HomeView: View {
                     Label("Søk", systemImage: "magnifyingglass")
                 }
                 .tag(AppTab.search)
+                .matLoggSystemTabBarHidden()
 
             Color.clear
                 .tabItem {
                     Label("Legg til", systemImage: "plus.circle.fill")
                 }
                 .tag(AppTab.add)
+                .matLoggSystemTabBarHidden()
 
             ProgressTabView()
                 .tabItem {
                     Label("Oversikt", systemImage: "chart.bar")
                 }
                 .tag(AppTab.progress)
+                .matLoggSystemTabBarHidden()
 
             ProfileView()
                 .tabItem {
                     Label("Profil", systemImage: "person.crop.circle")
                 }
                 .tag(AppTab.profile)
+                .matLoggSystemTabBarHidden()
         }
-        .toolbar(.hidden, for: .tabBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             MatLoggTabBar(selection: tabSelection)
         }
@@ -163,6 +167,17 @@ struct HomeView: View {
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func matLoggSystemTabBarHidden() -> some View {
+        if #available(iOS 18.0, *) {
+            toolbarVisibility(.hidden, for: .tabBar)
+        } else {
+            toolbar(.hidden, for: .tabBar)
+        }
+    }
+}
+
 struct HomeTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
@@ -177,7 +192,6 @@ struct HomeTabView: View {
     @Binding var showRawMaterials: Bool
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
-    @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var recentScans: [ScanHistory] = []
     @State private var selectedProduct: Product?
@@ -189,6 +203,8 @@ struct HomeTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     homeHeader
+
+                    DayNavigationBar(selection: selectedDateBinding)
 
                     if appState.pendingSyncCount > 0 {
                         Label(
@@ -209,7 +225,7 @@ struct HomeTabView: View {
                             CardContainer {
                                 HStack(spacing: 12) {
                                     ProgressView()
-                                    Text("Henter dagens oversikt …")
+                                    Text("Henter oversikt …")
                                         .font(AppTypography.body)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
@@ -220,14 +236,14 @@ struct HomeTabView: View {
                             StatusCardView(
                                 summary: summary,
                                 goal: goal,
-                                dayLabel: "Dagens matinntak",
+                                dayLabel: intakeTitle,
                                 hideGoals: preferencesViewModel.safeModeHideGoals,
                                 hideCalories: preferencesViewModel.safeModeHideCalories
                             )
                         } else {
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Label("Dagens oversikt er ikke klar", systemImage: "chart.bar")
+                                    Label("Oversikten er ikke klar", systemImage: "chart.bar")
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.deepInk)
                                     Text("Du kan fortsatt loggføre mat. Sett opp et mål i profilen for å se fremgangen her.")
@@ -270,7 +286,7 @@ struct HomeTabView: View {
                     }
 
                     HStack {
-                        Text("Måltider i dag")
+                        Text(mealsTitle)
                             .font(AppTypography.sectionTitle)
                             .foregroundColor(AppColors.ink)
                         Spacer()
@@ -306,8 +322,8 @@ struct HomeTabView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
-                .padding(.bottom, 18)
             }
+            .contentMargins(.bottom, MatLoggTabBar.scrollContentBottomMargin, for: .scrollContent)
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedMealForLog) { meal in
@@ -315,6 +331,7 @@ struct HomeTabView: View {
             }
         }
         .task(id: authViewModel.currentUser?.id) {
+            appState.logSelectedDate = Date()
             await refreshSummaries()
         }
         .sheet(item: Binding(
@@ -327,7 +344,7 @@ struct HomeTabView: View {
             if phase == .active { Task { await refreshSummaries() } }
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
-            Task { await refreshSummaries() }
+            appState.logSelectedDate = Date()
         }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(
@@ -338,7 +355,10 @@ struct HomeTabView: View {
                 }
             )
         }
-        .onChange(of: logViewModel.todaysSummary.logs.count) { _, _ in
+        .onChange(of: logViewModel.mutationRevision) { _, _ in
+            Task { await refreshSummaries() }
+        }
+        .onChange(of: appState.logSelectedDate) { _, _ in
             Task { await refreshSummaries() }
         }
         
@@ -353,7 +373,6 @@ struct HomeTabView: View {
     }
 
     private func refreshSummaries() async {
-        selectedDate = Date()
         await loadSelectedSummary()
         if let userId = authViewModel.currentUser?.id {
             recentScans = await productViewModel.recentScans(userId: userId, limit: 6)
@@ -362,13 +381,17 @@ struct HomeTabView: View {
     }
     
     private func loadSelectedSummary() async {
+        let requestedDate = selectedDate
         isSummaryLoading = true
-        defer { isSummaryLoading = false }
         guard let userId = authViewModel.currentUser?.id else {
             selectedSummary = nil
+            isSummaryLoading = false
             return
         }
-        selectedSummary = await logViewModel.fetchSummary(userId: userId, date: selectedDate)
+        let summary = await logViewModel.fetchSummary(userId: userId, date: requestedDate)
+        guard Calendar.current.isDate(requestedDate, inSameDayAs: selectedDate) else { return }
+        selectedSummary = summary
+        isSummaryLoading = false
     }
 
     private var loggedMealCount: Int {
@@ -377,6 +400,31 @@ struct HomeTabView: View {
 
     private var loggedMealCountLabel: String {
         loggedMealCount == 0 ? "Ingen logget ennå" : "\(loggedMealCount) av 4 logget"
+    }
+
+    private var selectedDateBinding: Binding<Date> {
+        Binding(
+            get: { appState.logSelectedDate },
+            set: { appState.logSelectedDate = $0 }
+        )
+    }
+
+    private var selectedDate: Date {
+        appState.logSelectedDate
+    }
+
+    private var intakeTitle: String {
+        if Calendar.current.isDateInToday(selectedDate) { return "Dagens matinntak" }
+        if Calendar.current.isDateInYesterday(selectedDate) { return "Gårsdagens matinntak" }
+        if Calendar.current.isDateInTomorrow(selectedDate) { return "Matinntak i morgen" }
+        return "Matinntak \(shortDateLabel)"
+    }
+
+    private var mealsTitle: String {
+        if Calendar.current.isDateInToday(selectedDate) { return "Måltider i dag" }
+        if Calendar.current.isDateInYesterday(selectedDate) { return "Måltider i går" }
+        if Calendar.current.isDateInTomorrow(selectedDate) { return "Måltider i morgen" }
+        return "Måltider \(shortDateLabel)"
     }
 
     private var quickProducts: [Product] {
@@ -452,11 +500,11 @@ struct HomeTabView: View {
         return String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
     }
 
-    private var dateLabel: String {
+    private var shortDateLabel: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "EEEE d. MMMM"
-        return formatter.string(from: selectedDate).capitalized
+        formatter.dateFormat = "d. MMM"
+        return formatter.string(from: selectedDate)
     }
     
 }
@@ -1180,6 +1228,7 @@ struct ManualAddView: View {
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
+                .listRowBackground(AppColors.surface)
                 
                 Section("Produktdetaljer") {
                     TextField("Produktnavn", text: $productName)
@@ -1192,7 +1241,11 @@ struct ManualAddView: View {
                     TextField("Fett (g per 100g)", text: $fat)
                         .keyboardType(.decimalPad)
                 }
+                .listRowBackground(AppColors.surface)
             }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
             .navigationTitle("Legg til produkt")
             .scrollDismissesKeyboard(.interactively)
             .toolbar {

@@ -218,5 +218,9 @@ Bunnmenyen viser Hjem, Søk, Loggfør, Oversikt og Profil. Loggfør er en
 handling som åpner loggingarket og beholder valgt hovedfane. Den korallfargede
 knappen er 56 pt med diskret kant og myk skygge. Valgt hovedfane markeres med
 `action`, kraftigere tekst og fylt ikon der symbolet har en slik variant.
+På iOS 26 og nyere bruker den egendefinerte bunnmenyen systemets Liquid Glass
+som en avrundet, flytende navigasjonsflate. Eldre systemversjoner beholder den
+varme, ugjennomsiktige `surface`-flaten. Loggfør-knappen forblir en tydelig,
+korallfarget primærhandling i begge variantene.
 Etiketter bruker skalerbar caption-typografi og kan bryte over flere linjer;
 menyen vokser i høyden ved større tekst. Alle knapper har minst 44 pt trykkflate.

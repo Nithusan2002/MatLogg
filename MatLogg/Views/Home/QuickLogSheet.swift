@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MatLoggTabBar: View {
+    static let scrollContentBottomMargin: CGFloat = 104
+
     @Binding var selection: AppTab
 
     private let tabs: [(AppTab, String, String)] = [
@@ -10,7 +12,33 @@ struct MatLoggTabBar: View {
         (.profile, "Profil", "person")
     ]
 
+    @ViewBuilder
     var body: some View {
+        if #available(iOS 26.0, *) {
+            tabBarContent
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .glassEffect(
+                    .regular,
+                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
+                .offset(y: 8)
+        } else {
+            tabBarContent
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .background(AppColors.surface)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(AppColors.separator)
+                        .frame(height: 1)
+                }
+        }
+    }
+
+    private var tabBarContent: some View {
         HStack(spacing: 4) {
             tabButton(tabs[0])
             tabButton(tabs[1])
@@ -37,14 +65,6 @@ struct MatLoggTabBar: View {
             tabButton(tabs[3])
         }
         .frame(minHeight: 70)
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .background(AppColors.surface)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(AppColors.separator)
-                .frame(height: 1)
-        }
     }
 
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
@@ -196,6 +216,10 @@ struct QuickLogSheet: View {
                 .font(AppTypography.bodyEmphasis)
                 .foregroundColor(AppColors.deepInk)
 
+            Label(logDateLabel, systemImage: "calendar")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+
             HStack(spacing: 8) {
                 ForEach(MealPresentation.all) { meal in
                     Button {
@@ -217,6 +241,15 @@ struct QuickLogSheet: View {
 
     private var selectedMealTitle: String {
         MealPresentation.all.first(where: { $0.key == appState.selectedMealType })?.title ?? "måltid"
+    }
+
+    private var logDateLabel: String {
+        let date = appState.logSelectedDate
+        if Calendar.current.isDateInToday(date) { return "I dag" }
+        if Calendar.current.isDateInYesterday(date) { return "I går" }
+        if Calendar.current.isDateInTomorrow(date) { return "I morgen" }
+        return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(Locale(identifier: "nb_NO")))
+            .capitalized
     }
 
     private func loadProducts() async {

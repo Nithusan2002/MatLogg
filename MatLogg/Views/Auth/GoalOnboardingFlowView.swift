@@ -75,6 +75,8 @@ struct GoalOnboardingFlowView: View {
                 footer
             }
             .padding(20)
+            .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 if mode == .edit {
@@ -306,7 +308,7 @@ struct GoalOnboardingFlowView: View {
                 }
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.brand)
+            .foregroundColor(AppColors.action)
         }
     }
     

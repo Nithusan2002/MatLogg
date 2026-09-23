@@ -232,6 +232,7 @@ private struct ProfileSettingsView: View {
                 NavigationLink("Personvern & valg") { PrivacyChoicesView() }
                 NavigationLink("Oversikt") { ProgressTabView() }
             }
+            .listRowBackground(AppColors.surface)
             Section("Preferanser") {
                 Toggle("Vis målstatus på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
                 Toggle("Haptics", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
@@ -239,6 +240,7 @@ private struct ProfileSettingsView: View {
                 Toggle("Vis datakilde", isOn: $preferencesViewModel.showNutritionSource)
                 LabeledContent("Enheter", value: "Gram")
             }
+            .listRowBackground(AppColors.surface)
             Section("Trygghet") {
                 Toggle("Trygg modus", isOn: $preferencesViewModel.safeModeEnabled)
                 Text("Gir en roligere visning og skjuler kalorier og mål.")
@@ -248,6 +250,7 @@ private struct ProfileSettingsView: View {
                     Toggle("Skjul mål og progresjon", isOn: $preferencesViewModel.safeModeHideGoals)
                 }
             }
+            .listRowBackground(AppColors.surface)
             Section("Data og synk") {
                 LabeledContent("Status", value: syncStatusText)
                 if let error = appState.lastSyncError, appState.lastSyncSucceeded == false {
@@ -257,6 +260,7 @@ private struct ProfileSettingsView: View {
                 Text("Du kan logge uten nett. Endringer lagres på enheten og synkroniseres når synk er tilgjengelig.")
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }
+            .listRowBackground(AppColors.surface)
             Section("Konto") {
                 LabeledContent("Innlogging", value: authProviderLabel)
                 if let email = authViewModel.currentUser?.email, !email.isEmpty { LabeledContent("E-post", value: email) }
@@ -271,12 +275,15 @@ private struct ProfileSettingsView: View {
                 Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
                     .disabled(authViewModel.isDeletingAccount)
             }
+            .listRowBackground(AppColors.surface)
             #if DEBUG
             Section("Debug") { NavigationLink("Theme Preview") { ThemePreviewView() } }
+                .listRowBackground(AppColors.surface)
             #endif
         }
         .scrollContentBackground(.hidden)
         .background(AppColors.background.ignoresSafeArea())
+        .tint(AppColors.action)
         .navigationTitle("Innstillinger")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Slett konto?", isPresented: $showDeleteConfirm) {

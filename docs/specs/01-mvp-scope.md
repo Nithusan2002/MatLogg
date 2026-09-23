@@ -19,7 +19,7 @@
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), stor skann-knapp, logging-liste |
 | **Strekkode-skanning** | P0 | EAN-skann → produktoppslag → produktkort → logging |
 | **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser, mengdevelger (prefill: 100g), "Legg til"-knapp |
-| **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid, datomarkering |
+| **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid og valgt dato, inkludert fremtidig dato |
 | **Mini-kvittering** | P0 | Etter logging: preview av loggede verdier + "Skann neste" + "Legg til igjen" + "Lukk" |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
 | **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
@@ -41,7 +41,7 @@
 - [ ] Apple Watch, widgets
 - [ ] Multi-language (kun norsk + engelsk i MVP)
 - [ ] Push-notifikasjoner
-- [ ] Macros-planlegging (meal prep)
+- [ ] Macros-planlegging (meal prep); enkel forhåndsregistrering på en valgt fremtidig dato inngår i vanlig logging
 - [ ] Eksport til fitnesstrackere
 
 ---

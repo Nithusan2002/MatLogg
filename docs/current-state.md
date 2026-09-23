@@ -1,6 +1,6 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert: 2026-09-16.
+Sist kontrollert: 2026-09-22.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
@@ -24,6 +24,9 @@ Release-bygg viser alltid autentisering.
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
 - Logging med mengde, måltid, kalorier og makronæringsstoffer.
+- Dagsnavigasjon med piler og kalender på Hjem og i Logg. Valgt dato følger
+  dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
+  datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
 - Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
   måltidsfordeling og vektregistrering. Trygg modus skjuler kalorier og mål.
@@ -133,3 +136,13 @@ implementert og implementert.
   transaksjon gjenbrukes. Ingen nye arkitekturavvik eller synkkontraktsendringer.
 - Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.
   Dette er funksjonsverifisering, ikke en produksjonsgodkjenning.
+
+### Dagsnavigasjon – verifisert 2026-09-22
+
+- Appen bygger for iPhone 17 / iOS 26.5 med aktiv arm64-arkitektur.
+- `LogViewModelTests` består, inkludert lagring mot eksplisitt historisk og
+  fremtidig dato.
+- UI-testen for Hjem dekker navigasjon til både gårsdagen og morgendagen, med
+  datoavhengig overskrift. Lokal kjøring ble avbrutt før resultat på brukerens
+  ønske; scenariet gjenstår derfor å verifisere.
+- Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.

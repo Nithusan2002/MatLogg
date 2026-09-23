@@ -129,6 +129,11 @@ struct ProductDetailView: View {
                                     .font(AppTypography.bodyEmphasis)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .foregroundColor(AppColors.ink)
+
+                                Label(logDateLabel, systemImage: "calendar")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 LazyVGrid(columns: mealColumns, spacing: 8) {
                                     ForEach(0..<mealTypes.count, id: \.self) { index in
@@ -326,7 +331,8 @@ struct ProductDetailView: View {
                 product: product,
                 amountG: Float(amountG),
                 mealType: selectedMealType,
-                userId: userId
+                userId: userId,
+                date: appState.logSelectedDate
             ) else {
                 logError = logViewModel.errorMessage ?? "Kunne ikke lagre på enheten. Prøv igjen."
                 isLogging = false
@@ -354,6 +360,17 @@ struct ProductDetailView: View {
             isLogging = false
             dismiss()
         }
+    }
+
+    private var logDateLabel: String {
+        let date = appState.logSelectedDate
+        if Calendar.current.isDateInToday(date) { return "Logges i dag" }
+        if Calendar.current.isDateInYesterday(date) { return "Logges i går" }
+        if Calendar.current.isDateInTomorrow(date) { return "Logges i morgen" }
+        let formattedDate = date.formatted(
+            .dateTime.day().month(.abbreviated).locale(Locale(identifier: "nb_NO"))
+        )
+        return "Logges \(formattedDate)"
     }
     
     private func setAmount(_ grams: Double) {

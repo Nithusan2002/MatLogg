@@ -61,6 +61,7 @@ struct RawMaterialsSearchView: View {
                                     rawRow(product: product)
                                 }
                             }
+                            .listRowBackground(AppColors.surface)
                         }
                         
                         if !favoriteProducts.isEmpty {
@@ -69,6 +70,7 @@ struct RawMaterialsSearchView: View {
                                     rawRow(product: product)
                                 }
                             }
+                            .listRowBackground(AppColors.surface)
                         }
                         
                         Section("Vanlige råvarer") {
@@ -76,6 +78,7 @@ struct RawMaterialsSearchView: View {
                                 rawRow(item: item)
                             }
                         }
+                        .listRowBackground(AppColors.surface)
                     } else {
                         switch searchState {
                         case .loading:
@@ -88,6 +91,7 @@ struct RawMaterialsSearchView: View {
                                 .frame(maxWidth: .infinity, minHeight: 88)
                                 .accessibilityElement(children: .combine)
                             }
+                            .listRowBackground(AppColors.surface)
                         case .failure(let message):
                             Section {
                                 ContentUnavailableView {
@@ -103,10 +107,12 @@ struct RawMaterialsSearchView: View {
                                     }
                                 }
                             }
+                            .listRowBackground(AppColors.surface)
                         case .empty:
                             Section {
                                 ContentUnavailableView.search(text: query)
                             }
+                            .listRowBackground(AppColors.surface)
                         case .cachedResults, .results:
                             if case .cachedResults = searchState {
                                 Section {
@@ -114,18 +120,23 @@ struct RawMaterialsSearchView: View {
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
+                                .listRowBackground(AppColors.surface)
                             }
                             Section("Resultater") {
                                 ForEach(searchResults, id: \.id) { item in
                                     rawRow(item: item)
                                 }
                             }
+                            .listRowBackground(AppColors.surface)
                         case .idle:
                             EmptyView()
                         }
                     }
                 }
                 .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(AppColors.background)
+                .tint(AppColors.action)
                 .scrollDismissesKeyboard(.interactively)
             }
             .padding(.top, 8)

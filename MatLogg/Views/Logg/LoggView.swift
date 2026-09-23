@@ -9,7 +9,6 @@ struct LoggView: View {
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var yesterdaySummary: DailySummary?
-    @State private var showDatePicker = false
     @State private var searchText = ""
     @State private var mealFilter: String?
     @State private var showFilterSheet = false
@@ -125,33 +124,6 @@ struct LoggView: View {
                 }
                 Button("Avbryt", role: .cancel) {}
             }
-            .sheet(isPresented: $showDatePicker) {
-                NavigationStack {
-                    VStack(spacing: 16) {
-                        Text("Velg dato")
-                            .font(AppTypography.title)
-                            .foregroundColor(AppColors.ink)
-                        
-                        DatePicker(
-                            "Velg dato",
-                            selection: $selectedDate,
-                            in: ...Date(),
-                            displayedComponents: [.date]
-                        )
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                    }
-                    .padding(16)
-                    .background(AppColors.background.ignoresSafeArea())
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Ferdig") { showDatePicker = false }
-                                .foregroundColor(AppColors.brand)
-                        }
-                    }
-                }
-                .presentationDetents([.medium, .large])
-            }
             .onAppear {
                 if let meal = appState.logSelectedMeal, mealFilter == nil {
                     mealFilter = meal
@@ -176,35 +148,7 @@ struct LoggView: View {
     private var logList: some View {
         let baseList = List {
             Section {
-                HStack {
-                    Button(action: { shiftSelectedDate(by: -1) }) {
-                        Image(systemName: "chevron.left")
-                    }
-                    .frame(width: 44, height: 44)
-                    .buttonStyle(.plain)
-                    
-                    Spacer()
-                    
-                    Button(action: { showDatePicker = true }) {
-                        HStack(spacing: 6) {
-                            Text(dayTitle)
-                                .font(AppTypography.bodyEmphasis)
-                            Image(systemName: "calendar")
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Spacer()
-                    
-                    Button(action: { shiftSelectedDate(by: 1) }) {
-                        Image(systemName: "chevron.right")
-                    }
-                    .frame(width: 44, height: 44)
-                    .opacity(canGoToNextDay ? 1 : 0.3)
-                    .disabled(!canGoToNextDay)
-                    .buttonStyle(.plain)
-                }
-                .foregroundColor(AppColors.ink)
+                DayNavigationBar(selection: $selectedDate)
                 .padding(.vertical, 4)
             }
             .listRowBackground(AppColors.background)
@@ -363,32 +307,6 @@ struct LoggView: View {
         Calendar.current.isDateInToday(selectedDate)
     }
     
-    private var dayTitle: String {
-        if Calendar.current.isDateInToday(selectedDate) {
-            return "I dag"
-        }
-        if Calendar.current.isDateInYesterday(selectedDate) {
-            return "I går"
-        }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "d. MMM"
-        return formatter.string(from: selectedDate)
-    }
-    
-    private var canGoToNextDay: Bool {
-        !Calendar.current.isDateInToday(selectedDate)
-    }
-    
-    private func shiftSelectedDate(by days: Int) {
-        if days > 0, Calendar.current.isDateInToday(selectedDate) {
-            return
-        }
-        if let newDate = Calendar.current.date(byAdding: .day, value: days, to: selectedDate) {
-            selectedDate = newDate
-        }
-    }
-    
     private func yesterdayDate() -> Date {
         Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
     }
@@ -448,14 +366,18 @@ struct LoggFilterSheet: View {
                         }
                     }
                 }
+                .listRowBackground(AppColors.surface)
             }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
             .navigationTitle("Filter")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Nullstill") {
                         selected = nil
                     }
-                    .foregroundColor(AppColors.brand)
+                    .foregroundColor(AppColors.action)
                 }
             }
         }
@@ -481,6 +403,7 @@ struct EditLogView: View {
                     TextField("Gram", text: $amountText)
                         .keyboardType(.numberPad)
                 }
+                .listRowBackground(AppColors.surface)
                 
                 Section("Måltid") {
                     Picker("Måltid", selection: $selectedMealType) {
@@ -490,7 +413,11 @@ struct EditLogView: View {
                     }
                     .pickerStyle(.segmented)
                 }
+                .listRowBackground(AppColors.surface)
             }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
             .navigationTitle("Rediger")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -507,7 +434,7 @@ struct EditLogView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.brand)
+                        .foregroundColor(AppColors.action)
                 }
             }
             .onAppear {

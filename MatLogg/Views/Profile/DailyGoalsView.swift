@@ -143,6 +143,7 @@ private struct GoalSuggestionView: View {
             Form {
                 if preferences.safeModeEnabled || preferences.safeModeHideGoals || preferences.safeModeHideCalories {
                     Text("Du har valgt en visning uten målforslag. Du kan endre visningen i Innstillinger.")
+                        .listRowBackground(AppColors.surface)
                 } else if viewModel.showingResult {
                     Section("Veiledende forslag") {
                         LabeledContent("Kalorier", value: "\(viewModel.suggestion.calories) kcal/dag")
@@ -154,6 +155,7 @@ private struct GoalSuggestionView: View {
                              : "Et generelt estimat basert på valgene dine. Fullstendige personopplysninger mangler eller kan ikke brukes.")
                             .font(AppTypography.caption)
                     }
+                    .listRowBackground(AppColors.surface)
                     Section {
                         Button("Bruk forslaget") {
                             onApply(viewModel.suggestion)
@@ -164,6 +166,7 @@ private struct GoalSuggestionView: View {
                     } footer: {
                         Text("Forslaget fylles inn i utkastet. Trykk Lagre endringer på neste skjerm for å lagre.")
                     }
+                    .listRowBackground(AppColors.surface)
                 } else {
                     Section("Valgene dine") {
                         Picker("Måltype", selection: $viewModel.intent) {
@@ -181,11 +184,13 @@ private struct GoalSuggestionView: View {
                             ForEach([MacroPreset.balanced, .proteinFocus, .carbFocus], id: \.self) { Text($0.label).tag($0) }
                         }
                     }
+                    .listRowBackground(AppColors.surface)
                     Section {
                         Button("Se forslag") { viewModel.showingResult = true }
                     } footer: {
                         Text("Bruker opplysningene i Personlige detaljer når de er tilgjengelige. Ingen mål eller personopplysninger endres før du lagrer på målskjermen.")
                     }
+                    .listRowBackground(AppColors.surface)
                 }
             }
             .scrollContentBackground(.hidden)
