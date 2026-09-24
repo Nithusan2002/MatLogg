@@ -1,17 +1,21 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @State private var showScanCamera = false
     @State private var showManualAdd = false
     @State private var showRawMaterials = false
     @State private var receiptPayload: ReceiptPayload?
-    @State private var repeatProduct: Product?
+    @State private var isUndoingReceipt = false
+    @State private var isUndoingSavedMeal = false
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
+    @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
     
     var body: some View {
         TabView(selection: tabSelection) {
@@ -62,17 +66,54 @@ struct HomeView: View {
                 .tag(AppTab.profile)
                 .matLoggSystemTabBarHidden()
         }
+        .environment(\.matLoggTabBarScrollMargin, tabBarScrollMargin)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             MatLoggTabBar(selection: tabSelection)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    tabBarScrollMargin = max(
+                        MatLoggTabBar.defaultScrollContentBottomMargin,
+                        height + MatLoggTabBar.scrollContentSpacing
+                    )
+                }
         }
         .environmentObject(appState)
+        .overlay(alignment: .bottom) {
+            if let payload = receiptPayload {
+                LogToastView(
+                    payload: payload,
+                    isUndoing: isUndoingReceipt,
+                    onUndo: { undoLogging(payload) },
+                    onDismiss: { dismissReceipt() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, tabBarScrollMargin)
+                .transition(.logToast)
+            } else if let receipt = savedMealsViewModel.receipt {
+                SavedMealToastView(
+                    receipt: receipt,
+                    isUndoing: isUndoingSavedMeal,
+                    onUndo: { undoSavedMeal() },
+                    onDismiss: { savedMealsViewModel.dismissReceipt() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, tabBarScrollMargin)
+                .transition(.logToast)
+                .task(id: receipt.logIDs) {
+                    let seconds: UInt64 = UIAccessibility.isVoiceOverRunning ? 8 : 4
+                    try? await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                    guard !Task.isCancelled,
+                          savedMealsViewModel.receipt?.logIDs == receipt.logIDs else { return }
+                    savedMealsViewModel.dismissReceipt()
+                }
+            }
+        }
         .sheet(isPresented: $showScanCamera) {
-            CameraView(onLogComplete: { payload in
+            CameraView(onLogComplete: { _ in
                 Task {
                     await loadTodaysSummary()
                 }
-                showScanCamera = false
-                receiptPayload = payload
             })
         }
         .fullScreenCover(isPresented: $showManualAdd) {
@@ -89,28 +130,6 @@ struct HomeView: View {
                 Task { await loadTodaysSummary() }
             }
                 .environmentObject(appState)
-        }
-        .sheet(item: $receiptPayload) { payload in
-            ReceiptView(
-                product: payload.product,
-                amountG: payload.amountG,
-                nutrition: payload.nutrition,
-                mealType: payload.mealType
-            ) { action in
-                switch action {
-                case .scanNext: showScanCamera = true
-                case .addAgain:
-                    appState.selectedMealType = payload.mealType
-                    repeatProduct = payload.product
-                case .close: break
-                }
-            }
-            .presentationDetents([.medium])
-        }
-        .sheet(item: $repeatProduct) { product in
-            ProductDetailView(product: product, appState: appState) { payload in
-                receiptPayload = payload
-            }
         }
         .onAppear {
             Task {
@@ -138,6 +157,13 @@ struct HomeView: View {
                     showAddActions = false
                     receiptPayload = payload
                     Task { await loadTodaysSummary() }
+                },
+                onSavedMealLogComplete: {
+                    showAddActions = false
+                    Task {
+                        await loadTodaysSummary()
+                        await appState.refreshSyncStatus()
+                    }
                 }
             )
             .presentationDetents([.fraction(0.66), .large])
@@ -164,6 +190,50 @@ struct HomeView: View {
     private func loadTodaysSummary() async {
         guard let userId = authViewModel.currentUser?.id else { return }
         await logViewModel.loadTodaysSummary(userId: userId)
+    }
+
+    private func dismissReceipt() {
+        if UIAccessibility.isReduceMotionEnabled {
+            receiptPayload = nil
+        } else {
+            withAnimation(.smooth(duration: 0.32)) { receiptPayload = nil }
+        }
+    }
+
+    private func undoLogging(_ payload: ReceiptPayload) {
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        isUndoingReceipt = true
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(
+                productId: payload.product.id,
+                mealType: payload.mealType,
+                amountG: Float(payload.amountG),
+                userId: userId,
+                date: payload.loggedDate
+            )
+            if succeeded {
+                dismissReceipt()
+                await loadTodaysSummary()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage ?? "Kunne ikke angre loggingen."
+            }
+            isUndoingReceipt = false
+        }
+    }
+
+    private func undoSavedMeal() {
+        guard !isUndoingSavedMeal else { return }
+        isUndoingSavedMeal = true
+        Task {
+            if await savedMealsViewModel.undo() {
+                await loadTodaysSummary()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = savedMealsViewModel.errorMessage ?? "Kunne ikke angre måltidet."
+            }
+            isUndoingSavedMeal = false
+        }
     }
 }
 
@@ -323,7 +393,7 @@ struct HomeTabView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
             }
-            .contentMargins(.bottom, MatLoggTabBar.scrollContentBottomMargin, for: .scrollContent)
+            .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedMealForLog) { meal in
@@ -790,14 +860,8 @@ struct ReceiptPayload: Identifiable {
     let id = UUID()
     let product: Product
     let amountG: Double
-    let nutrition: NutritionBreakdown
     let mealType: String
-}
-
-enum ReceiptAction {
-    case scanNext
-    case addAgain
-    case close
+    let loggedDate: Date
 }
 
 struct ScanButtonLarge: View {
@@ -810,13 +874,14 @@ struct ScanButtonLarge: View {
 
 struct ScanHistoryView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var recentScans: [ScanHistory] = []
     @State private var selectedProduct: Product?
     @State private var showMissingProductAlert = false
     @State private var receiptPayload: ReceiptPayload?
-    @State private var repeatProduct: Product?
+    @State private var isUndoingReceipt = false
     @State private var showScanCamera = false
     
     var body: some View {
@@ -860,6 +925,18 @@ struct ScanHistoryView: View {
             }
             .presentationDetents([.medium])
         }
+        .overlay(alignment: .bottom) {
+            if let payload = receiptPayload {
+                LogToastView(
+                    payload: payload,
+                    isUndoing: isUndoingReceipt,
+                    onUndo: { undoLogging(payload) },
+                    onDismiss: { dismissReceipt() }
+                )
+                .padding(16)
+                .transition(.logToast)
+            }
+        }
         .task {
             if let userId = authViewModel.currentUser?.id {
                 recentScans = await productViewModel.recentScans(userId: userId)
@@ -870,36 +947,8 @@ struct ScanHistoryView: View {
                 receiptPayload = payload
             }
         }
-        .sheet(item: $receiptPayload) { payload in
-            ReceiptView(
-                product: payload.product,
-                amountG: payload.amountG,
-                nutrition: payload.nutrition,
-                mealType: payload.mealType,
-                onAction: { action in
-                    switch action {
-                    case .scanNext:
-                        showScanCamera = true
-                    case .addAgain:
-                        appState.selectedMealType = payload.mealType
-                        repeatProduct = payload.product
-                    case .close:
-                        break
-                    }
-                }
-            )
-            .presentationDetents([.medium])
-        }
-        .sheet(item: $repeatProduct) { product in
-            ProductDetailView(product: product, appState: appState) { payload in
-                receiptPayload = payload
-            }
-        }
         .fullScreenCover(isPresented: $showScanCamera) {
-            CameraView { payload in
-                showScanCamera = false
-                receiptPayload = payload
-            }
+            CameraView(onLogComplete: { _ in })
         }
         .alert("Produkt ikke tilgjengelig", isPresented: $showMissingProductAlert) {
             Button("OK", role: .cancel) {}
@@ -911,11 +960,41 @@ struct ScanHistoryView: View {
     private func productName(for scan: ScanHistory) -> String {
         productViewModel.product(id: scan.productId)?.name ?? "Ukjent produkt"
     }
+
+    private func dismissReceipt() {
+        if UIAccessibility.isReduceMotionEnabled {
+            receiptPayload = nil
+        } else {
+            withAnimation(.smooth(duration: 0.32)) { receiptPayload = nil }
+        }
+    }
+
+    private func undoLogging(_ payload: ReceiptPayload) {
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        isUndoingReceipt = true
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(
+                productId: payload.product.id,
+                mealType: payload.mealType,
+                amountG: Float(payload.amountG),
+                userId: userId,
+                date: payload.loggedDate
+            )
+            if succeeded {
+                dismissReceipt()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage ?? "Kunne ikke angre loggingen."
+            }
+            isUndoingReceipt = false
+        }
+    }
 }
 
 struct CameraView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
@@ -932,6 +1011,8 @@ struct CameraView: View {
     @State private var showProductNotFound = false
     @State private var showManualProduct = false
     @State private var showCameraPrePrompt = false
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var isUndoingReceipt = false
     
     var body: some View {
         ZStack {
@@ -1030,6 +1111,19 @@ struct CameraView: View {
             }
             
         }
+        .overlay(alignment: .bottom) {
+            if let payload = receiptPayload {
+                LogToastView(
+                    payload: payload,
+                    isUndoing: isUndoingReceipt,
+                    onUndo: { undoLogging(payload) },
+                    onDismiss: { dismissReceipt() }
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+                .transition(.logToast)
+            }
+        }
         .onDisappear {
             isTorchOn = false
         }
@@ -1047,7 +1141,7 @@ struct CameraView: View {
                     product: product,
                     appState: appState,
                     onLogComplete: { payload in
-                        dismiss()
+                        receiptPayload = payload
                         onLogComplete(payload)
                     }
                 )
@@ -1090,6 +1184,9 @@ struct CameraView: View {
         
         scannedBarcode = barcode
         isLoading = true
+
+        HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
+        SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: preferencesViewModel.soundFeedbackEnabled)
         
         if let cached = productViewModel.cachedProduct(barcode: barcode) {
             scannedProduct = cached
@@ -1100,9 +1197,6 @@ struct CameraView: View {
             }
             return
         }
-        
-        HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
-        SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: preferencesViewModel.soundFeedbackEnabled)
         
         Task {
             do {
@@ -1127,6 +1221,8 @@ struct CameraView: View {
                     isLoading = false
                     switch apiError {
                     case .serverError(let code) where code == 404:
+                        showProductNotFound = true
+                    case .backendError(let statusCode, _, _) where statusCode == 404:
                         showProductNotFound = true
                     default:
                         HapticFeedbackService.shared.trigger(
@@ -1160,6 +1256,35 @@ struct CameraView: View {
                     )
                 }
             }
+        }
+    }
+
+    private func dismissReceipt() {
+        if UIAccessibility.isReduceMotionEnabled {
+            receiptPayload = nil
+        } else {
+            withAnimation(.smooth(duration: 0.32)) { receiptPayload = nil }
+        }
+    }
+
+    private func undoLogging(_ payload: ReceiptPayload) {
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        isUndoingReceipt = true
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(
+                productId: payload.product.id,
+                mealType: payload.mealType,
+                amountG: Float(payload.amountG),
+                userId: userId,
+                date: payload.loggedDate
+            )
+            if succeeded {
+                dismissReceipt()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage ?? "Kunne ikke angre loggingen."
+            }
+            isUndoingReceipt = false
         }
     }
 
@@ -1352,8 +1477,10 @@ struct SearchHubView: View {
                             .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
             }
+            .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .task {
@@ -1386,14 +1513,17 @@ private struct SearchShortcut: View {
 }
 
 #Preview {
+    let database = DatabaseService()
     HomeView()
-        .environmentObject(AppState())
-        .environmentObject(LogViewModel(repository: DatabaseService()))
-        .environmentObject(ProductViewModel(repository: DatabaseService()))
-        .environmentObject(HealthProfileViewModel(repository: DatabaseService()))
+        .environmentObject(AppState(databaseService: database))
+        .environmentObject(LogViewModel(repository: database))
+        .environmentObject(MealReuseViewModel(repository: database))
+        .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database))
+        .environmentObject(ProductViewModel(repository: database))
+        .environmentObject(HealthProfileViewModel(repository: database))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
-        .environmentObject(UserDataExportService(logRepository: DatabaseService()))
+        .environmentObject(UserDataExportService(logRepository: database, savedMealRepository: database))
 }
 
 extension Date {

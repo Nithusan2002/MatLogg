@@ -4,13 +4,16 @@ import Combine
 @MainActor
 final class UserDataExportService: ObservableObject {
     private let logRepository: any FoodLogRepository
+    private let savedMealRepository: any SavedMealRepository
 
-    init(logRepository: any FoodLogRepository) {
+    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository) {
         self.logRepository = logRepository
+        self.savedMealRepository = savedMealRepository
     }
 
     func export(for user: User) async -> URL? {
         let logs = await logRepository.getAllLogs(userId: user.id)
+        let savedMeals = await savedMealRepository.getSavedMeals(userId: user.id)
         let payload: [String: Any] = [
             "user_id": user.id.uuidString,
             "email": user.email,
@@ -26,6 +29,28 @@ final class UserDataExportService: ObservableObject {
                     "carbs_g": log.carbsG,
                     "fat_g": log.fatG
                 ]
+            },
+            "saved_meals": savedMeals.map { meal in
+                [
+                    "id": meal.id.uuidString,
+                    "name": meal.name,
+                    "suggested_meal_type": (meal.suggestedMealType as Any?) ?? NSNull(),
+                    "updated_at": ISO8601DateFormatter().string(from: meal.updatedAt),
+                    "items": meal.items.map { item in
+                        [
+                            "id": item.id.uuidString,
+                            "product_id": item.productId.uuidString,
+                            "product_name": item.productName,
+                            "amount_g": item.amountG,
+                            "calories": item.calories,
+                            "protein_g": item.proteinG,
+                            "carbs_g": item.carbsG,
+                            "fat_g": item.fatG,
+                            "nutrition_source": item.nutritionSource.rawValue,
+                            "sort_index": item.sortIndex
+                        ] as [String: Any]
+                    }
+                ] as [String: Any]
             }
         ]
 

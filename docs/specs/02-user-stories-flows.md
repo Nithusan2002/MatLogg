@@ -10,6 +10,8 @@
 
 Gjeldende tillegg for gjenbruk av gårsdagens enkeltmåltid, inkludert
 akseptansekriterier, er beskrevet i [måltidsgjenbruk](../meal-reuse.md).
+Gjeldende flyt og akseptansekriterier for navngitte, lagrede måltider er
+beskrevet i [lagrede måltider](../saved-meals.md).
 
 ### **Epic 1: Autentisering & Onboarding**
 
@@ -40,6 +42,9 @@ Acceptance Criteria:
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
 □ Makromål: % eller gram for protein/karb/fett
 □ Valgfri: initiell vektlogg (today's weight)
+□ Automatisk estimat krever alder 18+, gyldig vekt/høyde og eksplisitt valg av kvinne- eller mannvarianten i voksenformelen
+□ Manglende eller annet formelgrunnlag gir ikke et gjettet standardestimat; brukeren angir eget mål eller supplerer opplysningene
+□ Makroprofilene følger NNR 2023-intervallene for voksne og omtales som generelle fordelinger, ikke individuelle råd
 □ Lagres til backend + lokal DB
 □ "Hopp over" for vekt-logging
 ```
@@ -53,6 +58,8 @@ Acceptance Criteria:
 - Kalorier valideres som heltall 1200–4500. Makroer krever endelige,
   ikke-negative gramverdier som kan vises trygt; tomt felt tolkes ikke som null.
 - Beregn nytt forslag → Se forslag → Bruk forslaget oppdaterer bare utkastet.
+- Forslag omtales som estimert startpunkt. Ufullstendig grunnlag, alder under 18
+  eller manglende støttet formelvariant gir ingen automatisk kaloriverdi.
 - Feil beholder input; vellykket lokal lagring oppdaterer profil og målstatus.
 - Mål og kalorier følger visningsvalgene også i tilgjengelighetstreet.
 - Lagring virker uten nett, med eksisterende atomiske `goal.set`-hendelse.
@@ -121,7 +128,7 @@ SÅ AT: jeg ikkje bruker for mye tid på logging
 Acceptance Criteria:
 □ Tapp stor skann-knapp → åpne kamera (AVFoundation)
 □ Venter på EAN-deteksjon (auto-trigger, ingen knapp)
-□ Ved strekkode-deteksjon: haptic feedback (3 short taps) + lyd (pling)
+□ Ved strekkode-deteksjon: én lett haptisk puls + lyd (pling), utløst kun én gang
 □ API-oppslag: GET /api/v1/products/barcode/{ean}
 □ Hvis produkt finnes:
   - Umiddelbar produktkort-visning (hoppet over loading-state)
@@ -150,10 +157,11 @@ Acceptance Criteria:
   - Timestamp
 □ Lokal DB-insert umiddelbar
 □ Network sync enqueued (background)
-□ Mini-kvittering vises: "✓ Brød (150g) → 300 kcal lagt til Lunsj"
-□ Haptic feedback (double-tap) + beep
-□ Next actions: [Skann neste] [Legg til igjen] [Lukk]
-□ Default: "Skann neste" (kamera gjenåpner automatisk, mengde resettes til 100g)
+□ Kompakt bekreftelse vises: "✓ 150 g Brød lagt til Lunsj"
+□ Bekreftelsen viser "Lagret på enheten" og tilbyr [Angre]
+□ Semantisk success-haptikk + beep etter vellykket lokal lagring
+□ Bekreftelsen blokkerer ikke skjermen og forsvinner automatisk etter 4 sekunder
+□ Ved skanning fortsetter kameraet automatisk med mengde reset til 100g
 ```
 
 #### US-3.3: Bruker skanner ukjent strekkode
@@ -276,16 +284,13 @@ Acceptance Criteria:
          ↓ [Legg til]-knapp kalkulert: 150 × 240/100 = 360 kcal
          ↓ [Bruker trykker "Legg til"]
 ┌─────────────────────────────────────────────────────────┐
-│ 4. MINI-KVITTERING                                      │
-│ ✓ "Brød, rostaboost (150g) lagt til LUNSJ"            │
-│ • 360 kcal, 12g protein, 67.5g carbs, 4.5g fat         │
-│ • [Skann neste] (primary, auto-focus)                   │
-│ • [Legg til igjen] (secondary)                          │
-│ • [Lukk]                                                │
-│ • Haptic: double-tap, Lyd: beep (om ikke muted)        │
+│ 4. KOMPAKT BEKREFTELSE                                  │
+│ ✓ "150 g Brød, rostaboost lagt til Lunsj"     [Angre] │
+│   "Lagret på enheten"                                  │
+│ • Ikke-modal, forsvinner etter 4 sekunder               │
+│ • Haptikk: success, lyd: beep (om ikke muted)           │
 └─────────────────────────────────────────────────────────┘
-         ↓ [Bruker trykker "Skann neste"]
-         ↓ [Kamera gjenåpner, mengde=100g, måltid=LUNSJ]
+         ↓ [Kamera fortsetter, mengde=100g, måltid=LUNSJ]
          ↓ [Cycle repeats]
 ```
 

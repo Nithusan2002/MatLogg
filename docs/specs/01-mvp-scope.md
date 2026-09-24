@@ -20,10 +20,11 @@
 | **Strekkode-skanning** | P0 | EAN-skann → produktoppslag → produktkort → logging |
 | **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser, mengdevelger (prefill: 100g), "Legg til"-knapp |
 | **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid og valgt dato, inkludert fremtidig dato |
-| **Mini-kvittering** | P0 | Etter logging: preview av loggede verdier + "Skann neste" + "Legg til igjen" + "Lukk" |
+| **Kompakt loggbekreftelse** | P0 | Etter logging: vare, mengde og måltid + «Angre», uten å blokkere videre logging |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
 | **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
 | **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
+| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |

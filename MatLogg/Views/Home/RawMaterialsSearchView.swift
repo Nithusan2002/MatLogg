@@ -13,22 +13,21 @@ struct RawMaterialsSearchView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @Environment(\.dismiss) var dismiss
     @FocusState private var searchFocused: Bool
     
     @State private var query = ""
     @State private var curated: [MatvaretabellenProduct] = []
-    @State private var searchResults: [MatvaretabellenProduct] = []
+    @State private var searchResults: [Product] = []
     @State private var recentProducts: [Product] = []
     @State private var favoriteProducts: [Product] = []
     @State private var searchState: SearchState = .idle
     @State private var selectedProduct: Product?
-    @State private var receiptPayload: ReceiptPayload?
-    @State private var repeatProduct: Product?
     @State private var showScanCamera = false
-    let onLogComplete: ((ReceiptPayload) -> Void)?
+    let onLogComplete: (ReceiptPayload) -> Void
 
-    init(onLogComplete: ((ReceiptPayload) -> Void)? = nil) {
+    init(onLogComplete: @escaping (ReceiptPayload) -> Void) {
         self.onLogComplete = onLogComplete
     }
     
@@ -39,7 +38,7 @@ struct RawMaterialsSearchView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(AppColors.textSecondary)
-                        TextField("Søk råvarer", text: $query)
+                        TextField("Søk etter mat eller produkt", text: $query)
                             .font(AppTypography.body)
                             .focused($searchFocused)
                             .textInputAutocapitalization(.words)
@@ -123,8 +122,8 @@ struct RawMaterialsSearchView: View {
                                 .listRowBackground(AppColors.surface)
                             }
                             Section("Resultater") {
-                                ForEach(searchResults, id: \.id) { item in
-                                    rawRow(item: item)
+                                ForEach(searchResults) { product in
+                                    rawRow(product: product, saveBeforeOpening: true)
                                 }
                             }
                             .listRowBackground(AppColors.surface)
@@ -141,7 +140,7 @@ struct RawMaterialsSearchView: View {
             }
             .padding(.top, 8)
             .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("Søk / Råvarer")
+            .navigationTitle("Søk")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lukk") { dismiss() }
@@ -162,44 +161,12 @@ struct RawMaterialsSearchView: View {
             }
             .sheet(item: $selectedProduct) { product in
                 ProductDetailView(product: product, appState: appState) { payload in
-                    if let onLogComplete {
-                        dismiss()
-                        onLogComplete(payload)
-                    } else {
-                        receiptPayload = payload
-                    }
-                }
-            }
-            .sheet(item: $receiptPayload) { payload in
-                ReceiptView(
-                    product: payload.product,
-                    amountG: payload.amountG,
-                    nutrition: payload.nutrition,
-                    mealType: payload.mealType,
-                    onAction: { action in
-                        switch action {
-                        case .scanNext:
-                            showScanCamera = true
-                        case .addAgain:
-                            appState.selectedMealType = payload.mealType
-                            repeatProduct = payload.product
-                        case .close:
-                            break
-                        }
-                    }
-                )
-                .presentationDetents([.medium])
-            }
-            .sheet(item: $repeatProduct) { product in
-                ProductDetailView(product: product, appState: appState) { payload in
-                    receiptPayload = payload
+                    dismiss()
+                    onLogComplete(payload)
                 }
             }
             .fullScreenCover(isPresented: $showScanCamera) {
-                CameraView { payload in
-                    showScanCamera = false
-                    receiptPayload = payload
-                }
+                CameraView(onLogComplete: { _ in })
             }
         }
     }
@@ -221,7 +188,7 @@ struct RawMaterialsSearchView: View {
         searchState = .loading
         do {
             try await Task.sleep(nanoseconds: 300_000_000)
-            let outcome = try await productViewModel.searchRawFoodsWithStatus(query: trimmed)
+            let outcome = try await productViewModel.searchFoodsWithStatus(query: trimmed)
             guard !Task.isCancelled else { return }
             searchResults = outcome.items
             if outcome.items.isEmpty {
@@ -256,14 +223,22 @@ struct RawMaterialsSearchView: View {
             }
             selectedProduct = product
         }) {
-            HStack {
+            HStack(spacing: 12) {
+                ProductThumbnailView(url: nil)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(item.name)
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.ink)
-                    Text("\(item.caloriesPer100g) kcal per 100g")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                    if !preferencesViewModel.safeModeHideCalories {
+                        Text("\(item.caloriesPer100g) kcal per 100 g · Matvaretabellen")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    } else {
+                        Text("Matvaretabellen")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -273,16 +248,38 @@ struct RawMaterialsSearchView: View {
         .buttonStyle(.plain)
     }
     
-    private func rawRow(product: Product) -> some View {
+    private func rawRow(product: Product, saveBeforeOpening: Bool = false) -> some View {
         Button(action: {
+            if saveBeforeOpening {
+                Task {
+                    guard let userId = authViewModel.currentUser?.id else { return }
+                    if await productViewModel.saveScannedProduct(product, userId: userId) {
+                        await appState.refreshSyncStatus()
+                    } else {
+                        appState.errorMessage = productViewModel.errorMessage
+                    }
+                }
+            }
             selectedProduct = product
         }) {
-            HStack {
+            HStack(spacing: 12) {
+                ProductThumbnailView(
+                    url: product.imageUrl.flatMap(URL.init(string:)),
+                    placeholderSystemImage: product.kind == .genericFood ? "fork.knife" : "shippingbox"
+                )
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(product.name)
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.ink)
-                    Text("\(product.caloriesPer100g) kcal per 100g")
+                        .lineLimit(2)
+                    if let brand = product.brand, !brand.isEmpty {
+                        Text(brand)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                            .lineLimit(1)
+                    }
+                    Text(productContext(product))
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -290,8 +287,15 @@ struct RawMaterialsSearchView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(AppColors.textSecondary)
             }
+            .frame(minHeight: 52)
         }
         .buttonStyle(.plain)
+    }
+
+    private func productContext(_ product: Product) -> String {
+        let source = product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : "Open Food Facts"
+        guard !preferencesViewModel.safeModeHideCalories else { return source }
+        return "\(product.caloriesPer100g) kcal per 100 g · \(source)"
     }
     
     private func toProduct(item: MatvaretabellenProduct) -> Product {

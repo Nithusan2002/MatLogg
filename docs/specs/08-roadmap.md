@@ -34,7 +34,7 @@
 ✅ Home: status + logg-liste + måltidsrad  
 ✅ Strekkode-skanning  
 ✅ Produktkort (100g prefill)  
-✅ Logging + mini-kvittering  
+✅ Logging + kompakt bekreftelse med angre
 ✅ Skann-historikk  
 ✅ Favoritter (local toggle)  
 ✅ "Ikke funnet" + product creation (min)  
@@ -93,7 +93,7 @@
 | **Barcode database sync** | P1 | L | Auto-update Matvaretabellen monthly |
 | **Multi-language UI** | P2 | M | Add English, possibly Swedish |
 | **Dark mode support** | P2 | S | iOS system dark mode |
-| **Meal templates** | P2 | L | "Quick add" common breakfasts |
+| **Meal templates** | P1 | Implementert lokalt | Navngitte lagrede måltider; flerenhetsnedlasting gjenstår |
 | **Undo/redo** | P2 | S | Limited undo for last 5 actions |
 
 ### **v1.0 Removed Features**
@@ -232,7 +232,7 @@ MVP Core
 │        │  └─ Productkort
 │        │     ├─ Barcode lookup
 │        │     ├─ "Ikke funnet"
-│        │     └─ Mini-kvittering
+│        │     └─ Kompakt loggbekreftelse
 │        └─ Settings
 │           ├─ Haptics/lyd toggle
 │           └─ Data management

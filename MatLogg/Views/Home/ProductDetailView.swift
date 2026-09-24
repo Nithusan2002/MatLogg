@@ -157,13 +157,7 @@ struct ProductDetailView: View {
                             VStack(spacing: 12) {
                                 AmountInputRow(
                                     gramsText: $amountText,
-                                    placeholder: "0",
-                                    onFocus: {
-                                        HapticFeedbackService.shared.trigger(
-                                            .stepperTap,
-                                            isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-                                        )
-                                    }
+                                    placeholder: "0"
                                 )
                                 
                                 if let servings = product.servings, !servings.isEmpty {
@@ -285,10 +279,6 @@ struct ProductDetailView: View {
             }
             setAmount(100)
             selectedMealType = appState.selectedMealType
-            HapticFeedbackService.shared.trigger(
-                .barcodeDetected,
-                isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-            )
             showNutritionImproving = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
                 showNutritionImproving = false
@@ -353,8 +343,8 @@ struct ProductDetailView: View {
                 ReceiptPayload(
                     product: product,
                     amountG: Double(amountG),
-                    nutrition: nutrition,
-                    mealType: selectedMealType
+                    mealType: selectedMealType,
+                    loggedDate: appState.logSelectedDate
                 )
             )
             isLogging = false
@@ -424,15 +414,15 @@ struct ProductDetailView: View {
             guard let userId = authViewModel.currentUser?.id else { return }
             if await productViewModel.toggleFavorite(product, userId: userId) {
                 isFavorite.toggle()
+                HapticFeedbackService.shared.trigger(
+                    .favoriteToggle,
+                    isEnabled: preferencesViewModel.hapticsFeedbackEnabled
+                )
                 await appState.refreshSyncStatus()
             } else {
                 appState.errorMessage = productViewModel.errorMessage
             }
         }
-        HapticFeedbackService.shared.trigger(
-            .favoriteToggle,
-            isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-        )
     }
 }
 

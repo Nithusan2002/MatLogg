@@ -33,14 +33,14 @@ struct GoalOnboardingFlowView: View {
     @State private var weightText = ""
     @State private var heightText = ""
     @State private var ageText = ""
-    @State private var kcalTarget: Int = 2000
+    @State private var kcalTarget: Int?
     @State private var macroPreset: MacroPreset = .balanced
     @State private var proteinText = ""
     @State private var carbsText = ""
     @State private var fatText = ""
     @State private var didSetInitialCalories = false
     @State private var didAdjustCalories = false
-    @State private var lastSuggestedCalories: Int = 0
+    @State private var lastSuggestedCalories: Int?
     @State private var showPrivacyPolicy = false
     @State private var showPrivacyChoices = false
     
@@ -157,6 +157,8 @@ struct GoalOnboardingFlowView: View {
             .background(AppColors.brand)
             .foregroundColor(AppColors.onVibrant)
             .cornerRadius(12)
+            .disabled(step == .result && !hasValidCalorieTarget)
+            .opacity(step == .result && !hasValidCalorieTarget ? 0.5 : 1)
         }
     }
     
@@ -290,12 +292,16 @@ struct GoalOnboardingFlowView: View {
                     .keyboardType(.numberPad)
                     .textFieldStyle(.roundedBorder)
                 
-                Picker("Kjønn", selection: $gender) {
+                Picker("Formelgrunnlag", selection: $gender) {
                     ForEach(GenderOption.allCases, id: \.self) { option in
                         Text(option.label).tag(option)
                     }
                 }
                 .pickerStyle(.menu)
+
+                Text("Voksenformelen har egne kvinne- og mannvarianter. Velger du Annet eller Ønsker ikke å oppgi, beregner vi ikke et personlig forslag.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
             }
             
             Button("Hopp over") {
@@ -314,17 +320,25 @@ struct GoalOnboardingFlowView: View {
     
     private var resultStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if preferencesViewModel.safeModeEnabled {
-                Text("Forslått mål: \(GoalCalculator.roundedDisplay(kcalTarget))")
+            if let kcalTarget, !didAdjustCalories {
+                Text(preferencesViewModel.safeModeEnabled
+                     ? "Estimert startpunkt: ca. \(GoalCalculator.roundedDisplay(kcalTarget))"
+                     : "Estimert startpunkt: ca. \(GoalCalculator.roundedDisplay(kcalTarget)) kcal/dag")
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.ink)
+            } else if kcalTarget == nil {
+                Text("Angi eget mål")
                     .font(AppTypography.title)
                     .foregroundColor(AppColors.ink)
             } else {
-                Text("Forslått mål: \(GoalCalculator.roundedDisplay(kcalTarget)) kcal/dag")
-                    .font(AppTypography.title)
-                    .foregroundColor(AppColors.ink)
+                Text(preferencesViewModel.safeModeEnabled
+                     ? "Eget mål: \(kcalTarget ?? 0)"
+                     : "Eget mål: \(kcalTarget ?? 0) kcal/dag")
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.ink)
             }
             
-            Text("Basert på valgene dine. Du kan justere.")
+            Text(calculationGuidance)
                 .font(AppTypography.body)
                 .foregroundColor(AppColors.textSecondary)
             
@@ -333,39 +347,51 @@ struct GoalOnboardingFlowView: View {
                 .foregroundColor(AppColors.textSecondary)
             
             HStack(spacing: 8) {
-                Button(action: { kcalTarget = GoalCalculator.clampCalories(kcalTarget - 100) }) {
+                Button(action: { adjustCalories(by: -100) }) {
                     Text("− 100")
                 }
                 .buttonStyle(.bordered)
+                .disabled(kcalTarget == nil)
                 .simultaneousGesture(TapGesture().onEnded { didAdjustCalories = true })
                 
-                Button(action: { kcalTarget = GoalCalculator.clampCalories(kcalTarget - 50) }) {
+                Button(action: { adjustCalories(by: -50) }) {
                     Text("− 50")
                 }
                 .buttonStyle(.bordered)
+                .disabled(kcalTarget == nil)
                 .simultaneousGesture(TapGesture().onEnded { didAdjustCalories = true })
                 
                 TextField("", text: Binding(
-                    get: { String(kcalTarget) },
+                    get: { kcalTarget.map(String.init) ?? "" },
                     set: {
-                        kcalTarget = Int($0.filter(\.isNumber)) ?? kcalTarget
+                        let digits = $0.filter(\.isNumber)
+                        kcalTarget = digits.isEmpty ? nil : Int(digits)
                         didAdjustCalories = true
                     }
                 ))
                 .keyboardType(.numberPad)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Kalorimål, kilokalorier per dag")
                 
-                Button(action: { kcalTarget = GoalCalculator.clampCalories(kcalTarget + 50) }) {
+                Button(action: { adjustCalories(by: 50) }) {
                     Text("+ 50")
                 }
                 .buttonStyle(.bordered)
+                .disabled(kcalTarget == nil)
                 .simultaneousGesture(TapGesture().onEnded { didAdjustCalories = true })
                 
-                Button(action: { kcalTarget = GoalCalculator.clampCalories(kcalTarget + 100) }) {
+                Button(action: { adjustCalories(by: 100) }) {
                     Text("+ 100")
                 }
                 .buttonStyle(.bordered)
+                .disabled(kcalTarget == nil)
                 .simultaneousGesture(TapGesture().onEnded { didAdjustCalories = true })
+            }
+
+            if kcalTarget != nil && !hasValidCalorieTarget {
+                Text("Skriv et heltall mellom 1200 og 4500 kcal. Dette er produktgrenser, ikke en medisinsk anbefaling.")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
             }
         }
         .onAppear {
@@ -413,6 +439,10 @@ struct GoalOnboardingFlowView: View {
                         .textFieldStyle(.roundedBorder)
                 }
             }
+
+            Text("Profilene er generelle fordelinger innenfor nordiske referanseintervaller for voksne. De er ikke individuelle ernæringsråd.")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
         }
     }
     
@@ -423,11 +453,11 @@ struct GoalOnboardingFlowView: View {
                 .foregroundColor(AppColors.ink)
             
             if preferencesViewModel.safeModeEnabled {
-                Text("Mål per dag: \(kcalTarget)")
+                Text("Mål per dag: \(kcalTarget ?? 0)")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
             } else {
-                Text("Mål: \(kcalTarget) kcal/dag")
+                Text("Mål: \(kcalTarget ?? 0) kcal/dag")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
             }
@@ -459,7 +489,7 @@ struct GoalOnboardingFlowView: View {
         }
     }
     
-    private func suggestedCalories() -> Int {
+    private func suggestedCalories() -> Int? {
         let input = GoalCalculationInput(
             weightKg: parseNumber(weightText),
             heightCm: parseNumber(heightText),
@@ -469,7 +499,7 @@ struct GoalOnboardingFlowView: View {
             intent: intent,
             pace: pace
         )
-        let result = GoalCalculator.calculateSuggestion(input: input)
+        guard let result = GoalCalculator.calculateSuggestion(input: input) else { return nil }
         return GoalCalculator.roundedDisplay(result.suggestedCalories)
     }
     
@@ -479,7 +509,7 @@ struct GoalOnboardingFlowView: View {
             carbsG: Float(parseNumber(carbsText) ?? 0),
             fatG: Float(parseNumber(fatText) ?? 0)
         )
-        return GoalCalculator.calculateMacros(kcal: kcalTarget, preset: macroPreset, custom: custom)
+        return GoalCalculator.calculateMacros(kcal: kcalTarget ?? 0, preset: macroPreset, custom: custom)
     }
     
     private func loadDefaults() {
@@ -508,6 +538,7 @@ struct GoalOnboardingFlowView: View {
             dismiss()
             return
         }
+        guard let kcalTarget, GoalCalculator.calorieRange.contains(kcalTarget) else { return }
         let macros = selectedMacros()
         let goal = Goal(
             userId: user.id,
@@ -573,5 +604,23 @@ struct GoalOnboardingFlowView: View {
             lastSuggestedCalories = suggested
             didSetInitialCalories = true
         }
+    }
+
+    private var hasValidCalorieTarget: Bool {
+        kcalTarget.map(GoalCalculator.calorieRange.contains) ?? false
+    }
+
+    private var calculationGuidance: String {
+        if suggestedCalories() != nil {
+            return didAdjustCalories
+                ? "Du har valgt et eget mål. Du kan justere det videre."
+                : "Et veiledende estimat basert på opplysningene og valgene dine. Du kan justere det."
+        }
+        return "Vi kan ikke beregne et personlig forslag uten gyldig vekt, høyde, alder 18+ og valg av kvinne- eller mannvarianten i formelen. Du kan angi et eget mål eller gå tilbake og fylle inn opplysningene."
+    }
+
+    private func adjustCalories(by amount: Int) {
+        guard let kcalTarget else { return }
+        self.kcalTarget = GoalCalculator.clampCalories(kcalTarget + amount)
     }
 }

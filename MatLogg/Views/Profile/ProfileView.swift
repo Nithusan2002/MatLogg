@@ -26,8 +26,8 @@ struct ProfileView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
-                .padding(.bottom, 24)
             }
+            .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .task(id: authViewModel.currentUser?.id) { await refreshProfileSummary() }
@@ -235,7 +235,7 @@ private struct ProfileSettingsView: View {
             .listRowBackground(AppColors.surface)
             Section("Preferanser") {
                 Toggle("Vis målstatus på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
-                Toggle("Haptics", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
+                Toggle("Haptisk tilbakemelding", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
                 Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
                 Toggle("Vis datakilde", isOn: $preferencesViewModel.showNutritionSource)
                 LabeledContent("Enheter", value: "Gram")
@@ -282,6 +282,7 @@ private struct ProfileSettingsView: View {
             #endif
         }
         .scrollContentBackground(.hidden)
+        .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
         .navigationTitle("Innstillinger")

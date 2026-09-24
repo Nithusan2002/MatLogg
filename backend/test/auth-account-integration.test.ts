@@ -28,6 +28,10 @@ async function run() {
   const baseUrl = await app.getUrl();
 
   try {
+    const disabledDevLogin = await request(baseUrl, '/v1/auth/dev-login', 'POST', { email });
+    assert.equal(disabledDevLogin.status, 404);
+    assert.equal(disabledDevLogin.json.code, 'DEV_LOGIN_DISABLED');
+
     const registration = await request(baseUrl, '/v1/auth/register', 'POST', {
       email,
       password: 'correct-horse-battery',

@@ -7,6 +7,13 @@
 **Auth:** Bearer JWT (Authorization header)  
 **Versioning:** URL-based (`/v1`, `/v2`, etc.)
 
+### Implementasjonsstatus
+
+Teknisk sannhetskilde er `backend/src/` og generert Swagger på `/docs`.
+Implementert nå: health, e-postregistrering/-innlogging, kontosletting og
+`POST /v1/sync/events`. Produkt-, logg-, mål-, delings-, refresh- og OAuth-
+endepunktene nedenfor er målbilde til de finnes i backend-koden.
+
 ---
 
 ## 6.2 Authentication Endpoints
@@ -21,8 +28,7 @@ Registrer ny bruker
   "email": "nithu@example.com",
   "password": "SecurePassword123!", // only for email provider
   "first_name": "Nithu",
-  "last_name": "Doe",
-  "auth_provider": "email" // or "apple", "google"
+  "last_name": "Doe"
 }
 ```
 
@@ -31,17 +37,18 @@ Registrer ny bruker
 {
   "user_id": "user-uuid-here",
   "email": "nithu@example.com",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 86400,
-  "refresh_token": "refresh-token-here",
-  "message": "Registreringen vellykket"
+  "first_name": "Nithu",
+  "last_name": "Doe",
+  "auth_provider": "email",
+  "created_at": "2026-09-24T12:00:00Z",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-**Error (400):**
+**Error (409):**
 ```json
 {
-  "error": "email_taken",
+  "code": "EMAIL_ALREADY_REGISTERED",
   "message": "E-posten er allerede registrert"
 }
 ```
@@ -64,6 +71,7 @@ Innlogging (email/passord)
 ```json
 {
   "user_id": "user-uuid-here",
+  "email": "nithu@example.com",
   "first_name": "Nithu",
   "last_name": "Doe",
   "auth_provider": "email",
@@ -79,7 +87,7 @@ Innlogging (email/passord)
 **Error (401):**
 ```json
 {
-  "error": "invalid_credentials",
+  "code": "INVALID_CREDENTIALS",
   "message": "E-post eller passord er feil"
 }
 ```
@@ -503,82 +511,54 @@ Hent alle favoritter
 
 ## 6.7 Sync Endpoint
 
-### **POST /sync**
+### **POST /v1/sync/events**
 
 Synkroniser offline-events til backend
 
 **Request (authenticated):**
 ```json
 {
-  "device_id": "device-identifier",
-  "device_timestamp": "2025-01-21T12:45:00Z",
+  "deviceId": "b8e59c6b-0c55-4f7e-9a43-1c0d6f3f9a21",
+  "clientTime": "2026-09-24T12:45:00Z",
   "events": [
     {
-      "event_id": "event-uuid-1",
-      "event_type": "log_create",
-      "entity_id": "log-uuid",
-      "timestamp": "2025-01-21T12:30:00Z",
-      "payload": {
-        "product_id": "product-uuid",
-        "amount_g": 150,
-        "meal_type": "lunch",
-        "logged_date": "2025-01-21"
-      }
-    },
-    {
-      "event_id": "event-uuid-2",
-      "event_type": "favorite_add",
-      "entity_id": "favorite-uuid",
-      "timestamp": "2025-01-21T12:31:00Z",
-      "payload": {
-        "product_id": "product-uuid-2"
-      }
+      "eventId": "1b6b94e6-8e1b-4f2d-9c7a-2ef9f9df77d9",
+      "type": "log.upsert",
+      "createdAt": "2026-09-24T12:30:00Z",
+      "entityId": "cae2606f-c71c-49b5-ad7a-0c65061132e6",
+      "schemaVersion": 1,
+      "payload": "base64(JSON)"
     }
   ]
 }
 ```
 
-**Response (200):**
+**Response (201):**
 ```json
 {
-  "success": true,
-  "synced_events": [
-    {
-      "event_id": "event-uuid-1",
-      "status": "ok",
-      "server_id": "log-uuid"
-    },
-    {
-      "event_id": "event-uuid-2",
-      "status": "ok",
-      "server_id": "favorite-uuid"
-    }
-  ],
-  "errors": [],
-  "server_state": {
-    "user_calories_today": 1250,
-    "user_goals": {
-      "daily_calories": 2000
-    }
-  }
+  "ackedEventIds": ["1b6b94e6-8e1b-4f2d-9c7a-2ef9f9df77d9"],
+  "rejected": [],
+  "serverTime": "2026-09-24T12:45:01Z"
 }
 ```
 
-**Error Handling (400):**
+En syntaktisk gyldig batch kan delvis avvises. Da beholdes HTTP 201, mens hver
+avvist hendelse får stabil `code` og `message`:
+
 ```json
 {
-  "success": false,
-  "synced_events": [],
-  "errors": [
-    {
-      "event_id": "event-uuid-3",
-      "status": "error",
-      "reason": "product_not_found",
-      "message": "Produktet finnes ikke"
-    }
-  ]
+  "ackedEventIds": [],
+  "rejected": [{
+    "eventId": "1b6b94e6-8e1b-4f2d-9c7a-2ef9f9df77d9",
+    "code": "VALIDATION_ERROR",
+    "message": "Ugyldig logg-payload"
+  }],
+  "serverTime": "2026-09-24T12:45:01Z"
 }
 ```
+
+Canonical typer, grenser og bakoverkompatible aliaser er normative i
+`docs/sync-contract-v1.md`.
 
 ---
 

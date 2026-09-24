@@ -48,8 +48,8 @@ struct ProgressTabView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
-                .padding(.bottom, 28)
             }
+            .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .scrollDismissesKeyboard(.interactively)

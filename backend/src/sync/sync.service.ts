@@ -1,16 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SyncEventsRequestDto, SyncEventDto } from './dto';
 import { z } from 'zod';
 import {
-  favoritePayloadSchema, goalPayloadSchema, logPayloadSchema,
+  decodeBase64Payload, favoritePayloadSchema, goalPayloadSchema, logPayloadSchema,
   MAX_SYNC_EVENTS, MAX_SYNC_PAYLOAD_BYTES, productPayloadSchema,
-  SYNC_SCHEMA_VERSION, syncEventTypes, weightPayloadSchema,
+  savedMealPayloadSchema, SYNC_SCHEMA_VERSION, syncEventTypes, weightPayloadSchema,
 } from './sync.contract';
 
 @Injectable()
 export class SyncService {
+  private readonly logger = new Logger(SyncService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async syncEvents(userId: string, body: SyncEventsRequestDto) {
@@ -58,10 +60,8 @@ export class SyncService {
       return { status: 'rejected' as const, eventId: event.eventId, code: 'UNSUPPORTED_TYPE', message: 'Ukjent type' };
     }
 
-    let payloadBuffer: Buffer;
-    try {
-      payloadBuffer = Buffer.from(event.payload, 'base64');
-    } catch {
+    const payloadBuffer = decodeBase64Payload(event.payload);
+    if (!payloadBuffer) {
       return { status: 'rejected' as const, eventId: event.eventId, code: 'VALIDATION_ERROR', message: 'Ugyldig base64' };
     }
 
@@ -80,7 +80,9 @@ export class SyncService {
       where: { eventId: event.eventId },
     });
     if (existing) {
-      return { status: 'acked' as const, eventId: event.eventId };
+      return existing.userId === userId
+        ? { status: 'acked' as const, eventId: event.eventId }
+        : { status: 'rejected' as const, eventId: event.eventId, code: 'FORBIDDEN', message: 'Hendelsen tilhører en annen bruker' };
     }
 
     try {
@@ -116,11 +118,20 @@ export class SyncService {
           message: error.message,
         };
       }
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const racedEvent = await this.prisma.eventInbox.findUnique({ where: { eventId: event.eventId } });
+        if (racedEvent) {
+          return racedEvent.userId === userId
+            ? { status: 'acked' as const, eventId: event.eventId }
+            : { status: 'rejected' as const, eventId: event.eventId, code: 'FORBIDDEN', message: 'Hendelsen tilhører en annen bruker' };
+        }
+      }
+      this.logger.error(`Sync event ${event.eventId} failed`, error instanceof Error ? error.stack : undefined);
       return {
         status: 'rejected' as const,
         eventId: event.eventId,
         code: 'SERVER_ERROR',
-        message: error instanceof Error ? error.message : 'Server error',
+        message: 'Midlertidig serverfeil',
       };
     }
 
@@ -268,6 +279,54 @@ export class SyncService {
             ...data,
           } });
         }
+        break;
+      }
+      case 'saved_meal.upsert': {
+        const parsed = savedMealPayloadSchema.safeParse(payloadJson);
+        if (!parsed.success) {
+          throw new ValidationError('Ugyldig lagret-måltid-payload');
+        }
+        const meal = parsed.data;
+        const existing = await tx.savedMeal.findUnique({ where: { id: meal.id } });
+        if (existing && existing.userId !== userId) {
+          throw new AuthorizationError('Det lagrede måltidet tilhører en annen bruker');
+        }
+        const data = {
+          name: meal.name,
+          suggestedMealType: meal.suggestedMealType ?? null,
+          updatedAt: new Date(meal.updatedAt),
+        };
+        if (existing) {
+          await tx.savedMeal.update({ where: { id: meal.id }, data });
+          await tx.savedMealItem.deleteMany({ where: { savedMealId: meal.id } });
+        } else {
+          await tx.savedMeal.create({ data: { id: meal.id, userId, ...data } });
+        }
+        await tx.savedMealItem.createMany({
+          data: meal.items.map((item) => ({
+            id: item.id,
+            savedMealId: meal.id,
+            productId: item.productId,
+            productName: item.productName,
+            grams: item.amountG,
+            kcal: item.calories,
+            protein: item.protein,
+            carbs: item.carbs,
+            fat: item.fat,
+            nutritionSource: item.nutritionSource,
+            sortIndex: item.sortIndex,
+          })),
+        });
+        break;
+      }
+      case 'saved_meal.delete': {
+        const parsed = z.object({ id: z.string().uuid() }).safeParse(payloadJson);
+        if (!parsed.success) throw new ValidationError('Ugyldig lagret-måltid-delete payload');
+        const existing = await tx.savedMeal.findUnique({ where: { id: parsed.data.id } });
+        if (existing && existing.userId !== userId) {
+          throw new AuthorizationError('Det lagrede måltidet tilhører en annen bruker');
+        }
+        await tx.savedMeal.deleteMany({ where: { id: parsed.data.id, userId } });
         break;
       }
       default:

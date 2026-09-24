@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct LoggView: View {
     @EnvironmentObject var appState: AppState
@@ -6,6 +7,7 @@ struct LoggView: View {
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
+    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @State private var selectedDate: Date = Date()
     @State private var selectedSummary: DailySummary?
     @State private var yesterdaySummary: DailySummary?
@@ -17,6 +19,9 @@ struct LoggView: View {
     @State private var editingLog: FoodLog?
     @State private var showDeleteConfirm = false
     @State private var logPendingDelete: FoodLog?
+    @State private var receiptPayload: ReceiptPayload?
+    @State private var isUndoingReceipt = false
+    @State private var savedMealSource: SavedMealCreationSource?
 
     init(initialDate: Date = Date(), initialMealFilter: String? = nil) {
         _selectedDate = State(initialValue: initialDate)
@@ -43,6 +48,19 @@ struct LoggView: View {
                 AppColors.background.ignoresSafeArea()
                 
                 logList
+            }
+            .overlay(alignment: .bottom) {
+                if let payload = receiptPayload {
+                    LogToastView(
+                        payload: payload,
+                        isUndoing: isUndoingReceipt,
+                        onUndo: { undoLogging(payload) },
+                        onDismiss: { dismissReceipt() }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                    .transition(.logToast)
+                }
             }
             .navigationTitle("Logg")
             .toolbar {
@@ -84,7 +102,10 @@ struct LoggView: View {
                         Task { await loadSelectedSummary() }
                     })
                 case .raw:
-                    RawMaterialsSearchView()
+                    RawMaterialsSearchView { payload in
+                        receiptPayload = payload
+                        Task { await loadSelectedSummary() }
+                    }
                         .environmentObject(appState)
                 case .manual:
                     ManualAddView(onOpenRawMaterials: {
@@ -107,6 +128,9 @@ struct LoggView: View {
                     }
                 })
                 .environmentObject(appState)
+            }
+            .sheet(item: $savedMealSource) { source in
+                SaveMealFromLogsView(source: source)
             }
             .alert("Slett logging?", isPresented: $showDeleteConfirm) {
                 Button("Slett", role: .destructive) {
@@ -141,6 +165,39 @@ struct LoggView: View {
                     selectedDate = newValue
                 }
             }
+            .onChange(of: logViewModel.mutationRevision) { _, _ in
+                Task { await loadSelectedSummary() }
+            }
+        }
+    }
+
+    private func dismissReceipt() {
+        if UIAccessibility.isReduceMotionEnabled {
+            receiptPayload = nil
+        } else {
+            withAnimation(.smooth(duration: 0.32)) { receiptPayload = nil }
+        }
+    }
+
+    private func undoLogging(_ payload: ReceiptPayload) {
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        isUndoingReceipt = true
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(
+                productId: payload.product.id,
+                mealType: payload.mealType,
+                amountG: Float(payload.amountG),
+                userId: userId,
+                date: payload.loggedDate
+            )
+            if succeeded {
+                dismissReceipt()
+                await loadSelectedSummary()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage ?? "Kunne ikke angre loggingen."
+            }
+            isUndoingReceipt = false
         }
     }
     
@@ -225,9 +282,21 @@ struct LoggView: View {
                         .listRowBackground(AppColors.background)
                     }
                 } header: {
-                    Text(LogSummaryService.title(for: group.mealType))
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                    HStack {
+                        Text(LogSummaryService.title(for: group.mealType))
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                        Spacer()
+                        Menu {
+                            Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                                savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: group.logs)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
+                    }
                 }
             }
             
@@ -281,6 +350,7 @@ struct LoggView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .matLoggTabBarScrollClearance()
         
         baseList.searchable(text: $searchText, prompt: hasLogs ? "Søk i dagens logg" : "Søk i logg")
     }

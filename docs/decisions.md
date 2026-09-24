@@ -112,3 +112,68 @@ målberegninger, ekstra innsamling av data eller ekstern AI.
 **Konsekvens:** Egen ViewModel injiseres ved app-roten. Repository får atomiske
 batchoperasjoner for logger og tilhørende eksisterende synkhendelser. Ingen
 synkkontrakt eller produksjonsflagg endres. Brukertest gjenstår.
+
+## 2026-09-23 – Målforslag uten gjettet standardverdi
+
+**Beslutning:** Automatiske kaloriforslag krever komplett beregningsgrunnlag for
+en voksen: gyldig vekt, høyde, alder 18+ og valg av kvinne- eller mannvarianten
+i den eksisterende Mifflin–St Jeor-formelen. Ved manglende eller annet grunnlag
+viser appen et tomt felt for eget mål fremfor et aktivitetsbasert standardtall.
+Forslaget omtales som et estimert startpunkt. Standard makroprofiler følger
+NNR 2023-intervallene for voksne.
+
+**Begrunnelse:** Et generelt enkelttall og en udokumentert kjønns-/formelkonstant
+ga falsk presisjon. Makroprofilen merket «anbefalt» lå samtidig utenfor nordiske
+referanseintervaller for protein. Den nye avgrensningen er ærligere uten å gjøre
+MatLogg til et medisinsk rådgivningsprodukt eller samle inn flere sensitive data.
+
+**Konsekvens:** Brukere under 18 og brukere uten støttet beregningsgrunnlag kan
+fortsatt angi egne mål eller bruke appen uten synlige mål. Eksisterende lagrede
+mål, local-first-lagring og synkkontrakt endres ikke. Beregningen er ikke
+tilpasset graviditet, amming eller medisinske ernæringsbehov.
+
+## 2026-09-23 – Ikke-modal bekreftelse etter matlogging
+
+**Beslutning:** Den modale mini-kvitteringen erstattes av en kompakt melding med
+vare, mengde, måltid, «Lagret på enheten» og Angre. Meldingen forsvinner etter
+fire sekunder. Ved strekkodeskanning fortsetter kameraet automatisk.
+
+**Begrunnelse:** Kvitteringsarket gjentok informasjon brukeren nettopp hadde
+kontrollert og avbrøt en hyppig handling. Den kompakte bekreftelsen gir trygghet
+og feilretting uten å legge inn et ekstra steg.
+
+**Konsekvens:** «Skann en til», «Legg til igjen» og «Lukk» fjernes fra
+bekreftelsen. Angre bruker eksisterende local-first-sletting og synkhendelse;
+datamodell, synkkontrakt og backend endres ikke.
+
+## 2026-09-24 – Fail-closed auth og brukereid synk-idempotens
+
+**Beslutning:** Backend krever eksplisitt `JWT_SECRET` ved oppstart. Den kjente
+utviklingsverdien avvises i produksjon, og dev-login krever et eksplisitt flagg
+og kan aldri aktiveres med `NODE_ENV=production`. Replay av en synkhendelse
+bekreftes bare når eksisterende inbox-rad eies av samme bruker.
+
+**Begrunnelse:** En glemt miljøvariabel eller et åpent dev-endepunkt skal ikke
+kunne gi tilgang til produksjonsdata. Idempotens skal heller ikke kunne bekrefte
+en event-ID på tvers av brukere.
+
+**Konsekvens:** Alle miljøer som starter API-et må konfigurere `JWT_SECRET`.
+Lokale miljøer må i tillegg velge `DEV_LOGIN_ENABLED=true` dersom dev-login
+skal brukes. Synkkontraktens wire-format og schema-versjon forblir uendret.
+
+## 2026-09-24 – Lagrede måltider som eget aggregat
+
+**Beslutning:** Et navngitt lagret måltid er en egen brukereid mal med
+matvarer, mengder, næringssnapshot og kilde. Bruk av malen oppretter nye,
+selvstendige logger; endring av malen påvirker aldri historikk. Første versjon
+opprettes fra et allerede registrert måltid og er ikke en oppskriftsbygger.
+
+**Begrunnelse:** Dette gir rask, eksplisitt gjenbruk uten å blande permanent
+brukerinnhold med det midlertidige forslaget «fra i går» eller utvide til
+oppskrifter og måltidsplanlegging. Snapshotet hindrer stille endring av tidligere
+godkjent næringsgrunnlag.
+
+**Konsekvens:** Lokalt skjema økes til v2. Klient og backend støtter
+`saved_meal.upsert` og `saved_meal.delete`, men produksjonssynk forblir av og
+flerenhetsnedlasting er ikke implementert. Malens lokale skriving og hendelse er
+atomisk; logging fra malen gjenbruker eksisterende atomiske loggbatcher.

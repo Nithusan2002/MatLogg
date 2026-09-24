@@ -1,5 +1,6 @@
 import { IsArray, IsISO8601, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { MAX_SYNC_PAYLOAD_BASE64_CHARS } from './sync.contract';
 
 export class SyncEventDto {
   @IsUUID()
@@ -13,6 +14,7 @@ export class SyncEventDto {
   createdAt!: string;
 
   @IsOptional()
+  @IsUUID()
   entityId!: string | null;
 
   @IsInt()
@@ -21,6 +23,7 @@ export class SyncEventDto {
   schemaVersion!: number;
 
   @IsString()
+  @MaxLength(MAX_SYNC_PAYLOAD_BASE64_CHARS)
   payload!: string;
 }
 

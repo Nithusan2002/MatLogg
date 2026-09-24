@@ -1,91 +1,5 @@
 import SwiftUI
 
-struct MatLoggTabBar: View {
-    static let scrollContentBottomMargin: CGFloat = 104
-
-    @Binding var selection: AppTab
-
-    private let tabs: [(AppTab, String, String)] = [
-        (.home, "Hjem", "house"),
-        (.search, "Søk", "magnifyingglass"),
-        (.progress, "Oversikt", "chart.bar"),
-        (.profile, "Profil", "person")
-    ]
-
-    @ViewBuilder
-    var body: some View {
-        if #available(iOS 26.0, *) {
-            tabBarContent
-                .padding(.vertical, 8)
-                .padding(.horizontal, 10)
-                .glassEffect(
-                    .regular,
-                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
-                )
-                .padding(.horizontal, 8)
-                .padding(.bottom, 4)
-                .offset(y: 8)
-        } else {
-            tabBarContent
-                .padding(.vertical, 8)
-                .padding(.horizontal, 10)
-                .background(AppColors.surface)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(AppColors.separator)
-                        .frame(height: 1)
-                }
-        }
-    }
-
-    private var tabBarContent: some View {
-        HStack(spacing: 4) {
-            tabButton(tabs[0])
-            tabButton(tabs[1])
-            Button { selection = .add } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 25, weight: .semibold))
-                        .foregroundColor(AppColors.onVibrant)
-                        .frame(width: 56, height: 56)
-                        .background(AppColors.brand, in: Circle())
-                        .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
-                        .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
-                    Text("Loggfør")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.deepInk)
-                }
-                .frame(maxWidth: .infinity, minHeight: 70)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Loggfør mat")
-            .padding(.top, -4)
-            tabButton(tabs[2])
-            tabButton(tabs[3])
-        }
-        .frame(minHeight: 70)
-    }
-
-    private func tabButton(_ tab: (AppTab, String, String)) -> some View {
-        Button { selection = tab.0 } label: {
-            VStack(spacing: 4) {
-                Image(systemName: selection == tab.0 && tab.0 != .search ? "\(tab.2).fill" : tab.2)
-                    .font(.system(size: 18, weight: .medium))
-                Text(tab.1)
-                    .font(selection == tab.0 ? AppTypography.captionEmphasis : AppTypography.caption)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 52)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selection == tab.0 ? .isSelected : [])
-    }
-}
-
 struct QuickLogSheet: View {
     private enum LoadState: Equatable {
         case loading
@@ -98,14 +12,18 @@ struct QuickLogSheet: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var productViewModel: ProductViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
     @State private var products: [Product] = []
     @State private var selectedProduct: Product?
     @State private var loadState: LoadState = .loading
+    @State private var selectedSavedMeal: SavedMeal?
+    @State private var showAllSavedMeals = false
 
     let onSearch: () -> Void
     let onScan: () -> Void
     let onManualAdd: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    let onSavedMealLogComplete: () -> Void
 
     var body: some View {
         ScrollView {
@@ -129,6 +47,8 @@ struct QuickLogSheet: View {
 
                 mealPicker
 
+                savedMealsSection
+
                 if loadState == .loading {
                     HStack(spacing: 10) {
                         ProgressView()
@@ -142,7 +62,7 @@ struct QuickLogSheet: View {
                     VStack(spacing: 10) {
                         Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
                             .font(AppTypography.bodyEmphasis)
-                        Button("Prøv igjen") { Task { await loadProducts() } }
+                        Button("Prøv igjen") { Task { await loadContent() } }
                             .font(AppTypography.bodyEmphasis)
                             .foregroundColor(AppColors.action)
                             .frame(minHeight: 44)
@@ -150,10 +70,10 @@ struct QuickLogSheet: View {
                     .frame(maxWidth: .infinity, minHeight: 120)
                 } else if loadState == .empty {
                     VStack(spacing: 10) {
-                        Text("Ingen hurtigvalg ennå")
+                        Text("Ingen enkeltvarer i hurtigvalg ennå")
                             .font(AppTypography.bodyEmphasis)
                             .foregroundColor(AppColors.deepInk)
-                        Text("Søk etter eller skann en matvare. Nylig brukte og favoritter vises her neste gang.")
+                        Text("Søk etter eller skann en matvare. Nylig brukte enkeltvarer og favoritter vises her neste gang.")
                             .font(AppTypography.body)
                             .foregroundColor(AppColors.textSecondary)
                             .multilineTextAlignment(.center)
@@ -201,11 +121,50 @@ struct QuickLogSheet: View {
             .padding(.bottom, 28)
         }
         .background(AppColors.background.ignoresSafeArea())
-        .task { await loadProducts() }
+        .task { await loadContent() }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(product: product, appState: appState) { payload in
                 dismiss()
                 onLogComplete(payload)
+            }
+        }
+        .sheet(item: $selectedSavedMeal) { meal in
+            SavedMealLogView(meal: meal) {
+                selectedSavedMeal = nil
+                dismiss()
+                onSavedMealLogComplete()
+            }
+        }
+        .sheet(isPresented: $showAllSavedMeals) {
+            SavedMealsListView {
+                showAllSavedMeals = false
+                dismiss()
+                onSavedMealLogComplete()
+            }
+        }
+    }
+
+    @ViewBuilder private var savedMealsSection: some View {
+        if !savedMealsViewModel.meals.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Lagrede måltider")
+                        .font(AppTypography.sectionTitle)
+                        .foregroundStyle(AppColors.deepInk)
+                    Spacer()
+                    Button("Se alle") { showAllSavedMeals = true }
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.action)
+                        .frame(minHeight: 44)
+                }
+                ForEach(savedMealsViewModel.meals.prefix(3)) { meal in
+                    Button { selectedSavedMeal = meal } label: {
+                        SavedMealRow(meal: meal)
+                            .padding(12)
+                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
     }
@@ -252,12 +211,13 @@ struct QuickLogSheet: View {
             .capitalized
     }
 
-    private func loadProducts() async {
+    private func loadContent() async {
         loadState = .loading
         guard let userId = authViewModel.currentUser?.id else {
             loadState = .unavailable
             return
         }
+        await savedMealsViewModel.load(userId: userId)
         let favorites = await productViewModel.favoriteProducts(userId: userId)
         let recents = await productViewModel.recentProducts(userId: userId, limit: 8)
         var seen = Set<UUID>()

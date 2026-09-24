@@ -12,6 +12,7 @@ struct MatLoggApp: App {
     @StateObject private var appState: AppState
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
+    @StateObject private var savedMealsViewModel: SavedMealsViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
     @StateObject private var dailyGoalsViewModel: DailyGoalsViewModel
@@ -25,6 +26,10 @@ struct MatLoggApp: App {
         _appState = StateObject(wrappedValue: AppState(databaseService: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
+        _savedMealsViewModel = StateObject(wrappedValue: SavedMealsViewModel(
+            savedMealRepository: databaseService,
+            foodLogRepository: databaseService
+        ))
         _productViewModel = StateObject(wrappedValue: ProductViewModel(repository: databaseService))
         let healthProfile = HealthProfileViewModel(repository: databaseService)
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
@@ -33,7 +38,10 @@ struct MatLoggApp: App {
         ))
         _authViewModel = StateObject(wrappedValue: AuthViewModel())
         _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel())
-        _userDataExportService = StateObject(wrappedValue: UserDataExportService(logRepository: databaseService))
+        _userDataExportService = StateObject(wrappedValue: UserDataExportService(
+            logRepository: databaseService,
+            savedMealRepository: databaseService
+        ))
     }
     
     var body: some Scene {
@@ -41,10 +49,12 @@ struct MatLoggApp: App {
             configuredContent
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
                 mealReuseViewModel.reset()
+                savedMealsViewModel.reset()
                 if let userId {
                     Task {
                         guard authViewModel.currentUser?.id == userId else { return }
                         await mealReuseViewModel.load(userId: userId)
+                        await savedMealsViewModel.load(userId: userId)
                     }
                 }
             }
@@ -103,6 +113,7 @@ struct MatLoggApp: App {
         .environmentObject(appState)
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)
+        .environmentObject(savedMealsViewModel)
         .environmentObject(productViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)

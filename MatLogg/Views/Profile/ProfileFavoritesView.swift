@@ -43,6 +43,7 @@ struct ProfileFavoritesView: View {
                     }
                     .padding(16)
                 }
+                .matLoggTabBarScrollClearance()
                 .refreshable { await loadFavorites() }
                 .accessibilityIdentifier("favorites-list")
             }

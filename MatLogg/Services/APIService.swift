@@ -23,10 +23,12 @@ class APIService {
         case networkError(String)
         case decodingError
         case serverError(Int)
+        case backendError(statusCode: Int, code: String?, message: String)
         case backendNotConfigured
         case batchLimitExceeded(Int)
         case payloadTooLarge(Int)
         case missingAccessToken
+        case rateLimited(retryAfterSeconds: Int?)
         
         var errorDescription: String? {
             switch self {
@@ -38,6 +40,8 @@ class APIService {
                 return "Kunne ikke tolke svar fra server"
             case .serverError(let code):
                 return "Server feil: \(code)"
+            case .backendError(_, _, let message):
+                return message
             case .backendNotConfigured:
                 return "Backend ikke konfigurert"
             case .batchLimitExceeded(let limit):
@@ -46,6 +50,11 @@ class APIService {
                 return "For stor payload i sync-event (maks \(limit) bytes)"
             case .missingAccessToken:
                 return "Du må være innlogget for å synkronisere"
+            case .rateLimited(let seconds):
+                if let seconds {
+                    return "Produktdatabasen ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
+                }
+                return "Produktdatabasen ber oss vente litt før neste søk."
             }
         }
     }
@@ -99,32 +108,17 @@ class APIService {
             "email": email,
             "password": password,
             "first_name": firstName,
-            "last_name": lastName,
-            "auth_provider": "email"
+            "last_name": lastName
         ]
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
         let (data, response) = try await session.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
+        try requireBackendSuccess(data: data, response: response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        
-        struct AuthResponse: Codable {
-            let user_id: UUID
-            let email: String
-            let first_name: String
-            let last_name: String
-            let token: String
-        }
         
         let authResponse = try decoder.decode(AuthResponse.self, from: data)
         
@@ -133,8 +127,8 @@ class APIService {
             email: authResponse.email,
             firstName: authResponse.first_name,
             lastName: authResponse.last_name,
-            authProvider: "email",
-            createdAt: Date()
+            authProvider: authResponse.auth_provider,
+            createdAt: authResponse.created_at
         )
         
         return (user, authResponse.token)
@@ -155,24 +149,10 @@ class APIService {
         
         let (data, response) = try await session.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
+        try requireBackendSuccess(data: data, response: response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        
-        struct AuthResponse: Codable {
-            let user_id: UUID
-            let email: String
-            let first_name: String
-            let last_name: String
-            let token: String
-        }
         
         let authResponse = try decoder.decode(AuthResponse.self, from: data)
         
@@ -181,8 +161,8 @@ class APIService {
             email: authResponse.email,
             firstName: authResponse.first_name,
             lastName: authResponse.last_name,
-            authProvider: "email",
-            createdAt: Date()
+            authProvider: authResponse.auth_provider,
+            createdAt: authResponse.created_at
         )
         
         return (user, authResponse.token)
@@ -198,12 +178,7 @@ class APIService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
+        try requireBackendSuccess(data: data, response: response)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(AccountDeletionReceipt.self, from: data)
@@ -255,13 +230,7 @@ class APIService {
         request.httpBody = try encoder.encode(payload)
         
         let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
+        try requireBackendSuccess(data: data, response: response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -362,116 +331,130 @@ class APIService {
     }
     
     // MARK: - Open Food Facts Lookup
+
+    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var components = URLComponents(string: "https://no.openfoodfacts.org/cgi/search.pl")
+        components?.queryItems = [
+            URLQueryItem(name: "search_terms", value: trimmed),
+            URLQueryItem(name: "search_simple", value: "1"),
+            URLQueryItem(name: "action", value: "process"),
+            URLQueryItem(name: "json", value: "1"),
+            URLQueryItem(name: "page_size", value: "20"),
+            URLQueryItem(
+                name: "fields",
+                value: "code,product_name,brands,categories,image_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutriments"
+            )
+        ]
+        guard let url = components?.url else { throw APIError.invalidURL }
+
+        let data = try await openFoodFactsData(from: url)
+        let response = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
+
+        return response.products.compactMap { product in
+            makeOpenFoodFactsProduct(product, barcode: product.code, requiresCompleteMacros: true)
+        }
+    }
     
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
         guard let url = URL(string: "https://no.openfoodfacts.org/api/v0/product/\(ean).json") else {
             throw APIError.invalidURL
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("MatLogg iOS (com.nithusan.MatLogg)", forHTTPHeaderField: "User-Agent")
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
-        
-        struct OpenFoodFactsResponse: Codable {
-            let status: Int
-            let code: String?
-            let product: OpenFoodFactsProduct?
-        }
-        
-        struct OpenFoodFactsProduct: Codable {
-            let productName: String?
-            let brands: String?
-            let categories: String?
-            let imageUrl: String?
-            let servingSize: String?
-            let servingQuantity: FlexibleDouble?
-            let productQuantity: FlexibleDouble?
-            let productQuantityUnit: String?
-            let nutriments: Nutriments?
-            
-            struct Nutriments: Codable {
-                let energyKcal100g: Double?
-                let protein100g: Double?
-                let carbs100g: Double?
-                let fat100g: Double?
-                let sugars100g: Double?
-                let fiber100g: Double?
-                let sodium100g: Double?
-                
-                enum CodingKeys: String, CodingKey {
-                    case energyKcal100g = "energy-kcal_100g"
-                    case protein100g = "proteins_100g"
-                    case carbs100g = "carbohydrates_100g"
-                    case fat100g = "fat_100g"
-                    case sugars100g = "sugars_100g"
-                    case fiber100g = "fiber_100g"
-                    case sodium100g = "sodium_100g"
-                }
-            }
-            
-            enum CodingKeys: String, CodingKey {
-                case productName = "product_name"
-                case brands
-                case categories
-                case imageUrl = "image_url"
-                case servingSize = "serving_size"
-                case servingQuantity = "serving_quantity"
-                case productQuantity = "product_quantity"
-                case productQuantityUnit = "product_quantity_unit"
-                case nutriments
-            }
-        }
-        
-        let decoder = JSONDecoder()
-        let responseData = try decoder.decode(OpenFoodFactsResponse.self, from: data)
+        let data = try await openFoodFactsData(from: url)
+        let responseData = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
         
         guard responseData.status == 1, let product = responseData.product else {
             throw APIError.serverError(404)
         }
-        
-        let nutriments = product.nutriments
-        let calories = Int((nutriments?.energyKcal100g ?? 0).rounded())
-        let protein = Float(nutriments?.protein100g ?? 0)
-        let carbs = Float(nutriments?.carbs100g ?? 0)
-        let fat = Float(nutriments?.fat100g ?? 0)
-        let sugar = nutriments?.sugars100g.map { Float($0) }
-        let fiber = nutriments?.fiber100g.map { Float($0) }
-        let sodiumMg = nutriments?.sodium100g.map { Int(($0 * 1000).rounded()) }
+
+        guard let mapped = makeOpenFoodFactsProduct(
+            product,
+            barcode: responseData.code ?? ean,
+            requiresCompleteMacros: true
+        ) else {
+            throw APIError.decodingError
+        }
+        return mapped
+    }
+
+    private func openFoodFactsData(from url: URL) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        request.setValue(openFoodFactsUserAgent, forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError("Ugyldig respons")
+        }
+        if httpResponse.statusCode == 429 {
+            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+            throw APIError.rateLimited(retryAfterSeconds: retryAfter)
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw APIError.serverError(httpResponse.statusCode)
+        }
+        return data
+    }
+
+    private var openFoodFactsUserAgent: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development"
+        return "MatLogg/\(version) (mailto:nithusank.2002@gmail.com)"
+    }
+
+    private func requireBackendSuccess(data: Data, response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.networkError("Ugyldig respons")
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let decoded = try? JSONDecoder().decode(BackendErrorResponse.self, from: data)
+            throw APIError.backendError(
+                statusCode: httpResponse.statusCode,
+                code: decoded?.code,
+                message: decoded?.message ?? "Serverfeil (\(httpResponse.statusCode))"
+            )
+        }
+    }
+
+    private func makeOpenFoodFactsProduct(
+        _ product: OpenFoodFactsProduct,
+        barcode: String?,
+        requiresCompleteMacros: Bool
+    ) -> Product? {
         let name = product.productName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = (name?.isEmpty == false) ? name! : "Ukjent produkt"
+        guard let name, !name.isEmpty else { return nil }
+
+        let nutriments = product.nutriments
+        if requiresCompleteMacros,
+           (nutriments?.energyKcal100g == nil || nutriments?.protein100g == nil ||
+            nutriments?.carbs100g == nil || nutriments?.fat100g == nil) {
+            return nil
+        }
+
         let servings = buildServingOptions(
-            name: displayName,
+            name: name,
             servingSize: product.servingSize,
             servingQuantity: product.servingQuantity?.value,
             productQuantity: product.productQuantity?.value,
             productQuantityUnit: product.productQuantityUnit
         )
-        
+
         return Product(
-            id: UUID(),
-            name: displayName,
+            name: name,
             brand: product.brands,
             category: product.categories,
-            barcodeEan: responseData.code ?? ean,
+            barcodeEan: barcode,
             source: "openfoodfacts",
             kind: .packaged,
-            caloriesPer100g: calories,
-            proteinGPer100g: protein,
-            carbsGPer100g: carbs,
-            fatGPer100g: fat,
-            sugarGPer100g: sugar,
-            fiberGPer100g: fiber,
-            sodiumMgPer100g: sodiumMg,
+            caloriesPer100g: Int((nutriments?.energyKcal100g ?? 0).rounded()),
+            proteinGPer100g: Float(nutriments?.protein100g ?? 0),
+            carbsGPer100g: Float(nutriments?.carbs100g ?? 0),
+            fatGPer100g: Float(nutriments?.fat100g ?? 0),
+            sugarGPer100g: nutriments?.sugars100g.map(Float.init),
+            fiberGPer100g: nutriments?.fiber100g.map(Float.init),
+            sodiumMgPer100g: nutriments?.sodium100g.map { Int(($0 * 1000).rounded()) },
             imageUrl: product.imageUrl,
             servings: servings,
             nutritionSource: .openFoodFacts,
@@ -609,6 +592,96 @@ class APIService {
             return String(Int(grams))
         }
         return String(format: "%.1f", grams)
+    }
+}
+
+private struct AuthResponse: Decodable {
+    let user_id: UUID
+    let email: String
+    let first_name: String
+    let last_name: String
+    let auth_provider: String
+    let created_at: Date
+    let token: String
+}
+
+private struct BackendErrorResponse: Decodable {
+    let code: String?
+    let message: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case code
+        case error
+        case message
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        code = try container.decodeIfPresent(String.self, forKey: .code)
+            ?? container.decodeIfPresent(String.self, forKey: .error)
+        if let text = try? container.decode(String.self, forKey: .message) {
+            message = text
+        } else if let messages = try? container.decode([String].self, forKey: .message) {
+            message = messages.joined(separator: " ")
+        } else {
+            message = nil
+        }
+    }
+}
+
+private struct OpenFoodFactsResponse: Codable {
+    let status: Int
+    let code: String?
+    let product: OpenFoodFactsProduct?
+}
+
+private struct OpenFoodFactsSearchResponse: Codable {
+    let products: [OpenFoodFactsProduct]
+}
+
+private struct OpenFoodFactsProduct: Codable {
+    let code: String?
+    let productName: String?
+    let brands: String?
+    let categories: String?
+    let imageUrl: String?
+    let servingSize: String?
+    let servingQuantity: FlexibleDouble?
+    let productQuantity: FlexibleDouble?
+    let productQuantityUnit: String?
+    let nutriments: OpenFoodFactsNutriments?
+
+    enum CodingKeys: String, CodingKey {
+        case code
+        case productName = "product_name"
+        case brands
+        case categories
+        case imageUrl = "image_url"
+        case servingSize = "serving_size"
+        case servingQuantity = "serving_quantity"
+        case productQuantity = "product_quantity"
+        case productQuantityUnit = "product_quantity_unit"
+        case nutriments
+    }
+}
+
+private struct OpenFoodFactsNutriments: Codable {
+    let energyKcal100g: Double?
+    let protein100g: Double?
+    let carbs100g: Double?
+    let fat100g: Double?
+    let sugars100g: Double?
+    let fiber100g: Double?
+    let sodium100g: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case energyKcal100g = "energy-kcal_100g"
+        case protein100g = "proteins_100g"
+        case carbs100g = "carbohydrates_100g"
+        case fat100g = "fat_100g"
+        case sugars100g = "sugars_100g"
+        case fiber100g = "fiber_100g"
+        case sodium100g = "sodium_100g"
     }
 }
 

@@ -165,18 +165,30 @@ final class GoalSuggestionViewModel: ObservableObject {
 
     var usesPersonalDetails: Bool {
         guard let weight = details.weightKg, let height = details.heightCm, let age else { return false }
-        return weight.isFinite && height.isFinite && (1...1000).contains(weight)
-            && (1...300).contains(height) && (1...120).contains(age)
+        guard details.gender == .kvinne || details.gender == .mann else { return false }
+        return weight.isFinite && height.isFinite
+            && GoalCalculator.supportedWeightRange.contains(weight)
+            && GoalCalculator.supportedHeightRange.contains(height)
+            && GoalCalculator.supportedAgeRange.contains(age)
     }
 
-    var suggestion: GoalSuggestion {
+    var unavailableReason: String? {
+        if let age, !GoalCalculator.supportedAgeRange.contains(age) {
+            return "Automatiske forslag er bare tilgjengelige for voksne. Du kan fortsatt angi egne mål."
+        }
+        return "Et personlig forslag krever gyldig vekt, høyde, fødselsdato og valg av kvinne- eller mannvarianten i beregningsformelen. Du kan fortsatt angi egne mål."
+    }
+
+    var suggestion: GoalSuggestion? {
+        guard usesPersonalDetails else { return nil }
         let input = GoalCalculationInput(
-            weightKg: usesPersonalDetails ? details.weightKg : nil,
-            heightCm: usesPersonalDetails ? details.heightCm : nil,
-            ageYears: usesPersonalDetails ? age : nil,
+            weightKg: details.weightKg,
+            heightCm: details.heightCm,
+            ageYears: age,
             gender: details.gender, activity: activity, intent: intent, pace: pace
         )
-        let kcal = GoalCalculator.roundedDisplay(GoalCalculator.calculateSuggestion(input: input).suggestedCalories)
+        guard let result = GoalCalculator.calculateSuggestion(input: input) else { return nil }
+        let kcal = GoalCalculator.roundedDisplay(result.suggestedCalories)
         return GoalSuggestion(calories: kcal, macros: GoalCalculator.calculateMacros(kcal: kcal, preset: preset),
                               intent: intent, pace: pace, activity: activity)
     }

@@ -131,6 +131,38 @@ struct Log {
 }
 ```
 
+### **SavedMeal (Lagret måltid)**
+
+```swift
+struct SavedMeal {
+    id: UUID
+    user_id: UUID
+    name: String
+    suggested_meal_type: String?
+    items: [SavedMealItem]
+    created_at: DateTime
+    updated_at: DateTime
+}
+
+struct SavedMealItem {
+    id: UUID
+    product_id: UUID
+    product_name: String
+    amount_g: Float
+    calories: Int
+    protein_g: Float
+    carbs_g: Float
+    fat_g: Float
+    nutrition_source: String
+    sort_index: Int
+}
+```
+
+Malen er et separat aggregat. Den bevarer næringsgrunnlaget brukeren godkjente,
+mens bruk av malen oppretter nye ordinære logger. Lokal `saved_meals`-skriving
+og `saved_meal.upsert`/`saved_meal.delete` skjer atomisk. Backend normaliserer
+elementene og autoriserer aggregatet mot brukeren fra tokenet.
+
 ### **Favorites**
 
 ```swift

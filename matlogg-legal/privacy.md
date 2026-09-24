@@ -17,6 +17,8 @@ Konto og innlogging
 
 Det du logger i appen
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
+  - Lagrede maltider du oppretter for gjenbruk, inkludert navn, matvarer,
+    mengder og lagret naeringsgrunnlag/kilde.
   - Mal (kalorier og makroer) og innstillinger (f.eks. haptics/lyd, trygg modus).
   - Valgfri fremgang/vektlogg dersom du velger a bruke den.
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
@@ -31,6 +33,7 @@ Deling
 
 Vi bruker data for a:
   - La deg logge mat og se historikk over tid.
+  - La deg lagre og gjenbruke egne maltider uten a velge hver matvare pa nytt.
   - Vise garsdagens maltid som et valgfritt forslag til raskere logging. Dette beregnes lokalt pa enheten, uten a sende spisehistorikk til en ekstern AI-tjeneste. Et forslag lagres som et nytt maltid bare nar du velger a loggfore det.
   - Lagra data pa tvers av enheter nar du er innlogget.
   - Gi raskere oppslag ved skanning (cache/historikk).

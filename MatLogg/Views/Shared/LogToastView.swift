@@ -1,55 +1,42 @@
 import SwiftUI
+import UIKit
 
 struct LogToastView: View {
     let payload: ReceiptPayload
+    let isUndoing: Bool
     let onUndo: () -> Void
-    let onScanNext: () -> Void
     let onDismiss: () -> Void
-    
-    @State private var dragOffset: CGSize = .zero
-    
+
+    @State private var dragOffset: CGFloat = 0
+
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Label("Logget til \(mealTitle)", systemImage: "checkmark.circle.fill")
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title3)
+                .foregroundColor(AppColors.success)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(formatAmount(payload.amountG)) g \(payload.product.name) lagt til \(mealTitle)")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.ink)
-                Spacer()
-            }
-            
-            HStack(spacing: 8) {
-                Text("\(payload.product.name) · \(formatAmount(payload.amountG)) g")
-                    .font(AppTypography.body)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("Lagret på enheten")
+                    .font(AppTypography.caption)
                     .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(2)
-                Spacer()
             }
-            
-            HStack(spacing: 12) {
-                Button(action: onUndo) {
-                    Text("Angre")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.brand)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
-                        .background(AppColors.surface)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(AppColors.separator, lineWidth: 1)
-                        )
-                        .cornerRadius(12)
-                }
-                
-                Button(action: onScanNext) {
-                    Text("Skann en til")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.onVibrant)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 44)
-                        .background(AppColors.brand)
-                        .cornerRadius(12)
-                }
+
+            Spacer(minLength: 0)
+
+            Button(action: onUndo) {
+                Text(isUndoing ? "Angrer …" : "Angre")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.action)
+                    .frame(minWidth: 44, minHeight: 44)
             }
+            .buttonStyle(.plain)
+            .disabled(isUndoing)
         }
         .padding(14)
         .background(AppColors.surface)
@@ -59,21 +46,56 @@ struct LogToastView: View {
         )
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
-        .offset(y: dragOffset.height)
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    if value.translation.height > 0 {
-                        dragOffset = value.translation
-                    }
+        .contentShape(Rectangle())
+        .offset(y: dragOffset)
+        .opacity(1 - min(dragOffset / 180, 0.55))
+        .simultaneousGesture(dismissGesture)
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Lukk bekreftelse") {
+            onDismiss()
+        }
+        .onChange(of: payload.id) {
+            dragOffset = 0
+        }
+        .task(id: payload.id) {
+            try? await Task.sleep(for: .seconds(UIAccessibility.isVoiceOverRunning ? 8 : 4))
+            guard !Task.isCancelled else { return }
+            onDismiss()
+        }
+    }
+
+    private var dismissGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                guard !isUndoing else { return }
+                let isPrimarilyDownward = value.translation.height > abs(value.translation.width)
+                dragOffset = isPrimarilyDownward ? max(0, value.translation.height) : 0
+            }
+            .onEnded { value in
+                guard !isUndoing else {
+                    resetDragOffset()
+                    return
                 }
-                .onEnded { value in
-                    if value.translation.height > 50 {
-                        onDismiss()
-                    }
-                    dragOffset = .zero
+
+                let shouldDismiss = value.translation.height > 52
+                    || value.predictedEndTranslation.height > 120
+
+                if shouldDismiss {
+                    onDismiss()
+                } else {
+                    resetDragOffset()
                 }
-        )
+            }
+    }
+
+    private func resetDragOffset() {
+        if UIAccessibility.isReduceMotionEnabled {
+            dragOffset = 0
+        } else {
+            withAnimation(.interactiveSpring(response: 0.28, dampingFraction: 0.86)) {
+                dragOffset = 0
+            }
+        }
     }
     
     private var mealTitle: String {
@@ -85,5 +107,14 @@ struct LogToastView: View {
             return String(Int(value))
         }
         return String(format: "%.1f", value)
+    }
+}
+
+extension AnyTransition {
+    static var logToast: AnyTransition {
+        .asymmetric(
+            insertion: .offset(y: 24).combined(with: .opacity),
+            removal: .offset(y: 42).combined(with: .opacity)
+        )
     }
 }

@@ -76,7 +76,7 @@ struct MatLoggTests {
         #expect(grouped.map(\.mealType) == ["frokost", "middag", "snacks"])
     }
 
-    @Test func goalCalculatorFallsBackWhenMissingData() async throws {
+    @Test func goalCalculatorDoesNotGuessWhenDataIsMissing() async throws {
         let input = GoalCalculationInput(
             weightKg: nil,
             heightCm: nil,
@@ -87,7 +87,7 @@ struct MatLoggTests {
             pace: .calm
         )
         let result = GoalCalculator.calculateSuggestion(input: input)
-        #expect(result.suggestedCalories == 2000)
+        #expect(result == nil)
     }
     
     @Test func goalCalculatorAdjustsForIntentAndPace() async throws {
@@ -100,7 +100,7 @@ struct MatLoggTests {
             intent: .lose,
             pace: .standard
         )
-        let result = GoalCalculator.calculateSuggestion(input: input)
+        let result = try #require(GoalCalculator.calculateSuggestion(input: input))
         #expect(result.suggestedCalories < result.baselineCalories)
     }
     
@@ -114,8 +114,45 @@ struct MatLoggTests {
             intent: .lose,
             pace: .fast
         )
-        let result = GoalCalculator.calculateSuggestion(input: input)
+        let result = try #require(GoalCalculator.calculateSuggestion(input: input))
         #expect(result.suggestedCalories >= 1200)
+    }
+
+    @Test func goalCalculatorRejectsUnsupportedAgeAndFormulaBasis() {
+        let minor = GoalCalculationInput(weightKg: 60, heightCm: 170, ageYears: 17,
+                                         gender: .kvinne, activity: .moderat,
+                                         intent: .maintain, pace: .calm)
+        let unspecified = GoalCalculationInput(weightKg: 75, heightCm: 180, ageYears: 30,
+                                               gender: .annet, activity: .moderat,
+                                               intent: .maintain, pace: .calm)
+        #expect(GoalCalculator.calculateSuggestion(input: minor) == nil)
+        #expect(GoalCalculator.calculateSuggestion(input: unspecified) == nil)
+    }
+
+    @Test func goalCalculatorRejectsImplausibleAdultMeasurements() {
+        let implausibleWeight = GoalCalculationInput(weightKg: 1, heightCm: 170, ageYears: 30,
+                                                     gender: .kvinne, activity: .moderat,
+                                                     intent: .maintain, pace: .calm)
+        let implausibleHeight = GoalCalculationInput(weightKg: 75, heightCm: 20, ageYears: 30,
+                                                     gender: .mann, activity: .moderat,
+                                                     intent: .maintain, pace: .calm)
+        #expect(GoalCalculator.calculateSuggestion(input: implausibleWeight) == nil)
+        #expect(GoalCalculator.calculateSuggestion(input: implausibleHeight) == nil)
+    }
+
+    @Test func macroPresetsUseAdultNordicReferenceRanges() {
+        let balanced = GoalCalculator.calculateMacros(kcal: 2000, preset: .balanced)
+        #expect(balanced.proteinG == 75)
+        #expect(balanced.carbsG == 250)
+        #expect(abs(balanced.fatG - 77.77778) < 0.001)
+
+        let protein = GoalCalculator.calculateMacros(kcal: 2000, preset: .proteinFocus)
+        #expect(protein.proteinG == 100)
+        #expect(protein.carbsG == 225)
+
+        let carbs = GoalCalculator.calculateMacros(kcal: 2000, preset: .carbFocus)
+        #expect(carbs.proteinG == 75)
+        #expect(carbs.carbsG == 275)
     }
     
     @Test func backoffRespectsBounds() async throws {

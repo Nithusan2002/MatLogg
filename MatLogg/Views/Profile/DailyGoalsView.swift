@@ -67,6 +67,7 @@ struct DailyGoalsView: View {
             .padding(20)
             .disabled(viewModel.isSaving || viewModel.didSave)
         }
+        .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
         .navigationTitle("Daglige mål")
@@ -144,21 +145,19 @@ private struct GoalSuggestionView: View {
                 if preferences.safeModeEnabled || preferences.safeModeHideGoals || preferences.safeModeHideCalories {
                     Text("Du har valgt en visning uten målforslag. Du kan endre visningen i Innstillinger.")
                         .listRowBackground(AppColors.surface)
-                } else if viewModel.showingResult {
+                } else if viewModel.showingResult, let suggestion = viewModel.suggestion {
                     Section("Veiledende forslag") {
-                        LabeledContent("Kalorier", value: "\(viewModel.suggestion.calories) kcal/dag")
-                        LabeledContent("Protein", value: "\(viewModel.suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
-                        LabeledContent("Karbohydrater", value: "\(viewModel.suggestion.macros.carbsG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
-                        LabeledContent("Fett", value: "\(viewModel.suggestion.macros.fatG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
-                        Text(viewModel.usesPersonalDetails
-                             ? "Beregnet fra lagrede personopplysninger og valgene dine. Dette er et estimat."
-                             : "Et generelt estimat basert på valgene dine. Fullstendige personopplysninger mangler eller kan ikke brukes.")
+                        LabeledContent("Estimert startpunkt", value: "ca. \(suggestion.calories) kcal/dag")
+                        LabeledContent("Protein", value: "\(suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        LabeledContent("Karbohydrater", value: "\(suggestion.macros.carbsG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        LabeledContent("Fett", value: "\(suggestion.macros.fatG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        Text("Beregnet fra lagrede personopplysninger og valgene dine. Dette er et estimat, ikke en medisinsk anbefaling.")
                             .font(AppTypography.caption)
                     }
                     .listRowBackground(AppColors.surface)
                     Section {
                         Button("Bruk forslaget") {
-                            onApply(viewModel.suggestion)
+                            onApply(suggestion)
                             dismiss()
                         }
                         .accessibilityIdentifier("daily-goals-apply-suggestion")
@@ -187,8 +186,11 @@ private struct GoalSuggestionView: View {
                     .listRowBackground(AppColors.surface)
                     Section {
                         Button("Se forslag") { viewModel.showingResult = true }
+                            .disabled(!viewModel.usesPersonalDetails)
                     } footer: {
-                        Text("Bruker opplysningene i Personlige detaljer når de er tilgjengelige. Ingen mål eller personopplysninger endres før du lagrer på målskjermen.")
+                        Text(viewModel.usesPersonalDetails
+                             ? "Bruker opplysningene i Personlige detaljer. Ingen mål eller personopplysninger endres før du lagrer på målskjermen. Ikke tilpasset graviditet, amming eller medisinske ernæringsbehov."
+                             : viewModel.unavailableReason ?? "Oppdater Personlige detaljer eller angi egne mål.")
                     }
                     .listRowBackground(AppColors.surface)
                 }

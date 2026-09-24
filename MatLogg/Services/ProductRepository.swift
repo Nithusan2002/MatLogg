@@ -30,3 +30,9 @@ protocol BarcodeProductService {
 }
 
 extension APIService: BarcodeProductService {}
+
+protocol ProductNameSearchService {
+    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product]
+}
+
+extension APIService: ProductNameSearchService {}

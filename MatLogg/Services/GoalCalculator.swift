@@ -17,10 +17,12 @@ struct GoalCalculationResult {
 
 enum GoalCalculator {
     static let calorieRange = 1200...4500
+    static let supportedAgeRange = 18...120
+    static let supportedWeightRange = 20.0...500.0
+    static let supportedHeightRange = 100.0...250.0
 
-    static func calculateSuggestion(input: GoalCalculationInput) -> GoalCalculationResult {
-        let baseline = baselineCalories(activity: input.activity)
-        let tdee = calculateTDEE(input: input) ?? baseline
+    static func calculateSuggestion(input: GoalCalculationInput) -> GoalCalculationResult? {
+        guard let tdee = calculateTDEE(input: input) else { return nil }
         let adjusted = tdee + intentAdjustment(intent: input.intent, pace: input.pace)
         let contextClamped = clampRelative(to: tdee, intent: input.intent, value: adjusted)
         let clamped = clampCalories(contextClamped)
@@ -33,13 +35,13 @@ enum GoalCalculator {
     static func calculateMacros(kcal: Int, preset: MacroPreset, custom: MacroTargets? = nil) -> MacroTargets {
         switch preset {
         case .balanced:
-            return macrosFromPercent(kcal: kcal, proteinPct: 0.30, carbsPct: 0.40, fatPct: 0.30)
+            return macrosFromPercent(kcal: kcal, proteinPct: 0.15, carbsPct: 0.50, fatPct: 0.35)
         case .proteinFocus:
-            return macrosFromPercent(kcal: kcal, proteinPct: 0.35, carbsPct: 0.30, fatPct: 0.35)
+            return macrosFromPercent(kcal: kcal, proteinPct: 0.20, carbsPct: 0.45, fatPct: 0.35)
         case .carbFocus:
-            return macrosFromPercent(kcal: kcal, proteinPct: 0.25, carbsPct: 0.50, fatPct: 0.25)
+            return macrosFromPercent(kcal: kcal, proteinPct: 0.15, carbsPct: 0.55, fatPct: 0.30)
         case .custom:
-            return custom ?? macrosFromPercent(kcal: kcal, proteinPct: 0.30, carbsPct: 0.40, fatPct: 0.30)
+            return custom ?? macrosFromPercent(kcal: kcal, proteinPct: 0.15, carbsPct: 0.50, fatPct: 0.35)
         }
     }
     
@@ -54,7 +56,12 @@ enum GoalCalculator {
     private static func calculateTDEE(input: GoalCalculationInput) -> Int? {
         guard let weight = input.weightKg,
               let height = input.heightCm,
-              let age = input.ageYears else {
+              let age = input.ageYears,
+              weight.isFinite,
+              height.isFinite,
+              supportedWeightRange.contains(weight),
+              supportedHeightRange.contains(height),
+              supportedAgeRange.contains(age) else {
             return nil
         }
         
@@ -65,7 +72,7 @@ enum GoalCalculator {
         case .kvinne:
             genderOffset = -161
         default:
-            genderOffset = 0
+            return nil
         }
         
         let bmr = (10 * weight) + (6.25 * height) - (5 * Double(age)) + genderOffset
@@ -85,21 +92,6 @@ enum GoalCalculator {
             return 1.725
         case .ikkeOppgi:
             return 1.375
-        }
-    }
-    
-    private static func baselineCalories(activity: ActivityLevel) -> Int {
-        switch activity {
-        case .lav:
-            return 1800
-        case .moderat:
-            return 2000
-        case .hoy:
-            return 2300
-        case .veldigHoy:
-            return 2600
-        case .ikkeOppgi:
-            return 2000
         }
     }
     
@@ -159,9 +151,9 @@ enum MacroPreset: String, CaseIterable {
     
     var label: String {
         switch self {
-        case .balanced: return "Balansert (anbefalt)"
-        case .proteinFocus: return "Protein-fokus"
-        case .carbFocus: return "Karbo-fokus"
+        case .balanced: return "Balansert"
+        case .proteinFocus: return "Mer protein"
+        case .carbFocus: return "Mer karbohydrat"
         case .custom: return "Tilpass"
         }
     }

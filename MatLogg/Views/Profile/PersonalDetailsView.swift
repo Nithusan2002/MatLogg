@@ -65,6 +65,7 @@ struct PersonalDetailsView: View {
             .listRowBackground(AppColors.surface)
         }
         .scrollContentBackground(.hidden)
+        .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
         .navigationTitle("Personlige detaljer")

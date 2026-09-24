@@ -57,6 +57,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
 - Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder søket og tilbyr «Prøv igjen» og strekkodeskanning.
+- Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
 - Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.
 - Produktnavn opprettet av bruker er begrenset til 80 tegn; skjemaet viser tegnantall og forklarer overskridelse.
@@ -221,37 +222,23 @@ Tilstandskrav for Home, hurtigvalg og søk:
 
 ---
 
-### **SKJERM 4: Mini-Kvittering (Success Receipt)**
+### **SKJERM 4: Kompakt loggbekreftelse**
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                                                      │
-│                     ✓                                │
-│                                                      │
-│          Brød, Rostaboost                            │
-│          150g  →  360 kcal                           │
-│          Lunsj                                       │
-│                                                      │
-│       Protein: 12g | Carbs: 67.5g | Fat: 4.5g      │
-│                                                      │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│  [━━ SKANN NESTE ━━]                                 │
-│  [  Legg til igjen  ]                                │
-│  [      Lukk       ]                                 │
-│                                                      │
+│ ✓ 150 g Brød, Rostaboost lagt til Lunsj    [Angre] │
+│   Lagret på enheten                                 │
 └─────────────────────────────────────────────────────┘
 ```
 
 **Beskrivelse:**
-- **Bakgrunn:** Lett animasjon (scale-in eller fade-in)
-- **Ikon:** Grønt ✓-tegn
-- **Tekst:** Produktnavn, mengde, kcal, måltid, makro-detaljer
-- **Knapper:**
-  - [SKANN NESTE] – primary, auto-fokusert, kamera gjenåpner (mengde resettes)
-  - [Legg til igjen] – secondary
-  - [Lukk] – tertiary, lukker tilbake til Home
-- **Timing:** Auto-dismiss etter 5 sekunder hvis brukeren ikkje gjør noe
+- **Plassering:** Flytende nederst over bunnnavigasjon eller kamera.
+- **Tekst:** Produktnavn, mengde og måltid, med local-first-status.
+- **Handling:** [Angre] sletter den konkrete siste registreringen lokalt og køer sletting for synk.
+- **Lukk:** Meldingen kan dras ned og slippes for å lukkes før timeren utløper. Et kort drag under terskelen fjærer tilbake.
+- **Skanning:** Kameraet fortsetter automatisk med mengde reset til 100 g.
+- **Timing:** Auto-dismiss etter 4 sekunder hvis brukeren ikke gjør noe.
+- **Tilgjengelighet:** Hele teksten kan brytes ved stor skrift; Angre har minst 44 × 44 pt trykkflate. VoiceOver forlenger visningen til 8 sekunder og tilbyr handlingen «Lukk bekreftelse». Redusert bevegelse fjerner overgangs- og returanimasjonen.
 
 ---
 
@@ -562,7 +549,7 @@ TabView (Root)
 | Situation | Presentation | Dismiss |
 |-----------|--------------|---------|
 | Kamera-skanning | Full screen | Avbryt-knapp, back gesture |
-| Mini-kvittering | Bottom sheet (50% height) | Auto-dismiss (5s) eller Lukk |
+| Loggbekreftelse | Kompakt, ikke-modal melding | Auto-dismiss (4s), dra ned eller Angre |
 | Søk manuelt | Sheet (half-screen) | Back / Avbryt |
 | Historikk-panel | Sheet (70% height) | ✕ eller back gesture |
 | "Ikke funnet" | Alert / Sheet | "Ja" / "Nei" |

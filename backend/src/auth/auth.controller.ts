@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, NotFoundException, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IsEmail, IsString, MinLength } from 'class-validator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { isDevLoginEnabled } from './auth.config';
 
 class DevLoginDto {
   @IsEmail()
@@ -42,6 +43,9 @@ export class AuthController {
 
   @Post('dev-login')
   async devLogin(@Body() body: DevLoginDto) {
+    if (!isDevLoginEnabled()) {
+      throw new NotFoundException({ code: 'DEV_LOGIN_DISABLED', message: 'Endepunktet er ikke tilgjengelig' });
+    }
     return this.authService.devLogin(body.email);
   }
 

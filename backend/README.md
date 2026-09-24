@@ -5,9 +5,16 @@
 ```bash
 docker compose up -d
 npm install
+export DATABASE_URL="postgresql://matlogg:matlogg@localhost:5432/matlogg?schema=public"
+export JWT_SECRET="replace-with-a-long-local-secret"
+export DEV_LOGIN_ENABLED="true"
 npx prisma migrate deploy
 npm run start:dev
 ```
+
+API-et nekter å starte uten `JWT_SECRET`. `dev-login` er deaktivert som
+standard, kan bare aktiveres eksplisitt og er alltid deaktivert når
+`NODE_ENV=production`.
 
 Verifiser synk mot den lokale PostgreSQL-databasen:
 
@@ -66,7 +73,7 @@ curl -X POST http://localhost:4000/v1/sync/events \
         "eventId": "1b6b94e6-8e1b-4f2d-9c7a-2ef9f9df77d9",
         "type": "goal.set",
         "createdAt": "2026-01-23T12:00:00.000Z",
-        "entityId": "goal",
+        "entityId": "7d87bddf-bb1d-43f8-bdc8-e242bcd97e2b",
         "schemaVersion": 1,
         "payload": "eyJrY2FsVGFyZ2V0IjoyMDAwLCJwcm90ZWluVGFyZ2V0IjoxNTAsImNhcmJUYXJnZXQiOjI1MCwiZmF0VGFyZ2V0Ijo2NX0="
       }

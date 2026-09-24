@@ -16,6 +16,7 @@ struct PrivacyChoicesView: View {
             )
             .padding(20)
         }
+        .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Personvern & valg")
         .navigationBarTitleDisplayMode(.inline)

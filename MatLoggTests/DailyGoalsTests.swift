@@ -167,7 +167,7 @@ struct DailyGoalsTests {
         #expect(repository.saved.isEmpty)
     }
 
-    @Test func suggestionRecalculatesFromStoredAgeAndOnlyAppliesToDraft() {
+    @Test func suggestionRecalculatesFromStoredAgeAndOnlyAppliesToDraft() throws {
         let original = goal()
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let calendar = Calendar(identifier: .gregorian)
@@ -175,29 +175,51 @@ struct DailyGoalsTests {
         let details = PersonalDetails(weightKg: 75, heightCm: 180, birthDate: birthDate, gender: .mann)
         let suggestionVM = GoalSuggestionViewModel(goal: original, details: details, now: now, calendar: calendar)
         #expect(suggestionVM.usesPersonalDetails)
-        let initial = suggestionVM.suggestion.calories
+        let initial = try #require(suggestionVM.suggestion).calories
         suggestionVM.activity = .veldigHoy
-        #expect(suggestionVM.suggestion.calories != initial)
-        let active = suggestionVM.suggestion.calories
+        let active = try #require(suggestionVM.suggestion).calories
+        #expect(active != initial)
         suggestionVM.intent = .gain
-        #expect(suggestionVM.suggestion.calories != active)
-        let gaining = suggestionVM.suggestion.calories
+        let gaining = try #require(suggestionVM.suggestion).calories
+        #expect(gaining != active)
         suggestionVM.pace = .fast
-        #expect(suggestionVM.suggestion.calories != gaining)
+        let fast = try #require(suggestionVM.suggestion)
+        #expect(fast.calories != gaining)
         let repository = GoalRepositoryStub()
         let editor = DailyGoalsViewModel(repository: repository)
         editor.begin(goal: original, userId: original.userId)
         #expect(editor.calories == "2137")
-        editor.apply(suggestionVM.suggestion)
-        #expect(editor.calories == String(suggestionVM.suggestion.calories))
+        editor.apply(fast)
+        #expect(editor.calories == String(fast.calories))
         #expect(repository.saved.isEmpty)
     }
 
-    @Test func invalidPersonalDetailsFallBackWithoutCrashing() {
+    @Test func invalidPersonalDetailsDoNotProduceAGuessedSuggestion() {
         let details = PersonalDetails(weightKg: .infinity, heightCm: .nan, birthDate: Date())
         let vm = GoalSuggestionViewModel(goal: nil, details: details)
         #expect(!vm.usesPersonalDetails)
-        #expect(GoalCalculator.calorieRange.contains(vm.suggestion.calories))
+        #expect(vm.suggestion == nil)
+    }
+
+    @Test func minorsAndUnspecifiedFormulaBasisDoNotProduceSuggestions() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let calendar = Calendar(identifier: .gregorian)
+        let minorBirthDate = calendar.date(byAdding: .year, value: -17, to: now)!
+        let adultBirthDate = calendar.date(byAdding: .year, value: -30, to: now)!
+        let minor = GoalSuggestionViewModel(
+            goal: nil,
+            details: PersonalDetails(weightKg: 60, heightCm: 170, birthDate: minorBirthDate, gender: .kvinne),
+            now: now,
+            calendar: calendar
+        )
+        let unspecified = GoalSuggestionViewModel(
+            goal: nil,
+            details: PersonalDetails(weightKg: 75, heightCm: 180, birthDate: adultBirthDate, gender: .annet),
+            now: now,
+            calendar: calendar
+        )
+        #expect(minor.suggestion == nil)
+        #expect(unspecified.suggestion == nil)
     }
 
     @Test func savedGoalAndSyncEventSurviveReopeningLocalStore() async throws {

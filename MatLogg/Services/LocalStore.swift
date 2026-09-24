@@ -5,7 +5,7 @@ private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.sel
 
 final class LocalStore {
     static let shared = LocalStore(databaseURL: nil)
-    static let latestSchemaVersion = 1
+    static let latestSchemaVersion = 2
     
     private let queue = DispatchQueue(label: "matlogg.localstore.queue")
     private let configuredDatabaseURL: URL?
@@ -43,7 +43,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["favorites", "scans", "logs", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -223,6 +223,65 @@ final class LocalStore {
             totalFat: totalFat,
             logs: logs
         )
+    }
+
+    // MARK: - Saved Meals
+
+    func saveSavedMeal(_ meal: SavedMeal) throws {
+        let data = try encoder.encode(meal)
+        let payload = try syncEncoder.encode(SavedMealSyncPayload(meal: meal))
+        try performAtomicWrite(type: .savedMealUpsert, entityId: meal.id.uuidString, payload: payload) {
+            let sql = """
+            INSERT INTO saved_meals(id, userId, name, updatedAt, json)
+            VALUES(?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                updatedAt = excluded.updatedAt,
+                json = excluded.json
+            WHERE saved_meals.userId = excluded.userId;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, meal.id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, meal.userId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 3, meal.name, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 4, meal.updatedAt.timeIntervalSince1970)
+            bindBlob(stmt, index: 5, data: data)
+            try requireDone(sqlite3_step(stmt))
+            guard sqlite3_changes(db) == 1 else { throw LocalStoreError.ownershipMismatch }
+        }
+    }
+
+    func deleteSavedMeal(_ id: UUID, userId: UUID) throws {
+        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+        try performAtomicWrite(type: .savedMealDelete, entityId: id.uuidString, payload: payload) {
+            let sql = "DELETE FROM saved_meals WHERE id = ? AND userId = ?;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, userId.uuidString, -1, SQLITE_TRANSIENT)
+            try requireDone(sqlite3_step(stmt))
+        }
+    }
+
+    func getSavedMeals(userId: UUID) -> [SavedMeal] {
+        queue.sync {
+            let sql = "SELECT json FROM saved_meals WHERE userId = ? ORDER BY updatedAt DESC;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
+            var meals: [SavedMeal] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let data = readBlob(stmt, index: 0),
+                   let meal = try? decoder.decode(SavedMeal.self, from: data) {
+                    meals.append(meal)
+                }
+            }
+            return meals
+        }
     }
     
     // MARK: - Products
@@ -735,6 +794,8 @@ final class LocalStore {
                     switch targetVersion {
                     case 1:
                         try migrateToVersion1Locked()
+                    case 2:
+                        try migrateToVersion2Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -839,6 +900,19 @@ final class LocalStore {
             try execute(sql)
         }
         try ensureSyncQueueSchemaLocked()
+    }
+
+    private func migrateToVersion2Locked() throws {
+        try execute("""
+        CREATE TABLE IF NOT EXISTS saved_meals(
+            id TEXT PRIMARY KEY,
+            userId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            updatedAt REAL NOT NULL,
+            json BLOB NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS saved_meals_user_updated_idx ON saved_meals(userId, updatedAt DESC);")
     }
     
     private func databaseFileURL() -> URL {
@@ -1055,12 +1129,56 @@ private struct ProductSyncPayload: Codable {
     }
 }
 
+private struct SavedMealSyncPayload: Codable {
+    let id: String
+    let name: String
+    let suggestedMealType: String?
+    let items: [SavedMealItemSyncPayload]
+    let updatedAt: Date
+
+    nonisolated init(meal: SavedMeal) {
+        id = meal.id.uuidString
+        name = meal.name
+        suggestedMealType = meal.suggestedMealType
+        items = meal.items.sorted { $0.sortIndex < $1.sortIndex }.map(SavedMealItemSyncPayload.init)
+        updatedAt = meal.updatedAt
+    }
+}
+
+private struct SavedMealItemSyncPayload: Codable {
+    let id: String
+    let productId: String
+    let productName: String
+    let amountG: Float
+    let calories: Int
+    let protein: Float
+    let carbs: Float
+    let fat: Float
+    let nutritionSource: String
+    let sortIndex: Int
+
+    nonisolated init(item: SavedMealItem) {
+        id = item.id.uuidString
+        productId = item.productId.uuidString
+        productName = item.productName
+        amountG = item.amountG
+        calories = item.calories
+        protein = item.proteinG
+        carbs = item.carbsG
+        fat = item.fatG
+        nutritionSource = item.nutritionSource.rawValue
+        sortIndex = item.sortIndex
+    }
+}
+
 private enum LocalStoreError: LocalizedError {
     case sqlite(String)
     case unsupportedSchema(Int)
+    case ownershipMismatch
     var errorDescription: String? {
         if case .sqlite(let message) = self { return "Lokal databasefeil: \(message)" }
         if case .unsupportedSchema(let version) = self { return "Databaseskjema \(version) er nyere enn appen støtter" }
+        if case .ownershipMismatch = self { return "Dataene tilhører en annen bruker" }
         return nil
     }
 }
@@ -1074,4 +1192,6 @@ private enum SyncEventType: String {
     case favoriteRemove = "favorite.remove"
     case weightUpsert = "weight.upsert"
     case weightDelete = "weight.delete"
+    case savedMealUpsert = "saved_meal.upsert"
+    case savedMealDelete = "saved_meal.delete"
 }

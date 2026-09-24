@@ -51,6 +51,7 @@ struct ThemePreviewView: View {
             }
             .padding(16)
         }
+        .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Theme")
     }

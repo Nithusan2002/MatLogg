@@ -89,7 +89,7 @@ enum GoalPace: String, Codable, CaseIterable {
     
     var note: String? {
         switch self {
-        case .fast: return "Ikke for alle"
+        case .fast: return "Større justering – ikke tilpasset alle"
         default: return nil
         }
     }
@@ -398,6 +398,75 @@ struct FoodLog: Codable, Identifiable {
         self.fatG = fatG
         self.createdAt = createdAt
         self.isSynced = isSynced
+    }
+}
+
+// MARK: - Saved meals
+
+/// A user-owned, reusable meal template. Using it creates independent FoodLog values.
+struct SavedMeal: Codable, Identifiable, Equatable {
+    let id: UUID
+    let userId: UUID
+    var name: String
+    var suggestedMealType: String?
+    var items: [SavedMealItem]
+    let createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        name: String,
+        suggestedMealType: String? = nil,
+        items: [SavedMealItem],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.name = name
+        self.suggestedMealType = suggestedMealType
+        self.items = items
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+/// Keeps the exact amount, nutrition basis and source that the user approved.
+struct SavedMealItem: Codable, Identifiable, Equatable {
+    let id: UUID
+    let productId: UUID
+    let productName: String
+    var amountG: Float
+    var calories: Int
+    var proteinG: Float
+    var carbsG: Float
+    var fatG: Float
+    let nutritionSource: NutritionSource
+    var sortIndex: Int
+
+    init(
+        id: UUID = UUID(),
+        productId: UUID,
+        productName: String,
+        amountG: Float,
+        calories: Int,
+        proteinG: Float,
+        carbsG: Float,
+        fatG: Float,
+        nutritionSource: NutritionSource,
+        sortIndex: Int
+    ) {
+        self.id = id
+        self.productId = productId
+        self.productName = productName
+        self.amountG = amountG
+        self.calories = calories
+        self.proteinG = proteinG
+        self.carbsG = carbsG
+        self.fatG = fatG
+        self.nutritionSource = nutritionSource
+        self.sortIndex = sortIndex
     }
 }
 

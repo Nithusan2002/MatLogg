@@ -77,6 +77,7 @@ MVP-en prioriterer:
 - norske råvarer fra Matvaretabellen og produktoppslag fra Open Food Facts
 - eksakt mengde, måltid og dato
 - favoritter, nylig brukt og skannehistorikk
+- navngitte lagrede måltider for rask, eksplisitt gjenbruk
 - lokal lagring og versjonert synkkø
 - mål, valgfri vektregistrering og Safe Mode
 - synlig datakilde når brukeren ønsker det

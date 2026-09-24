@@ -12,11 +12,11 @@
 
 | Event | Haptic Pattern | Duration | Condition |
 |-------|-----------------|----------|-----------|
-| **Strekkode detektert** | 3× short taps (UIImpactFeedbackStyle.light) | 300ms | Toggle: ON/OFF |
-| **Logging suksessfull** | 2× medium taps (UIImpactFeedbackStyle.medium) | 400ms | Toggle: ON/OFF |
-| **Feil / Validering** | 1× strong tap (UIImpactFeedbackStyle.heavy) | 150ms | Always |
-| **Mengde-stepper (±)** | 1× light tap | 50ms | Toggle: ON/OFF |
-| **Favoritt toggle (★)** | 1× light tap | 100ms | Toggle: ON/OFF |
+| **Strekkode detektert** | 1× lett puls (`UIImpactFeedbackGenerator`) | Kort | Toggle: ON/OFF |
+| **Logging lagret lokalt** | Semantisk success (`UINotificationFeedbackGenerator`) | Systemstyrt | Toggle: ON/OFF |
+| **Feil / validering** | Semantisk error (`UINotificationFeedbackGenerator`) | Systemstyrt | Toggle: ON/OFF |
+| **Mengdefelt får fokus** | Ingen haptikk | – | – |
+| **Favoritt endret (★)** | Selection-feedback etter vellykket lagring | Kort | Toggle: ON/OFF |
 | **Swipe-to-delete hover** | 1× weak tap (UISelectionFeedbackGenerator) | 50ms | Visual feedback |
 | **Deling vellykket** | 2× light taps | 300ms | Toggle: ON/OFF |
 
@@ -31,9 +31,13 @@
 | **Sync success** | "Chime" (uplifting 3-note progression) | 500ms | .wav |
 
 **Innstillinger:**
-- Haptics: Toggle [ON/OFF] i Settings
+- Haptisk tilbakemelding: Toggle [ON/OFF] i Innstillinger
 - Lyd: Toggle [ON/OFF] i Settings (respekterer device-muting: silent-switch)
 - Begge kan toggles individuelt
+
+En brukerhandling skal gi maksimalt én haptisk respons. Haptikk skal bekrefte
+resultatet av handlingen og skal ikke utløses bare fordi et felt eller en skjerm
+vises. Synlig eller opplest bekreftelse skal alltid finnes i tillegg.
 
 ---
 
@@ -46,7 +50,7 @@ Home → Camera:            Vertical push (bottom-to-top)
 Camera → ProductDetail:   Slide out kamera, fade in kort (0.3s ease-in)
 ProductDetail → Home:     Slide-up dismiss
 Home → History:           Bottom sheet slide-up (0.25s cubic-bezier)
-Product → Mini-Receipt:   Zoom-in + fade (scale: 0.8→1.0, 0.4s ease-out)
+Product → Confirmation:   Dismiss produktark + flytende melding (0.2s ease-out)
 ```
 
 ### **Loading States**
@@ -241,25 +245,30 @@ AppState: current_meal = "lunch"
 
 ---
 
-## 4.8 Mini-Kvittering – Auto-dismiss & Interaction**
+## 4.8 Kompakt loggbekreftelse – Auto-dismiss og angre
 
 ```
 Visning: Etter [Legg til] på produktkort
 
 Sekvens:
-1. Kvittering dukker opp (bottom sheet, 50% height)
-   Animasjon: slide-up (0.3s ease-out)
-2. Haptic: double-tap
+1. Produktarket lukkes og en kompakt, ikke-modal melding vises nederst.
+   Animasjon: kort slide-up + fade (0.2s ease-out)
+2. Haptikk: semantisk success-respons
 3. Lyd: ding-dong
-4. Tekst vises: produktnavn, mengde, kcal, måltid
+4. Tekst vises: mengde, produktnavn, måltid og "Lagret på enheten"
 
 Auto-dismiss:
-• Timer starter: 5 sekunder
-• Hvis bruker berører noe på skjermen: reset timer
-• Hvis bruker trykker [Lukk]: umiddelbar dismiss
-• Hvis bruker trykker [Skann neste]: kvittering forsvinner, kamera åpner (mengde resettes)
+• Timer starter: 4 sekunder
+• [Angre] sletter den konkrete siste registreringen og fjerner meldingen
+• Dra meldingen ned mer enn 52 pt, eller gjør et raskt nedoverkast, for å lukke før timeren utløper
+• Slipp før terskelen for en kort, dempet fjær tilbake til utgangsposisjonen
+• Automatisk og eksplisitt lukking bruker en rolig 0,32s fade + kort bevegelse ned
+• Ved skanning forblir kameraet åpent og klart for neste vare
+• Ved andre innganger returnerer brukeren til opprinnelig skjerm
 
-Default-handling: [Skann neste] får focus (visuelt fremhevet)
+Meldingen blokkerer ikke andre handlinger og inneholder ikke kalorier eller makroer.
+Ved redusert bevegelse fjernes overgangs- og returanimasjonen. VoiceOver tilbyr
+«Lukk bekreftelse» som egen tilgjengelighetshandling.
 ```
 
 ---

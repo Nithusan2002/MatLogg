@@ -90,6 +90,21 @@ Elementer i samme gruppe står tettere enn separate grupper. Unngå nestede kort
 og stablet padding. Nye spacing-tokens bør samles i kode når skalaen brukes på
 tvers av flere komponenter; featureviews skal ikke etablere parallelle skalaer.
 
+### Klarering for bunnnavigasjon
+
+Alle `ScrollView`, `List` og `Form` som vises inne i appens vedvarende
+fanenavigasjon skal bruke `matLoggTabBarScrollClearance()`. Dette gjelder både
+hovedfaner og skjermer som pushes i fanenes `NavigationStack`, slik at siste rad
+alltid kan rulles helt over den egendefinerte bunnmenyen.
+
+Modifieren skal ikke brukes i sheets, fullskjermsvisninger, innlogging eller
+onboarding, fordi bunnmenyen ikke er synlig der. Nye fanebaserte skjermer skal
+bruke den delte modifieren fremfor lokale bunnpaddinger. Den delte høyden eies
+av `MatLoggTabBar`, måles ved kjøring og inkluderer luft over menyen;
+featurekode skal ikke kopiere verdien. Ikke-scrollbare faneskjermer skal på
+tilsvarende måte holde bunntilknyttet innhold og handlinger utenfor menyens
+område.
+
 ## Form og hjørner
 
 Eksisterende mønster er kontinuerlige avrundede rektangler:
@@ -122,6 +137,7 @@ Gjenbruk eksisterende komponenter før nye varianter bygges:
 | `SummaryPill` | Kort oppsummering av én navngitt verdi. |
 | `ProgressRow` | Nøytral visning av verdi mot et valgfritt mål. |
 | `ProductHeroImageView` | Produktbilde med stabil placeholder og ramme. |
+| `ProductThumbnailView` | Kompakt produktbilde i lister, med stabil størrelse og nøytral placeholder. |
 
 En ny delt komponent skal løse et gjentatt interaksjons- eller stilbehov. Små,
 rent lokale views trenger ikke flyttes til designsystemet.

@@ -11,6 +11,47 @@ struct RawFoodSearchOutcome {
     let source: Source
 }
 
+struct FoodSearchOutcome {
+    let items: [Product]
+    let source: RawFoodSearchOutcome.Source
+}
+
+private enum FoodSearchMatcher {
+    static func matches(query: String, name: String, brand: String? = nil) -> Bool {
+        let tokens = normalized(query).split(separator: " ")
+        guard !tokens.isEmpty else { return false }
+        let searchableText = normalized([name, brand].compactMap { $0 }.joined(separator: " "))
+        return tokens.allSatisfy { searchableText.contains($0) }
+    }
+
+    static func sorted(_ products: [Product], query: String) -> [Product] {
+        products.sorted { lhs, rhs in
+            let lhsScore = relevance(of: lhs, query: query)
+            let rhsScore = relevance(of: rhs, query: query)
+            if lhsScore != rhsScore { return lhsScore < rhsScore }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private static func relevance(of product: Product, query: String) -> Int {
+        let normalizedQuery = normalized(query)
+        let name = normalized(product.name)
+        let brand = normalized(product.brand ?? "")
+        if name == normalizedQuery { return 0 }
+        if name.hasPrefix(normalizedQuery) { return 1 }
+        if brand == normalizedQuery { return 2 }
+        if name.contains(normalizedQuery) { return 3 }
+        return 4
+    }
+
+    private static func normalized(_ text: String) -> String {
+        let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let allowed = folded.map { $0.isLetter || $0.isNumber ? $0 : " " }
+        let cleaned = String(allowed).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 @MainActor
 final class ProductViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
@@ -18,13 +59,24 @@ final class ProductViewModel: ObservableObject {
     private let repository: any ProductRepository
     private let catalogService: any ProductCatalogService
     private let barcodeService: any BarcodeProductService
+    private let nameSearchService: any ProductNameSearchService
     private let matchingService: MatchingService
 
+    static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
+        FoodSearchMatcher.matches(query: query, name: name, brand: brand)
+    }
+
+    static func sortedSearchResults(_ products: [Product], query: String) -> [Product] {
+        FoodSearchMatcher.sorted(products, query: query)
+    }
+
     convenience init(repository: any ProductRepository) {
+        let apiService = APIService()
         self.init(
             repository: repository,
             catalogService: MatvaretabellenService(),
-            barcodeService: APIService(),
+            barcodeService: apiService,
+            nameSearchService: apiService,
             matchingService: MatchingService()
         )
     }
@@ -33,11 +85,13 @@ final class ProductViewModel: ObservableObject {
         repository: any ProductRepository,
         catalogService: any ProductCatalogService,
         barcodeService: any BarcodeProductService,
+        nameSearchService: any ProductNameSearchService,
         matchingService: MatchingService
     ) {
         self.repository = repository
         self.catalogService = catalogService
         self.barcodeService = barcodeService
+        self.nameSearchService = nameSearchService
         self.matchingService = matchingService
     }
 
@@ -130,14 +184,84 @@ final class ProductViewModel: ObservableObject {
         }
 
         if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
-            let filtered = cached.filter { normalize($0.name).contains(normalize(trimmed)) }
+            let filtered = cached.filter {
+                Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand)
+            }
             if !filtered.isEmpty {
                 return RawFoodSearchOutcome(items: filtered, source: .localCache)
             }
         }
 
         let items = try await catalogService.searchProducts(query: trimmed)
+            .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
         return RawFoodSearchOutcome(items: items, source: .remote)
+    }
+
+    func searchFoodsWithStatus(query: String) async throws -> FoodSearchOutcome {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return FoodSearchOutcome(items: [], source: .localCache)
+        }
+
+        var products: [Product] = []
+        var usedRemoteSource = false
+        var firstError: Error?
+
+        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
+            let cachedMatches = cached
+                .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+            products.append(contentsOf: cachedMatches.map(makeRawFoodProduct))
+            if cachedMatches.isEmpty {
+                do {
+                    let rawFoods = try await catalogService.searchProducts(query: trimmed)
+                    products.append(contentsOf: rawFoods
+                        .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+                        .map(makeRawFoodProduct))
+                    usedRemoteSource = true
+                } catch {
+                    firstError = error
+                }
+            }
+        } else {
+            do {
+                let rawFoods = try await catalogService.searchProducts(query: trimmed)
+                products.append(contentsOf: rawFoods
+                    .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+                    .map(makeRawFoodProduct))
+                usedRemoteSource = true
+            } catch {
+                firstError = error
+            }
+        }
+
+        do {
+            let packagedProducts = try await nameSearchService.searchProductsByNameOpenFoodFacts(trimmed)
+            products.append(contentsOf: packagedProducts
+                .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+                .map { product in
+                    guard let barcode = product.barcodeEan else { return product }
+                    return repository.getProductByBarcode(barcode) ?? product
+                })
+            usedRemoteSource = true
+        } catch {
+            firstError = firstError ?? error
+        }
+
+        if products.isEmpty, !usedRemoteSource, let firstError {
+            throw firstError
+        }
+
+        var seen = Set<String>()
+        let uniqueProducts = products.filter { product in
+            let key = product.barcodeEan.map { "barcode:\($0)" }
+                ?? "\(product.source):\(normalize(product.name)):\(normalize(product.brand ?? ""))"
+            return seen.insert(key).inserted
+        }
+
+        return FoodSearchOutcome(
+            items: Self.sortedSearchResults(uniqueProducts, query: trimmed),
+            source: usedRemoteSource ? .remote : .localCache
+        )
     }
 
     func upgradeNutritionIfPossible(for product: Product) async -> Product? {
@@ -242,6 +366,31 @@ final class ProductViewModel: ObservableObject {
             errorMessage = "Kunne ikke lagre forbedrede næringsdata: \(error.localizedDescription)"
         }
         return product
+    }
+
+    private func makeRawFoodProduct(_ item: MatvaretabellenProduct) -> Product {
+        Product(
+            name: item.name,
+            brand: item.brand,
+            category: item.category,
+            barcodeEan: nil,
+            source: "matvaretabellen",
+            kind: .genericFood,
+            caloriesPer100g: item.caloriesPer100g,
+            proteinGPer100g: item.proteinGPer100g,
+            carbsGPer100g: item.carbsGPer100g,
+            fatGPer100g: item.fatGPer100g,
+            sugarGPer100g: item.sugarGPer100g,
+            fiberGPer100g: item.fiberGPer100g,
+            sodiumMgPer100g: item.sodiumMgPer100g,
+            imageUrl: nil,
+            standardPortions: nil,
+            nutritionSource: .matvaretabellen,
+            imageSource: .none,
+            verificationStatus: .verified,
+            confidenceScore: nil,
+            isVerified: true
+        )
     }
 
     private func normalize(_ text: String) -> String {

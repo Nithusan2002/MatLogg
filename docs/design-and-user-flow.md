@@ -73,6 +73,9 @@ Søk samler oppdagelse og gjenbruk:
 
 Resultater skal vise navn og relevant kilde-/enhetskontekst. Ingen treff,
 nettverksfeil og ingen tidligere produkter er tre forskjellige tilstander.
+Navnesøk kombinerer Matvaretabellen for råvarer med Open Food Facts for
+pakkevarer og merkevarer. Når eksternt søk ikke er tilgjengelig, beholdes
+eventuelle lokale råvaretreff og merkes som lagrede treff.
 
 ### Loggfør
 
@@ -83,6 +86,11 @@ hovedfane. Arket viser alltid «Logg til: [måltid]» og tilbyr:
 2. skann strekkode
 3. manuell registrering
 4. hurtigvalg fra favoritter og nylig brukt
+
+Lagrede måltider vises før enkeltvarer når de finnes. En lagret mal åpnes i en
+forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
+loggføres. Oppretting skjer fra menyen til et allerede registrert måltid. Se
+[lagrede måltider](saved-meals.md).
 
 Tidspunkt kan foreslå et måltid. Inngang fra et måltidskort overstyrer forslaget.
 Brukeren kan alltid endre måltid før lagring.
@@ -117,6 +125,14 @@ En kvittering med «Angre» vises etter atomisk lokal lagring. Forslaget fungere
 uten nett og uten synlige kalorier eller mål. Detaljer og tilstander er samlet
 i [måltidsgjenbruk](meal-reuse.md).
 
+### Lagrede måltider
+
+Et registrert måltid kan lagres som en navngitt mal. Malen beholder matvarer,
+mengder, næringsgrunnlag og kilde, men er uavhengig av historiske logger.
+Brukeren kontrollerer alltid dato, måltidskategori og mengder før eksplisitt
+logging. Alle nye logger lagres atomisk og kan angres samlet. Se
+[lagrede måltider](saved-meals.md).
+
 ### Førstegangsbruk
 
 ```text
@@ -142,9 +158,17 @@ igjen. Under lagring er redigering og gjentatte lagretrykk deaktivert.
 
 «Beregn nytt forslag» åpner en separat veiviser med måltype, tempo,
 aktivitetsnivå og makrofordeling. Den bruker lagrede personopplysninger når
-beregningsgrunnlaget er gyldig, ellers et tydelig merket generelt estimat.
+beregningsgrunnlaget er gyldig. Et automatisk forslag krever gyldig vekt,
+høyde, alder 18+ og valg av kvinne- eller mannvarianten i voksenformelen.
+Ved manglende eller annet formelgrunnlag skal appen ikke gjette et generelt
+kaloritall; brukeren kan oppdatere Personlige detaljer eller angi eget mål.
 «Bruk forslaget» endrer bare utkastet; vanlig lagring kreves etterpå. Veiviseren
 oppdaterer ikke personopplysninger. Førstegangsoppsett bruker fortsatt onboarding.
+
+Forslaget omtales som et «estimert startpunkt», ikke som en anbefaling eller
+fasit. Standardprofilene for makroer ligger innenfor NNR 2023-intervallene for
+voksne: Balansert 15/50/35, Mer protein 20/45/35 og Mer karbohydrat 15/55/30
+energiprosent for protein/karbohydrat/fett. Egendefinerte gramverdier beholdes.
 
 Når mål eller Trygg modus er aktivert som skjuling, erstattes skjemaet med en
 kort forklaring om visningsvalget og veien til Innstillinger. Ingen måltall,
@@ -165,12 +189,14 @@ Trykk Loggfør eller åpne et måltid
   → kontroller produkt, mengde, enhet, næringsverdi og kilde
   → trykk Legg til
   → lagre domenedata og synkhendelse lokalt
-  → vis mini-kvittering
-  → skann neste, legg til igjen eller lukk
+  → lukk produktarket og vis en kompakt bekreftelse med Angre
+  → fortsett i opprinnelig kontekst; skanneren er klar for neste vare
 ```
 
 Mengde foreslås når datagrunnlaget tillater det, men skal kunne redigeres. Ved
 lagringsfeil beholdes mengde og måltid, og «Prøv igjen» vises ved handlingen.
+Vellykket lagring bekreftes med vare, mengde, måltid og «Lagret på enheten».
+Bekreftelsen er ikke-modal, forsvinner etter fire sekunder og tilbyr Angre.
 
 ### Skanning
 

@@ -43,6 +43,18 @@ class DatabaseService {
     func getTodaysSummary(userId: UUID) async -> DailySummary {
         await getSummary(userId: userId, date: Date())
     }
+
+    func saveSavedMeal(_ meal: SavedMeal) async throws {
+        try store.saveSavedMeal(meal)
+    }
+
+    func deleteSavedMeal(_ id: UUID, userId: UUID) async throws {
+        try store.deleteSavedMeal(id, userId: userId)
+    }
+
+    func getSavedMeals(userId: UUID) async -> [SavedMeal] {
+        store.getSavedMeals(userId: userId)
+    }
     
     func saveProduct(_ product: Product) async throws {
         try store.saveProduct(product)

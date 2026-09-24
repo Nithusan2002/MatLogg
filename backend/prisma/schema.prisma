@@ -21,6 +21,7 @@ model User {
   goals     Goal?
   favorites Favorite[]
   weights   Weight[]
+  savedMeals SavedMeal[]
 }
 
 model EventInbox {
@@ -93,4 +94,33 @@ model Product {
   imageUrl          String?
   source            String
   updatedAt         DateTime @updatedAt
+}
+
+model SavedMeal {
+  id                String          @id
+  userId            String
+  name              String
+  suggestedMealType String?
+  updatedAt         DateTime
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items             SavedMealItem[]
+
+  @@index([userId, updatedAt])
+}
+
+model SavedMealItem {
+  id              String    @id
+  savedMealId     String
+  productId       String
+  productName     String
+  grams           Float
+  kcal            Int
+  protein         Float
+  carbs           Float
+  fat             Float
+  nutritionSource String
+  sortIndex       Int
+  savedMeal       SavedMeal @relation(fields: [savedMealId], references: [id], onDelete: Cascade)
+
+  @@index([savedMealId, sortIndex])
 }

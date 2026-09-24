@@ -28,6 +28,7 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Legg aldri hemmeligheter, tokens, persondata eller ekte produksjonsdata i repoet.
 - Bruk Prisma-migrasjoner for skjemaendringer. Ikke rediger genererte filer i `backend/dist/`.
 - Bruk semantiske design-tokens og eksisterende komponenter fremfor lokale stilvarianter.
+- Alle `ScrollView`, `List` og `Form` som vises under den vedvarende bunnmenyen skal bruke `matLoggTabBarScrollClearance()`; ikke-scrollbare faneskjermer skal også holde bunntilknyttet innhold over menyen. Dette gjelder nye skjermer som pushes i en fanes `NavigationStack`, men ikke sheets, fullskjermsvisninger, innlogging eller onboarding.
 - Hold `AppState` som koordinering, ikke som permanent hjem for ny domenelogikk eller IO.
 - Kjør tester og bygg ut fra risiko. Oppgi alltid hva som ble kjørt, eller hvorfor verifisering ble hoppet over.
 - Oppdater relevante docs når API-kontrakter, synkformat eller scope endres. Før større tekniske og produktmessige beslutninger i `docs/decisions.md`.
