@@ -455,52 +455,66 @@ struct LoggFilterSheet: View {
 }
 
 struct EditLogView: View {
-    @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var productViewModel: ProductViewModel
     let log: FoodLog
     let onSave: (Float, String) -> Void
     
     @State private var amountText: String = ""
     @State private var selectedMealType: String = "lunsj"
     
-    private let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
-    private let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
-    
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Mengde") {
-                    TextField("Gram", text: $amountText)
-                        .keyboardType(.numberPad)
-                }
-                .listRowBackground(AppColors.surface)
-                
-                Section("Måltid") {
-                    Picker("Måltid", selection: $selectedMealType) {
-                        ForEach(0..<mealTypes.count, id: \.self) { index in
-                            Text(mealTypes[index]).tag(mealTypeKeys[index])
+            VStack(spacing: 0) {
+                MatLoggSheetHeader(title: productName) { dismiss() }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Endre mengden eller flytt varen til et annet måltid.")
+                            .font(AppTypography.body)
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 16) {
+                                AmountInputRow(gramsText: $amountText)
+
+                                Divider().overlay(AppColors.separator)
+
+                                Text("Måltid")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.ink)
+
+                                mealButtons
+                            }
+                        }
+
+                        if !amountText.isEmpty, parsedAmount == nil {
+                            Text("Mengden må være større enn 0 og høyst 10 000 g.")
+                                .font(AppTypography.caption)
+                                .foregroundStyle(AppColors.action)
+                                .accessibilityLabel("Feil: Mengden må være større enn 0 og høyst 10 000 gram.")
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .padding(16)
                 }
-                .listRowBackground(AppColors.surface)
             }
-            .scrollContentBackground(.hidden)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                PrimaryButton(title: "Lagre endringer") {
+                    guard let amount = parsedAmount else { return }
+                    onSave(amount, selectedMealType)
+                    dismiss()
+                }
+                .disabled(parsedAmount == nil)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(AppColors.background)
+            }
             .background(AppColors.background.ignoresSafeArea())
-            .tint(AppColors.action)
-            .navigationTitle("Rediger")
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Avbryt") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Lagre") {
-                        let grams = Float(amountText.filter { $0.isNumber }) ?? 0
-                        onSave(max(0, grams), selectedMealType)
-                        dismiss()
-                    }
-                    .disabled(amountText.isEmpty)
-                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
@@ -508,9 +522,50 @@ struct EditLogView: View {
                 }
             }
             .onAppear {
-                amountText = String(Int(log.amountG))
+                amountText = formatAmount(log.amountG)
                 selectedMealType = log.mealType
             }
         }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder private var mealButtons: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                ForEach(MealPresentation.all) { option in
+                    mealButton(option)
+                }
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(MealPresentation.all) { option in
+                    mealButton(option)
+                }
+            }
+        }
+    }
+
+    private func mealButton(_ option: MealPresentation) -> some View {
+        MealChip(
+            title: option.title,
+            isSelected: selectedMealType == option.key,
+            action: { selectedMealType = option.key }
+        )
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel("Flytt til \(option.title)")
+    }
+
+    private var productName: String {
+        productViewModel.product(id: log.productId)?.name ?? "Rediger logging"
+    }
+
+    private var parsedAmount: Float? {
+        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
+        guard let value = Float(normalized), value.isFinite, value > 0, value <= 10_000 else { return nil }
+        return value
+    }
+
+    private func formatAmount(_ amount: Float) -> String {
+        amount.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "nb_NO")))
     }
 }

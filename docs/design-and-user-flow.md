@@ -87,10 +87,12 @@ hovedfane. Arket viser alltid «Logg til: [måltid]» og tilbyr:
 3. manuell registrering
 4. hurtigvalg fra favoritter og nylig brukt
 
-Lagrede måltider vises før enkeltvarer når de finnes. En lagret mal åpnes i en
-forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
-loggføres. Oppretting skjer fra menyen til et allerede registrert måltid. Se
-[lagrede måltider](saved-meals.md).
+Lagrede måltider vises før enkeltvarer når de finnes. De to innholdstypene har
+egne seksjonsoverskrifter, og en måltidsrad viser antall varer i tillegg til
+måltidsikon og innholdsoppsummering. En lagret mal åpnes i en forhåndsvisning
+med matvarer, mengder, valgt dato og måltidskategori før den loggføres.
+Oppretting skjer fra menyen til et allerede registrert måltid. Se [lagrede
+måltider](saved-meals.md).
 
 Tidspunkt kan foreslå et måltid. Inngang fra et måltidskort overstyrer forslaget.
 Brukeren kan alltid endre måltid før lagring.
@@ -130,8 +132,11 @@ i [måltidsgjenbruk](meal-reuse.md).
 Et registrert måltid kan lagres som en navngitt mal. Malen beholder matvarer,
 mengder, næringsgrunnlag og kilde, men er uavhengig av historiske logger.
 Brukeren kontrollerer alltid dato, måltidskategori og mengder før eksplisitt
-logging. Alle nye logger lagres atomisk og kan angres samlet. Se
-[lagrede måltider](saved-meals.md).
+logging. Forhåndsvisningen bruker en kompakt destinasjonsrad, mengder med synlig
+enhet og en fast hovedhandling nederst; kilden er sekundær informasjon.
+Enkeltlogger redigeres i samme visuelle mønster og bruker presentasjonsnavnet
+«Kveldsmat». Alle nye logger lagres atomisk og kan angres samlet. Se [lagrede
+måltider](saved-meals.md).
 
 ### Førstegangsbruk
 

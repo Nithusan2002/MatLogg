@@ -35,6 +35,11 @@ kildevalg er aktivert. Eksisterende semantiske farger, typografi, kort og
 knapper brukes. Handlinger har minst 44 pt trykkflate og tekst kan brytes ved
 Dynamic Type.
 
+Forhåndsvisningen bruker en kompakt destinasjonsrad som kan utvides ved behov.
+Hver vare viser navn, valgfri kilde og en samlet mengdekontroll med `g`.
+Primærhandlingen ligger fast nederst og angir hvor mange varer som loggføres,
+slik at den forblir tilgjengelig også når måltidet har mange varer.
+
 ## Data og arkitektur
 
 `SavedMealsViewModel` bruker `SavedMealRepository` og `FoodLogRepository`,

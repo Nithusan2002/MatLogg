@@ -69,49 +69,55 @@ struct QuickLogSheet: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 120)
                 } else if loadState == .empty {
-                    VStack(spacing: 10) {
-                        Text("Ingen enkeltvarer i hurtigvalg ennå")
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.deepInk)
-                        Text("Søk etter eller skann en matvare. Nylig brukte enkeltvarer og favoritter vises her neste gang.")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                            .multilineTextAlignment(.center)
-                        Button("Legg til manuelt", action: onManualAdd)
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.action)
-                            .frame(minHeight: 44)
+                    VStack(alignment: .leading, spacing: 10) {
+                        quickProductsHeading
+                        VStack(spacing: 10) {
+                            Text("Ingen enkeltvarer i hurtigvalg ennå")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.deepInk)
+                            Text("Søk etter eller skann en matvare. Nylig brukte enkeltvarer og favoritter vises her neste gang.")
+                                .font(AppTypography.body)
+                                .foregroundColor(AppColors.textSecondary)
+                                .multilineTextAlignment(.center)
+                            Button("Legg til manuelt", action: onManualAdd)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.action)
+                                .frame(minHeight: 44)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 28)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
                 } else {
-                    LazyVStack(spacing: 10) {
-                        ForEach(products) { product in
-                            Button { selectedProduct = product } label: {
-                                HStack(spacing: 12) {
-                                    Text(String(product.name.prefix(1)).uppercased())
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                        .frame(width: 44, height: 44)
-                                        .background(AppColors.mutedSurface, in: Circle())
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(product.name)
+                    VStack(alignment: .leading, spacing: 10) {
+                        quickProductsHeading
+                        LazyVStack(spacing: 10) {
+                            ForEach(products) { product in
+                                Button { selectedProduct = product } label: {
+                                    HStack(spacing: 12) {
+                                        Text(String(product.name.prefix(1)).uppercased())
                                             .font(AppTypography.bodyEmphasis)
                                             .foregroundColor(AppColors.deepInk)
-                                            .lineLimit(1)
-                                        Text(productSubtitle(product))
-                                            .font(AppTypography.caption)
+                                            .frame(width: 44, height: 44)
+                                            .background(AppColors.mutedSurface, in: Circle())
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(product.name)
+                                                .font(AppTypography.bodyEmphasis)
+                                                .foregroundColor(AppColors.deepInk)
+                                                .lineLimit(1)
+                                            Text(productSubtitle(product))
+                                                .font(AppTypography.caption)
+                                                .foregroundColor(AppColors.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
                                             .foregroundColor(AppColors.textSecondary)
-                                            .lineLimit(1)
                                     }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .foregroundColor(AppColors.textSecondary)
+                                    .padding(12)
+                                    .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                                 }
-                                .padding(12)
-                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -151,6 +157,7 @@ struct QuickLogSheet: View {
                     Text("Lagrede måltider")
                         .font(AppTypography.sectionTitle)
                         .foregroundStyle(AppColors.deepInk)
+                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                     Button("Se alle") { showAllSavedMeals = true }
                         .font(AppTypography.bodyEmphasis)
@@ -162,11 +169,22 @@ struct QuickLogSheet: View {
                         SavedMealRow(meal: meal)
                             .padding(12)
                             .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
+                            }
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
+    }
+
+    private var quickProductsHeading: some View {
+        Text("Favoritter og nylig brukt")
+            .font(AppTypography.sectionTitle)
+            .foregroundStyle(AppColors.deepInk)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private var mealPicker: some View {

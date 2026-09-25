@@ -171,53 +171,80 @@ struct SavedMealLogView: View {
     let meal: SavedMeal
     let onLogged: () -> Void
     @State private var amounts: [UUID: String] = [:]
+    @State private var isChoosingTarget = false
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Kontroller mengdene før du loggfører.")
-                        .font(AppTypography.body)
-                        .foregroundStyle(AppColors.textSecondary)
+            VStack(spacing: 0) {
+                MatLoggSheetHeader(title: meal.name, isCloseDisabled: viewModel.isSaving) { dismiss() }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
 
-                    targetPicker
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Kontroller før du loggfører.")
+                            .font(AppTypography.body)
+                            .foregroundStyle(AppColors.textSecondary)
 
-                    ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex })) { item in
-                        CardContainer {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(item.productName).font(AppTypography.bodyEmphasis)
-                                if preferences.showNutritionSource {
-                                    Text("Kilde: \(sourceLabel(item.nutritionSource))")
-                                        .font(AppTypography.caption)
-                                        .foregroundStyle(AppColors.textSecondary)
+                        targetPicker
+
+                        ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex })) { item in
+                            CardContainer {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(item.productName)
+                                            .font(AppTypography.bodyEmphasis)
+                                            .foregroundStyle(AppColors.deepInk)
+                                        if preferences.showNutritionSource {
+                                            Text("Kilde: \(sourceLabel(item.nutritionSource))")
+                                                .font(AppTypography.caption)
+                                                .foregroundStyle(AppColors.textSecondary)
+                                        }
+                                    }
+
+                                    Divider().overlay(AppColors.separator)
+
+                                    AmountInputRow(
+                                        gramsText: amountBinding(for: item),
+                                        placeholder: "0"
+                                    )
+
+                                    if let text = amounts[item.id], !text.isEmpty, parsedAmount(text) == nil {
+                                        Text("Bruk en mengde over 0 og høyst 10 000 g.")
+                                            .font(AppTypography.caption)
+                                            .foregroundStyle(AppColors.action)
+                                    }
                                 }
-                                TextField("Mengde i gram", text: amountBinding(for: item))
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(.roundedBorder)
-                                    .accessibilityLabel("Mengde i gram for \(item.productName)")
                             }
                         }
                     }
-
+                    .padding(16)
+                }
+                .disabled(viewModel.isSaving)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
                     if let error = viewModel.errorMessage {
-                        Text(error).font(AppTypography.body).foregroundStyle(AppColors.ink)
+                        Text(error)
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.action)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Loggfør måltidet") {
+                    PrimaryButton(title: primaryButtonTitle) {
                         Task { await logMeal() }
                     }
                     .disabled(parsedAmounts == nil || viewModel.isSaving)
                     .accessibilityIdentifier("saved-meal-log")
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(AppColors.background)
             }
-            .background(AppColors.background)
-            .navigationTitle(meal.name)
-            .navigationBarTitleDisplayMode(.inline)
+            .background(AppColors.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Avbryt") { dismiss() }.disabled(viewModel.isSaving)
-                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
@@ -230,19 +257,39 @@ struct SavedMealLogView: View {
             }
             .interactiveDismissDisabled(viewModel.isSaving)
         }
+        .presentationDragIndicator(.visible)
     }
 
     private var targetPicker: some View {
         CardContainer {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Logg til: \(LogSummaryService.title(for: appState.selectedMealType))")
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Logg til")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                        Text("\(LogSummaryService.title(for: appState.selectedMealType)) · \(dateLabel)")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundStyle(AppColors.deepInk)
+                    }
+                    Spacer()
+                    Button(isChoosingTarget ? "Ferdig" : "Endre") {
+                        isChoosingTarget.toggle()
+                    }
                     .font(AppTypography.bodyEmphasis)
-                Label(dateLabel, systemImage: "calendar")
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 6) { mealButtons }
-                    VStack(spacing: 6) { mealButtons }
+                    .foregroundStyle(AppColors.action)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityLabel(isChoosingTarget ? "Skjul måltidsvalg" : "Endre måltid")
+                }
+
+                if isChoosingTarget {
+                    Divider().overlay(AppColors.separator)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 6) { mealButtons }
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                            mealButtons
+                        }
+                    }
                 }
             }
         }
@@ -250,29 +297,34 @@ struct SavedMealLogView: View {
 
     @ViewBuilder private var mealButtons: some View {
         ForEach(MealPresentation.all) { option in
-            Button {
-                appState.selectedMealType = option.key
-            } label: {
-                Text(option.title)
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundStyle(appState.selectedMealType == option.key ? AppColors.onVibrant : AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(appState.selectedMealType == option.key ? AppColors.brand : AppColors.mutedSurface, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(appState.selectedMealType == option.key ? .isSelected : [])
+            MealChip(
+                title: option.title,
+                isSelected: appState.selectedMealType == option.key,
+                action: { appState.selectedMealType = option.key }
+            )
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Logg til \(option.title)")
         }
+    }
+
+    private var primaryButtonTitle: String {
+        if viewModel.isSaving { return "Logger …" }
+        return meal.items.count == 1 ? "Loggfør varen" : "Loggfør \(meal.items.count) varer"
     }
 
     private var parsedAmounts: [UUID: Float]? {
         var result: [UUID: Float] = [:]
         for item in meal.items {
-            guard let text = amounts[item.id],
-                  let value = Float(text.replacingOccurrences(of: ",", with: ".")),
-                  value.isFinite, value > 0, value <= 10_000 else { return nil }
+            guard let text = amounts[item.id], let value = parsedAmount(text) else { return nil }
             result[item.id] = value
         }
         return result
+    }
+
+    private func parsedAmount(_ text: String) -> Float? {
+        let normalized = text.replacingOccurrences(of: ",", with: ".")
+        guard let value = Float(normalized), value.isFinite, value > 0, value <= 10_000 else { return nil }
+        return value
     }
 
     private func amountBinding(for item: SavedMealItem) -> Binding<String> {
@@ -390,7 +442,8 @@ struct SavedMealRow: View {
     private var subtitle: String {
         let names = meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }).prefix(3).map(\.productName)
         let suffix = meal.items.count > 3 ? " + \(meal.items.count - 3) til" : ""
-        return names.joined(separator: ", ") + suffix
+        let itemCount = meal.items.count == 1 ? "1 vare" : "\(meal.items.count) varer"
+        return "\(itemCount) · \(names.joined(separator: ", "))\(suffix)"
     }
 }
 
