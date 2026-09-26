@@ -176,7 +176,7 @@ final class MealReuseViewModel: ObservableObject {
               suggestions.contains(where: { $0.mealType == suggestion.mealType }),
               !suggestion.items.isEmpty,
               suggestion.items.allSatisfy({ $0.amountG != nil && $0.original.userId == userId }) else {
-            errorMessage = "Forslaget må oppdateres, eller mengden må være mellom 0 og 10 000 g."
+            errorMessage = "Forslaget må oppdateres, eller mengden må være mellom 0 og 10 000 i oppgitt enhet."
             return false
         }
         let context = contextID
@@ -204,7 +204,8 @@ final class MealReuseViewModel: ObservableObject {
                 return false
             }
             copies.append(FoodLog(userId: userId, productId: original.productId, mealType: suggestion.mealType,
-                                  amountG: amount, loggedDate: day, loggedTime: timestamp,
+                                  amountG: amount, amountUnit: original.resolvedAmountUnit,
+                                  loggedDate: day, loggedTime: timestamp,
                                   calories: amount == original.amountG ? original.calories : Int(calories.rounded()),
                                   proteinG: macros[0], carbsG: macros[1], fatG: macros[2], createdAt: timestamp))
         }

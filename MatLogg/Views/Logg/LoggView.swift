@@ -4,13 +4,10 @@ import UIKit
 struct LoggView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
-    @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @State private var selectedDate: Date = Date()
-    @State private var selectedSummary: DailySummary?
-    @State private var yesterdaySummary: DailySummary?
     @State private var searchText = ""
     @State private var mealFilter: String?
     @State private var showFilterSheet = false
@@ -43,12 +40,11 @@ struct LoggView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppColors.background.ignoresSafeArea()
-                
-                logList
-            }
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+
+            logList
+        }
             .overlay(alignment: .bottom) {
                 if let payload = receiptPayload {
                     LogToastView(
@@ -116,7 +112,10 @@ struct LoggView: View {
                 }
             }
             .sheet(item: $editingLog) { log in
-                EditLogView(log: log, onSave: { amountG, mealType in
+                EditLogView(
+                    log: log,
+                    productName: logViewModel.selectedProductNames[log.productId] ?? "Rediger logging",
+                    onSave: { amountG, mealType in
                     Task {
                         guard let userId = authViewModel.currentUser?.id else { return }
                         if await logViewModel.updateLog(log, amountG: amountG, mealType: mealType, userId: userId) {
@@ -168,7 +167,6 @@ struct LoggView: View {
             .onChange(of: logViewModel.mutationRevision) { _, _ in
                 Task { await loadSelectedSummary() }
             }
-        }
     }
 
     private func dismissReceipt() {
@@ -203,6 +201,7 @@ struct LoggView: View {
     
     @ViewBuilder
     private var logList: some View {
+        let groups = groupedLogs
         let baseList = List {
             Section {
                 DayNavigationBar(selection: $selectedDate)
@@ -225,17 +224,17 @@ struct LoggView: View {
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                     Spacer()
-                                    Text("\(selectedSummary?.logs.count ?? 0) innslag")
+                                    Text("\(logViewModel.selectedSummary?.logs.count ?? 0) innslag")
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 
                                 if !preferencesViewModel.safeModeHideCalories {
                                     HStack(spacing: 12) {
-                                        Text("\(selectedSummary?.totalCalories ?? 0) kcal")
-                                        Text("P \(Int(selectedSummary?.totalProtein ?? 0)) g")
-                                        Text("K \(Int(selectedSummary?.totalCarbs ?? 0)) g")
-                                        Text("F \(Int(selectedSummary?.totalFat ?? 0)) g")
+                                        Text("\(logViewModel.selectedSummary?.totalCalories ?? 0) kcal")
+                                        Text("P \(Int(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
+                                        Text("K \(Int(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
+                                        Text("F \(Int(logViewModel.selectedSummary?.totalFat ?? 0)) g")
                                     }
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)
@@ -261,11 +260,12 @@ struct LoggView: View {
                 }
             }
             
-            ForEach(groupedLogs, id: \.mealType) { group in
+            ForEach(groups, id: \.mealType) { group in
                 Section {
                     ForEach(group.logs) { log in
                         LogRowView(
                             log: log,
+                            productName: logViewModel.selectedProductNames[log.productId] ?? "Ukjent produkt",
                             showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: {
                                 editingLog = log
@@ -300,7 +300,7 @@ struct LoggView: View {
                 }
             }
             
-            if groupedLogs.isEmpty {
+            if groups.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 42))
@@ -356,21 +356,21 @@ struct LoggView: View {
     }
     
     private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
-        let logs = selectedSummary?.logs ?? []
+        let logs = logViewModel.selectedSummary?.logs ?? []
         return LogSummaryService.groupedLogs(
             logs: logs,
             searchText: searchText,
             mealFilter: mealFilter,
-            productNameLookup: { productViewModel.product(id: $0)?.name ?? "" }
+            productNameLookup: { logViewModel.selectedProductNames[$0] ?? "" }
         )
     }
     
     private var hasLogs: Bool {
-        !(selectedSummary?.logs.isEmpty ?? true)
+        !(logViewModel.selectedSummary?.logs.isEmpty ?? true)
     }
     
     private var canCopyFromYesterday: Bool {
-        isTodaySelected && !(yesterdaySummary?.logs.isEmpty ?? true)
+        isTodaySelected && !(logViewModel.yesterdaySummary?.logs.isEmpty ?? true)
     }
     
     private var isTodaySelected: Bool {
@@ -382,17 +382,10 @@ struct LoggView: View {
     }
     
     private func loadSelectedSummary() async {
-        guard let userId = authViewModel.currentUser?.id else {
-            selectedSummary = nil
-            yesterdaySummary = nil
-            return
-        }
-        selectedSummary = await logViewModel.fetchSummary(userId: userId, date: selectedDate)
-        if Calendar.current.isDateInToday(selectedDate) {
-            yesterdaySummary = await logViewModel.fetchSummary(userId: userId, date: yesterdayDate())
-        } else {
-            yesterdaySummary = nil
-        }
+        await logViewModel.loadSelectedSummary(
+            userId: authViewModel.currentUser?.id,
+            date: selectedDate
+        )
     }
 
     private func copyLogsFromYesterday() async {
@@ -409,18 +402,24 @@ struct LoggFilterSheet: View {
     @Binding var selected: String?
     @Environment(\.dismiss) private var dismiss
     
-    private let options: [(label: String, value: String?)] = [
-        ("Alle måltider", nil),
-        ("Frokost", "frokost"),
-        ("Lunsj", "lunsj"),
-        ("Middag", "middag"),
-        ("Snacks", "snacks")
+    private struct Option: Identifiable {
+        let id: String
+        let label: String
+        let value: String?
+    }
+
+    private let options: [Option] = [
+        Option(id: "all", label: "Alle måltider", value: nil),
+        Option(id: "frokost", label: "Frokost", value: "frokost"),
+        Option(id: "lunsj", label: "Lunsj", value: "lunsj"),
+        Option(id: "middag", label: "Middag", value: "middag"),
+        Option(id: "snacks", label: "Snacks", value: "snacks")
     ]
     
     var body: some View {
         NavigationStack {
             List {
-                ForEach(options, id: \.label) { option in
+                ForEach(options) { option in
                     Button(action: {
                         selected = option.value
                         dismiss()
@@ -456,8 +455,8 @@ struct LoggFilterSheet: View {
 
 struct EditLogView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var productViewModel: ProductViewModel
     let log: FoodLog
+    let productName: String
     let onSave: (Float, String) -> Void
     
     @State private var amountText: String = ""
@@ -479,7 +478,10 @@ struct EditLogView: View {
 
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
-                                AmountInputRow(gramsText: $amountText)
+                                AmountInputRow(
+                                    gramsText: $amountText,
+                                    unit: log.resolvedAmountUnit.rawValue
+                                )
 
                                 Divider().overlay(AppColors.separator)
 
@@ -492,10 +494,10 @@ struct EditLogView: View {
                         }
 
                         if !amountText.isEmpty, parsedAmount == nil {
-                            Text("Mengden må være større enn 0 og høyst 10 000 g.")
+                            Text("Mengden må være større enn 0 og høyst 10 000 \(log.resolvedAmountUnit.rawValue).")
                                 .font(AppTypography.caption)
                                 .foregroundStyle(AppColors.action)
-                                .accessibilityLabel("Feil: Mengden må være større enn 0 og høyst 10 000 gram.")
+                                .accessibilityLabel("Feil: Mengden må være større enn 0 og høyst 10 000 \(log.resolvedAmountUnit.spokenName).")
                         }
                     }
                     .padding(16)
@@ -553,10 +555,6 @@ struct EditLogView: View {
         )
         .frame(maxWidth: .infinity)
         .accessibilityLabel("Flytt til \(option.title)")
-    }
-
-    private var productName: String {
-        productViewModel.product(id: log.productId)?.name ?? "Rediger logging"
     }
 
     private var parsedAmount: Float? {

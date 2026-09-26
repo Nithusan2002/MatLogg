@@ -111,7 +111,9 @@ struct GoalOnboardingFlowView: View {
                 refreshSuggestedCalories()
             }
             .sheet(isPresented: $showPrivacyPolicy) {
-                SafariView(url: PrivacyConstants.privacyPolicyURL)
+                if let url = PrivacyConstants.privacyPolicyURL {
+                    SafariView(url: url)
+                }
             }
             .sheet(isPresented: $showPrivacyChoices) {
                 if let url = PrivacyConstants.privacyChoicesURL {
@@ -267,7 +269,7 @@ struct GoalOnboardingFlowView: View {
     
     private var privacyStep: some View {
         PrivacyChoicesContentView(
-            onOpenPolicy: { showPrivacyPolicy = true },
+            onOpenPolicy: PrivacyConstants.privacyPolicyURL == nil ? nil : { showPrivacyPolicy = true },
             onOpenChoices: PrivacyConstants.privacyChoicesURL == nil ? nil : { showPrivacyChoices = true }
         )
         .environmentObject(appState)

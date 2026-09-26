@@ -10,11 +10,14 @@ matforslag, automatisk rutinegjenkjenning eller helgemodus.
 ## Flyt og tilstander
 
 - Et tomt måltidskort på Hjem kan vise «Frokosten fra i går?» (tilsvarende for
-  øvrige måltider), med alle matvarer og mengder. Det foreslås ikke matvarer
+  øvrige måltider), med alle matvarer og mengder. Når kalorier er synlige,
+  vises også lagret kcal for hvert innslag; Trygg modus fjerner kcal fullstendig.
+  Det foreslås ikke matvarer
   som mangler produktinformasjon lokalt.
 - «Loggfør» lagrer måltidet på dagens dato i samme måltidskategori.
-- «Juster» åpner et utkast med mengder i gram, produktkilder når kildevisning
-  er aktivert, og mulighet til å fjerne matvarer. Avbryt endrer ingen logger.
+- «Juster» åpner et utkast med opprinnelig mengdeenhet (`g` eller `ml`),
+  produktkilder når kildevisning er aktivert, og mulighet til å fjerne matvarer.
+  Avbryt endrer ingen logger.
 - «Ikke nå» skjuler forslaget for denne dagen i gjeldende appøkt. Scrolling
   avviser ikke forslaget. Allerede registrerte måltider får ikke forslag.
 - Uten historikk vises den ordinære tomtilstanden og «Legg til».
@@ -34,9 +37,9 @@ Viewet har ansvar for presentasjon og videresending av handlinger.
 
 Uendrede mengder beholder loggens lagrede næringsverdier. Endrede mengder
 skalerer dette historiske grunnlaget, ikke en mulig nyere produktverdi.
-Modellen lagrer mengder i gram og refererer til produktet for kildeinformasjon;
-den har ikke et separat historisk kildesnapshot eller den opprinnelige
-porsjonsetiketten. Funksjonen introduserer ingen nye antakelser om enheter.
+Modellen lagrer numerisk mengde og enheten `g` eller `ml`, og refererer til
+produktet for kildeinformasjon. Den har ikke et separat historisk kildesnapshot
+eller den opprinnelige porsjonsetiketten. Eldre data uten enhet tolkes som gram.
 
 Alle måltidets innslag og deres canonical `log.upsert`-hendelser lagres i én
 lokal SQLite-transaksjon. Angre bruker tilsvarende atomisk sletting med
@@ -51,7 +54,8 @@ servertransaksjon på tvers av hele måltidet. Produksjonssynk forblir deaktiver
 - Ugyldig eller tom mengde, tomt utkast og foreldet dagskontekst kan ikke lagres.
 - Lagringsfeil gir verken et halvt måltid eller delvis tilhørende synkkø.
 - Angre berører ikke gårsdagens data eller andre registreringer i dag.
-- Forslag og editor viser ingen kalorier eller mål, heller ikke til VoiceOver.
+- Forslaget viser lagret kcal når kalorivisning er aktivert. Trygg modus fjerner
+  kcal og mål fra både synlig UI og VoiceOver. Editor viser ikke kalorier.
 - Semantiske farger/typografi, eksisterende knapper og kort brukes. Tekst kan
   bryte over flere linjer, og handlinger har minst 44 pt trykkflate. Ingen ny
   animasjon, lyd eller haptikk er nødvendig for å forstå bekreftelsen.

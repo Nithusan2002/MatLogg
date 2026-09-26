@@ -290,21 +290,34 @@ final class LocalStore {
         let data = try encoder.encode(product)
         let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
         try performAtomicWrite(type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
-            let sql = """
-            INSERT INTO products(id, barcode, json)
-            VALUES(?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                barcode = excluded.barcode,
-                json = excluded.json;
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            sqlite3_bind_text(stmt, 1, product.id.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_text(stmt, 2, product.barcodeEan ?? "", -1, SQLITE_TRANSIENT)
-            bindBlob(stmt, index: 3, data: data)
-            try requireDone(sqlite3_step(stmt))
-            sqlite3_finalize(stmt)
+            try saveProductLocked(product, data: data)
         }
+    }
+
+    /// Read-only catalog rows are cache state, not user-authored domain writes,
+    /// and must therefore never create `product.upsert` sync events.
+    func cacheCatalogProduct(_ product: Product) throws {
+        let data = try encoder.encode(product)
+        try queue.sync {
+            try saveProductLocked(product, data: data)
+        }
+    }
+
+    private func saveProductLocked(_ product: Product, data: Data) throws {
+        let sql = """
+        INSERT INTO products(id, barcode, json)
+        VALUES(?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            barcode = excluded.barcode,
+            json = excluded.json;
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, product.id.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, product.barcodeEan ?? "", -1, SQLITE_TRANSIENT)
+        bindBlob(stmt, index: 3, data: data)
+        try requireDone(sqlite3_step(stmt))
     }
     
     func getProduct(_ id: UUID) -> Product? {
@@ -320,6 +333,32 @@ final class LocalStore {
                 }
             }
             return nil
+        }
+    }
+
+    func getProducts(_ ids: Set<UUID>) -> [UUID: Product] {
+        guard !ids.isEmpty else { return [:] }
+        return queue.sync {
+            let orderedIDs = Array(ids)
+            let placeholders = Array(repeating: "?", count: orderedIDs.count).joined(separator: ",")
+            let sql = "SELECT id, json FROM products WHERE id IN (\(placeholders));"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [:] }
+            defer { sqlite3_finalize(stmt) }
+
+            for (index, id) in orderedIDs.enumerated() {
+                sqlite3_bind_text(stmt, Int32(index + 1), id.uuidString, -1, SQLITE_TRANSIENT)
+            }
+
+            var products: [UUID: Product] = [:]
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let idText = sqlite3_column_text(stmt, 0),
+                      let id = UUID(uuidString: String(cString: idText)),
+                      let data = readBlob(stmt, index: 1),
+                      let product = try? decoder.decode(Product.self, from: data) else { continue }
+                products[id] = product
+            }
+            return products
         }
     }
     
@@ -919,10 +958,16 @@ final class LocalStore {
         if let configuredDatabaseURL {
             return configuredDatabaseURL
         }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let fileManager = FileManager.default
+        // iOS normally always provides Application Support. Keep a deterministic
+        // path inside the app sandbox if the directory lookup unexpectedly fails.
+        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+                .appendingPathComponent("Library", isDirectory: true)
+                .appendingPathComponent("Application Support", isDirectory: true)
         let dir = base.appendingPathComponent("MatLogg", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: dir.path) {
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if !fileManager.fileExists(atPath: dir.path) {
+            try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
         }
         return dir.appendingPathComponent("matlogg.sqlite")
     }
@@ -1077,6 +1122,7 @@ private struct LogSyncPayload: Codable {
     let date: Date
     let meal: String
     let grams: Float
+    let unit: String
     let kcal: Int
     let protein: Float
     let carbs: Float
@@ -1088,6 +1134,7 @@ private struct LogSyncPayload: Codable {
         date = log.loggedTime
         meal = log.mealType
         grams = log.amountG
+        unit = log.resolvedAmountUnit.rawValue
         kcal = log.calories
         protein = log.proteinG
         carbs = log.carbsG
@@ -1150,6 +1197,7 @@ private struct SavedMealItemSyncPayload: Codable {
     let productId: String
     let productName: String
     let amountG: Float
+    let amountUnit: String
     let calories: Int
     let protein: Float
     let carbs: Float
@@ -1162,6 +1210,7 @@ private struct SavedMealItemSyncPayload: Codable {
         productId = item.productId.uuidString
         productName = item.productName
         amountG = item.amountG
+        amountUnit = item.resolvedAmountUnit.rawValue
         calories = item.calories
         protein = item.proteinG
         carbs = item.carbsG

@@ -11,7 +11,7 @@ struct PrivacyChoicesView: View {
     var body: some View {
         ScrollView {
             PrivacyChoicesContentView(
-                onOpenPolicy: { showPolicy = true },
+                onOpenPolicy: PrivacyConstants.privacyPolicyURL == nil ? nil : { showPolicy = true },
                 onOpenChoices: PrivacyConstants.privacyChoicesURL == nil ? nil : { showChoices = true }
             )
             .padding(20)
@@ -24,7 +24,9 @@ struct PrivacyChoicesView: View {
             preferencesViewModel.hasSeenPrivacyChoices = true
         }
         .sheet(isPresented: $showPolicy) {
-            SafariView(url: PrivacyConstants.privacyPolicyURL)
+            if let url = PrivacyConstants.privacyPolicyURL {
+                SafariView(url: url)
+            }
         }
         .sheet(isPresented: $showChoices) {
             if let url = PrivacyConstants.privacyChoicesURL {

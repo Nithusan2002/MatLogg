@@ -1,16 +1,12 @@
 import SwiftUI
 
 struct LogRowView: View {
-    @EnvironmentObject var productViewModel: ProductViewModel
     let log: FoodLog
+    let productName: String
     let showCalories: Bool
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
-    
-    private var productName: String {
-        productViewModel.product(id: log.productId)?.name ?? "Ukjent produkt"
-    }
     
     var body: some View {
         CardContainer {
@@ -20,7 +16,7 @@ struct LogRowView: View {
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.ink)
                     
-                    Text("\(Int(log.amountG))g")
+                    Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -64,15 +60,15 @@ struct LogRowView: View {
 
 struct CompactLogListView: View {
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
-    @EnvironmentObject var productViewModel: ProductViewModel
     let summary: DailySummary
+    let productNames: [UUID: String]
     let maxPerMeal: Int
     let onSeeAll: (String?) -> Void
     
     var body: some View {
         let groups = LogSummaryService.groupedLogs(
             logs: summary.logs,
-            productNameLookup: { productViewModel.product(id: $0)?.name ?? "" }
+            productNameLookup: { productNames[$0] ?? "" }
         )
         
         VStack(alignment: .leading, spacing: 16) {
@@ -95,6 +91,7 @@ struct CompactLogListView: View {
                     ForEach(LogSummaryService.limitedLogs(group.logs, limit: maxPerMeal)) { log in
                         LogRowView(
                             log: log,
+                            productName: productNames[log.productId] ?? "Ukjent produkt",
                             showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: nil,
                             onMove: nil,

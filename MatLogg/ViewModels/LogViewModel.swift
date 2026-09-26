@@ -4,10 +4,14 @@ import Combine
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
+    @Published private(set) var selectedSummary: DailySummary?
+    @Published private(set) var yesterdaySummary: DailySummary?
+    @Published private(set) var selectedProductNames: [UUID: String] = [:]
     @Published private(set) var errorMessage: String?
     @Published private(set) var mutationRevision = 0
 
     private let repository: any FoodLogRepository
+    private var activeSummaryRequestID = UUID()
 
     init(repository: any FoodLogRepository) {
         self.repository = repository
@@ -21,6 +25,38 @@ final class LogViewModel: ObservableObject {
         await repository.getSummary(userId: userId, date: date)
     }
 
+    func productNames(for logs: [FoodLog]) async -> [UUID: String] {
+        let products = await repository.getProducts(Set(logs.map(\.productId)))
+        return products.mapValues(\.name)
+    }
+
+    func loadSelectedSummary(userId: UUID?, date: Date, calendar: Calendar = .current) async {
+        let requestID = UUID()
+        activeSummaryRequestID = requestID
+
+        guard let userId else {
+            selectedSummary = nil
+            yesterdaySummary = nil
+            selectedProductNames = [:]
+            return
+        }
+
+        let selected = await repository.getSummary(userId: userId, date: date)
+        let productNames = await productNames(for: selected.logs)
+        let yesterday: DailySummary?
+        if calendar.isDateInToday(date),
+           let previousDate = calendar.date(byAdding: .day, value: -1, to: date) {
+            yesterday = await repository.getSummary(userId: userId, date: previousDate)
+        } else {
+            yesterday = nil
+        }
+
+        guard activeSummaryRequestID == requestID else { return }
+        selectedSummary = selected
+        yesterdaySummary = yesterday
+        selectedProductNames = productNames
+    }
+
     @discardableResult
     func logFood(
         product: Product,
@@ -29,12 +65,13 @@ final class LogViewModel: ObservableObject {
         userId: UUID,
         date: Date = Date()
     ) async -> Bool {
-        let nutrition = product.calculateNutrition(forGrams: amountG)
+        let nutrition = product.calculateNutrition(forAmount: amountG)
         let log = FoodLog(
             userId: userId,
             productId: product.id,
             mealType: mealType,
             amountG: amountG,
+            amountUnit: product.amountUnit,
             loggedDate: Calendar.current.startOfDay(for: date),
             loggedTime: date,
             calories: nutrition.calories,
@@ -95,13 +132,14 @@ final class LogViewModel: ObservableObject {
             return false
         }
 
-        let nutrition = product.calculateNutrition(forGrams: amountG)
+        let nutrition = product.calculateNutrition(forAmount: amountG)
         let updated = FoodLog(
             id: log.id,
             userId: log.userId,
             productId: log.productId,
             mealType: mealType,
             amountG: amountG,
+            amountUnit: log.resolvedAmountUnit,
             loggedDate: log.loggedDate,
             loggedTime: log.loggedTime,
             calories: nutrition.calories,
@@ -129,6 +167,7 @@ final class LogViewModel: ObservableObject {
                     productId: log.productId,
                     mealType: log.mealType,
                     amountG: log.amountG,
+                    amountUnit: log.resolvedAmountUnit,
                     loggedDate: targetDay,
                     loggedTime: Date(),
                     calories: log.calories,

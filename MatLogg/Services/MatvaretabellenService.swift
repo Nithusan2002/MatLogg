@@ -15,7 +15,7 @@ struct MatvaretabellenProduct: Codable {
 }
 
 final class MatvaretabellenService {
-    private let baseURL = URL(string: "https://www.matvaretabellen.no")!
+    private let baseURLString = "https://www.matvaretabellen.no"
     private let session = URLSession.shared
     
     func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
@@ -64,6 +64,9 @@ final class MatvaretabellenService {
     }
     
     private func fetchProducts(query: String, queryParam: String) async throws -> [MatvaretabellenProduct] {
+        guard let baseURL = URL(string: baseURLString) else {
+            throw URLError(.badURL)
+        }
         var components = URLComponents(url: baseURL.appendingPathComponent("/api/nb/foods.json"), resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: queryParam, value: query)

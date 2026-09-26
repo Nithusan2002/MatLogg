@@ -50,12 +50,16 @@ Prioritet:
 
 1. dato og kontekst
 2. valgfri dagsstatus
-3. søk og skanning
-4. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
+3. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
+4. kontekstuelle legg-til-handlinger og personlige hurtigvalg
 5. status for lokalt lagrede endringer som venter på synk
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Måltidskort viser et begrenset sammendrag; trykk åpner den filtrerte dagsloggen.
+Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
+vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
+måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
+vises på Hjem fordi de gir en kortere flyt enn generisk søk.
 
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
@@ -74,8 +78,10 @@ Søk samler oppdagelse og gjenbruk:
 Resultater skal vise navn og relevant kilde-/enhetskontekst. Ingen treff,
 nettverksfeil og ingen tidligere produkter er tre forskjellige tilstander.
 Navnesøk kombinerer Matvaretabellen for råvarer med Open Food Facts for
-pakkevarer og merkevarer. Når eksternt søk ikke er tilgjengelig, beholdes
-eventuelle lokale råvaretreff og merkes som lagrede treff.
+pakkevarer og merkevarer. Eksternt navnesøk starter først når brukeren trykker
+«Søk» eller sender inn søket fra tastaturet; det skal ikke kjøres for hvert
+tastetrykk. Når eksternt søk ikke er tilgjengelig, beholdes eventuelle lokale
+råvaretreff og merkes som lagrede treff.
 
 ### Loggfør
 
@@ -122,9 +128,11 @@ serveren og eventuell retensjonsperiode før brukeren bekrefter.
 ### Gjenbruk av gårsdagens måltid
 
 Et tomt måltidskort kan vise gårsdagens matvarer og mengder med «Loggfør»,
-«Juster» og «Ikke nå». Brukeren velger selv; appen skriver aldri automatisk.
-En kvittering med «Angre» vises etter atomisk lokal lagring. Forslaget fungerer
-uten nett og uten synlige kalorier eller mål. Detaljer og tilstander er samlet
+«Juster» og «Ikke nå». Når kalorivisning er aktiv, vises lagret kcal sekundært
+for hver vare; Trygg modus skjuler dette også for VoiceOver. Brukeren velger
+selv; appen skriver aldri automatisk. En kvittering med «Angre» vises etter
+atomisk lokal lagring. Forslaget fungerer uten nett. Detaljer og tilstander er
+samlet
 i [måltidsgjenbruk](meal-reuse.md).
 
 ### Lagrede måltider

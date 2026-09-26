@@ -11,7 +11,6 @@ struct ProductDetailView: View {
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
     
-    @State private var amountG: Double = 100
     @State private var amountText: String = "100"
     @State private var isFavorite = false
     @State private var selectedMealType = "lunsj"
@@ -22,14 +21,14 @@ struct ProductDetailView: View {
     @State private var isLogging = false
     @State private var logError: String?
     
-    var nutrition: NutritionBreakdown {
-        product.calculateNutrition(forGrams: Float(amountG))
-    }
-    
     let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
     let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
     
     var body: some View {
+        let amount = parsedAmount ?? 0
+        let nutrition = product.calculateNutrition(forAmount: Float(amount))
+        let servings = compatibleServings
+
         ZStack {
             AppColors.background.ignoresSafeArea()
             
@@ -47,7 +46,9 @@ struct ProductDetailView: View {
                     }
                     Spacer()
                     
-                    if preferencesViewModel.showNutritionSource {
+                    if preferencesViewModel.showNutritionSource
+                        || product.nutritionSource == .openFoodFacts
+                        || product.imageSource == .openFoodFacts {
                         Button(action: { showSourceInfo = true }) {
                             Image(systemName: "info.circle")
                                 .font(.system(size: 18))
@@ -83,12 +84,22 @@ struct ProductDetailView: View {
                             .lineLimit(2)
                             .minimumScaleFactor(0.8)
                             .padding(.horizontal, 24)
+
+                        if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
+                           let sourceURL = URL(string: "https://world.openfoodfacts.org") {
+                            Link(destination: sourceURL) {
+                                Label("Data fra Open Food Facts", systemImage: "link")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.action)
+                            }
+                            .accessibilityHint("Åpner kilden i nettleseren")
+                        }
                         
                         if showNutritionImproving, product.nutritionSource == .openFoodFacts, product.verificationStatus == .unverified {
                             EmptyView()
                         }
                         
-                        // Per 100 g (collapsible)
+                        // Per documented 100-unit basis (collapsible)
                         CardContainer {
                             DisclosureGroup(isExpanded: $showPer100g) {
                                 VStack(spacing: 8) {
@@ -113,7 +124,7 @@ struct ProductDetailView: View {
                                 }
                                 .padding(.top, 8)
                             } label: {
-                                Text("Vis per 100 g")
+                                Text("Vis per 100 \(product.amountUnit.rawValue)")
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)
                             }
@@ -156,11 +167,12 @@ struct ProductDetailView: View {
                         CardContainer {
                             VStack(spacing: 12) {
                                 AmountInputRow(
-                                    gramsText: $amountText,
+                                    gramsText: amountTextBinding,
+                                    unit: product.amountUnit.rawValue,
                                     placeholder: "0"
                                 )
                                 
-                                if let servings = product.servings, !servings.isEmpty {
+                                if !servings.isEmpty {
                                     ScrollView(.horizontal, showsIndicators: false) {
                                         HStack(spacing: 8) {
                                             ForEach(servings) { option in
@@ -216,8 +228,8 @@ struct ProductDetailView: View {
                                     )
                                 }
                                 
-                                if amountG <= 0.0001 {
-                                    Text("Skriv inn mengde i gram")
+                                if amount <= 0.0001 {
+                                    Text("Skriv inn mengde i \(product.amountUnit.spokenName)")
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -225,9 +237,6 @@ struct ProductDetailView: View {
                                 
                                 
                             }
-                        }
-                        .onChange(of: amountText) { _, newValue in
-                            updateAmountFromText(newValue)
                         }
                         .padding(.horizontal)
                         
@@ -262,8 +271,8 @@ struct ProductDetailView: View {
                     action: logProduct
                 )
                 .padding()
-                .disabled(amountG <= 0.0001 || isLogging)
-                .opacity(amountG > 0.0001 && !isLogging ? 1.0 : 0.5)
+                .disabled(amount <= 0.0001 || isLogging)
+                .opacity(amount > 0.0001 && !isLogging ? 1.0 : 0.5)
             }
         }
         .toolbar {
@@ -277,7 +286,14 @@ struct ProductDetailView: View {
             if let userId = authViewModel.currentUser?.id {
                 isFavorite = productViewModel.isFavorite(product, userId: userId)
             }
-            setAmount(100)
+            if let userId = authViewModel.currentUser?.id,
+               let lastUsed = preferencesViewModel.lastUsedAmount(for: product.id, userId: userId) {
+                setAmount(lastUsed)
+            } else if let suggested = compatibleServings.first(where: \.isDefaultSuggestion) {
+                setAmount(suggested.grams)
+            } else {
+                setAmount(100)
+            }
             selectedMealType = appState.selectedMealType
             showNutritionImproving = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
@@ -288,12 +304,7 @@ struct ProductDetailView: View {
             ImagePreviewView(imageUrl: product.imageUrl)
         }
         .sheet(isPresented: $showSourceInfo) {
-            ProductSourceInfoView(
-                nutritionSource: product.nutritionSource,
-                imageSource: product.imageSource,
-                verificationStatus: product.verificationStatus,
-                confidenceScore: product.confidenceScore
-            )
+            ProductSourceInfoView(product: product)
         }
     }
 
@@ -307,8 +318,12 @@ struct ProductDetailView: View {
         GridItem(.flexible(), spacing: 8)
     ]
 
+    private var compatibleServings: [ServingOption] {
+        product.servings?.filter { $0.amountUnit == product.amountUnit } ?? []
+    }
+
     private func logProduct() {
-        guard !isLogging else { return }
+        guard !isLogging, let amount = parsedAmount, amount > 0 else { return }
         isLogging = true
         logError = nil
         Task {
@@ -319,7 +334,7 @@ struct ProductDetailView: View {
             }
             guard await logViewModel.logFood(
                 product: product,
-                amountG: Float(amountG),
+                amountG: Float(amount),
                 mealType: selectedMealType,
                 userId: userId,
                 date: appState.logSelectedDate
@@ -330,7 +345,7 @@ struct ProductDetailView: View {
             }
             await logViewModel.loadTodaysSummary(userId: userId)
             await appState.refreshSyncStatus()
-            preferencesViewModel.setLastUsedAmount(Double(amountG), for: product.id, userId: userId)
+            preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
             HapticFeedbackService.shared.trigger(
                 .loggingSuccess,
                 isEnabled: preferencesViewModel.hapticsFeedbackEnabled
@@ -342,7 +357,8 @@ struct ProductDetailView: View {
             onLogComplete?(
                 ReceiptPayload(
                     product: product,
-                    amountG: Double(amountG),
+                    amountG: amount,
+                    amountUnit: product.amountUnit,
                     mealType: selectedMealType,
                     loggedDate: appState.logSelectedDate
                 )
@@ -363,33 +379,32 @@ struct ProductDetailView: View {
         return "Logges \(formattedDate)"
     }
     
-    private func setAmount(_ grams: Double) {
-        let clamped = min(max(grams, amountRange.lowerBound), amountRange.upperBound)
-        amountG = clamped
+    private func setAmount(_ amount: Double) {
+        let clamped = min(max(amount, amountRange.lowerBound), amountRange.upperBound)
         amountText = clamped > 0 ? formatAmountText(clamped) : ""
     }
-    
-    private func updateAmountFromText(_ text: String) {
+
+    private var amountTextBinding: Binding<String> {
+        Binding(
+            get: { amountText },
+            set: { amountText = sanitizedAmountText($0) }
+        )
+    }
+
+    private var parsedAmount: Double? {
+        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
+        guard let value = Double(normalized), value.isFinite else { return nil }
+        return min(max(value, amountRange.lowerBound), amountRange.upperBound)
+    }
+
+    private func sanitizedAmountText(_ text: String) -> String {
         let normalized = text.replacingOccurrences(of: ",", with: ".")
         let allowed = normalized.filter { $0.isNumber || $0 == "." }
         let parts = allowed.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
         let sanitized = parts.count > 1 ? "\(parts[0]).\(parts[1])" : String(allowed)
-        
-        if sanitized != text {
-            amountText = sanitized
-            return
-        }
-        
-        guard !sanitized.isEmpty, let value = Double(sanitized) else {
-            amountG = 0
-            return
-        }
-        
+        guard !sanitized.isEmpty, let value = Double(sanitized), value.isFinite else { return sanitized }
         let clamped = min(max(value, amountRange.lowerBound), amountRange.upperBound)
-        if clamped != value {
-            amountText = formatAmountText(clamped)
-        }
-        amountG = clamped
+        return clamped == value ? sanitized : formatAmountText(clamped)
     }
 
     private func formatAmountText(_ value: Double) -> String {
@@ -491,28 +506,53 @@ struct ImagePreviewView: View {
 }
 
 struct ProductSourceInfoView: View {
-    let nutritionSource: NutritionSource
-    let imageSource: ImageSource
-    let verificationStatus: VerificationStatus
-    let confidenceScore: Double?
+    let product: Product
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                infoRow(title: "Næringskilde", value: sourceLabel(nutritionSource))
-                infoRow(title: "Bildekilde", value: sourceLabel(imageSource))
-                infoRow(title: "Verifisering", value: verificationLabel(verificationStatus))
-                if let confidenceScore {
-                    infoRow(title: "Match-score", value: String(format: "%.2f", confidenceScore))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    infoRow(title: "Næringskilde", value: sourceLabel(product.nutritionSource))
+                    infoRow(title: "Bildekilde", value: sourceLabel(product.imageSource))
+                    infoRow(title: "Verifisering", value: verificationLabel(product.verificationStatus))
+                    if let confidenceScore = product.confidenceScore {
+                        infoRow(title: "Match-score", value: String(format: "%.2f", confidenceScore))
+                    }
+                    if let sourceUpdatedAt = product.sourceUpdatedAt {
+                        infoRow(
+                            title: "Sist oppdatert hos kilden",
+                            value: sourceUpdatedAt.formatted(date: .abbreviated, time: .omitted)
+                        )
+                    }
+
+                    Text("Kilder vises for å være transparente uten å skape skam. Data kan være oppdatert eller uverifisert.")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.top, 8)
+
+                    if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts {
+                        if let sourceURL = URL(string: "https://world.openfoodfacts.org") {
+                            Link("Åpne Open Food Facts", destination: sourceURL)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.action)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        if let licenseURL = URL(string: "https://opendatacommons.org/licenses/odbl/1-0/") {
+                            Link("Database: Open Database License", destination: licenseURL)
+                                .font(AppTypography.body)
+                                .foregroundColor(AppColors.action)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        if product.imageSource == .openFoodFacts,
+                           let imageLicenseURL = URL(string: "https://creativecommons.org/licenses/by-sa/3.0/") {
+                            Link("Bilder: CC BY-SA 3.0", destination: imageLicenseURL)
+                                .font(AppTypography.body)
+                                .foregroundColor(AppColors.action)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                    }
                 }
-                
-                Text("Kilder vises for å være transparente uten å skape skam. Data kan være oppdatert eller uverifisert.")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-                    .padding(.top, 8)
-                
-                Spacer()
             }
             .padding(16)
             .background(AppColors.background.ignoresSafeArea())

@@ -9,6 +9,15 @@ protocol FoodLogRepository {
     func getSummary(userId: UUID, date: Date) async -> DailySummary
     func getTodaysSummary(userId: UUID) async -> DailySummary
     func getProduct(_ id: UUID) -> Product?
+    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product]
+}
+
+extension FoodLogRepository {
+    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
+        Dictionary(uniqueKeysWithValues: ids.compactMap { id in
+            getProduct(id).map { (id, $0) }
+        })
+    }
 }
 
 extension DatabaseService: FoodLogRepository {}

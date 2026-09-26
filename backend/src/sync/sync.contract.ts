@@ -23,6 +23,7 @@ export const syncEventTypes = new Set([
 export const logPayloadSchema = z.object({
   id: z.string().uuid(), date: z.string().datetime(), meal: z.string().min(1),
   grams: z.number().positive(), kcal: z.number().nonnegative(),
+  unit: z.enum(['g', 'ml']).optional().default('g'),
   protein: z.number().nonnegative(), carbs: z.number().nonnegative(), fat: z.number().nonnegative(),
   productRef: z.string().uuid().optional().nullable(),
 });
@@ -52,6 +53,7 @@ export const savedMealPayloadSchema = z.object({
     productId: z.string().uuid(),
     productName: z.string().trim().min(1).max(200),
     amountG: z.number().positive().max(10_000),
+    amountUnit: z.enum(['g', 'ml']).optional().default('g'),
     calories: z.number().int().nonnegative(),
     protein: z.number().nonnegative(),
     carbs: z.number().nonnegative(),

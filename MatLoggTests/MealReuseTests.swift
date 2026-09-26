@@ -71,6 +71,30 @@ struct MealReuseTests {
         #expect(saved.calories != f.product.calculateNutrition(forGrams: 30.25).calories)
     }
 
+    @Test func volumeUnitIsPreservedWhenMealIsReused() async throws {
+        let f = Fixture()
+        f.repo.logs = [f.log(amount: 500, unit: .milliliters)]
+        await f.load()
+
+        #expect(await f.vm.log(try #require(f.vm.suggestions.first)))
+        #expect(try #require(f.repo.saved.first).resolvedAmountUnit == .milliliters)
+    }
+
+    @Test func legacyLogWithoutUnitDefaultsToGrams() throws {
+        let f = Fixture()
+        let encoded = try JSONEncoder().encode(f.log())
+        var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "amountUnit")
+
+        let decoded = try JSONDecoder().decode(
+            FoodLog.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        #expect(decoded.amountUnit == nil)
+        #expect(decoded.resolvedAmountUnit == .grams)
+    }
+
     @Test func invalidAmountsAndEmptyDraftCannotBeSaved() async throws {
         let f = Fixture()
         await f.load()
@@ -224,10 +248,11 @@ private final class Fixture {
     func load() async { await vm.load(userId: userId) }
 
     func log(meal: String = "frokost", date: Date? = nil, owner: UUID? = nil,
-             productId: UUID? = nil, amount: Float = 60.5) -> FoodLog {
+             productId: UUID? = nil, amount: Float = 60.5, unit: AmountUnit = .grams) -> FoodLog {
         let date = date ?? calendar.date(byAdding: .day, value: -1, to: clock.date)!
         return FoodLog(userId: owner ?? userId, productId: productId ?? product.id,
-                       mealType: meal, amountG: amount, loggedDate: calendar.startOfDay(for: date),
+                       mealType: meal, amountG: amount, amountUnit: unit,
+                       loggedDate: calendar.startOfDay(for: date),
                        loggedTime: date, calories: 217, proteinG: 7.25, carbsG: 34.75, fatG: 3.625)
     }
 }

@@ -29,6 +29,7 @@ class APIService {
         case payloadTooLarge(Int)
         case missingAccessToken
         case rateLimited(retryAfterSeconds: Int?)
+        case incompleteProductData
         
         var errorDescription: String? {
             switch self {
@@ -55,6 +56,8 @@ class APIService {
                     return "Produktdatabasen ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
                 }
                 return "Produktdatabasen ber oss vente litt før neste søk."
+            case .incompleteProductData:
+                return "Produktet mangler komplette næringsverdier per 100 g eller 100 ml."
             }
         }
     }
@@ -97,9 +100,19 @@ class APIService {
     }
     
     // MARK: - Auth Endpoints
+
+    private func endpointURL(_ path: String) throws -> URL {
+        guard let url = URL(string: "\(baseURL)\(path)"),
+              let scheme = url.scheme,
+              ["http", "https"].contains(scheme.lowercased()),
+              url.host != nil else {
+            throw APIError.invalidURL
+        }
+        return url
+    }
     
     func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, String) {
-        let url = URL(string: "\(baseURL)/auth/register")!
+        let url = try endpointURL("/auth/register")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -135,7 +148,7 @@ class APIService {
     }
     
     func loginEmail(email: String, password: String) async throws -> (User, String) {
-        let url = URL(string: "\(baseURL)/auth/login")!
+        let url = try endpointURL("/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -203,7 +216,7 @@ class APIService {
             throw APIError.missingAccessToken
         }
         
-        let url = URL(string: "\(baseURL)/sync/events")!
+        let url = try endpointURL("/sync/events")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -345,7 +358,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,image_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutriments"
+                value: "code,product_name,brands,categories,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -359,22 +372,34 @@ class APIService {
     }
     
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
-        guard let url = URL(string: "https://no.openfoodfacts.org/api/v0/product/\(ean).json") else {
+        let fields = [
+            "code", "product_name", "brands", "categories", "image_front_url",
+            "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
+            "nutrition_data_per", "nutriments", "last_modified_t", "rev", "schema_version",
+            "data_quality_errors_tags", "data_quality_warnings_tags"
+        ].joined(separator: ",")
+        var components = URLComponents(string: "https://world.openfoodfacts.org/api/v3/product/\(ean)")
+        components?.queryItems = [
+            URLQueryItem(name: "cc", value: "no"),
+            URLQueryItem(name: "lc", value: "nb"),
+            URLQueryItem(name: "fields", value: fields)
+        ]
+        guard let url = components?.url else {
             throw APIError.invalidURL
         }
         let data = try await openFoodFactsData(from: url)
         let responseData = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
         
-        guard responseData.status == 1, let product = responseData.product else {
+        guard responseData.status == "success", let product = responseData.product else {
             throw APIError.serverError(404)
         }
 
         guard let mapped = makeOpenFoodFactsProduct(
             product,
-            barcode: responseData.code ?? ean,
+            barcode: product.code ?? ean,
             requiresCompleteMacros: true
         ) else {
-            throw APIError.decodingError
+            throw APIError.incompleteProductData
         }
         return mapped
     }
@@ -427,11 +452,11 @@ class APIService {
         guard let name, !name.isEmpty else { return nil }
 
         let nutriments = product.nutriments
-        if requiresCompleteMacros,
-           (nutriments?.energyKcal100g == nil || nutriments?.protein100g == nil ||
-            nutriments?.carbs100g == nil || nutriments?.fat100g == nil) {
+        let completeNutrition = validatedNutrition(nutriments)
+        if requiresCompleteMacros, completeNutrition == nil {
             return nil
         }
+        guard let completeNutrition else { return nil }
 
         let servings = buildServingOptions(
             name: name,
@@ -440,18 +465,23 @@ class APIService {
             productQuantity: product.productQuantity?.value,
             productQuantityUnit: product.productQuantityUnit
         )
+        let nutritionBasis = nutritionBasis(
+            nutritionDataPer: product.nutritionDataPer,
+            productQuantityUnit: product.productQuantityUnit
+        )
 
         return Product(
+            id: barcode.map { Product.catalogID(source: "openfoodfacts", externalID: $0) } ?? UUID(),
             name: name,
             brand: product.brands,
             category: product.categories,
             barcodeEan: barcode,
             source: "openfoodfacts",
             kind: .packaged,
-            caloriesPer100g: Int((nutriments?.energyKcal100g ?? 0).rounded()),
-            proteinGPer100g: Float(nutriments?.protein100g ?? 0),
-            carbsGPer100g: Float(nutriments?.carbs100g ?? 0),
-            fatGPer100g: Float(nutriments?.fat100g ?? 0),
+            caloriesPer100g: Int(completeNutrition.energyKcal.rounded()),
+            proteinGPer100g: Float(completeNutrition.protein),
+            carbsGPer100g: Float(completeNutrition.carbohydrates),
+            fatGPer100g: Float(completeNutrition.fat),
             sugarGPer100g: nutriments?.sugars100g.map(Float.init),
             fiberGPer100g: nutriments?.fiber100g.map(Float.init),
             sodiumMgPer100g: nutriments?.sodium100g.map { Int(($0 * 1000).rounded()) },
@@ -461,7 +491,33 @@ class APIService {
             imageSource: product.imageUrl == nil ? .none : .openFoodFacts,
             verificationStatus: .unverified,
             isVerified: false,
-            createdAt: Date()
+            createdAt: Date(),
+            externalID: barcode,
+            nutritionBasis: nutritionBasis,
+            sourceUpdatedAt: product.lastModifiedTimestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+            sourceRevision: product.revision,
+            sourceSchemaVersion: product.schemaVersion,
+            fetchedAt: Date(),
+            dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? [])
+        )
+    }
+
+    private func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
+        guard let energyKcal = nutriments?.energyKcal100g,
+              let protein = nutriments?.protein100g,
+              let carbohydrates = nutriments?.carbs100g,
+              let fat = nutriments?.fat100g,
+              energyKcal.isFinite, (0...1_000).contains(energyKcal),
+              protein.isFinite, (0...100).contains(protein),
+              carbohydrates.isFinite, (0...100).contains(carbohydrates),
+              fat.isFinite, (0...100).contains(fat) else {
+            return nil
+        }
+        return CompleteNutrition(
+            energyKcal: energyKcal,
+            protein: protein,
+            carbohydrates: carbohydrates,
+            fat: fat
         )
     }
     
@@ -474,19 +530,20 @@ class APIService {
     ) -> [ServingOption]? {
         var options: [ServingOption] = []
         
-        if let servingSize, let grams = parseGrams(from: servingSize) {
+        if let servingSize, let parsed = parseAmount(from: servingSize) {
             let label = servingSize.trimmingCharacters(in: .whitespacesAndNewlines)
             options.append(
                 ServingOption(
                     label: label,
-                    grams: grams,
+                    grams: parsed.value,
+                    unit: parsed.unit,
                     source: .openFoodFacts,
                     isDefaultSuggestion: true
                 )
             )
             
-            if label.lowercased().contains("bar") {
-                let half = grams / 2.0
+            if label.lowercased().contains("bar"), parsed.unit == .grams {
+                let half = parsed.value / 2.0
                 let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
                 options.append(
                     ServingOption(
@@ -496,12 +553,14 @@ class APIService {
                     )
                 )
             }
-        } else if let servingQuantity, servingQuantity > 0 {
-            let label = "1 porsjon (\(formatGrams(servingQuantity)) g)"
+        } else if let servingQuantity, servingQuantity > 0,
+                  let unit = amountUnit(from: productQuantityUnit) {
+            let label = "1 porsjon (\(formatGrams(servingQuantity)) \(unit.rawValue))"
             options.append(
                 ServingOption(
                     label: label,
                     grams: servingQuantity,
+                    unit: unit,
                     source: .openFoodFacts,
                     isDefaultSuggestion: true
                 )
@@ -509,20 +568,23 @@ class APIService {
         }
         
         if options.isEmpty {
-            if let grams = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
+            if let quantity = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
                 let isBar = name.lowercased().contains("bar")
-                let label = isBar ? "1 bar (\(formatGrams(grams)) g)" : "1 porsjon (\(formatGrams(grams)) g)"
+                let label = isBar && quantity.unit == .grams
+                    ? "1 bar (\(formatGrams(quantity.value)) g)"
+                    : "1 porsjon (\(formatGrams(quantity.value)) \(quantity.unit.rawValue))"
                 options.append(
                     ServingOption(
                         label: label,
-                        grams: grams,
+                        grams: quantity.value,
+                        unit: quantity.unit,
                         source: .heuristic,
                         isDefaultSuggestion: true
                     )
                 )
                 
-                if isBar {
-                    let half = grams / 2.0
+                if isBar, quantity.unit == .grams {
+                    let half = quantity.value / 2.0
                     let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
                     options.append(
                         ServingOption(
@@ -532,13 +594,14 @@ class APIService {
                         )
                     )
                 }
-            } else if let grams = parseGrams(from: name) {
+            } else if let parsed = parseAmount(from: name), parsed.unit == .grams {
                 let isBar = name.lowercased().contains("bar")
-                let label = isBar ? "1 bar (\(formatGrams(grams)) g)" : "1 porsjon (\(formatGrams(grams)) g)"
+                let label = isBar ? "1 bar (\(formatGrams(parsed.value)) g)" : "1 porsjon (\(formatGrams(parsed.value)) g)"
                 options.append(
                     ServingOption(
                         label: label,
-                        grams: grams,
+                        grams: parsed.value,
+                        unit: .grams,
                         source: .heuristic,
                         isDefaultSuggestion: true
                     )
@@ -550,12 +613,14 @@ class APIService {
             return nil
         }
         
-        let has100 = options.contains { abs($0.grams - 100.0) < 0.1 }
+        let defaultUnit = amountUnit(from: productQuantityUnit) ?? options.first?.amountUnit ?? .grams
+        let has100 = options.contains { abs($0.grams - 100.0) < 0.1 && $0.amountUnit == defaultUnit }
         if !has100 {
             options.append(
                 ServingOption(
-                    label: "100 g",
+                    label: "100 \(defaultUnit.rawValue)",
                     grams: 100.0,
+                    unit: defaultUnit,
                     source: .heuristic
                 )
             )
@@ -564,27 +629,41 @@ class APIService {
         return options
     }
     
-    private func parseGrams(from text: String) -> Double? {
-        let pattern = #"([0-9]+(?:[.,][0-9]+)?)\s*g"#
+    private func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
+        let pattern = #"([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return nil
         }
         let range = NSRange(text.startIndex..., in: text)
         guard let match = regex.firstMatch(in: text, options: [], range: range),
-              let numberRange = Range(match.range(at: 1), in: text) else {
+              let numberRange = Range(match.range(at: 1), in: text),
+              let unitRange = Range(match.range(at: 2), in: text) else {
             return nil
         }
         let value = text[numberRange].replacingOccurrences(of: ",", with: ".")
-        return Double(value)
+        guard let number = Double(value), let unit = amountUnit(from: String(text[unitRange])) else { return nil }
+        return (number, unit)
     }
     
-    private func parseQuantity(productQuantity: Double?, unit: String?) -> Double? {
-        guard let productQuantity, productQuantity > 0 else { return nil }
-        let unitValue = unit?.lowercased()
-        if unitValue == "g" || unitValue == "gram" || unitValue == "grams" || unitValue == nil {
-            return productQuantity
+    private func parseQuantity(productQuantity: Double?, unit: String?) -> (value: Double, unit: AmountUnit)? {
+        guard let productQuantity, productQuantity > 0,
+              let amountUnit = amountUnit(from: unit) else { return nil }
+        return (productQuantity, amountUnit)
+    }
+
+    private func amountUnit(from rawValue: String?) -> AmountUnit? {
+        switch rawValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "g", "gram", "grams": return .grams
+        case "ml", "milliliter", "milliliters", "millilitres": return .milliliters
+        default: return nil
         }
-        return nil
+    }
+
+    private func nutritionBasis(nutritionDataPer: String?, productQuantityUnit: String?) -> NutritionBasis {
+        let normalized = nutritionDataPer?.lowercased().replacingOccurrences(of: " ", with: "")
+        if normalized == "100ml" { return .per100ml }
+        if normalized == nil, amountUnit(from: productQuantityUnit) == .milliliters { return .per100ml }
+        return .per100g
     }
     
     private func formatGrams(_ grams: Double) -> String {
@@ -630,8 +709,7 @@ private struct BackendErrorResponse: Decodable {
 }
 
 private struct OpenFoodFactsResponse: Codable {
-    let status: Int
-    let code: String?
+    let status: String
     let product: OpenFoodFactsProduct?
 }
 
@@ -650,19 +728,38 @@ private struct OpenFoodFactsProduct: Codable {
     let productQuantity: FlexibleDouble?
     let productQuantityUnit: String?
     let nutriments: OpenFoodFactsNutriments?
+    let nutritionDataPer: String?
+    let lastModifiedTimestamp: Int?
+    let revision: Int?
+    let schemaVersion: Int?
+    let dataQualityErrors: [String]?
+    let dataQualityWarnings: [String]?
 
     enum CodingKeys: String, CodingKey {
         case code
         case productName = "product_name"
         case brands
         case categories
-        case imageUrl = "image_url"
+        case imageUrl = "image_front_url"
         case servingSize = "serving_size"
         case servingQuantity = "serving_quantity"
         case productQuantity = "product_quantity"
         case productQuantityUnit = "product_quantity_unit"
         case nutriments
+        case nutritionDataPer = "nutrition_data_per"
+        case lastModifiedTimestamp = "last_modified_t"
+        case revision = "rev"
+        case schemaVersion = "schema_version"
+        case dataQualityErrors = "data_quality_errors_tags"
+        case dataQualityWarnings = "data_quality_warnings_tags"
     }
+}
+
+private struct CompleteNutrition {
+    let energyKcal: Double
+    let protein: Double
+    let carbohydrates: Double
+    let fat: Double
 }
 
 private struct OpenFoodFactsNutriments: Codable {
@@ -700,7 +797,7 @@ private enum SyncDeviceIdentity {
 }
 
 private struct FlexibleDouble: Codable {
-    let value: Double
+    let value: Double?
     
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -710,9 +807,9 @@ private struct FlexibleDouble: Codable {
             value = Double(intValue)
         } else if let stringValue = try? container.decode(String.self) {
             let normalized = stringValue.replacingOccurrences(of: ",", with: ".")
-            value = Double(normalized) ?? 0
+            value = Double(normalized)
         } else {
-            value = 0
+            value = nil
         }
     }
 }

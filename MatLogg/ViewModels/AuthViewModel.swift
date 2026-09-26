@@ -3,7 +3,10 @@ import Combine
 
 @MainActor
 final class AuthViewModel: ObservableObject {
-    private static let debugUserId = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
+    private static let debugUserId = UUID(uuid: (
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
+        0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+    ))
 
     @Published private(set) var authState: AuthState = .notAuthenticated
     @Published private(set) var currentUser: User?

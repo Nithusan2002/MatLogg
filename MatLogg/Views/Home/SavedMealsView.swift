@@ -14,6 +14,7 @@ struct SaveMealFromLogsView: View {
     @EnvironmentObject private var productViewModel: ProductViewModel
     let source: SavedMealCreationSource
     @State private var name = ""
+    @State private var productNames: [UUID: String] = [:]
 
     var body: some View {
         NavigationStack {
@@ -28,7 +29,7 @@ struct SaveMealFromLogsView: View {
                         HStack {
                             Text(productName(for: log))
                             Spacer()
-                            Text("\(format(log.amountG)) g")
+                            Text("\(format(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                     }
@@ -58,6 +59,8 @@ struct SaveMealFromLogsView: View {
             }
             .interactiveDismissDisabled(viewModel.isSaving)
             .task {
+                let products = await productViewModel.products(ids: Set(source.logs.map(\.productId)))
+                productNames = products.mapValues(\.name)
                 if let userId = authViewModel.currentUser?.id {
                     await viewModel.load(userId: userId)
                 }
@@ -78,7 +81,7 @@ struct SaveMealFromLogsView: View {
     }
 
     private func productName(for log: FoodLog) -> String {
-        productViewModel.product(id: log.productId)?.name ?? "Ukjent matvare"
+        productNames[log.productId] ?? "Ukjent matvare"
     }
 
     private func format(_ amount: Float) -> String {
@@ -207,11 +210,12 @@ struct SavedMealLogView: View {
 
                                     AmountInputRow(
                                         gramsText: amountBinding(for: item),
+                                        unit: item.resolvedAmountUnit.rawValue,
                                         placeholder: "0"
                                     )
 
                                     if let text = amounts[item.id], !text.isEmpty, parsedAmount(text) == nil {
-                                        Text("Bruk en mengde over 0 og høyst 10 000 g.")
+                                        Text("Bruk en mengde over 0 og høyst 10 000 \(item.resolvedAmountUnit.rawValue).")
                                             .font(AppTypography.caption)
                                             .foregroundStyle(AppColors.action)
                                     }
@@ -369,7 +373,7 @@ struct SavedMealEditorView: View {
                     ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }).filter { !removed.contains($0.id) }) { item in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(item.productName).font(AppTypography.bodyEmphasis)
-                            TextField("Mengde i gram", text: Binding(
+                            TextField("Mengde i \(item.resolvedAmountUnit.spokenName)", text: Binding(
                                 get: { amounts[item.id] ?? "" }, set: { amounts[item.id] = $0 }
                             ))
                             .keyboardType(.decimalPad)

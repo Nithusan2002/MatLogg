@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 // MARK: - User & Auth
@@ -124,6 +125,13 @@ struct Product: Codable, Identifiable {
     let confidenceScore: Double?
     let isVerified: Bool
     let createdAt: Date
+    let externalID: String?
+    let nutritionBasis: NutritionBasis?
+    let sourceUpdatedAt: Date?
+    let sourceRevision: Int?
+    let sourceSchemaVersion: Int?
+    let fetchedAt: Date?
+    let dataQualityWarnings: [String]?
     
     // Local flags
     var isSynced: Bool = true
@@ -151,7 +159,14 @@ struct Product: Codable, Identifiable {
         verificationStatus: VerificationStatus = .unverified,
         confidenceScore: Double? = nil,
         isVerified: Bool = false,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        externalID: String? = nil,
+        nutritionBasis: NutritionBasis? = nil,
+        sourceUpdatedAt: Date? = nil,
+        sourceRevision: Int? = nil,
+        sourceSchemaVersion: Int? = nil,
+        fetchedAt: Date? = nil,
+        dataQualityWarnings: [String]? = nil
     ) {
         self.id = id
         self.name = name
@@ -176,17 +191,64 @@ struct Product: Codable, Identifiable {
         self.confidenceScore = confidenceScore
         self.isVerified = isVerified
         self.createdAt = createdAt
+        self.externalID = externalID
+        self.nutritionBasis = nutritionBasis
+        self.sourceUpdatedAt = sourceUpdatedAt
+        self.sourceRevision = sourceRevision
+        self.sourceSchemaVersion = sourceSchemaVersion
+        self.fetchedAt = fetchedAt
+        self.dataQualityWarnings = dataQualityWarnings
+    }
+
+    /// Stable local identity for read-only catalog rows. Version 8 marks the
+    /// UUID as an application-defined deterministic value.
+    static func catalogID(source: String, externalID: String) -> UUID {
+        let normalized = "\(source.lowercased()):\(externalID.lowercased())"
+        var bytes = Array(SHA256.hash(data: Data(normalized.utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x80
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
     }
     
-    // Calculate nutrition for given amount
-    func calculateNutrition(forGrams grams: Float) -> NutritionBreakdown {
-        let multiplier = grams / 100.0
+    nonisolated var amountUnit: AmountUnit {
+        nutritionBasis == .per100ml ? .milliliters : .grams
+    }
+
+    // Nutrition values use the product's documented per-100 g or per-100 ml basis.
+    func calculateNutrition(forAmount amount: Float) -> NutritionBreakdown {
+        let multiplier = amount / 100.0
         return NutritionBreakdown(
             calories: Int(Float(caloriesPer100g) * multiplier),
             protein: proteinGPer100g * multiplier,
             carbs: carbsGPer100g * multiplier,
             fat: fatGPer100g * multiplier
         )
+    }
+
+    func calculateNutrition(forGrams grams: Float) -> NutritionBreakdown {
+        calculateNutrition(forAmount: grams)
+    }
+}
+
+enum NutritionBasis: String, Codable {
+    case per100g
+    case per100ml
+}
+
+enum AmountUnit: String, Codable, CaseIterable {
+    case grams = "g"
+    case milliliters = "ml"
+
+    nonisolated var spokenName: String {
+        switch self {
+        case .grams: return "gram"
+        case .milliliters: return "milliliter"
+        }
     }
 }
 
@@ -199,6 +261,7 @@ struct ServingOption: Codable, Identifiable, Hashable {
     let id: UUID
     let label: String
     let grams: Double
+    let unit: AmountUnit?
     let source: ServingSource
     let isDefaultSuggestion: Bool
     
@@ -206,15 +269,19 @@ struct ServingOption: Codable, Identifiable, Hashable {
         id: UUID = UUID(),
         label: String,
         grams: Double,
+        unit: AmountUnit = .grams,
         source: ServingSource,
         isDefaultSuggestion: Bool = false
     ) {
         self.id = id
         self.label = label
         self.grams = grams
+        self.unit = unit
         self.source = source
         self.isDefaultSuggestion = isDefaultSuggestion
     }
+
+    nonisolated var amountUnit: AmountUnit { unit ?? .grams }
 }
 
 enum ServingSource: String, Codable {
@@ -358,6 +425,7 @@ struct FoodLog: Codable, Identifiable {
     let productId: UUID
     let mealType: String // "frokost", "lunsj", "middag", "snacks"
     let amountG: Float // exact, no rounding
+    let amountUnit: AmountUnit?
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp
     
@@ -376,6 +444,7 @@ struct FoodLog: Codable, Identifiable {
         productId: UUID,
         mealType: String,
         amountG: Float,
+        amountUnit: AmountUnit = .grams,
         loggedDate: Date,
         loggedTime: Date = Date(),
         calories: Int,
@@ -390,6 +459,7 @@ struct FoodLog: Codable, Identifiable {
         self.productId = productId
         self.mealType = mealType
         self.amountG = amountG
+        self.amountUnit = amountUnit
         self.loggedDate = loggedDate
         self.loggedTime = loggedTime
         self.calories = calories
@@ -399,6 +469,8 @@ struct FoodLog: Codable, Identifiable {
         self.createdAt = createdAt
         self.isSynced = isSynced
     }
+
+    nonisolated var resolvedAmountUnit: AmountUnit { amountUnit ?? .grams }
 }
 
 // MARK: - Saved meals
@@ -438,6 +510,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
     let productId: UUID
     let productName: String
     var amountG: Float
+    var amountUnit: AmountUnit?
     var calories: Int
     var proteinG: Float
     var carbsG: Float
@@ -450,6 +523,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         productId: UUID,
         productName: String,
         amountG: Float,
+        amountUnit: AmountUnit = .grams,
         calories: Int,
         proteinG: Float,
         carbsG: Float,
@@ -461,6 +535,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         self.productId = productId
         self.productName = productName
         self.amountG = amountG
+        self.amountUnit = amountUnit
         self.calories = calories
         self.proteinG = proteinG
         self.carbsG = carbsG
@@ -468,6 +543,8 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         self.nutritionSource = nutritionSource
         self.sortIndex = sortIndex
     }
+
+    nonisolated var resolvedAmountUnit: AmountUnit { amountUnit ?? .grams }
 }
 
 // MARK: - Favorites

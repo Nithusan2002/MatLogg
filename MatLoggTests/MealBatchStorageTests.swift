@@ -15,6 +15,8 @@ struct MealBatchStorageTests {
             #expect(created.allSatisfy { $0.type == "log.upsert" && $0.schemaVersion == 1 })
             #expect(Set(created.map(\.eventId)).count == 2)
             #expect(Set(created.compactMap(\.entityId)) == Set(logs.map { $0.id.uuidString }))
+            let payload = try #require(JSONSerialization.jsonObject(with: created[0].payload) as? [String: Any])
+            #expect(payload["unit"] as? String == "ml")
 
             try store.deleteLogs(logs.map(\.id))
             #expect(store.getAllLogs(userId: userId).isEmpty)
@@ -69,6 +71,7 @@ struct MealBatchStorageTests {
 
     private func makeLog(_ userId: UUID) -> FoodLog {
         FoodLog(userId: userId, productId: UUID(), mealType: "frokost", amountG: 60,
+                amountUnit: .milliliters,
                 loggedDate: Calendar.current.startOfDay(for: Date()), calories: 210,
                 proteinG: 8, carbsG: 30, fatG: 6)
     }

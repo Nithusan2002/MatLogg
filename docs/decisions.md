@@ -2,6 +2,40 @@
 
 Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datakontrakter eller drift. Hold hvert innslag kort: dato, beslutning, begrunnelse og konsekvens.
 
+## 2026-09-25 – Ekstern produktkatalog er lokal cache
+
+**Beslutning:** Open Food Facts brukes direkte fra iOS for strekkodeoppslag via
+API v3 og for eksplisitt innsendt navnesøk. Treff må ha komplett kcal- og
+makrogrunnlag, får stabil lokal identitet fra `kilde + ekstern ID` og caches
+uten `product.upsert`. Kilde, ernæringsgrunnlag, revisjon, hentetid og relevante
+datakvalitetsvarsler bevares. Brukerskapte produkter beholder eksisterende,
+atomiske domene- og synkskriving.
+
+**Begrunnelse:** Dette gir rask MVP-integrasjon og offline gjenbruk uten å gjøre
+tredjeparts katalogdata til brukereid synkdata. Eksplisitt navnesøk respekterer
+Open Food Facts' lavere søkerate, og manglende ernæring gjettes ikke som null.
+
+**Konsekvens:** Synkkontraktens wire-format og schema-versjon endres ikke.
+Produktdetaljer viser datakilde og lisenslenker. Backendfasade og bulkimport av
+Open Food Facts-dump vurderes først når trafikk, søkekvalitet eller drift tilsier
+at direkte klientoppslag ikke lenger er tilstrekkelig.
+
+## 2026-09-25 – Én generisk loggføringsinngang på Hjem
+
+**Beslutning:** Den separate raden med «Søk etter mat» og «Skann» fjernes fra
+Hjem. Den vedvarende «Loggfør»-handlingen er den generiske inngangen til søk,
+skanning og manuell registrering. Legg-til på måltidskort og personlige
+hurtigvalg beholdes fordi de gir henholdsvis måltidskontekst og en kortere
+gjenbruksflyt.
+
+**Begrunnelse:** Den generiske raden dupliserte både Loggfør-arket og Søk-fanen
+og konkurrerte med appens avtalte primærhandling. Fjerningen gir et roligere
+Hjem uten å fjerne noen loggføringsmetode.
+
+**Konsekvens:** Generisk skanning fra Hjem krever først trykk på «Loggfør».
+Søk og skanning forblir separate, tekstmerkede handlinger i Loggfør-arket og
+Søk-fanen. Ingen data-, synk- eller arkitekturkontrakter endres.
+
 ## 2026-09-17 – Normative produkt- og designdokumenter
 
 **Beslutning:** `product-brief.md`, `design-and-user-flow.md` og
@@ -177,3 +211,48 @@ godkjent næringsgrunnlag.
 `saved_meal.upsert` og `saved_meal.delete`, men produksjonssynk forblir av og
 flerenhetsnedlasting er ikke implementert. Malens lokale skriving og hendelse er
 atomisk; logging fra malen gjenbruker eksisterende atomiske loggbatcher.
+
+## 2026-09-26 – Mengdeenhet bevares for væsker
+
+**Beslutning:** Produktets dokumenterte grunnlag kan være per 100 g eller per
+100 ml. Logger, gjenbruk, lagrede måltider, eksport og synkhendelser bevarer
+`g` eller `ml`. Eldre data uten enhet tolkes som gram. Historiske wire-feltnavn
+`grams` og `amountG` beholdes i synkkontrakt v1, men ledsages av eksplisitt enhet.
+
+**Begrunnelse:** Open Food Facts oppgir blant annet Monster Ultra White som
+500 ml med næringsverdier per 100 ml. Å vise dette som 500 g mister kildens
+enhet og antyder en tetthetskonvertering vi ikke har grunnlag for.
+
+**Konsekvens:** Backend får additive enhetsfelt med database-default `g` og
+constraints for `g`/`ml`. Produksjonssynk forblir deaktivert; dersom den senere
+aktiveres, må backend med enhetsstøtte rulles ut før klienter som sender `ml`.
+
+## 2026-09-26 – Loggbok og gaffel som appikonretning
+
+**Beslutning:** MatLoggs valgte appikonretning er konseptet med en åpen loggbok,
+en gaffel integrert i bokryggen og en korallfarget hake. Ikonet bruker appens
+varme krembakgrunn, dype plommefarge og korall som hovedpalett, uten ordmerke.
+
+**Begrunnelse:** Symbolet kobler mat og loggføring direkte, og samsvarer med
+appens varme, rolige og konkrete uttrykk bedre enn et generelt helse- eller
+kostholdssymbol. Den enkle silhuetten kan også fungere uten tekst.
+
+**Konsekvens:** En 1024 × 1024-master uten transparens eller ytre hjørnemaske er
+lagt i appens asset-katalog og kontrollert i liten ikonstørrelse. Standardikonet
+brukes også når egne mørke og tonede varianter ikke er definert.
+
+## 2026-09-26 – IO-frie SwiftUI-renderpass
+
+**Beslutning:** SwiftUI-views skal motta ferdig lastede presentasjonsdata og skal
+ikke slå opp enkeltobjekter i SQLite fra `body` eller radberegninger. Relaterte
+objekter lastes i batch gjennom repository-grensen. Hurtig input-state isoleres
+fra kostbare søsken som diagrammer, bilder og lange lister.
+
+**Begrunnelse:** Synkrone radoppslag blokkerer hovedtråden og skalerer som N+1 ved
+søk og re-rendering. Bred state-observasjon gjorde også at tastetrykk bygget opp
+vesentlig større view-trær enn nødvendig.
+
+**Konsekvens:** ViewModels kan eie presentasjonsoppslag som produktnavn, mens
+repositories tilbyr batchlesing. Stabil identitet og `Equatable` brukes målrettet
+etter måling; `.id()` skal ikke brukes som en generell ytelsesmekanisme. Dette
+endrer ingen domeneskriving, synkhendelse eller wire-kontrakt.

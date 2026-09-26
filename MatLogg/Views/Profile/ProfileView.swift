@@ -230,7 +230,6 @@ private struct ProfileSettingsView: View {
             Section("Profil og personvern") {
                 NavigationLink("Personlige detaljer") { PersonalDetailsView() }
                 NavigationLink("Personvern & valg") { PrivacyChoicesView() }
-                NavigationLink("Oversikt") { ProgressTabView() }
             }
             .listRowBackground(AppColors.surface)
             Section("Preferanser") {

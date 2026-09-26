@@ -91,17 +91,24 @@ struct DayNavigationBar: View {
         if calendar.isDateInYesterday(selection) { return "I går" }
         if calendar.isDateInTomorrow(selection) { return "I morgen" }
 
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "EEE d. MMM"
-        return formatter.string(from: selection).capitalized
+        return selection.formatted(
+            .dateTime
+                .weekday(.abbreviated)
+                .day()
+                .month(.abbreviated)
+                .locale(Locale(identifier: "nb_NO"))
+        ).capitalized
     }
 
     private var accessibilityDate: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateStyle = .full
-        return formatter.string(from: selection)
+        selection.formatted(
+            .dateTime
+                .weekday(.wide)
+                .day()
+                .month(.wide)
+                .year()
+                .locale(Locale(identifier: "nb_NO"))
+        )
     }
 
     private func shiftSelection(by days: Int) {

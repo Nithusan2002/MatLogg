@@ -30,8 +30,19 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Bruk semantiske design-tokens og eksisterende komponenter fremfor lokale stilvarianter.
 - Alle `ScrollView`, `List` og `Form` som vises under den vedvarende bunnmenyen skal bruke `matLoggTabBarScrollClearance()`; ikke-scrollbare faneskjermer skal også holde bunntilknyttet innhold over menyen. Dette gjelder nye skjermer som pushes i en fanes `NavigationStack`, men ikke sheets, fullskjermsvisninger, innlogging eller onboarding.
 - Hold `AppState` som koordinering, ikke som permanent hjem for ny domenelogikk eller IO.
-- Kjør tester og bygg ut fra risiko. Oppgi alltid hva som ble kjørt, eller hvorfor verifisering ble hoppet over.
+- Verifiser proporsjonalt med risiko. Kjør som standard bare den minste målrettede kontrollen som gir reell trygghet; ikke kjør full testpakke eller full build uten konkret grunn. Verifisering kan hoppes over for dokumentasjon, tekst og åpenbart risikofrie endringer. Logikk, lagring, synk, backend, personvern og autentisering skal fortsatt ha relevant målrettet verifisering. Oppgi alltid hva som ble kjørt, eller hvorfor verifisering ble hoppet over.
 - Oppdater relevante docs når API-kontrakter, synkformat eller scope endres. Før større tekniske og produktmessige beslutninger i `docs/decisions.md`.
+
+## Tokenøkonomi
+
+- Undersøk bare filer og dokumentasjon som er nødvendige for oppgaven. Bruk målrettet søk før hele filer leses.
+- Ikke kartlegg, refaktorer eller kommenter kode utenfor avtalt scope.
+- Gjenbruk allerede innhentet kontekst og ikke les uendrede filer på nytt uten grunn.
+- Samle uavhengige søk og kontroller i færrest mulig verktøykall.
+- Ikke bruk nettsøk eller underagenter med mindre brukeren eller en gjeldende overordnet instruksjon krever det.
+- Gjør rimelige, reversible antakelser fremfor å starte unødvendige avklaringsrunder. Oppgi viktige antakelser kort.
+- Sluttrapporter skal som standard være korte og bare dekke endringer, verifisering og gjenværende risiko. Ikke gjengi kode eller full diff uten forespørsel.
+- Ikke opprett ekstra dokumentasjon, planer eller oppsummeringer med mindre de er påkrevd eller har varig verdi.
 
 ## Prosjektkart
 

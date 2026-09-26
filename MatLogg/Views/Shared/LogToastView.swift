@@ -17,7 +17,7 @@ struct LogToastView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(formatAmount(payload.amountG)) g \(payload.product.name) lagt til \(mealTitle)")
+                Text("\(formatAmount(payload.amountG)) \(payload.amountUnit.rawValue) \(payload.product.name) lagt til \(mealTitle)")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.ink)
                     .fixedSize(horizontal: false, vertical: true)

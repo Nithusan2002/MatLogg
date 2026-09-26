@@ -5,6 +5,22 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct APIServiceTests {
+    @Test func invalidBaseURLReturnsTypedErrorWithoutStartingRequest() async {
+        let service = APIService(baseURL: "://ugyldig")
+
+        do {
+            _ = try await service.loginEmail(email: "test@matlogg.no", password: "hemmelig")
+            Issue.record("Ugyldig URL skulle ha feilet før nettverkskallet")
+        } catch let error as APIService.APIError {
+            guard case .invalidURL = error else {
+                Issue.record("Forventet APIError.invalidURL")
+                return
+            }
+        } catch {
+            Issue.record("Forventet en typet API-feil, fikk \(error)")
+        }
+    }
+
     @Test func loginPreservesBackendErrorCodeAndMessage() async throws {
         APIURLProtocolStub.handler = { request in
             #expect(request.url?.path == "/v1/auth/login")

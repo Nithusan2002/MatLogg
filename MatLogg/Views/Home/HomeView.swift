@@ -20,9 +20,6 @@ struct HomeView: View {
     var body: some View {
         TabView(selection: tabSelection) {
             HomeTabView(
-                showScanCamera: $showScanCamera,
-                showManualAdd: $showManualAdd,
-                showRawMaterials: $showRawMaterials,
                 onOpenQuickLog: { showAddActions = true },
                 onLogComplete: { payload in
                     Task { await loadTodaysSummary() }
@@ -257,18 +254,18 @@ struct HomeTabView: View {
     @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
-    @Binding var showScanCamera: Bool
-    @Binding var showManualAdd: Bool
-    @Binding var showRawMaterials: Bool
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     @State private var selectedSummary: DailySummary?
-    @State private var recentScans: [ScanHistory] = []
+    @State private var productNames: [UUID: String] = [:]
+    @State private var quickProducts: [Product] = []
     @State private var selectedProduct: Product?
     @State private var selectedMealForLog: MealPresentation?
     @State private var isSummaryLoading = true
     
     var body: some View {
+        let logsByMeal = selectedSummary?.logsByMeal ?? [:]
+
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -325,11 +322,6 @@ struct HomeTabView: View {
                         }
                     }
 
-                    QuickSearchBar(
-                        onSearch: { showRawMaterials = true },
-                        onScan: { showScanCamera = true }
-                    )
-
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
                             VStack(alignment: .leading, spacing: 8) {
@@ -368,9 +360,9 @@ struct HomeTabView: View {
                     ForEach(MealPresentation.all) { meal in
                         MealOverviewCard(
                             meal: meal,
-                            logs: selectedSummary?.logs.filter { $0.mealType == meal.key } ?? [],
+                            logs: logsByMeal[meal.key] ?? [],
                             hideCalories: preferencesViewModel.safeModeHideCalories,
-                            productName: { productViewModel.product(id: $0)?.name ?? "Ukjent produkt" },
+                            productName: { productNames[$0] ?? "Ukjent produkt" },
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
                                 appState.selectedMealType = meal.key
@@ -445,7 +437,13 @@ struct HomeTabView: View {
     private func refreshSummaries() async {
         await loadSelectedSummary()
         if let userId = authViewModel.currentUser?.id {
-            recentScans = await productViewModel.recentScans(userId: userId, limit: 6)
+            let scans = await productViewModel.recentScans(userId: userId, limit: 6)
+            let productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
+            var seen = Set<UUID>()
+            quickProducts = scans.compactMap { scan in
+                guard seen.insert(scan.productId).inserted else { return nil }
+                return productsByID[scan.productId]
+            }
             await mealReuseViewModel.load(userId: userId, date: selectedDate)
         }
     }
@@ -455,12 +453,15 @@ struct HomeTabView: View {
         isSummaryLoading = true
         guard let userId = authViewModel.currentUser?.id else {
             selectedSummary = nil
+            productNames = [:]
             isSummaryLoading = false
             return
         }
         let summary = await logViewModel.fetchSummary(userId: userId, date: requestedDate)
+        let names = await logViewModel.productNames(for: summary.logs)
         guard Calendar.current.isDate(requestedDate, inSameDayAs: selectedDate) else { return }
         selectedSummary = summary
+        productNames = names
         isSummaryLoading = false
     }
 
@@ -497,14 +498,6 @@ struct HomeTabView: View {
         return "Måltider \(shortDateLabel)"
     }
 
-    private var quickProducts: [Product] {
-        var seen = Set<UUID>()
-        return recentScans.compactMap { scan in
-            guard seen.insert(scan.productId).inserted else { return nil }
-            return productViewModel.product(id: scan.productId)
-        }
-    }
-
     @ViewBuilder
     private var quickLogSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -529,7 +522,7 @@ struct HomeTabView: View {
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.deepInk)
                                         .lineLimit(2)
-                                    Text("\(product.caloriesPer100g) kcal per 100 g")
+                                    Text("\(product.caloriesPer100g) kcal per 100 \(product.amountUnit.rawValue)")
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
@@ -571,10 +564,9 @@ struct HomeTabView: View {
     }
 
     private var shortDateLabel: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "d. MMM"
-        return formatter.string(from: selectedDate)
+        selectedDate.formatted(
+            .dateTime.day().month(.abbreviated).locale(Locale(identifier: "nb_NO"))
+        )
     }
     
 }
@@ -667,6 +659,7 @@ struct MealOverviewCard: View {
                 MealReuseSuggestionView(
                     suggestion: suggestion,
                     isSaving: isReusing,
+                    hideCalories: hideCalories,
                     onLog: { onReuse(suggestion) },
                     onAdjust: { onAdjustReuse(suggestion) },
                     onDismiss: onDismissReuse
@@ -698,7 +691,7 @@ struct MealOverviewCard: View {
                                             .foregroundColor(AppColors.deepInk)
                                     }
                                 }
-                                Text("\(Int(log.amountG)) g")
+                                Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
                                 HStack(spacing: 6) {
@@ -824,10 +817,9 @@ struct StatusCardView: View {
     }
 
     private var statusDateLabel: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "nb_NO")
-        formatter.dateFormat = "EEEE d. MMMM"
-        return formatter.string(from: summary.date).uppercased()
+        summary.date.formatted(
+            .dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "nb_NO"))
+        ).uppercased()
     }
     
     private func progressValue(current: Double, target: Double) -> Double {
@@ -860,6 +852,7 @@ struct ReceiptPayload: Identifiable {
     let id = UUID()
     let product: Product
     let amountG: Double
+    let amountUnit: AmountUnit
     let mealType: String
     let loggedDate: Date
 }
@@ -878,6 +871,7 @@ struct ScanHistoryView: View {
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var recentScans: [ScanHistory] = []
+    @State private var productsByID: [UUID: Product] = [:]
     @State private var selectedProduct: Product?
     @State private var showMissingProductAlert = false
     @State private var receiptPayload: ReceiptPayload?
@@ -899,7 +893,7 @@ struct ScanHistoryView: View {
                 } else {
                     List(recentScans) { scan in
                         Button(action: {
-                            if let product = productViewModel.product(id: scan.productId) {
+                            if let product = productsByID[scan.productId] {
                                 selectedProduct = product
                             } else {
                                 showMissingProductAlert = true
@@ -939,7 +933,9 @@ struct ScanHistoryView: View {
         }
         .task {
             if let userId = authViewModel.currentUser?.id {
-                recentScans = await productViewModel.recentScans(userId: userId)
+                let scans = await productViewModel.recentScans(userId: userId)
+                recentScans = scans
+                productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
             }
         }
         .sheet(item: $selectedProduct) { product in
@@ -958,7 +954,7 @@ struct ScanHistoryView: View {
     }
     
     private func productName(for scan: ScanHistory) -> String {
-        productViewModel.product(id: scan.productId)?.name ?? "Ukjent produkt"
+        productsByID[scan.productId]?.name ?? "Ukjent produkt"
     }
 
     private func dismissReceipt() {
@@ -1082,7 +1078,7 @@ struct CameraView: View {
                         .font(.subheadline)
                         .foregroundColor(.white)
                         .fontWeight(.semibold)
-                    ForEach(scanHelpHints, id: \.self) { hint in
+                    ForEach(Array(scanHelpHints.enumerated()), id: \.offset) { _, hint in
                         Text(hint)
                             .font(.caption)
                             .foregroundColor(.white.opacity(0.85))
@@ -1167,7 +1163,7 @@ struct CameraView: View {
                 }
             }
         }
-        .alert("Produktet finnes ikkje", isPresented: $showProductNotFound) {
+        .alert("Produktet kan ikke brukes ennå", isPresented: $showProductNotFound) {
             Button("Legg til selv", action: {
                 showManualProduct = true
             })
@@ -1175,7 +1171,7 @@ struct CameraView: View {
                 scannedBarcode = nil
             }
         } message: {
-            Text("Vil du legge produktet til manuelt?")
+            Text("Vi fant ikke komplette næringsverdier per 100 g eller 100 ml. Vil du legge produktet til manuelt?")
         }
     }
     
@@ -1220,7 +1216,7 @@ struct CameraView: View {
                 await MainActor.run {
                     isLoading = false
                     switch apiError {
-                    case .serverError(let code) where code == 404:
+                    case .serverError(404), .incompleteProductData:
                         showProductNotFound = true
                     case .backendError(let statusCode, _, _) where statusCode == 404:
                         showProductNotFound = true
@@ -1409,6 +1405,7 @@ struct SearchHubView: View {
     let onScan: () -> Void
     let onRawSearch: () -> Void
     @State private var recentScans: [ScanHistory] = []
+    @State private var productsByID: [UUID: Product] = [:]
 
     var body: some View {
         NavigationStack {
@@ -1453,7 +1450,7 @@ struct SearchHubView: View {
                                     .frame(width: 44, height: 44)
                                     .background(AppColors.info.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                                 VStack(alignment: .leading) {
-                                    Text(productViewModel.product(id: scan.productId)?.name ?? "Ukjent produkt")
+                                    Text(productsByID[scan.productId]?.name ?? "Ukjent produkt")
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.ink)
                                     Text(scan.scannedAt.timeAgoDisplay())
@@ -1485,7 +1482,9 @@ struct SearchHubView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 if let userId = authViewModel.currentUser?.id {
-                    recentScans = await productViewModel.recentScans(userId: userId, limit: 6)
+                    let scans = await productViewModel.recentScans(userId: userId, limit: 6)
+                    recentScans = scans
+                    productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
                 }
             }
         }
@@ -1528,8 +1527,11 @@ private struct SearchShortcut: View {
 
 extension Date {
     func timeAgoDisplay() -> String {
-        let formatter = RelativeDateTimeFormatter()
-        return formatter.localizedString(for: self, relativeTo: Date())
+        formatted(Date.RelativeFormatStyle(
+            presentation: .named,
+            unitsStyle: .wide,
+            locale: Locale(identifier: "nb_NO")
+        ))
     }
 }
 

@@ -4,6 +4,7 @@ import SwiftUI
 struct MealReuseSuggestionView: View {
     let suggestion: MealReuseSuggestion
     let isSaving: Bool
+    let hideCalories: Bool
     let onLog: () -> Void
     let onAdjust: () -> Void
     let onDismiss: () -> Void
@@ -14,10 +15,17 @@ struct MealReuseSuggestionView: View {
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
             ForEach(suggestion.items) { item in
-                Text("\(item.name) · \(item.original.amountG.formatted(.number.locale(Locale(identifier: "nb_NO")))) g")
-                    .font(AppTypography.body)
-                    .foregroundStyle(AppColors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("\(item.name) · \(item.original.amountG.formatted(.number.locale(Locale(identifier: "nb_NO")))) \(item.original.resolvedAmountUnit.rawValue)")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !hideCalories {
+                        Text("\(item.original.calories) kcal")
+                            .foregroundStyle(AppColors.ink)
+                    }
+                }
+                .font(AppTypography.body)
+                .foregroundStyle(AppColors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
             PrimaryButton(title: isSaving ? "Lagrer …" : "Loggfør", action: onLog)
                 .accessibilityIdentifier("meal-reuse-log-\(suggestion.mealType)")
@@ -56,7 +64,7 @@ struct MealReuseEditorView: View {
                     if let draft = viewModel.draft {
                         Text(draft.title)
                             .font(AppTypography.title)
-                        Text("Endre mengder eller fjern matvarer før du loggfører. Mengdene vises i gram fra gårsdagens logg.")
+                        Text("Endre mengder eller fjern matvarer før du loggfører. Enhetene beholdes fra gårsdagens logg.")
                             .font(AppTypography.body)
                             .foregroundStyle(AppColors.textSecondary)
                         ForEach(draft.items) { item in
@@ -70,8 +78,8 @@ struct MealReuseEditorView: View {
                                             .foregroundStyle(AppColors.textSecondary)
                                     }
                                     VStack(alignment: .leading, spacing: 8) {
-                                        Text("Mengde (g)").font(AppTypography.body)
-                                        TextField("Mengde i gram", text: Binding(
+                                        Text("Mengde (\(item.original.resolvedAmountUnit.rawValue))").font(AppTypography.body)
+                                        TextField("Mengde i \(item.original.resolvedAmountUnit.spokenName)", text: Binding(
                                             get: { viewModel.draft?.items.first { $0.id == item.id }?.amountText ?? "" },
                                             set: { viewModel.setAmount(itemId: item.id, text: $0) }
                                         ))
@@ -79,11 +87,11 @@ struct MealReuseEditorView: View {
                                         .textFieldStyle(.roundedBorder)
                                         .frame(minHeight: 44)
                                         .focused($focusedItem, equals: item.id)
-                                        .accessibilityLabel("Mengde i gram for \(item.name)")
+                                        .accessibilityLabel("Mengde i \(item.original.resolvedAmountUnit.spokenName) for \(item.name)")
                                         .accessibilityIdentifier("meal-reuse-amount-\(item.id)")
                                     }
                                     if item.amountG == nil {
-                                        Text("Skriv en mengde større enn 0 og høyst 10 000 g.")
+                                        Text("Skriv en mengde større enn 0 og høyst 10 000 \(item.original.resolvedAmountUnit.rawValue).")
                                             .font(AppTypography.caption)
                                     }
                                     Button("Fjern matvare", role: .destructive) {

@@ -47,8 +47,9 @@ injisert ved app-roten. `SavedMeal` er et eget brukereid aggregat; bruk av en
 mal oppretter nye, selvstendige `FoodLog`-verdier. Endring eller sletting av en
 mal påvirker aldri historiske logger.
 
-Hvert element bevarer produkt-ID, produktnavn, gram, de eksakte lagrede
-næringsverdiene og ernæringskilden som brukeren godkjente. Mengdeendring
+Hvert element bevarer produkt-ID, produktnavn, numerisk mengde, enhet (`g` eller
+`ml`), de eksakte lagrede næringsverdiene og ernæringskilden som brukeren
+godkjente. Mengdeendring
 skalerer dette snapshotet og henter ikke stille nyere produktverdier.
 
 Lokalt SQLite-skjema v2 legger til `saved_meals`. Skriving av malen og

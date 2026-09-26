@@ -16,13 +16,23 @@ assert.equal(decodeBase64Payload('e30'), null);
 assert(syncEventTypes.has('log.upsert'));
 assert(syncEventTypes.has('weight.delete'));
 assert(syncEventTypes.has('saved_meal.upsert'));
-assert(logPayloadSchema.safeParse({
+const legacyLog = logPayloadSchema.safeParse({
   id, date: '2026-09-15T10:00:00Z', meal: 'lunsj', grams: 100, kcal: 200,
   protein: 10, carbs: 20, fat: 5, productRef: id,
+});
+assert(legacyLog.success);
+if (legacyLog.success) assert.equal(legacyLog.data.unit, 'g');
+assert(logPayloadSchema.safeParse({
+  id, date: '2026-09-15T10:00:00Z', meal: 'lunsj', grams: 500, unit: 'ml', kcal: 10,
+  protein: 0, carbs: 4, fat: 0, productRef: id,
+}).success);
+assert(!logPayloadSchema.safeParse({
+  id, date: '2026-09-15T10:00:00Z', meal: 'lunsj', grams: 5, unit: 'dl', kcal: 10,
+  protein: 0, carbs: 4, fat: 0,
 }).success);
 assert(!logPayloadSchema.safeParse({ id, date: 'not-a-date', meal: '', grams: -1 }).success);
 
-assert(savedMealPayloadSchema.safeParse({
+const savedMeal = savedMealPayloadSchema.safeParse({
   id,
   name: 'Vanlig frokost',
   suggestedMealType: 'frokost',
@@ -31,6 +41,18 @@ assert(savedMealPayloadSchema.safeParse({
     id, productId: id, productName: 'Havregryn',
     amountG: 80, calories: 296, protein: 10, carbs: 48, fat: 6,
     nutritionSource: 'matvaretabellen', sortIndex: 0,
+  }],
+});
+assert(savedMeal.success);
+if (savedMeal.success) assert.equal(savedMeal.data.items[0].amountUnit, 'g');
+assert(savedMealPayloadSchema.safeParse({
+  id,
+  name: 'Drikke',
+  updatedAt: '2026-09-24T12:00:00Z',
+  items: [{
+    id, productId: id, productName: 'Monster Ultra White',
+    amountG: 500, amountUnit: 'ml', calories: 10, protein: 0, carbs: 4, fat: 0,
+    nutritionSource: 'openFoodFacts', sortIndex: 0,
   }],
 }).success);
 assert(!savedMealPayloadSchema.safeParse({

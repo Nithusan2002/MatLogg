@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 21. september 2026
+Sist oppdatert: 25. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -24,7 +24,9 @@ Det du logger i appen
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
 
 Produktdata
-  - Nar du skanner eller soker, henter vi produktinformasjon fra eksterne databaser som Open Food Facts og kan bruke Matvaretabellen for naeringsdata. Vi kan lagre produkter lokalt og/eller i var database for a gi raskere oppslag.
+  - Nar du skanner, sendes strekkoden til Open Food Facts for a hente produktinformasjon.
+  - Nar du aktivt sender inn et navnesok, sendes soketeksten til Open Food Facts og kan brukes mot Matvaretabellen for naeringsdata. Sok sendes ikke for hvert tastetrykk.
+  - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter kan lagres og synkroniseres separat nar synk er aktivert.
 
 Deling
   - Hvis du deler et produkt, genererer vi en delingslenke (token) som gjor at mottaker kan se en forhandsvisning og importere produktet i appen.
@@ -53,7 +55,7 @@ MatLogg er “offline-first”, som betyr at data normalt lagres lokalt pa enhet
 6. Deling med tredjepart
 
 Vi kan dele begrensede data med:
-  - Open Food Facts og Matvaretabellen for oppslag av produkt-/naeringsdata (ved sok/skann).
+  - Open Food Facts og Matvaretabellen for oppslag av produkt-/naeringsdata nar du aktivt soker eller skanner. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
 Vi selger ikke persondata.

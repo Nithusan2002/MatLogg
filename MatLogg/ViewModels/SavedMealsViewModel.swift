@@ -82,6 +82,7 @@ final class SavedMealsViewModel: ObservableObject {
                 productId: log.productId,
                 productName: product.name,
                 amountG: log.amountG,
+                amountUnit: log.resolvedAmountUnit,
                 calories: log.calories,
                 proteinG: log.proteinG,
                 carbsG: log.carbsG,
@@ -118,7 +119,7 @@ final class SavedMealsViewModel: ObservableObject {
         var updatedItems: [SavedMealItem] = []
         for (index, original) in kept.sorted(by: { $0.sortIndex < $1.sortIndex }).enumerated() {
             guard let amount = amounts[original.id], valid(amount: amount) else {
-                errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 g."
+                errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 i oppgitt enhet."
                 return false
             }
             let factor = amount / original.amountG
@@ -180,7 +181,7 @@ final class SavedMealsViewModel: ObservableObject {
                 return false
             }
             guard let amount = amounts[item.id], valid(amount: amount), valid(item: item) else {
-                errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 g."
+                errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 i oppgitt enhet."
                 return false
             }
             let factor = amount / item.amountG
@@ -196,6 +197,7 @@ final class SavedMealsViewModel: ObservableObject {
                 productId: item.productId,
                 mealType: mealType,
                 amountG: amount,
+                amountUnit: item.resolvedAmountUnit,
                 loggedDate: targetDate,
                 loggedTime: timestamp,
                 calories: Int(calories.rounded()),

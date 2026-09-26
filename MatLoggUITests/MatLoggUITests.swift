@@ -40,9 +40,13 @@ final class MatLoggUITests: XCTestCase {
         let logButton = app.buttons["Loggfør mat"]
         XCTAssertTrue(logButton.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Åpne profil"].exists)
+        XCTAssertFalse(app.buttons["Søk etter mat"].exists)
+        XCTAssertFalse(app.buttons["Skann strekkode"].exists)
 
         logButton.tap()
         XCTAssertTrue(app.staticTexts["Loggfør mat"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Søk etter mat"].exists)
+        XCTAssertTrue(app.buttons["Skann strekkode"].exists)
         XCTAssertTrue(
             app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Logg til:'")).firstMatch.exists
         )
@@ -85,6 +89,29 @@ final class MatLoggUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Ingen favoritter ennå"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.buttons["Finn matvarer"].exists)
+    }
+
+    @MainActor
+    func testProfileSettingsDoesNotDuplicateOverview() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let profileTab = app.buttons["Profil"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 3))
+        profileTab.tap()
+
+        let settings = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Innstillinger'")
+        ).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 2))
+        settings.tap()
+
+        XCTAssertTrue(app.navigationBars["Innstillinger"].waitForExistence(timeout: 2))
+        XCTAssertEqual(
+            app.buttons.matching(NSPredicate(format: "label == 'Oversikt'")).count,
+            1,
+            "Oversikt skal bare finnes i bunnmenyen, ikke som snarvei i Innstillinger."
+        )
     }
 
     @MainActor

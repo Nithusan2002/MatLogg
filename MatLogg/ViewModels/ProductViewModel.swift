@@ -99,6 +99,10 @@ final class ProductViewModel: ObservableObject {
         repository.getProduct(id)
     }
 
+    func products(ids: Set<UUID>) async -> [UUID: Product] {
+        await repository.getProducts(ids)
+    }
+
     func saveManualProduct(_ product: Product) async throws {
         try await repository.saveProduct(product)
     }
@@ -115,7 +119,7 @@ final class ProductViewModel: ObservableObject {
     func saveScannedProduct(_ product: Product, userId: UUID) async -> Bool {
         errorMessage = nil
         do {
-            try await repository.saveProduct(product)
+            try await repository.cacheCatalogProduct(product)
             try await repository.saveScanHistory(userId: userId, productId: product.id)
             return true
         } catch {
@@ -323,7 +327,14 @@ final class ProductViewModel: ObservableObject {
                 verificationStatus: .suggestedMatch,
                 confidenceScore: best.score,
                 isVerified: false,
-                createdAt: product.createdAt
+                createdAt: product.createdAt,
+                externalID: product.externalID,
+                nutritionBasis: product.nutritionBasis,
+                sourceUpdatedAt: product.sourceUpdatedAt,
+                sourceRevision: product.sourceRevision,
+                sourceSchemaVersion: product.sourceSchemaVersion,
+                fetchedAt: product.fetchedAt,
+                dataQualityWarnings: product.dataQualityWarnings
             )
             return await persistUpgrade(suggested)
         }
@@ -355,13 +366,20 @@ final class ProductViewModel: ObservableObject {
             verificationStatus: verified ? .verified : .suggestedMatch,
             confidenceScore: mapping.confidenceScore,
             isVerified: verified,
-            createdAt: product.createdAt
+            createdAt: product.createdAt,
+            externalID: product.externalID,
+            nutritionBasis: product.nutritionBasis,
+            sourceUpdatedAt: product.sourceUpdatedAt,
+            sourceRevision: product.sourceRevision,
+            sourceSchemaVersion: product.sourceSchemaVersion,
+            fetchedAt: product.fetchedAt,
+            dataQualityWarnings: product.dataQualityWarnings
         )
     }
 
     private func persistUpgrade(_ product: Product) async -> Product {
         do {
-            try await repository.saveProduct(product)
+            try await repository.cacheCatalogProduct(product)
         } catch {
             errorMessage = "Kunne ikke lagre forbedrede næringsdata: \(error.localizedDescription)"
         }
@@ -370,6 +388,7 @@ final class ProductViewModel: ObservableObject {
 
     private func makeRawFoodProduct(_ item: MatvaretabellenProduct) -> Product {
         Product(
+            id: Product.catalogID(source: "matvaretabellen", externalID: item.id),
             name: item.name,
             brand: item.brand,
             category: item.category,
@@ -389,7 +408,10 @@ final class ProductViewModel: ObservableObject {
             imageSource: .none,
             verificationStatus: .verified,
             confidenceScore: nil,
-            isVerified: true
+            isVerified: true,
+            externalID: item.id,
+            nutritionBasis: .per100g,
+            fetchedAt: Date()
         )
     }
 

@@ -69,7 +69,11 @@ final class DailyGoalsViewModel: ObservableObject {
         }
         // Hidden calories are never changed by an existing draft or suggestion.
         let kcal = hideCalories ? original?.dailyCalories : Int(calories.trimmingCharacters(in: .whitespacesAndNewlines))
-        if kcal == nil || (!hideCalories && !GoalCalculator.calorieRange.contains(kcal!)) {
+        if let kcal {
+            if !hideCalories && !GoalCalculator.calorieRange.contains(kcal) {
+                errors[.calories] = "Skriv et heltall mellom 1200 og 4500 kcal."
+            }
+        } else {
             if hideCalories {
                 errorMessage = "Vis kalorier i Innstillinger for å sette opp et nytt mål."
             } else {

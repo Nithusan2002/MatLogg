@@ -245,6 +245,6 @@ struct QuickLogSheet: View {
 
     private func productSubtitle(_ product: Product) -> String {
         let brand = product.brand.map { "\($0) · " } ?? ""
-        return "\(brand)\(product.caloriesPer100g) kcal per 100 g"
+        return "\(brand)\(product.caloriesPer100g) kcal per 100 \(product.amountUnit.rawValue)"
     }
 }

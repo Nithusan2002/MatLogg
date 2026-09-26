@@ -59,9 +59,17 @@ class DatabaseService {
     func saveProduct(_ product: Product) async throws {
         try store.saveProduct(product)
     }
+
+    func cacheCatalogProduct(_ product: Product) async throws {
+        try store.cacheCatalogProduct(product)
+    }
     
     func getProduct(_ id: UUID) -> Product? {
         store.getProduct(id)
+    }
+
+    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
+        store.getProducts(ids)
     }
     
     func getProductByBarcode(_ barcode: String) -> Product? {

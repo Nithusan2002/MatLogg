@@ -43,6 +43,7 @@ model Log {
   date       DateTime
   meal       String
   grams      Float
+  unit       String   @default("g")
   kcal       Int
   protein    Float
   carbs      Float
@@ -114,6 +115,7 @@ model SavedMealItem {
   productId       String
   productName     String
   grams           Float
+  unit            String    @default("g")
   kcal            Int
   protein         Float
   carbs           Float

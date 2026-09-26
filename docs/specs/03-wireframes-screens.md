@@ -42,8 +42,9 @@ trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger «Dagens matinntak», separate søk- og skanneknapper og fire
-alltid synlige måltidskort i rekkefølgen frokost, lunsj, middag og kveldsmat.
+profil. Deretter følger «Dagens matinntak» og fire alltid synlige måltidskort i
+rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
+skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 En stor sentral «Loggfør»-knapp åpner et bunnark med søk, skanning, måltidsvalg
 og hurtigvalg fra favoritter og nylig brukte produkter.
@@ -64,7 +65,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Normal tekst skal ha minst 4,5:1 kontrast, stor tekst og nødvendige UI-symboler minst 3:1. Tekst på sterke makrofarger bruker mørk `onVibrant`, mens handlingslenker bruker det kontrastverifiserte `action`-tokenet.
 - Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
 - Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
-- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Oversikt».
+- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger i Loggfør-arket og Søk-fanen. De dupliseres ikke som en egen handlingsrad på Hjem. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Oversikt».
 - Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
 ```

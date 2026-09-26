@@ -80,8 +80,9 @@ Acceptance Criteria:
 □ Hvis <50%: ring blir grønn
 □ Måltidsrad fast øverst: [Frokost] [Lunsj] [Middag] [Snacks] (valgt måltid highlightet)
 □ Logg-liste under: dag → måltider → innslag (kronologisk)
-□ Stor skann-knapp i bunnen (5 cm diameter)
-□ Hvis ingen innslag i dag: "Begynn med å skanne eller legge til"
+□ Vedvarende «Loggfør»-knapp i bunnmenyen åpner søk, skanning og manuell registrering
+□ Måltidskort tilbyr kontekstuell legg-til med måltidet forhåndsvalgt
+□ Hvis ingen innslag i dag: "Ingen logget ennå"
 ```
 
 #### US-2.2: Bruker velger måltid før skanning
@@ -126,15 +127,16 @@ SOM: bruker
 SÅ AT: jeg ikkje bruker for mye tid på logging
 
 Acceptance Criteria:
-□ Tapp stor skann-knapp → åpne kamera (AVFoundation)
+□ Tapp «Loggfør» → «Skann» → åpne kamera (AVFoundation)
 □ Venter på EAN-deteksjon (auto-trigger, ingen knapp)
 □ Ved strekkode-deteksjon: én lett haptisk puls + lyd (pling), utløst kun én gang
-□ API-oppslag: GET /api/v1/products/barcode/{ean}
+□ Oppslag mot Open Food Facts API v3 med app-identifiserende User-Agent
 □ Hvis produkt finnes:
   - Umiddelbar produktkort-visning (hoppet over loading-state)
   - Mengde-felt prefylt: 100g
   - "Legg til"-knapp satt og klar
-□ Hvis ikkje funnet: "Ikke funnet"-flow (se US-3.3)
+□ Treff caches lokalt med stabil identitet basert på kilde + strekkode
+□ Hvis ikkje funnet eller komplett kcal-/makrogrunnlag mangler: manuell flyt (se US-3.3)
 □ Maksimal latency: 3 sekunder (nett), fra skann til produktkort
 □ Scannings-historikk lagres lokalt (evt. uten nett)
 ```
@@ -255,10 +257,10 @@ Acceptance Criteria:
 │ 1. HOME-SKJERMEN                                        │
 │ • Status: 500 / 2000 kcal                               │
 │ • Måltidsrad: [Frokost] [LUNSJ] [Middag] [Snacks]        │
-│ • Stor skann-knapp                                      │
+│ • Vedvarende Loggfør-knapp i bunnmenyen                 │
 │ • Logg-liste (tom eller med tidligere innslag)          │
 └─────────────────────────────────────────────────────────┘
-         ↓ [Bruker trykker skann-knapp]
+         ↓ [Bruker trykker Loggfør → Skann]
 ┌─────────────────────────────────────────────────────────┐
 │ 2. KAMERA-SKJERMEN                                      │
 │ • Kamera åpen, venter på EAN-strekkode                  │

@@ -105,12 +105,13 @@ struct Log {
     user_id: UUID (indexed)
     product_id: UUID (indexed, foreign key)
     meal_type: String ("frokost" | "lunsj" | "middag" | "snacks", indexed)
-    amount_g: Float (exact, no rounding)
+    amount_g: Float (historisk feltnavn; eksakt numerisk mengde)
+    amount_unit: String ("g" | "ml", manglende eldre verdi tolkes som "g")
     logged_date: Date (date-only)
     logged_time: DateTime (full timestamp)
     
     // Calculated (de-normalized for fast queries)
-    calories: Int (amount_g * product.calories_per_100g / 100)
+    calories: Int (amount * produktets dokumenterte per-100-grunnlag / 100)
     protein_g: Float
     carbs_g: Float
     fat_g: Float
@@ -148,7 +149,8 @@ struct SavedMealItem {
     id: UUID
     product_id: UUID
     product_name: String
-    amount_g: Float
+    amount_g: Float (historisk feltnavn; numerisk mengde)
+    amount_unit: String ("g" | "ml", default "g")
     calories: Int
     protein_g: Float
     carbs_g: Float

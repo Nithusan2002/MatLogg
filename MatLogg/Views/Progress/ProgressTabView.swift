@@ -11,14 +11,9 @@ struct ProgressTabView: View {
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
 
     @State private var summaries: [DailySummary] = []
+    @State private var metrics = ProgressMetrics(summaries: [])
     @State private var isLoading = true
-    @State private var weightText = ""
-    @State private var selectedDate = Date()
-    @State private var showWeightEntry = false
-    @State private var showDeleteConfirm = false
-    @State private var entryToDelete: WeightEntry?
 
-    private var metrics: ProgressMetrics { ProgressMetrics(summaries: summaries) }
     private var today: DailySummary? { metrics.today }
     private var goal: Goal? { healthProfileViewModel.currentGoal }
     private var hidesCalories: Bool { preferencesViewModel.safeModeHideCalories }
@@ -62,10 +57,6 @@ struct ProgressTabView: View {
             }
             .task { await reload() }
             .refreshable { await reload() }
-            .alert("Slette vektregistrering?", isPresented: $showDeleteConfirm) {
-                Button("Slett", role: .destructive) { deleteSelectedWeight() }
-                Button("Avbryt", role: .cancel) {}
-            }
         }
     }
 
@@ -205,6 +196,73 @@ struct ProgressTabView: View {
 
     private var weightCard: some View {
         dashboardCard(title: "Vekt") {
+            WeightEntryContent()
+        }
+    }
+
+    private func dashboardCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(title)
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.deepInk)
+                .accessibilityAddTraits(.isHeader)
+            content()
+        }
+        .padding(16)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
+        )
+        .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 7)
+    }
+
+    private func reload() async {
+        guard let userId = authViewModel.currentUser?.id else {
+            isLoading = false
+            return
+        }
+        isLoading = true
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var loaded: [DailySummary] = []
+        for offset in (-6...0) {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+            loaded.append(await logViewModel.fetchSummary(userId: userId, date: date))
+        }
+        summaries = loaded
+        metrics = ProgressMetrics(summaries: loaded)
+        await healthProfileViewModel.loadGoal(userId: userId)
+        await healthProfileViewModel.loadWeightEntries(userId: userId)
+        isLoading = false
+    }
+
+    private func ratio(_ value: Float, _ target: Float) -> Double {
+        target > 0 ? Double(value / target) : 0
+    }
+
+    private func macroValue(_ value: Float, _ target: Float) -> String {
+        "\(Int(value.rounded())) / \(Int(target.rounded())) g"
+    }
+
+    private func dayLabel(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date) ? "I dag" : date.formatted(.dateTime.weekday(.abbreviated))
+    }
+
+}
+
+private struct WeightEntryContent: View {
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @State private var weightText = ""
+    @State private var selectedDate = Date()
+    @State private var showWeightEntry = false
+    @State private var showDeleteConfirm = false
+    @State private var entryToDelete: WeightEntry?
+
+    var body: some View {
+        Group {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showWeightEntry.toggle() }
             } label: {
@@ -245,42 +303,10 @@ struct ProgressTabView: View {
                 }
             }
         }
-    }
-
-    private func dashboardCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title)
-                .font(AppTypography.title)
-                .foregroundColor(AppColors.deepInk)
-                .accessibilityAddTraits(.isHeader)
-            content()
+        .alert("Slette vektregistrering?", isPresented: $showDeleteConfirm) {
+            Button("Slett", role: .destructive) { deleteSelectedWeight() }
+            Button("Avbryt", role: .cancel) {}
         }
-        .padding(16)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-        )
-        .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 7)
-    }
-
-    private func reload() async {
-        guard let userId = authViewModel.currentUser?.id else {
-            isLoading = false
-            return
-        }
-        isLoading = true
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var loaded: [DailySummary] = []
-        for offset in (-6...0) {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
-            loaded.append(await logViewModel.fetchSummary(userId: userId, date: date))
-        }
-        summaries = loaded
-        await healthProfileViewModel.loadGoal(userId: userId)
-        await healthProfileViewModel.loadWeightEntries(userId: userId)
-        isLoading = false
     }
 
     private func saveWeight() async {
@@ -307,18 +333,6 @@ struct ProgressTabView: View {
         }
     }
 
-    private func ratio(_ value: Float, _ target: Float) -> Double {
-        target > 0 ? Double(value / target) : 0
-    }
-
-    private func macroValue(_ value: Float, _ target: Float) -> String {
-        "\(Int(value.rounded())) / \(Int(target.rounded())) g"
-    }
-
-    private func dayLabel(_ date: Date) -> String {
-        Calendar.current.isDateInToday(date) ? "I dag" : date.formatted(.dateTime.weekday(.abbreviated))
-    }
-
     private func formatWeight(_ value: Double) -> String {
         value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
     }
@@ -326,14 +340,23 @@ struct ProgressTabView: View {
 
 struct ProgressMetrics {
     let summaries: [DailySummary]
+    let today: DailySummary?
+    let averageCalories: Int
+    private let caloriesByMeal: [String: Int]
 
-    var today: DailySummary? { summaries.last }
-    var averageCalories: Int {
-        guard !summaries.isEmpty else { return 0 }
-        return Int((Double(summaries.reduce(0) { $0 + $1.totalCalories }) / Double(summaries.count)).rounded())
+    init(summaries: [DailySummary]) {
+        self.summaries = summaries
+        today = summaries.last
+        if summaries.isEmpty {
+            averageCalories = 0
+        } else {
+            averageCalories = Int((Double(summaries.reduce(0) { $0 + $1.totalCalories }) / Double(summaries.count)).rounded())
+        }
+        caloriesByMeal = Dictionary(grouping: summaries.last?.logs ?? [], by: \.mealType)
+            .mapValues { $0.reduce(0) { $0 + $1.calories } }
     }
 
     func calories(forMeal mealType: String) -> Int {
-        today?.logs.filter { $0.mealType == mealType }.reduce(0) { $0 + $1.calories } ?? 0
+        caloriesByMeal[mealType, default: 0]
     }
 }

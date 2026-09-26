@@ -43,11 +43,24 @@ struct RawMaterialsSearchView: View {
                             .focused($searchFocused)
                             .textInputAutocapitalization(.words)
                             .disableAutocorrection(true)
+                            .submitLabel(.search)
+                            .onSubmit {
+                                Task { await performSearch() }
+                            }
                             .onChange(of: query) { _, newValue in
                                 if newValue.count > 80 {
                                     query = String(newValue.prefix(80))
                                 }
+                                searchResults = []
+                                searchState = .idle
                             }
+                        Button("Søk") {
+                            Task { await performSearch() }
+                        }
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.action)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -128,7 +141,13 @@ struct RawMaterialsSearchView: View {
                             }
                             .listRowBackground(AppColors.surface)
                         case .idle:
-                            EmptyView()
+                            Section {
+                                Label("Trykk Søk for å hente treff", systemImage: "magnifyingglass")
+                                    .font(AppTypography.body)
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .frame(maxWidth: .infinity, minHeight: 72)
+                            }
+                            .listRowBackground(AppColors.surface)
                         }
                     }
                 }
@@ -155,9 +174,6 @@ struct RawMaterialsSearchView: View {
             .task {
                 await loadInitialData()
                 searchFocused = true
-            }
-            .task(id: query) {
-                await performSearch()
             }
             .sheet(item: $selectedProduct) { product in
                 ProductDetailView(product: product, appState: appState) { payload in
@@ -187,9 +203,9 @@ struct RawMaterialsSearchView: View {
         }
         searchState = .loading
         do {
-            try await Task.sleep(nanoseconds: 300_000_000)
             let outcome = try await productViewModel.searchFoodsWithStatus(query: trimmed)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled,
+                  query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             searchResults = outcome.items
             if outcome.items.isEmpty {
                 searchState = .empty
@@ -204,7 +220,8 @@ struct RawMaterialsSearchView: View {
         } catch is CancellationError {
             return
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled,
+                  query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             searchResults = []
             searchState = .failure("Sjekk forbindelsen og prøv igjen. Du kan fortsatt skanne eller bruke lagrede varer.")
         }
@@ -295,7 +312,7 @@ struct RawMaterialsSearchView: View {
     private func productContext(_ product: Product) -> String {
         let source = product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : "Open Food Facts"
         guard !preferencesViewModel.safeModeHideCalories else { return source }
-        return "\(product.caloriesPer100g) kcal per 100 g · \(source)"
+        return "\(product.caloriesPer100g) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
     }
     
     private func toProduct(item: MatvaretabellenProduct) -> Product {

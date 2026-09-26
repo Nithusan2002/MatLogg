@@ -149,6 +149,11 @@ Refresh access token
 
 ### **GET /products/barcode/{ean}**
 
+> Planlagt backend-endepunkt. Dagens iOS-klient gjør strekkodeoppslag direkte
+> mot Open Food Facts API v3 og cacher gyldige treff lokalt. Ekstern katalogcache
+> sendes ikke som `product.upsert`. Endepunktet under beskriver fortsatt ønsket
+> serverfasade når katalogoppslag senere flyttes til backend.
+
 Oppslag av produkt via EAN-strekkode
 
 **Parameters:**

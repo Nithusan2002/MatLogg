@@ -1,6 +1,6 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert: 2026-09-24.
+Sist kontrollert: 2026-09-26.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
@@ -19,29 +19,39 @@ Release-bygg viser alltid autentisering.
   og måltidskategori med samlet angre. Se [scope](saved-meals.md).
 
 - Gjenbruk av gårsdagens enkeltmåltid på Hjem med forhåndsvisning, redigerbare
-  mengder, lokal atomisk lagring og angre. Se [scope og brukertest](meal-reuse.md).
+  mengder, valgfri kcal per vare, lokal atomisk lagring og angre. Se
+  [scope og brukertest](meal-reuse.md).
 
-- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Legg til, Tall og Profil.
+- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Oversikt og Profil.
+- Hjem prioriterer dagsstatus og måltidskort uten en duplisert generisk
+  søk-/skannerad. Søk og skanning er fortsatt tilgjengelig fra den vedvarende
+  Loggfør-handlingen og Søk-fanen; legg-til fra måltidskort beholder
+  måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
-- Logging med mengde, måltid, kalorier og makronæringsstoffer.
+- Logging med mengde og bevart enhet (`g`/`ml`), måltid, kalorier og
+  makronæringsstoffer. Eldre data uten enhet tolkes som gram.
 - Dagsnavigasjon med piler og kalender på Hjem og i Logg. Valgt dato følger
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
 - Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
   måltidsfordeling og vektregistrering. Trygg modus skjuler kalorier og mål.
-- Strekkodeskanning og produktoppslag mot Open Food Facts.
+- Strekkodeskanning og produktoppslag mot Open Food Facts API v3. Gyldige treff
+  får stabil identitet fra kilde + strekkode og caches lokalt uten å opprette
+  `product.upsert`-hendelser. Dokumenterte væskemengder og næringsgrunnlag per
+  100 ml bevares som milliliter uten å gjette tetthet eller konvertere til gram.
 - Kombinert matsøk: råvarer fra Matvaretabellen med lokal cache og navnesøk etter
   merkevarer i Open Food Facts. Eksterne treff uten komplett kcal-/makrogrunnlag
   vises ikke, fordi manglende næringsverdier ikke skal gjettes som null.
 - Open Food Facts-kall bruker identifiserende app-/kontakt-header og kort
   nettverkstimeout, og 429-svar bevarer eventuell `Retry-After`. Også
   strekkodetreff uten komplett kcal-/makrogrunnlag avvises fremfor å fylle
-  manglende verdier med null.
+  manglende verdier med null. Navnesøk sendes bare eksplisitt med Søk-knappen
+  eller tastaturets søkehandling, ikke fortløpende per tastetrykk.
 - Favoritter, nylig brukte produkter og skannehistorikk.
 - Persondetaljer, målberegning, vektregistrering og Safe Mode.
 - Personlige målforslag er avgrenset til voksne med komplett, støttet

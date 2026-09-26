@@ -329,6 +329,54 @@ struct MatLoggTests {
         #expect(summary.logs.contains { $0.id == log.id && $0.mealType == "lunsj" })
     }
 
+    @Test func catalogCachePersistsWithoutCreatingSyncEvent() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggCatalogCache-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LocalStore(databaseURL: directory.appendingPathComponent("catalog.sqlite"))
+        let barcode = "1234567890123"
+        let product = Product(
+            id: Product.catalogID(source: "openfoodfacts", externalID: barcode),
+            name: "Cachet produkt",
+            barcodeEan: barcode,
+            source: "openfoodfacts",
+            caloriesPer100g: 100,
+            proteinGPer100g: 2,
+            carbsGPer100g: 20,
+            fatGPer100g: 1,
+            nutritionSource: .openFoodFacts,
+            imageSource: .none,
+            externalID: barcode,
+            nutritionBasis: .per100g,
+            fetchedAt: Date()
+        )
+
+        try store.cacheCatalogProduct(product)
+
+        #expect(store.getProductByBarcode(barcode)?.id == product.id)
+        #expect(store.pendingSyncCount() == 0)
+    }
+
+    @Test func productBatchLookupReturnsOnlyRequestedProducts() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggProductBatch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LocalStore(databaseURL: directory.appendingPathComponent("products.sqlite"))
+        let requested = Product(name: "Forespurt", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
+        let omitted = Product(name: "Ikke forespurt", caloriesPer100g: 200, proteinGPer100g: 2, carbsGPer100g: 2, fatGPer100g: 2)
+        try store.cacheCatalogProduct(requested)
+        try store.cacheCatalogProduct(omitted)
+
+        let products = store.getProducts([requested.id, UUID()])
+
+        #expect(products.count == 1)
+        #expect(products[requested.id]?.name == requested.name)
+        #expect(products[omitted.id] == nil)
+        #expect(store.pendingSyncCount() == 0)
+    }
+
     @Test func localDatabaseUsesLatestFormalSchemaVersion() async {
         let version = await DatabaseService.shared.localSchemaVersion()
         #expect(version == LocalStore.latestSchemaVersion)
@@ -356,6 +404,42 @@ struct MatLoggTests {
 
 @MainActor
 struct LogViewModelTests {
+    @Test func loadingSummaryPublishesBatchResolvedProductNames() async {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let userId = UUID()
+        let product = Product(name: "Havregryn", caloriesPer100g: 370, proteinGPer100g: 13, carbsGPer100g: 60, fatGPer100g: 7)
+        let log = makeLog(userId: userId, productId: product.id, date: Date())
+        repository.products[product.id] = product
+        repository.logs = [log]
+
+        await viewModel.loadSelectedSummary(userId: userId, date: Date())
+
+        #expect(viewModel.selectedProductNames[product.id] == "Havregryn")
+    }
+
+    @Test func latestSelectedDateWinsWhenSummaryRequestsCompleteOutOfOrder() async throws {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let userId = UUID()
+        let calendar = Calendar(identifier: .gregorian)
+        let firstDate = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 20)))
+        let secondDate = try #require(calendar.date(from: DateComponents(year: 2026, month: 9, day: 21)))
+        repository.summaryDelayNanoseconds = { date in
+            calendar.isDate(date, inSameDayAs: firstDate) ? 100_000_000 : 0
+        }
+
+        let firstRequest = Task {
+            await viewModel.loadSelectedSummary(userId: userId, date: firstDate, calendar: calendar)
+        }
+        await Task.yield()
+        await viewModel.loadSelectedSummary(userId: userId, date: secondDate, calendar: calendar)
+        await firstRequest.value
+
+        let selectedDate = try #require(viewModel.selectedSummary?.date)
+        #expect(calendar.isDate(selectedDate, inSameDayAs: secondDate))
+    }
+
     @Test func loggingCalculatesNutritionAndPersistsThroughRepository() async {
         let repository = FoodLogRepositorySpy()
         let viewModel = LogViewModel(repository: repository)
@@ -510,6 +594,7 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     var logs: [FoodLog] = []
     var products: [UUID: Product] = [:]
     var saveError: Error?
+    var summaryDelayNanoseconds: ((Date) -> UInt64)?
 
     func saveLogs(_ logs: [FoodLog]) async throws {
         if let saveError { throw saveError }
@@ -534,6 +619,9 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     }
 
     func getSummary(userId: UUID, date: Date) async -> DailySummary {
+        if let delay = summaryDelayNanoseconds?(date), delay > 0 {
+            try? await Task.sleep(nanoseconds: delay)
+        }
         let matching = logs.filter {
             $0.userId == userId && Calendar.current.isDate($0.loggedDate, inSameDayAs: date)
         }

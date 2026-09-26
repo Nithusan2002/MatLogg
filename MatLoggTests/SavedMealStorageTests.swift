@@ -14,6 +14,9 @@ struct SavedMealStorageTests {
             #expect(event.type == "saved_meal.upsert")
             #expect(event.entityId == meal.id.uuidString)
             #expect(event.schemaVersion == 1)
+            let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            let items = try #require(payload["items"] as? [[String: Any]])
+            #expect(items.first?["amountUnit"] as? String == "ml")
 
             let reopened = LocalStore(databaseURL: url)
             #expect(reopened.getSavedMeals(userId: userId) == [meal])
@@ -43,6 +46,7 @@ struct SavedMealStorageTests {
             userId: userId, name: "Vanlig frokost", suggestedMealType: "frokost",
             items: [SavedMealItem(
                 productId: UUID(), productName: "Havregryn", amountG: 80,
+                amountUnit: .milliliters,
                 calories: 300, proteinG: 10, carbsG: 50, fatG: 5,
                 nutritionSource: .matvaretabellen, sortIndex: 0
             )]

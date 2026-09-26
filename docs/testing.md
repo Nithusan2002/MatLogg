@@ -97,6 +97,16 @@ destruktive migrasjoner mot eneste kopi av data.
 - Dynamic Type, VoiceOver, kontrast og touchflater
 - tastatur, modalpresentasjon og tilbake-navigasjon
 - Safe Mode uten lekkasje gjennom tekst eller tilgjengelighetstre
+- raske kontekstskifter (for eksempel dato eller søk) der svar kan komme ute av
+  rekkefølge; bare resultatet for siste valgte kontekst skal publiseres
+- profiler hyppige flyter med SwiftUI Instruments ved ytelsesrelevante endringer:
+  søk mens det skrives, mengdeinntasting, fanebytte og lange lister
+- kontroller at `body` ikke utløser repository-/SQLite-kall, og at lister bruker
+  batchlastede presentasjonsdata fremfor N+1-oppslag
+- kontroller stabile `ForEach`-ID-er med duplikater, innsetting, sletting og
+  omorganisering; bruk ikke `.id()` som generell kur mot re-rendering
+- kontroller at hurtig lokal state bare invalidiserer den relevante delvisningen
+  når skjermen også inneholder diagrammer, bilder eller store lister
 
 ### Ernæring og mål
 
@@ -122,6 +132,8 @@ destruktive migrasjoner mot eneste kopi av data.
 - bruker kan ikke lese, endre eller slette en annen brukers data
 - tokens, persondata og produksjonsdata finnes ikke i logger eller fixtures
 - sletting og eksport samsvarer med brukergrensesnitt og juridisk tekst
+- ugyldige base-URL-er og annen runtime-konfigurasjon gir typede feil uten
+  force unwrap eller prosesskrasj
 
 ## Krav før synk aktiveres
 
