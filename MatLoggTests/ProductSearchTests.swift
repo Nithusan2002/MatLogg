@@ -236,7 +236,7 @@ struct ProductSearchTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
         let service = APIService(
-            session: URLSession(configuration: configuration),
+            httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)),
             catalogRetryLimit: 0
         )
 
@@ -288,7 +288,9 @@ struct ProductSearchTests {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
-        let service = APIService(session: URLSession(configuration: configuration))
+        let service = APIService(
+            httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration))
+        )
 
         do {
             _ = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
@@ -337,7 +339,9 @@ struct ProductSearchTests {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
-        let service = APIService(session: URLSession(configuration: configuration))
+        let service = APIService(
+            httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration))
+        )
 
         let first = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
         let second = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
@@ -368,7 +372,7 @@ struct ProductSearchTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
         let service = APIService(
-            session: URLSession(configuration: configuration),
+            httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)),
             catalogRetryLimit: 0
         )
 
@@ -411,7 +415,7 @@ struct ProductSearchTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
         let service = APIService(
-            session: URLSession(configuration: configuration),
+            httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)),
             catalogRetryLimit: 1,
             sleep: { _ in }
         )
@@ -499,7 +503,7 @@ private final class ProductRepositorySpy: ProductRepository {
         self.product = product
     }
 
-    func saveProduct(_ product: Product) async throws { self.product = product }
+    func saveProduct(_ product: Product, ownerUserId: UUID) async throws { self.product = product }
 
     func cacheCatalogProduct(_ product: Product) async throws {
         self.product = product

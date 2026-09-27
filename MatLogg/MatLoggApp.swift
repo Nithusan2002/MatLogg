@@ -88,6 +88,7 @@ struct MatLoggApp: App {
     private var operationalContent: some View {
         configuredContent
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
+                appState.updateAuthenticatedUser(userId)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
                 if let userId {
@@ -109,6 +110,8 @@ struct MatLoggApp: App {
                 if skipAuthForDev {
                     authViewModel.enableDebugSession()
                 }
+                appState.updateAuthenticatedUser(authViewModel.currentUser?.id)
+                appState.updateNetworkAvailability(isConnected: networkMonitor.isConnected)
                 Task { await appState.triggerSync(reason: .appLaunch) }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -119,6 +122,9 @@ struct MatLoggApp: App {
             .onChange(of: networkMonitor.restorationCount) { oldValue, newValue in
                 guard newValue > oldValue else { return }
                 Task { await appState.triggerSync(reason: .networkRestored) }
+            }
+            .onChange(of: networkMonitor.isConnected) { _, isConnected in
+                appState.updateNetworkAvailability(isConnected: isConnected)
             }
             .onReceive(NotificationCenter.default.publisher(for: .authSessionExpired)) { _ in
                 authViewModel.handleSessionExpired()

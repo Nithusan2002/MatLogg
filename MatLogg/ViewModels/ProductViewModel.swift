@@ -129,8 +129,8 @@ final class ProductViewModel: ObservableObject {
         await repository.getProducts(ids)
     }
 
-    func saveManualProduct(_ product: Product) async throws {
-        try await repository.saveProduct(product)
+    func saveManualProduct(_ product: Product, ownerUserId: UUID) async throws {
+        try await repository.saveProduct(product, ownerUserId: ownerUserId)
     }
 
     func cachedProduct(barcode: String) -> Product? {

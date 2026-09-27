@@ -241,6 +241,9 @@ påkrevd og valgfritt innhold og forklare feil ved feltet.
 
 ### Offline og synk
 
+Den normative funksjonslisten, konfliktavgrensningen og statusmatrisen finnes i
+[offline-adferd og synkstatus](offline-behavior.md).
+
 ```text
 Bruker lagrer uten nett
   → lagre data og synkhendelse atomisk lokalt
@@ -250,7 +253,9 @@ Bruker lagrer uten nett
 ```
 
 Synkstatus er sekundær så lenge brukeren kan fortsette. En serverfeil skal ikke
-overskrive eller skjule en vellykket lokal lagring.
+overskrive eller skjule en vellykket lokal lagring. «Alt synkronisert» skal ikke
+brukes uten presisering så lenge kontrakten bare bekrefter denne enhetens
+opplastingskø.
 
 ## Skjermtilstander
 

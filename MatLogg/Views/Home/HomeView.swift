@@ -273,10 +273,10 @@ struct HomeTabView: View {
 
                     DayNavigationBar(selection: selectedDateBinding)
 
-                    if appState.pendingSyncCount > 0 {
+                    if appState.unsyncedSyncCount > 0 {
                         Label(
-                            "\(appState.pendingSyncCount) \(appState.pendingSyncCount == 1 ? "endring" : "endringer") lagret på enheten og venter på synk",
-                            systemImage: "arrow.triangle.2.circlepath"
+                            homeSyncStatusText,
+                            systemImage: appState.isSyncAvailable ? "arrow.triangle.2.circlepath" : "internaldrive"
                         )
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.textSecondary)
@@ -284,7 +284,7 @@ struct HomeTabView: View {
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .accessibilityLabel("Endringer lagret på enheten. Venter på synk.")
+                        .accessibilityLabel(homeSyncStatusText)
                     }
 
                     if preferencesViewModel.showGoalStatusOnHome {
@@ -424,6 +424,24 @@ struct HomeTabView: View {
             Task { await refreshSummaries() }
         }
         
+    }
+
+    private var homeSyncStatusText: String {
+        let count = appState.unsyncedSyncCount
+        let noun = count == 1 ? "endring" : "endringer"
+        if !appState.isSyncAvailable {
+            return "\(count) \(noun) lagret bare på denne enheten"
+        }
+        if appState.networkAvailability == .offline {
+            return "Du er offline. \(count) \(noun) er lagret på enheten og venter på synk"
+        }
+        if appState.isSyncing || appState.inFlightSyncCount > 0 {
+            return "Synkroniserer \(count) \(noun)"
+        }
+        if appState.failedSyncCount > 0 {
+            return "\(count) \(noun) er lagret på enheten. \(appState.failedSyncCount) krever handling"
+        }
+        return "\(count) \(noun) lagret på enheten og venter på synk"
     }
     
     private func refreshAfterMealReuse() async {
@@ -747,13 +765,17 @@ struct StatusCardView: View {
     let dayLabel: String
     let hideGoals: Bool
     let hideCalories: Bool
+
+    private var calorieBalance: CalorieBalance? {
+        GoalCalculator.calorieBalance(dailyGoal: goal.dailyCalories, consumed: summary.totalCalories)
+    }
     
     var remainingCalories: Int {
-        max(0, goal.dailyCalories - NutritionDisplay.wholeCalories(summary.totalCalories))
+        calorieBalance?.remaining ?? 0
     }
     
     var overCalories: Int {
-        max(0, NutritionDisplay.wholeCalories(summary.totalCalories) - goal.dailyCalories)
+        calorieBalance?.over ?? 0
     }
     
     var body: some View {
@@ -1151,7 +1173,10 @@ struct CameraView: View {
             ManualProductView(
                 barcode: scannedBarcode,
                 saveProduct: { product in
-                    try await productViewModel.saveManualProduct(product)
+                    guard let userId = authViewModel.currentUser?.id else {
+                        throw DatabaseServiceError.unavailable
+                    }
+                    try await productViewModel.saveManualProduct(product, ownerUserId: userId)
                 }
             ) { product in
                 scannedProduct = product

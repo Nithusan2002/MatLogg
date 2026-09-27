@@ -8,7 +8,7 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 3
+    static let latestSchemaVersion = 4
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -73,7 +73,7 @@ final class LocalStore {
     func saveGoal(_ goal: Goal) throws {
         let data = try encoder.encode(goal)
         let payload = try syncEncoder.encode(GoalSyncPayload(goal: goal))
-        try performAtomicWrite(type: .goalSet, entityId: goal.id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: goal.userId, type: .goalSet, entityId: goal.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO goals(id, userId, createdDate, json)
             VALUES(?, ?, ?, ?);
@@ -124,7 +124,7 @@ final class LocalStore {
                 let data = try encoder.encode(log)
                 let payload = try syncEncoder.encode(LogSyncPayload(log: log))
                 try saveLogLocked(log, data: data)
-                try enqueueSyncEventLocked(type: .logUpsert, entityId: log.id.uuidString, payload: payload)
+                try enqueueSyncEventLocked(ownerUserId: log.userId, type: .logUpsert, entityId: log.id.uuidString, payload: payload)
             }
         }
     }
@@ -159,9 +159,10 @@ final class LocalStore {
         guard !ids.isEmpty else { return }
         try performTransaction {
             for id in ids {
+                guard let ownerUserId = ownerUserIdLocked(table: "logs", id: id) else { continue }
                 let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
                 try deleteLogLocked(id)
-                try enqueueSyncEventLocked(type: .logDelete, entityId: id.uuidString, payload: payload)
+                try enqueueSyncEventLocked(ownerUserId: ownerUserId, type: .logDelete, entityId: id.uuidString, payload: payload)
             }
         }
     }
@@ -241,7 +242,7 @@ final class LocalStore {
     func saveSavedMeal(_ meal: SavedMeal) throws {
         let data = try encoder.encode(meal)
         let payload = try syncEncoder.encode(SavedMealSyncPayload(meal: meal))
-        try performAtomicWrite(type: .savedMealUpsert, entityId: meal.id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: meal.userId, type: .savedMealUpsert, entityId: meal.id.uuidString, payload: payload) {
             let sql = """
             INSERT INTO saved_meals(id, userId, name, updatedAt, json)
             VALUES(?, ?, ?, ?, ?)
@@ -266,7 +267,7 @@ final class LocalStore {
 
     func deleteSavedMeal(_ id: UUID, userId: UUID) throws {
         let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
-        try performAtomicWrite(type: .savedMealDelete, entityId: id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: userId, type: .savedMealDelete, entityId: id.uuidString, payload: payload) {
             let sql = "DELETE FROM saved_meals WHERE id = ? AND userId = ?;"
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
@@ -297,10 +298,10 @@ final class LocalStore {
     
     // MARK: - Products
     
-    func saveProduct(_ product: Product) throws {
+    func saveProduct(_ product: Product, ownerUserId: UUID) throws {
         let data = try encoder.encode(product)
         let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
-        try performAtomicWrite(type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: ownerUserId, type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
             try saveProductLocked(product, data: data)
         }
     }
@@ -394,7 +395,7 @@ final class LocalStore {
     func toggleFavorite(userId: UUID, productId: UUID) throws {
         if let existingId = favoriteId(userId: userId, productId: productId) {
             let payload = try syncEncoder.encode(FavoriteSyncPayload(productId: productId.uuidString))
-            try performAtomicWrite(type: .favoriteRemove, entityId: existingId, payload: payload) {
+            try performAtomicWrite(ownerUserId: userId, type: .favoriteRemove, entityId: existingId, payload: payload) {
                 let sql = "DELETE FROM favorites WHERE id = ?;"
                 var stmt: OpaquePointer?
                 sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
@@ -407,7 +408,7 @@ final class LocalStore {
         
         let favorite = Favorite(userId: userId, productId: productId)
         let payload = try syncEncoder.encode(FavoriteSyncPayload(productId: productId.uuidString))
-        try performAtomicWrite(type: .favoriteAdd, entityId: favorite.id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: userId, type: .favoriteAdd, entityId: favorite.id.uuidString, payload: payload) {
             let sql = """
             INSERT OR REPLACE INTO favorites(id, userId, productId, createdAt)
             VALUES(?, ?, ?, ?);
@@ -508,7 +509,7 @@ final class LocalStore {
     func saveWeightEntry(_ entry: WeightEntry) throws {
         let data = try encoder.encode(entry)
         let payload = try syncEncoder.encode(WeightSyncPayload(entry: entry))
-        try performAtomicWrite(type: .weightUpsert, entityId: entry.id.uuidString, payload: payload) {
+        try performAtomicWrite(ownerUserId: entry.userId, type: .weightUpsert, entityId: entry.id.uuidString, payload: payload) {
             let deleteSql = "DELETE FROM weights WHERE userId = ? AND date = ?;"
             var deleteStmt: OpaquePointer?
             sqlite3_prepare_v2(db, deleteSql, -1, &deleteStmt, nil)
@@ -533,14 +534,16 @@ final class LocalStore {
     }
     
     func deleteWeightEntry(_ id: UUID) throws {
-        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
-        try performAtomicWrite(type: .weightDelete, entityId: id.uuidString, payload: payload) {
+        try performTransaction {
+            guard let ownerUserId = ownerUserIdLocked(table: "weights", id: id) else { return }
+            let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
             let sql = "DELETE FROM weights WHERE id = ?;"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
             try requireDone(sqlite3_step(stmt))
             sqlite3_finalize(stmt)
+            try enqueueSyncEventLocked(ownerUserId: ownerUserId, type: .weightDelete, entityId: id.uuidString, payload: payload)
         }
     }
     
@@ -677,34 +680,103 @@ final class LocalStore {
     // MARK: - Sync Queue
     
     func pendingSyncCount() -> Int {
-        queue.sync {
-            let sql = "SELECT COUNT(*) FROM sync_queue WHERE status = 'pending';"
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            defer { sqlite3_finalize(stmt) }
-            if sqlite3_step(stmt) == SQLITE_ROW {
-                return Int(sqlite3_column_int(stmt, 0))
-            }
-            return 0
-        }
+        syncQueueStatus().pendingCount
     }
 
     func failedSyncCount() -> Int {
+        syncQueueStatus().failedCount
+    }
+
+    func syncQueueStatus() -> SyncQueueStatus {
+        syncQueueStatus(ownerUserId: nil)
+    }
+
+    func syncQueueStatus(ownerUserId: UUID?) -> SyncQueueStatus {
         queue.sync {
-            let sql = "SELECT COUNT(*) FROM sync_queue WHERE status = 'deadLetter';"
+            let ownerClause = ownerUserId == nil ? "" : "WHERE ownerUserId = ?"
+            let sql = """
+            SELECT
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'inFlight' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN status = 'deadLetter' THEN 1 ELSE 0 END),
+                MIN(CASE WHEN status = 'pending' THEN nextRetryAt END)
+            FROM sync_queue
+            \(ownerClause);
+            """
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            if let ownerUserId {
+                sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            }
             defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
-            return Int(sqlite3_column_int(stmt, 0))
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return .empty }
+            let nextRetryAt = sqlite3_column_type(stmt, 3) == SQLITE_NULL
+                ? nil
+                : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
+            return SyncQueueStatus(
+                pendingCount: Int(sqlite3_column_int(stmt, 0)),
+                inFlightCount: Int(sqlite3_column_int(stmt, 1)),
+                failedCount: Int(sqlite3_column_int(stmt, 2)),
+                nextRetryAt: nextRetryAt
+            )
+        }
+    }
+
+    func failedSyncEvents(limit: Int) -> [SyncFailureSummary] {
+        failedSyncEvents(ownerUserId: nil, limit: limit)
+    }
+
+    func failedSyncEvents(ownerUserId: UUID?, limit: Int) -> [SyncFailureSummary] {
+        queue.sync {
+            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
+            let sql = """
+            SELECT eventId, type, lastError, createdAt
+            FROM sync_queue
+            WHERE status = 'deadLetter'
+            \(ownerClause)
+            ORDER BY createdAt ASC, rowid ASC
+            LIMIT ?;
+            """
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            var index: Int32 = 1
+            if let ownerUserId {
+                sqlite3_bind_text(stmt, index, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+                index += 1
+            }
+            sqlite3_bind_int(stmt, index, Int32(limit))
+            defer { sqlite3_finalize(stmt) }
+            var results: [SyncFailureSummary] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let idText = sqlite3_column_text(stmt, 0),
+                      let id = UUID(uuidString: String(cString: idText)),
+                      let typeText = sqlite3_column_text(stmt, 1) else { continue }
+                let message = sqlite3_column_text(stmt, 2).map(String.init(cString:))
+                    ?? "Hendelsen ble avvist av serveren."
+                results.append(SyncFailureSummary(
+                    id: id,
+                    type: String(cString: typeText),
+                    message: message,
+                    createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
+                ))
+            }
+            return results
         }
     }
 
     func nextPendingRetryDate() -> Date? {
+        nextPendingRetryDate(ownerUserId: nil)
+    }
+
+    func nextPendingRetryDate(ownerUserId: UUID?) -> Date? {
         queue.sync {
-            let sql = "SELECT MIN(nextRetryAt) FROM sync_queue WHERE status = 'pending' AND nextRetryAt IS NOT NULL;"
+            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
+            let sql = "SELECT MIN(nextRetryAt) FROM sync_queue WHERE status = 'pending' AND nextRetryAt IS NOT NULL \(ownerClause);"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            if let ownerUserId {
+                sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            }
             defer { sqlite3_finalize(stmt) }
             guard sqlite3_step(stmt) == SQLITE_ROW,
                   sqlite3_column_type(stmt, 0) != SQLITE_NULL else { return nil }
@@ -713,19 +785,30 @@ final class LocalStore {
     }
     
     func fetchPendingEvents(limit: Int) -> [SyncEvent] {
+        fetchPendingEvents(ownerUserId: nil, limit: limit)
+    }
+
+    func fetchPendingEvents(ownerUserId: UUID?, limit: Int) -> [SyncEvent] {
         let now = Date().timeIntervalSince1970
         return queue.sync {
+            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
             let sql = """
-            SELECT eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError
+            SELECT eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError, ownerUserId
             FROM sync_queue
             WHERE status = 'pending' AND (nextRetryAt IS NULL OR nextRetryAt <= ?)
-            ORDER BY createdAt ASC
+            \(ownerClause)
+            ORDER BY createdAt ASC, rowid ASC
             LIMIT ?;
             """
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_double(stmt, 1, now)
-            sqlite3_bind_int(stmt, 2, Int32(limit))
+            var index: Int32 = 2
+            if let ownerUserId {
+                sqlite3_bind_text(stmt, index, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+                index += 1
+            }
+            sqlite3_bind_int(stmt, index, Int32(limit))
             defer { sqlite3_finalize(stmt) }
             var results: [SyncEvent] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -742,6 +825,8 @@ final class LocalStore {
                 let lastAttemptAt = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8))
                 let nextRetryAt = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
                 let lastError = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+                let storedOwnerUserId = sqlite3_column_text(stmt, 11)
+                    .flatMap { UUID(uuidString: String(cString: $0)) }
                 let status = SyncEventStatus(rawValue: statusRaw) ?? .pending
                 results.append(SyncEvent(
                     eventId: eventId,
@@ -754,7 +839,8 @@ final class LocalStore {
                     attemptCount: attemptCount,
                     lastAttemptAt: lastAttemptAt,
                     nextRetryAt: nextRetryAt,
-                    lastError: lastError
+                    lastError: lastError,
+                    ownerUserId: storedOwnerUserId
                 ))
             }
             return results
@@ -833,10 +919,40 @@ final class LocalStore {
         }
     }
 
-    func retryDeadLetterEvents() {
+    func retryDeadLetterEvents(ownerUserId: UUID) {
         queue.sync {
-            let sql = "UPDATE sync_queue SET status = 'pending', nextRetryAt = NULL WHERE status = 'deadLetter';"
-            sqlite3_exec(db, sql, nil, nil, nil)
+            let sql = "UPDATE sync_queue SET status = 'pending', nextRetryAt = NULL WHERE status = 'deadLetter' AND ownerUserId = ?;"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_step(stmt)
+        }
+    }
+
+    func retryDeadLetterEvent(_ eventId: UUID, ownerUserId: UUID) {
+        queue.sync {
+            let sql = """
+            UPDATE sync_queue
+            SET status = 'pending', nextRetryAt = NULL
+            WHERE status = 'deadLetter' AND eventId = ? AND ownerUserId = ?;
+            """
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, eventId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_step(stmt)
+        }
+    }
+
+    func quarantinedSyncCount() -> Int {
+        queue.sync {
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM sync_queue WHERE status = 'quarantined';", -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+            return Int(sqlite3_column_int(stmt, 0))
         }
     }
     
@@ -890,6 +1006,8 @@ final class LocalStore {
                         try migrateToVersion2Locked()
                     case 3:
                         try migrateToVersion3Locked()
+                    case 4:
+                        try migrateToVersion4Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -986,7 +1104,8 @@ final class LocalStore {
                 attemptCount INTEGER,
                 lastAttemptAt REAL,
                 nextRetryAt REAL,
-                lastError TEXT
+                lastError TEXT,
+                ownerUserId TEXT
             );
             """
         ]
@@ -1011,6 +1130,19 @@ final class LocalStore {
 
     private func migrateToVersion3Locked() throws {
         try execute("CREATE INDEX IF NOT EXISTS products_barcode_idx ON products(barcode);")
+    }
+
+    private func migrateToVersion4Locked() throws {
+        try ensureSyncQueueSchemaLocked()
+        try execute("""
+        UPDATE sync_queue
+        SET status = 'quarantined',
+            nextRetryAt = NULL,
+            lastError = 'Mangler sikker lokal brukerbinding etter migrering'
+        WHERE ownerUserId IS NULL
+          AND COALESCE(status, 'pending') != 'acked';
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS sync_queue_owner_status_created_idx ON sync_queue(ownerUserId, status, createdAt);")
     }
     
     private func databaseFileURL() -> URL {
@@ -1065,7 +1197,8 @@ final class LocalStore {
             "attemptCount": "INTEGER",
             "lastAttemptAt": "REAL",
             "nextRetryAt": "REAL",
-            "lastError": "TEXT"
+            "lastError": "TEXT",
+            "ownerUserId": "TEXT"
         ]
         let existing = columnNamesLocked(table: "sync_queue")
         
@@ -1125,10 +1258,10 @@ final class LocalStore {
         }
     }
     
-    private func performAtomicWrite(type: SyncEventType, entityId: String?, payload: Data, write: () throws -> Void) throws {
+    private func performAtomicWrite(ownerUserId: UUID, type: SyncEventType, entityId: String?, payload: Data, write: () throws -> Void) throws {
         try performTransaction {
             try write()
-            try enqueueSyncEventLocked(type: type, entityId: entityId, payload: payload)
+            try enqueueSyncEventLocked(ownerUserId: ownerUserId, type: type, entityId: entityId, payload: payload)
         }
     }
 
@@ -1145,10 +1278,10 @@ final class LocalStore {
         }
     }
 
-    private func enqueueSyncEventLocked(type: SyncEventType, entityId: String?, payload: Data) throws {
+    private func enqueueSyncEventLocked(ownerUserId: UUID, type: SyncEventType, entityId: String?, payload: Data) throws {
         let sql = """
-        INSERT INTO sync_queue(eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount)
-        VALUES(?, ?, ?, ?, 1, ?, 'pending', 0);
+        INSERT INTO sync_queue(eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, ownerUserId)
+        VALUES(?, ?, ?, ?, 1, ?, 'pending', 0, ?);
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
@@ -1158,7 +1291,21 @@ final class LocalStore {
         sqlite3_bind_double(stmt, 3, Date().timeIntervalSince1970)
         if let entityId { sqlite3_bind_text(stmt, 4, entityId, -1, SQLITE_TRANSIENT) } else { sqlite3_bind_null(stmt, 4) }
         bindBlob(stmt, index: 5, data: payload)
+        sqlite3_bind_text(stmt, 6, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
         try requireDone(sqlite3_step(stmt))
+    }
+
+    private func ownerUserIdLocked(table: String, id: UUID) -> UUID? {
+        precondition(table == "logs" || table == "weights")
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT userId FROM \(table) WHERE id = ? LIMIT 1;", -1, &stmt, nil) == SQLITE_OK else {
+            return nil
+        }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_ROW,
+              let value = sqlite3_column_text(stmt, 0) else { return nil }
+        return UUID(uuidString: String(cString: value))
     }
 
     private func execute(_ sql: String) throws {

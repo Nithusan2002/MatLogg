@@ -614,6 +614,17 @@ struct DailySummary {
 }
 
 enum NutritionCalculator {
+    static let maximumAmount: Float = 10_000
+
+    static func validatedCalculation(
+        per100: NutritionBreakdown,
+        amount: Float
+    ) -> NutritionBreakdown? {
+        guard isValidAmount(amount), isValidBreakdown(per100) else { return nil }
+        let result = calculated(per100: per100, amount: amount)
+        return isValidBreakdown(result) ? result : nil
+    }
+
     static func calculated(per100: NutritionBreakdown, amount: Float) -> NutritionBreakdown {
         let multiplier = amount / 100
         return NutritionBreakdown(
@@ -643,7 +654,14 @@ enum NutritionCalculator {
         from originalAmount: Float,
         to amount: Float
     ) -> NutritionBreakdown? {
-        guard originalAmount.isFinite, originalAmount > 0, amount.isFinite else { return nil }
+        guard isValidAmount(originalAmount),
+              isValidAmount(amount),
+              isValidBreakdown(NutritionBreakdown(
+                calories: calories,
+                protein: protein,
+                carbs: carbs,
+                fat: fat
+              )) else { return nil }
         let factor = amount / originalAmount
         let result = NutritionBreakdown(
             calories: calories * factor,
@@ -655,6 +673,15 @@ enum NutritionCalculator {
             return nil
         }
         return result
+    }
+
+    private static func isValidAmount(_ amount: Float) -> Bool {
+        amount.isFinite && amount > 0 && amount <= maximumAmount
+    }
+
+    private static func isValidBreakdown(_ breakdown: NutritionBreakdown) -> Bool {
+        [breakdown.calories, breakdown.protein, breakdown.carbs, breakdown.fat]
+            .allSatisfy { $0.isFinite && $0 >= 0 }
     }
 }
 
@@ -675,6 +702,7 @@ enum SyncEventStatus: String {
     case inFlight
     case acked
     case deadLetter
+    case quarantined
 }
 
 struct SyncEvent {
@@ -689,6 +717,37 @@ struct SyncEvent {
     let lastAttemptAt: Date?
     let nextRetryAt: Date?
     let lastError: String?
+    /// Local routing metadata. It is never included in the wire envelope.
+    let ownerUserId: UUID?
+}
+
+struct SyncQueueStatus: Equatable {
+    let pendingCount: Int
+    let inFlightCount: Int
+    let failedCount: Int
+    let nextRetryAt: Date?
+
+    static let empty = SyncQueueStatus(
+        pendingCount: 0,
+        inFlightCount: 0,
+        failedCount: 0,
+        nextRetryAt: nil
+    )
+
+    var unsyncedCount: Int { pendingCount + inFlightCount + failedCount }
+}
+
+struct SyncFailureSummary: Identifiable, Equatable {
+    let id: UUID
+    let type: String
+    let message: String
+    let createdAt: Date
+}
+
+enum NetworkAvailability: Equatable {
+    case unknown
+    case offline
+    case online
 }
 
 // MARK: - Auth State

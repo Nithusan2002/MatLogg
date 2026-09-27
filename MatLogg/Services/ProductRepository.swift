@@ -1,7 +1,7 @@
 import Foundation
 
 protocol ProductRepository {
-    func saveProduct(_ product: Product) async throws
+    func saveProduct(_ product: Product, ownerUserId: UUID) async throws
     func cacheCatalogProduct(_ product: Product) async throws
     func getProduct(_ id: UUID) -> Product?
     func getProducts(_ ids: Set<UUID>) async -> [UUID: Product]

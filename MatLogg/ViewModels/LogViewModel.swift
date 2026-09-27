@@ -65,7 +65,18 @@ final class LogViewModel: ObservableObject {
         userId: UUID,
         date: Date = Date()
     ) async -> Bool {
-        let nutrition = product.calculateNutrition(forAmount: amountG)
+        guard let nutrition = NutritionCalculator.validatedCalculation(
+            per100: NutritionBreakdown(
+                calories: product.caloriesPer100g,
+                protein: product.proteinGPer100g,
+                carbs: product.carbsGPer100g,
+                fat: product.fatGPer100g
+            ),
+            amount: amountG
+        ) else {
+            errorMessage = "Kunne ikke lagre logging: Mengde eller næringsgrunnlag er ugyldig"
+            return false
+        }
         let log = FoodLog(
             userId: userId,
             productId: product.id,

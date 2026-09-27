@@ -5,6 +5,7 @@ import Network
 @MainActor
 final class NetworkMonitor: ObservableObject {
     @Published private(set) var restorationCount = 0
+    @Published private(set) var isConnected: Bool?
 
     private let monitor: NWPathMonitor
     private let queue = DispatchQueue(label: "app.matlogg.network-monitor")
@@ -29,5 +30,6 @@ final class NetworkMonitor: ObservableObject {
             restorationCount += 1
         }
         previousWasSatisfied = isSatisfied
+        isConnected = isSatisfied
     }
 }

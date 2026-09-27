@@ -152,6 +152,8 @@ Refresh-tokenet er engangsbruk og roteres ved hvert vellykket kall. Bare en
 SHA-256-hash lagres i databasen, og tokenet utløper etter 30 dager. Gjenbruk av
 et allerede rotert token revokerer brukerens øvrige aktive refresh-sesjoner.
 Ugyldig, utløpt eller gjenbrukt token returnerer 401 med maskinlesbar feilkode.
+Revokerte sesjoner beholdes frem til utløp slik at gjenbruk kan oppdages;
+utløpte sesjonsrader ryddes automatisk ved oppstart og deretter én gang i døgnet.
 
 ### **POST /auth/logout**
 

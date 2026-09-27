@@ -39,6 +39,7 @@ enum LogSummaryService {
     }
     
     static func limitedLogs(_ logs: [FoodLog], limit: Int) -> [FoodLog] {
-        Array(logs.prefix(limit))
+        guard limit > 0 else { return [] }
+        return Array(logs.prefix(limit))
     }
 }

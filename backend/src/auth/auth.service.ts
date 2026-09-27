@@ -1,4 +1,4 @@
-import { ConflictException, GoneException, Injectable, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, GoneException, Injectable, Logger, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto';
@@ -10,12 +10,14 @@ const refreshTokenLifetimeMs = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AuthService.name);
   private purgeTimer?: NodeJS.Timeout;
 
   constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService) {}
 
-  onModuleInit() {
-    this.purgeTimer = setInterval(() => void this.purgeDeletedUsers(), 24 * 60 * 60 * 1000);
+  async onModuleInit() {
+    await this.runMaintenance();
+    this.purgeTimer = setInterval(() => void this.runMaintenance(), 24 * 60 * 60 * 1000);
     this.purgeTimer.unref();
   }
 
@@ -159,6 +161,22 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       });
     }
     return users.length;
+  }
+
+  async purgeExpiredRefreshSessions(now = new Date()) {
+    const result = await this.prisma.refreshSession.deleteMany({
+      where: { expiresAt: { lte: now } },
+    });
+    return result.count;
+  }
+
+  private async runMaintenance() {
+    try {
+      await this.purgeExpiredRefreshSessions();
+      await this.purgeDeletedUsers();
+    } catch (error) {
+      this.logger.error('Scheduled auth maintenance failed', error instanceof Error ? error.stack : undefined);
+    }
   }
 
   private async authResponse(

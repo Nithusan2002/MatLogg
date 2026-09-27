@@ -8,6 +8,8 @@ Start produkt- og designarbeid med [produktbriefen](product-brief.md),
 filene under `specs/` utdyper krav og historikk og skal oppdateres ved konflikt.
 
 Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md). For synk gjelder også [synkkontrakt v1](sync-contract-v1.md).
+Produkt- og UX-adferd uten nett er definert i
+[offline-adferd og synkstatus](offline-behavior.md).
 
 Funksjonsscope for gjenbruk finnes i [gårsdagens måltid](meal-reuse.md) og
 [lagrede måltider](saved-meals.md).

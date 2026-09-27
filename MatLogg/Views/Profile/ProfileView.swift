@@ -77,7 +77,12 @@ struct ProfileView: View {
     @ViewBuilder private var overviewCardContents: some View {
         ProfileMetricCard(title: "MÅLTIDER I DAG", value: "\(mealCount)", tint: AppColors.brand, foreground: AppColors.onVibrant)
         ProfileMetricCard(title: "FAVORITTER", value: "\(favoriteCount)", tint: AppColors.accent, foreground: AppColors.onVibrant)
-        ProfileMetricCard(title: "VENTER PÅ SYNK", value: "\(appState.pendingSyncCount)", tint: AppColors.success, foreground: AppColors.onVibrant)
+        ProfileMetricCard(
+            title: appState.isSyncAvailable ? "IKKE SYNKRONISERT" : "LAGRET LOKALT",
+            value: "\(appState.unsyncedSyncCount)",
+            tint: AppColors.success,
+            foreground: AppColors.onVibrant
+        )
     }
 
     private var dailyGoalCard: some View {
@@ -252,16 +257,59 @@ private struct ProfileSettingsView: View {
             .listRowBackground(AppColors.surface)
             Section("Data og synk") {
                 LabeledContent("Status", value: syncStatusText)
-                if appState.failedSyncCount > 0 {
-                    Text("\(appState.failedSyncCount) endring(er) krever et nytt manuelt forsøk.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                if appState.quarantinedSyncCount > 0 {
+                    Label(
+                        "\(appState.quarantinedSyncCount) eldre endring(er) er beholdt lokalt, men kan ikke synkroniseres fordi eier ikke kan bekreftes.",
+                        systemImage: "lock.trianglebadge.exclamationmark"
+                    )
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
                 }
-                if let error = appState.lastSyncError, appState.lastSyncSucceeded == false {
-                    Text(error).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                if let lastSyncAt = appState.lastSyncAt, appState.isSyncAvailable {
+                    LabeledContent("Siste forsøk") {
+                        Text(lastSyncAt, format: .dateTime.day().month().hour().minute())
+                    }
                 }
-                Button("Forsøk synk") { Task { await appState.triggerSync(reason: .userInitiated) } }
-                Text("Du kan logge uten nett. Endringer lagres på enheten og synkroniseres når synk er tilgjengelig.")
+                if let nextRetryAt = appState.syncQueueStatus.nextRetryAt,
+                   appState.failedSyncCount == 0,
+                   appState.isSyncAvailable {
+                    HStack {
+                        Text("Neste automatiske forsøk")
+                        Spacer()
+                        Text(nextRetryAt, style: .relative)
+                    }
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                }
+
+                ForEach(appState.syncFailures) { failure in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(syncTypeLabel(failure.type))
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.deepInk)
+                        Text(failure.message)
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                        Button("Prøv denne på nytt") {
+                            Task { await appState.retryFailedEvent(failure.id) }
+                        }
+                        .disabled(appState.isSyncing || appState.networkAvailability == .offline)
+                    }
+                    .accessibilityElement(children: .contain)
+                }
+
+                if appState.isSyncAvailable {
+                    Button(appState.isSyncing ? "Synkroniserer …" : "Synkroniser ventende endringer") {
+                        Task { await appState.triggerSync(reason: .userInitiated) }
+                    }
+                    .disabled(
+                        appState.isSyncing
+                            || appState.networkAvailability == .offline
+                            || appState.pendingSyncCount + appState.inFlightSyncCount == 0
+                    )
+                }
+
+                Text(syncExplanationText)
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }
             .listRowBackground(AppColors.surface)
@@ -308,12 +356,36 @@ private struct ProfileSettingsView: View {
 
     private var authProviderLabel: String { authViewModel.currentUser?.authProvider.capitalized ?? "Ukjent" }
     private var syncStatusText: String {
-        if !FeatureFlags.backendSyncEnabled { return appState.pendingSyncCount == 0 ? "Lagret lokalt" : "\(appState.pendingSyncCount) venter" }
+        if !appState.isSyncAvailable { return "Lagret bare på denne enheten" }
+        if appState.isSyncing || appState.inFlightSyncCount > 0 { return "Synkroniserer" }
         if appState.failedSyncCount > 0 { return "\(appState.failedSyncCount) krever handling" }
-        if appState.pendingSyncCount > 0 { return "\(appState.pendingSyncCount) venter" }
-        if appState.lastSyncSucceeded == true { return "Alt synket" }
+        if appState.networkAvailability == .offline, appState.unsyncedSyncCount > 0 { return "Offline – lagret på enheten" }
+        if appState.pendingSyncCount > 0 { return "\(appState.pendingSyncCount) venter på synk" }
+        if appState.lastSyncSucceeded == true { return "Alle endringer fra denne enheten er synkronisert" }
         if appState.lastSyncSucceeded == false { return "Synk feilet" }
-        return "Venter på synk"
+        return "Ingen endringer venter på synk"
+    }
+
+    private var syncExplanationText: String {
+        if !appState.isSyncAvailable {
+            return "Du kan logge uten nett. Backend-synk er ikke tilgjengelig, så endringene blir på denne enheten."
+        }
+        if appState.networkAvailability == .offline {
+            return "Du er offline. Endringene er lagret på enheten; synk forsøkes neste gang appen er aktiv med nett."
+        }
+        return "Endringer lagres først på enheten. Synk forsøkes når appen er aktiv og nett er tilgjengelig."
+    }
+
+    private func syncTypeLabel(_ type: String) -> String {
+        switch type {
+        case let value where value.hasPrefix("log."): return "Matlogg"
+        case "goal.set": return "Daglig mål"
+        case let value where value.hasPrefix("weight."): return "Vektregistrering"
+        case let value where value.hasPrefix("favorite."): return "Favoritt"
+        case let value where value.hasPrefix("saved_meal."): return "Lagret måltid"
+        case "product.upsert": return "Brukeropprettet produkt"
+        default: return "Lokal endring"
+        }
     }
 }
 

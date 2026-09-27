@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { PrismaClient } from '@prisma/client';
@@ -94,6 +94,36 @@ async function run() {
       refresh_token: logoutLogin.json.refresh_token,
     });
     assert.equal(refreshAfterLogout.status, 401);
+
+    const concurrentLogin = await request(baseUrl, '/v1/auth/login', 'POST', { email, password: 'correct-horse-battery' });
+    const concurrentRefreshes = await Promise.all([
+      request(baseUrl, '/v1/auth/refresh', 'POST', { refresh_token: concurrentLogin.json.refresh_token }),
+      request(baseUrl, '/v1/auth/refresh', 'POST', { refresh_token: concurrentLogin.json.refresh_token }),
+    ]);
+    assert.deepEqual(concurrentRefreshes.map(({ status }) => status).sort(), [201, 401]);
+    const concurrentWinner = concurrentRefreshes.find(({ status }) => status === 201);
+    const concurrentLoser = concurrentRefreshes.find(({ status }) => status === 401);
+    assert.equal(concurrentLoser?.json.code, 'REFRESH_TOKEN_REUSED');
+    assert.equal(typeof concurrentWinner?.json.refresh_token, 'string');
+    const revokedConcurrentWinner = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: concurrentWinner?.json.refresh_token,
+    });
+    assert.equal(revokedConcurrentWinner.status, 401);
+
+    const expiringLogin = await request(baseUrl, '/v1/auth/login', 'POST', { email, password: 'correct-horse-battery' });
+    const expiringTokenHash = createHash('sha256').update(expiringLogin.json.refresh_token, 'utf8').digest('hex');
+    await prisma.refreshSession.update({
+      where: { tokenHash: expiringTokenHash },
+      data: { expiresAt: new Date(0) },
+    });
+    const expiredRefresh = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: expiringLogin.json.refresh_token,
+    });
+    assert.equal(expiredRefresh.status, 401);
+    assert.equal(expiredRefresh.json.code, 'INVALID_REFRESH_TOKEN');
+    const purgedRefreshSessions = await app.get(AuthService).purgeExpiredRefreshSessions(new Date());
+    assert.ok(purgedRefreshSessions >= 1);
+    assert.equal(await prisma.refreshSession.count({ where: { tokenHash: expiringTokenHash } }), 0);
 
     const token = refreshed.json.token as string;
 

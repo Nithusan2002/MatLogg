@@ -264,7 +264,8 @@ struct MatLoggTests {
             attemptCount: 0,
             lastAttemptAt: nil,
             nextRetryAt: nil,
-            lastError: nil
+            lastError: nil,
+            ownerUserId: UUID()
         )
 
         let first = try await api.uploadEvents([event])
@@ -322,9 +323,9 @@ struct MatLoggTests {
             fatG: 5
         )
 
-        try await db.saveProduct(product)
+        try await db.saveProduct(product, ownerUserId: userId)
         try await db.saveLog(log)
-        try await db.saveProduct(product)
+        try await db.saveProduct(product, ownerUserId: userId)
 
         let summary = await db.getTodaysSummary(userId: userId)
         #expect(summary.logs.contains { $0.id == log.id && $0.mealType == "lunsj" })
@@ -409,7 +410,7 @@ struct MatLoggTests {
         sqlite3_close(db)
 
         let store = try LocalStore(databaseURL: url)
-        #expect(store.schemaVersion() == 3)
+        #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
         #expect(store.getProduct(product.id)?.name == product.name)
 
         db = nil
@@ -426,6 +427,48 @@ struct MatLoggTests {
         defer { sqlite3_finalize(statement) }
         try #require(sqlite3_step(statement) == SQLITE_ROW)
         #expect(sqlite3_column_int(statement, 0) == 1)
+    }
+
+    @Test func schemaVersionFourQuarantinesOwnerlessPendingEvents() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggSchemaV4-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("schema-v3.sqlite")
+        let eventId = UUID()
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        let seedSQL = """
+        CREATE TABLE sync_queue(
+            eventId TEXT PRIMARY KEY, type TEXT, createdAt REAL, entityId TEXT,
+            schemaVersion INTEGER NOT NULL DEFAULT 1, payload BLOB, status TEXT,
+            attemptCount INTEGER, lastAttemptAt REAL, nextRetryAt REAL, lastError TEXT
+        );
+        INSERT INTO sync_queue(eventId, type, createdAt, schemaVersion, payload, status, attemptCount)
+        VALUES('\(eventId.uuidString)', 'goal.set', 1, 1, X'7B7D', 'pending', 0);
+        PRAGMA user_version = 3;
+        """
+        try #require(sqlite3_exec(db, seedSQL, nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        let store = try LocalStore(databaseURL: url)
+        #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
+        #expect(store.quarantinedSyncCount() == 1)
+        #expect(store.fetchPendingEvents(ownerUserId: UUID(), limit: 10).isEmpty)
+
+        db = nil
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        var statement: OpaquePointer?
+        try #require(sqlite3_prepare_v2(db, "SELECT status, lastError FROM sync_queue WHERE eventId = ?;", -1, &statement, nil) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, eventId.uuidString, -1, unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        let status = try #require(sqlite3_column_text(statement, 0))
+        let error = try #require(sqlite3_column_text(statement, 1))
+        #expect(String(cString: status) == "quarantined")
+        #expect(String(cString: error).contains("brukerbinding"))
     }
 
     @Test func unversionedDatabaseMigratesThroughEveryStageAndPreservesProduct() throws {
@@ -589,7 +632,7 @@ struct MatLoggTests {
         let store = try LocalStore(databaseURL: directory.appendingPathComponent("reset.sqlite"))
         let userId = UUID()
         let product = Product(name: "Slettes", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
-        try store.saveProduct(product)
+        try store.saveProduct(product, ownerUserId: userId)
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2000, proteinTargetG: 100, carbsTargetG: 200, fatTargetG: 60))
         #expect(store.pendingSyncCount() > 0)
 

@@ -137,7 +137,7 @@ struct Log {
 ```swift
 struct SavedMeal {
     id: UUID
-    user_id: UUID
+    owner_user_id: UUID // Kun lokal ruting; sendes ikke i wire-envelope
     name: String
     suggested_meal_type: String?
     items: [SavedMealItem]
@@ -173,9 +173,13 @@ struct Favorite {
     user_id: UUID (indexed)
     product_id: UUID (indexed, foreign key)
     created_at: DateTime
-    is_synced: Bool = false
+    status: String // pending, inFlight, acked, deadLetter, quarantined
 }
 ```
+
+`owner_user_id` må matche aktiv autentisert bruker før en hendelse kan velges
+for opplasting. Legacy-hendelser uten sikker eier settes i `quarantined`; de
+beholdes lokalt, men kan ikke synkroniseres eller retries.
 
 ### **ScanHistory**
 
@@ -398,8 +402,13 @@ CREATE INDEX idx_sync_events_user_synced ON sync_events(user_id, is_synced);
 
 1. **Skriving:** Alle operasjoner skriver til lokal SQLite umiddelbar
 2. **Queuing:** Operasjoner legges til `sync_events` tabell
-3. **Synk:** Background-task sender event-kø til backend
-4. **Conflict:** Bakendvaliderer; hvis konflikt, bruker device-timestamp som tiebreaker
+3. **Synk:** Appen sender den aktive brukerens event-kø ved oppstart,
+   foreground og registrert nettgjenoppretting; iOS garanterer ikke kjøring i
+   bakgrunnen.
+4. **Konflikt i v1:** Backend validerer eierskap og dedupliserer `eventId`, men
+   løser ikke samtidige redigeringer fra flere enheter. Toveis konfliktløsning
+   krever en senere kontrakt med serverrevisjon; device-tid brukes ikke som
+   autoritativ tiebreaker.
 
 ### **Sync Event Loop**
 

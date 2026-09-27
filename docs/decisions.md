@@ -323,7 +323,9 @@ revokere refresh-sesjonen på serveren uten å blokkere offline-utlogging.
 Backend genererer kryptografisk tilfeldige refresh-tokens, lagrer bare SHA-256-
 hashen og roterer tokenet atomisk ved bruk. Gjenbruk av et revokert token
 revokerer øvrige aktive refresh-sesjoner for brukeren. Refresh-token varer i 30
-dager og slettes sammen med brukeren.
+dager og slettes sammen med brukeren. Revokerte sesjonsrader beholdes frem til
+utløp for å bevare gjenbruksdeteksjon; utløpte rader ryddes ved oppstart og
+deretter daglig.
 
 **Begrunnelse:** Kortlivede bearer-tokens begrenser skadeomfanget ved lekkasje,
 mens rotasjon gir en sømløs sesjon uten å gjøre muterende nettverkskall til
@@ -346,3 +348,52 @@ fordi eldre svar ikke inneholder refresh-token.
   per 100 g i stedet for å arve en mulig per-100-ml-basis.
 - Wire-formatet forblir schema v1 fordi heltall er en delmengde av JSON-tall;
   backend må likevel støtte desimallagring før nye klienter rulles ut.
+
+## 2026-09-27 – Offline-garanti og ærlig synkstatus
+
+**Beslutning:** MatLogg behandler vellykket lokal lagring som fullført arbeid og
+synk som en etterfølgende kopi. Egne logger, mål, vekt, favoritter, lagrede
+måltider og lokale produktdata skal kunne brukes uten nett. UI skiller mellom
+lokalt lagret, ventende, automatisk retry, krever handling og bekreftet tom kø
+for denne enheten.
+
+Synkkontrakt v1 løser kun leveringsduplikater gjennom `eventId`. Den skal ikke
+hevdes å løse flerenhetskonflikter eller bruke heuristikk på produkt, mengde og
+tidspunkt. En senere toveis kontrakt må ha serverrevisjoner og eksplisitt
+konflikthåndtering; sletting vinner over samtidig redigering.
+
+**Begrunnelse:** Brukeren må kunne stole på at offline-data ikke er tapt, samtidig
+som appen ikke lover konvergens som dagens opplastingskontrakt ikke kan levere.
+
+**Konsekvens:** Produkttekst bruker «lagret på enheten» og presiserer at en tom
+kø gjelder endringer fra denne enheten. Produksjonssynk forblir deaktivert, og
+innføring av toveis synk krever ny kontraktsversjon og egne konflikt-, retry- og
+flerenhetstester.
+
+Klienten teller alle ikke-ferdige køtilstander, viser permanente feil per
+hendelsestype og lar brukeren prøve én avvist hendelse på nytt uten å aktivere
+alle andre. Nett tilbake omtales som et synkforsøk mens appen kjører eller ved
+neste oppstart/foreground, ikke som garantert bakgrunnskjøring. Lokal
+brukerbinding av køhendelser er et eget auth-/migrasjonsarbeid og en blocker før
+produksjonssynk.
+
+## 2026-09-27 – Brukerbundet lokal synkkø og karantene for legacy-hendelser
+
+**Beslutning:** Alle nye synkhendelser lagrer en lokal `ownerUserId` i samme
+SQLite-transaksjon som domenedataene. Synkmotoren kan bare hente hendelser for
+aktiv autentisert bruker, og planlagte retries kanselleres ved utlogging eller
+brukerbytte. `ownerUserId` er lokal rutingmetadata og sendes ikke til backend.
+
+Ved migrering til lokalt skjema v4 settes alle ikke-ferdige hendelser uten
+verifiserbar eierbinding i `quarantined`. De beholdes for sporbarhet, men kan
+aldri lastes opp eller aktiveres med manuelt retry. Brukeren ser et generisk
+antall i Data og synk, uten hendelsesinnhold.
+
+**Begrunnelse:** Backend bruker bearer-tokenet som autoritativ identitet. Uten
+lokal eierbinding kunne en køhendelse opprettet under én konto ellers bli sendt
+etter innlogging med en annen konto. Karantene velger dataminimering og
+fail-closed fremfor å gjette eierskap fra payload eller nåværende sesjon.
+
+**Konsekvens:** Den tidligere lokale eierbindingsblockeren er lukket, men
+produksjonssynk forblir deaktivert til relevante integrasjons- og
+produksjonsforberedende tester er kjørt og godkjent.

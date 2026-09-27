@@ -36,6 +36,12 @@ når inbox-raden eies av samme innloggede bruker; kryssbruker-kollisjon avvises.
 Oppdatering av logger, vekt og brukeropprettede produkter krever at eksisterende
 rad eies av innlogget bruker.
 
+Hver lokal køhendelse har i tillegg `ownerUserId`, som brukes til å velge bare
+hendelser for den aktive autentiserte brukeren. Feltet er lokal rutingmetadata
+og inngår ikke i wire-formatet; backend fortsetter å hente identitet fra tokenet.
+Eldre, ikke-ferdige hendelser uten sikker eierbinding settes i `quarantined` og
+kan ikke sendes eller gjøres retrybare manuelt.
+
 `product.upsert` er for produkter brukeren selv oppretter eller korrigerer.
 Produkter hentet fra eksterne kataloger som Open Food Facts og Matvaretabellen
 lagres som lokal cache og skal ikke opprette synkhendelser. De får stabil lokal
@@ -68,4 +74,6 @@ henter eier fra tokenet og erstatter måltidets elementer i
 samme transaksjon som inbox-raden. `saved_meal.delete` inneholder måltids-ID.
 
 Kontrakten er fortsatt en opplastingskontrakt. Nedlasting og konfliktløsning
-mellom flere enheter er ikke implementert.
+mellom flere enheter er ikke implementert. Gjeldende produktadferd, betydningen
+av en tom enhetskø og krav før toveis synk beskrives i
+[offline-adferd og synkstatus](offline-behavior.md).

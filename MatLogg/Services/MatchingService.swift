@@ -49,12 +49,18 @@ final class MatchingService {
     
     private func categoryMatch(_ lhs: String?, _ rhs: String?) -> Double {
         guard let lhs = lhs, let rhs = rhs else { return 0 }
-        return normalize(lhs) == normalize(rhs) ? 1.0 : 0.0
+        let normalizedLHS = normalize(lhs)
+        let normalizedRHS = normalize(rhs)
+        guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return 0 }
+        return normalizedLHS == normalizedRHS ? 1.0 : 0.0
     }
     
     private func brandMatch(_ lhs: String?, _ rhs: String?) -> Double {
         guard let lhs = lhs, let rhs = rhs else { return 0 }
-        return normalize(lhs) == normalize(rhs) ? 1.0 : 0.0
+        let normalizedLHS = normalize(lhs)
+        let normalizedRHS = normalize(rhs)
+        guard !normalizedLHS.isEmpty, !normalizedRHS.isEmpty else { return 0 }
+        return normalizedLHS == normalizedRHS ? 1.0 : 0.0
     }
     
     private func keywordOverlap(_ lhs: String, _ rhs: String) -> Double {
@@ -66,6 +72,7 @@ final class MatchingService {
     }
     
     private func energyDeviationPenalty(_ lhs: Float, _ rhs: Float) -> Double {
+        guard lhs.isFinite, rhs.isFinite, lhs >= 0, rhs >= 0 else { return 1 }
         let maxValue = max(lhs, rhs)
         guard maxValue > 0 else { return 0 }
         let diff = abs(lhs - rhs)

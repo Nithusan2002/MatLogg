@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import MatLogg
 
-@Suite(.serialized)
 @MainActor
 struct APIServiceTests {
     @Test func invalidBaseURLReturnsTypedErrorWithoutStartingRequest() async {
@@ -22,7 +21,7 @@ struct APIServiceTests {
     }
 
     @Test func loginPreservesBackendErrorCodeAndMessage() async throws {
-        APIURLProtocolStub.handler = { request in
+        let httpClient = HTTPClientStub { request, _ in
             #expect(request.url?.path == "/v1/auth/login")
             let body = #"{"code":"INVALID_CREDENTIALS","message":"E-post eller passord er feil"}"#
             let url = try #require(request.url)
@@ -34,9 +33,7 @@ struct APIServiceTests {
             ))
             return (response, Data(body.utf8))
         }
-        defer { APIURLProtocolStub.handler = nil }
-
-        let service = makeService()
+        let service = makeService(httpClient: httpClient)
         do {
             _ = try await service.loginEmail(email: "test@matlogg.no", password: "feil")
             Issue.record("Innlogging skulle ha feilet")
@@ -53,7 +50,19 @@ struct APIServiceTests {
 
     @Test func loginUsesServerAuthMetadata() async throws {
         let userId = UUID()
-        APIURLProtocolStub.handler = { request in
+        let httpClient = HTTPClientStub { request, timeout in
+            #expect(request.url?.path == "/v1/auth/login")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            #expect(timeout == 30)
+            let requestData = try #require(request.httpBody)
+            let requestBody = try #require(
+                JSONSerialization.jsonObject(with: requestData) as? [String: String]
+            )
+            #expect(requestBody == [
+                "email": "test@matlogg.no",
+                "password": "hemmelig"
+            ])
             let body = """
             {
               "user_id": "\(userId.uuidString)",
@@ -75,9 +84,8 @@ struct APIServiceTests {
             ))
             return (response, Data(body.utf8))
         }
-        defer { APIURLProtocolStub.handler = nil }
-
-        let (user, tokens) = try await makeService().loginEmail(email: "test@matlogg.no", password: "hemmelig")
+        let (user, tokens) = try await makeService(httpClient: httpClient)
+            .loginEmail(email: "test@matlogg.no", password: "hemmelig")
         #expect(user.id == userId)
         #expect(user.authProvider == "email")
         #expect(user.createdAt == Date(timeIntervalSince1970: 1_790_244_000))
@@ -89,7 +97,7 @@ struct APIServiceTests {
             tokens: AuthTokens(accessToken: "expired-access", refreshToken: "valid-refresh")
         )
         var requestNumber = 0
-        APIURLProtocolStub.handler = { request in
+        let httpClient = HTTPClientStub { request, _ in
             requestNumber += 1
             let url = try #require(request.url)
             switch requestNumber {
@@ -108,12 +116,8 @@ struct APIServiceTests {
                 return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
             }
         }
-        defer { APIURLProtocolStub.handler = nil }
-
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [APIURLProtocolStub.self]
         let service = APIService(
-            session: URLSession(configuration: configuration),
+            httpClient: httpClient,
             baseURL: "https://api.test/v1",
             authSessionStore: store
         )
@@ -129,7 +133,7 @@ struct APIServiceTests {
             tokens: AuthTokens(accessToken: "expired-access", refreshToken: "invalid-refresh")
         )
         var requestNumber = 0
-        APIURLProtocolStub.handler = { request in
+        let httpClient = HTTPClientStub { request, _ in
             requestNumber += 1
             let url = try #require(request.url)
             if requestNumber == 1 {
@@ -139,12 +143,8 @@ struct APIServiceTests {
             let body = #"{"code":"INVALID_REFRESH_TOKEN","message":"Sesjonen er utløpt"}"#
             return (try #require(HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)), Data(body.utf8))
         }
-        defer { APIURLProtocolStub.handler = nil }
-
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [APIURLProtocolStub.self]
         let service = APIService(
-            session: URLSession(configuration: configuration),
+            httpClient: httpClient,
             baseURL: "https://api.test/v1",
             authSessionStore: store
         )
@@ -162,10 +162,8 @@ struct APIServiceTests {
         #expect(store.tokens == nil)
     }
 
-    private func makeService() -> APIService {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [APIURLProtocolStub.self]
-        return APIService(session: URLSession(configuration: configuration), baseURL: "https://api.test/v1")
+    private func makeService(httpClient: any HTTPClientProtocol) -> APIService {
+        APIService(httpClient: httpClient, baseURL: "https://api.test/v1")
     }
 }
 
@@ -196,23 +194,15 @@ private final class APIAuthSessionStore: AuthSessionStore {
     }
 }
 
-private final class APIURLProtocolStub: URLProtocol, @unchecked Sendable {
-    nonisolated(unsafe) static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+private final class HTTPClientStub: HTTPClientProtocol {
+    private let handler: (URLRequest, TimeInterval) throws -> (HTTPURLResponse, Data)
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-
-    override func startLoading() {
-        do {
-            let handler = Self.handler ?? { _ in throw URLError(.badServerResponse) }
-            let (response, data) = try handler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
+    init(handler: @escaping (URLRequest, TimeInterval) throws -> (HTTPURLResponse, Data)) {
+        self.handler = handler
     }
 
-    override func stopLoading() {}
+    func send(_ request: URLRequest, timeout: TimeInterval) async throws -> HTTPClientResponse {
+        let (response, data) = try handler(request, timeout)
+        return HTTPClientResponse(data: data, response: response)
+    }
 }

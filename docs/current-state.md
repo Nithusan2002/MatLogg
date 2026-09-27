@@ -78,10 +78,18 @@ Release-bygg viser alltid autentisering.
 
 ### Local-first og synk
 
+- Normativ offline-funksjonalitet, brukerstatus og grensen mellom v1-retry og
+  fremtidig flerenhetskonflikt er dokumentert i `offline-behavior.md`.
 - Lokale domeneskrivinger oppretter versjonerte synkhendelser.
 - Synkkøen støtter pending, in-flight, ack, retry, dead-letter og bounded
   backoff. Køen vekkes ved `nextRetryAt` og når nettforbindelsen kommer tilbake;
   permanent avviste hendelser beholdes for manuelt nytt forsøk.
+- Køstatus teller pending, in-flight og dead-letter separat. Hjem og
+  Innstillinger skiller mellom bare lokal lagring, offline, aktiv synk,
+  planlagt retry og feil som krever handling. Permanente feil viser hendelsestype
+  og årsak og kan prøves på nytt enkeltvis.
+- En synkkjøring fortsetter gjennom flere batcher på inntil 50 hendelser til
+  køen er tom eller en batch krever retry/handling.
 - Hendelsesformatet er dokumentert i `sync-contract-v1.md`.
 - Synkmotoren kan sende batcher og behandle bekreftede og avviste hendelser.
 
@@ -112,6 +120,10 @@ Release-bygg viser alltid autentisering.
 
 - `FeatureFlags.backendSyncEnabled` er `false`. Produksjonssynk er derfor
   deaktivert selv om klient- og backendkomponenter finnes.
+- Synkkøen har eksplisitt lokal `ownerUserId`. Nye hendelser bindes atomisk til
+  brukeren som eier domeneskrivingen, og opplasting filtreres på aktiv innlogget
+  bruker. Brukerbytte/utlogging kansellerer planlagte retries. Eldre ikke-ferdige
+  hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--debug-auth`.
 - Apple- og Google-innlogging er senere scope og vises ikke i klienten.
@@ -130,6 +142,11 @@ Release-bygg viser alltid autentisering.
 
 ## Gjeldende verifiseringsstatus
 
+- iOS-app og testbundles bygger med lokalt skjema v4 per 2026-09-27. Nye
+  målrettede tester dekker eierfiltrering og karantene ved migrering fra v3.
+  Den underliggende SQLite-migreringen, eierfiltreringen og karanteneregelen er
+  verifisert direkte. Selve XCTest-kjøringen gjenstår fordi CoreSimulatorService
+  ikke kan starte disk-image-tjenesten i verifiseringsmiljøet.
 - `npm run build`, synkkontraktstesten og auth-konfigurasjonstesten består per
   2026-09-24.
 - Baseline-migrasjonen og PostgreSQL-integrasjonstesten består lokalt per
@@ -192,9 +209,11 @@ implementert og implementert.
   opprinnelige kallet gjentas høyst én gang; ugyldig eller gjenbrukt
   refresh-token tømmer lokal sesjon og sender brukeren til innlogging.
 - Backend bygger, Prisma-skjemaet validerer og enhetlige kontrakt-/konfigtester
-  består. Auth-integrasjonstesten er utvidet med rotasjon og gjenbruksvern, men
-  kunne ikke kjøres i kontrollmiljøet fordi PostgreSQL/Docker ikke var
-  tilgjengelig. Produksjonssynk forblir derfor deaktivert.
+  består. Auth-integrasjonstesten dekker også samtidige refresh-forsøk, utløpte
+  tokens og opprydding av utløpte sesjoner. Alle migrasjoner og backendens
+  auth-, synk- og autentiserte HTTP-integrasjonstester består mot lokal
+  PostgreSQL i Docker. Dette er fortsatt ikke en staging- eller
+  produksjonsverifisering, og produksjonssynk forblir deaktivert.
 
 ### Daglige mål – verifisert 2026-09-21
 

@@ -15,6 +15,12 @@ struct GoalCalculationResult {
     let baselineCalories: Int
 }
 
+struct CalorieBalance: Equatable {
+    let consumed: Int
+    let remaining: Int
+    let over: Int
+}
+
 enum GoalCalculator {
     static let calorieRange = 1200...4500
     static let supportedAgeRange = 18...120
@@ -51,6 +57,16 @@ enum GoalCalculator {
     
     static func roundedDisplay(_ value: Int) -> Int {
         Int((Double(value) / 10.0).rounded() * 10.0)
+    }
+
+    static func calorieBalance(dailyGoal: Int, consumed: Float) -> CalorieBalance? {
+        guard dailyGoal >= 0, consumed.isFinite, consumed >= 0 else { return nil }
+        let roundedConsumed = NutritionDisplay.wholeCalories(consumed)
+        return CalorieBalance(
+            consumed: roundedConsumed,
+            remaining: max(0, dailyGoal - roundedConsumed),
+            over: max(0, roundedConsumed - dailyGoal)
+        )
     }
     
     private static func calculateTDEE(input: GoalCalculationInput) -> Int? {

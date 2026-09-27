@@ -88,13 +88,18 @@ Device B: Logs "Brød 150g" at 12:30 (same time, different devices)
 Both sync simultaneously
 ```
 
-**Conflict Resolution:**
-1. Backend receives both events
-2. Both have same user_id, product_id, timestamp
-3. Tiebreaker: device_id + server_timestamp
-4. First write wins (other is flagged as duplicate)
-5. Response: "Duplicate detected; using server version"
-6. Both devices sync to same canonical state
+**Gjeldende v1-adferd:**
+1. Backend mottar begge hendelser.
+2. Ulike `eventId`/entitets-ID-er behandles som ulike registreringer; likt
+   produkt og klokkeslett brukes ikke til å gjette duplikater.
+3. Replay av samme `eventId` anvendes høyst én gang.
+4. V1 har ingen nedlasting, så enhetene konvergerer ikke automatisk til samme
+   kanoniske tilstand.
+5. Reell konflikt på samme entitet krever en senere, versjonert toveis kontrakt
+   og skal ikke løses med skjult first-write-wins eller klientklokke.
+
+Se [`../offline-behavior.md`](../offline-behavior.md) for normative regler og
+krav før toveis synk.
 
 ---
 

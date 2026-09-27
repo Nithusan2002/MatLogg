@@ -11,7 +11,7 @@ class APIService {
     private let sleep: (TimeInterval) async throws -> Void
 
     init(
-        session: URLSession = .shared,
+        httpClient: any HTTPClientProtocol = URLSessionHTTPClient(),
         baseURL: String = "https://api.matlogg.app/v1",
         accessTokenProvider: @escaping () -> String? = { nil },
         authSessionStore: (any AuthSessionStore)? = nil,
@@ -22,7 +22,7 @@ class APIService {
             try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         }
     ) {
-        self.httpClient = URLSessionHTTPClient(session: session)
+        self.httpClient = httpClient
         self.baseURL = baseURL
         self.accessTokenProvider = accessTokenProvider
         self.authSessionStore = authSessionStore

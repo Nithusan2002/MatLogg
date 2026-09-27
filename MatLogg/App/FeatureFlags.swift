@@ -1,6 +1,6 @@
 import Foundation
 
 enum FeatureFlags {
-    static let goalCalibrationEnabled = false
-    static let backendSyncEnabled = false
+    nonisolated static let goalCalibrationEnabled = false
+    nonisolated static let backendSyncEnabled = false
 }

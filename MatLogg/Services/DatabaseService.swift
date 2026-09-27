@@ -93,8 +93,8 @@ class DatabaseService {
         store?.getSavedMeals(userId: userId) ?? []
     }
     
-    func saveProduct(_ product: Product) async throws {
-        try requireStore().saveProduct(product)
+    func saveProduct(_ product: Product, ownerUserId: UUID) async throws {
+        try requireStore().saveProduct(product, ownerUserId: ownerUserId)
     }
 
     func cacheCatalogProduct(_ product: Product) async throws {
@@ -173,8 +173,32 @@ class DatabaseService {
         store?.failedSyncCount() ?? 0
     }
 
+    func syncQueueStatus() async -> SyncQueueStatus {
+        store?.syncQueueStatus() ?? .empty
+    }
+
+    func syncQueueStatus(ownerUserId: UUID) async -> SyncQueueStatus {
+        store?.syncQueueStatus(ownerUserId: ownerUserId) ?? .empty
+    }
+
+    func failedSyncEvents(limit: Int = 5) async -> [SyncFailureSummary] {
+        store?.failedSyncEvents(limit: limit) ?? []
+    }
+
+    func failedSyncEvents(ownerUserId: UUID, limit: Int = 5) async -> [SyncFailureSummary] {
+        store?.failedSyncEvents(ownerUserId: ownerUserId, limit: limit) ?? []
+    }
+
     func nextPendingRetryDate() async -> Date? {
         store?.nextPendingRetryDate()
+    }
+
+    func nextPendingRetryDate(ownerUserId: UUID) async -> Date? {
+        store?.nextPendingRetryDate(ownerUserId: ownerUserId)
+    }
+
+    func quarantinedSyncCount() async -> Int {
+        store?.quarantinedSyncCount() ?? 0
     }
 
     func localSchemaVersion() async -> Int {
@@ -188,6 +212,10 @@ class DatabaseService {
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {
         store?.fetchPendingEvents(limit: limit) ?? []
+    }
+
+    func fetchPendingEvents(ownerUserId: UUID, limit: Int) async -> [SyncEvent] {
+        store?.fetchPendingEvents(ownerUserId: ownerUserId, limit: limit) ?? []
     }
     
     func markEventsInFlight(_ eventIds: [UUID]) async {
@@ -206,8 +234,12 @@ class DatabaseService {
         store?.markEventDeadLetter(eventId, error: error)
     }
 
-    func retryFailedEvents() async {
-        store?.retryDeadLetterEvents()
+    func retryFailedEvents(ownerUserId: UUID) async {
+        store?.retryDeadLetterEvents(ownerUserId: ownerUserId)
+    }
+
+    func retryFailedEvent(_ eventId: UUID, ownerUserId: UUID) async {
+        store?.retryDeadLetterEvent(eventId, ownerUserId: ownerUserId)
     }
     
     func resetInFlightEvents() async {
