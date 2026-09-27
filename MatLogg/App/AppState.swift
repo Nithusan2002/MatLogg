@@ -33,6 +33,7 @@ class AppState: ObservableObject {
         set { activeError = newValue.map(AppError.general) }
     }
     @Published var pendingSyncCount: Int = 0
+    @Published var failedSyncCount: Int = 0
     @Published var lastSyncAt: Date?
     @Published var lastSyncError: String?
     @Published var lastSyncSucceeded: Bool?
@@ -40,6 +41,7 @@ class AppState: ObservableObject {
     // MARK: - Private Properties
     
     private let databaseService: DatabaseService
+    private let syncEngine: SyncEngine
     
     // MARK: - Init
     
@@ -49,6 +51,19 @@ class AppState: ObservableObject {
 
     init(databaseService: DatabaseService, now: Date = Date(), calendar: Calendar = .current) {
         self.databaseService = databaseService
+        self.syncEngine = .shared
+        self.selectedMealType = Self.defaultMealType(at: now, calendar: calendar)
+        Task { await refreshSyncStatus() }
+    }
+
+    init(
+        databaseService: DatabaseService,
+        syncEngine: SyncEngine,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        self.databaseService = databaseService
+        self.syncEngine = syncEngine
         self.selectedMealType = Self.defaultMealType(at: now, calendar: calendar)
         Task { await refreshSyncStatus() }
     }
@@ -70,17 +85,20 @@ class AppState: ObservableObject {
     // MARK: - Sync Status
     
     func refreshSyncStatus() async {
-        let count = await databaseService.pendingSyncCount()
-        pendingSyncCount = count
+        pendingSyncCount = await databaseService.pendingSyncCount()
+        failedSyncCount = await databaseService.failedSyncCount()
     }
     
     func triggerSync(reason: SyncReason) async {
-        let result = await SyncEngine.shared.syncPendingEvents()
+        if case .userInitiated = reason {
+            await databaseService.retryFailedEvents()
+        }
+        let result = await syncEngine.syncPendingEvents()
         lastSyncAt = Date()
         if FeatureFlags.backendSyncEnabled {
             lastSyncSucceeded = result.success
             lastSyncError = result.errorMessage
-            if !result.success {
+            if !result.success, case .userInitiated = reason {
                 presentError(title: "Synkronisering feilet", message: result.errorMessage)
             }
         } else {

@@ -120,7 +120,7 @@ final class MealReuseViewModel: ObservableObject {
             var items: [MealReuseItem] = []
             for log in previous {
                 guard log.amountG.isFinite, log.amountG > 0, log.amountG <= 10_000,
-                      log.calories >= 0, log.calories <= Int(Int32.max),
+                      log.calories.isFinite, log.calories >= 0, log.calories <= Float(Int32.max),
                       [log.proteinG, log.carbsG, log.fatG].allSatisfy({ $0.isFinite && $0 >= 0 }),
                       let product = repository.getProduct(log.productId) else { return nil }
                 items.append(MealReuseItem(original: log, product: product,
@@ -195,19 +195,22 @@ final class MealReuseViewModel: ObservableObject {
         for item in suggestion.items {
             guard let amount = item.amountG else { return false }
             let original = item.original
-            let factor = amount / original.amountG
-            let calories = Double(original.calories) * Double(factor)
-            let macros = [original.proteinG, original.carbsG, original.fatG].map { $0 * factor }
-            guard calories.isFinite, calories.rounded() <= Double(Int32.max),
-                  macros.allSatisfy({ $0.isFinite }) else {
+            guard let nutrition = NutritionCalculator.scaledSnapshot(
+                calories: original.calories,
+                protein: original.proteinG,
+                carbs: original.carbsG,
+                fat: original.fatG,
+                from: original.amountG,
+                to: amount
+            ), nutrition.calories <= Float(Int32.max) else {
                 errorMessage = "Mengden kunne ikke beregnes. Prøv en annen mengde."
                 return false
             }
             copies.append(FoodLog(userId: userId, productId: original.productId, mealType: suggestion.mealType,
                                   amountG: amount, amountUnit: original.resolvedAmountUnit,
                                   loggedDate: day, loggedTime: timestamp,
-                                  calories: amount == original.amountG ? original.calories : Int(calories.rounded()),
-                                  proteinG: macros[0], carbsG: macros[1], fatG: macros[2], createdAt: timestamp))
+                                  calories: nutrition.calories,
+                                  proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, createdAt: timestamp))
         }
         do {
             try await repository.saveLogs(copies)

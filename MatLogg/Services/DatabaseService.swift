@@ -2,42 +2,79 @@ import Foundation
 
 class DatabaseService {
     static let shared = DatabaseService()
-    private let store = LocalStore.shared
+    private let store: LocalStore?
+    let startupError: Error?
+
+    convenience init() {
+        self.init(storeResult: LocalStore.sharedResult)
+    }
+
+    init(storeResult: Result<LocalStore, Error>) {
+        switch storeResult {
+        case .success(let store):
+            self.store = store
+            startupError = nil
+        case .failure(let error):
+            store = nil
+            startupError = error
+        }
+    }
+
+    init(store: LocalStore) {
+        self.store = store
+        startupError = nil
+    }
+
+    var isAvailable: Bool { store != nil }
+
+    private func requireStore() throws -> LocalStore {
+        guard let store else {
+            throw DatabaseServiceError.unavailable
+        }
+        return store
+    }
     
     func saveGoal(_ goal: Goal) async throws {
-        try store.saveGoal(goal)
+        try requireStore().saveGoal(goal)
     }
     
     func getLatestGoal(userId: UUID, completion: @escaping (Goal?) -> Void) {
-        completion(store.getLatestGoal(userId: userId))
+        completion(store?.getLatestGoal(userId: userId))
     }
 
     func latestGoal(userId: UUID) async -> Goal? {
-        store.getLatestGoal(userId: userId)
+        store?.getLatestGoal(userId: userId)
     }
     
     func saveLogs(_ logs: [FoodLog]) async throws {
-        try store.saveLogs(logs)
+        try requireStore().saveLogs(logs)
     }
 
     func deleteLogs(_ ids: [UUID]) async throws {
-        try store.deleteLogs(ids)
+        try requireStore().deleteLogs(ids)
     }
 
     func saveLog(_ log: FoodLog) async throws {
-        try store.saveLog(log)
+        try requireStore().saveLog(log)
     }
     
     func deleteLog(_ id: UUID) async throws {
-        try store.deleteLog(id)
+        try requireStore().deleteLog(id)
     }
 
     func getAllLogs(userId: UUID) async -> [FoodLog] {
-        store.getAllLogs(userId: userId)
+        store?.getAllLogs(userId: userId) ?? []
     }
     
     func getSummary(userId: UUID, date: Date) async -> DailySummary {
-        store.getSummary(userId: userId, date: date)
+        store?.getSummary(userId: userId, date: date) ?? DailySummary(
+            date: date,
+            totalCalories: 0,
+            totalProtein: 0,
+            totalCarbs: 0,
+            totalFat: 0,
+            logs: []
+        )
     }
     
     func getTodaysSummary(userId: UUID) async -> DailySummary {
@@ -45,123 +82,150 @@ class DatabaseService {
     }
 
     func saveSavedMeal(_ meal: SavedMeal) async throws {
-        try store.saveSavedMeal(meal)
+        try requireStore().saveSavedMeal(meal)
     }
 
     func deleteSavedMeal(_ id: UUID, userId: UUID) async throws {
-        try store.deleteSavedMeal(id, userId: userId)
+        try requireStore().deleteSavedMeal(id, userId: userId)
     }
 
     func getSavedMeals(userId: UUID) async -> [SavedMeal] {
-        store.getSavedMeals(userId: userId)
+        store?.getSavedMeals(userId: userId) ?? []
     }
     
     func saveProduct(_ product: Product) async throws {
-        try store.saveProduct(product)
+        try requireStore().saveProduct(product)
     }
 
     func cacheCatalogProduct(_ product: Product) async throws {
-        try store.cacheCatalogProduct(product)
+        try requireStore().cacheCatalogProduct(product)
     }
     
     func getProduct(_ id: UUID) -> Product? {
-        store.getProduct(id)
+        store?.getProduct(id)
     }
 
     func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
-        store.getProducts(ids)
+        store?.getProducts(ids) ?? [:]
     }
     
     func getProductByBarcode(_ barcode: String) -> Product? {
-        store.getProductByBarcode(barcode)
+        store?.getProductByBarcode(barcode)
     }
     
     func saveMatchMapping(_ mapping: ProductMatchMapping) {
-        store.saveMatchMapping(mapping)
+        store?.saveMatchMapping(mapping)
     }
     
     func getMatchMapping(for barcode: String) -> ProductMatchMapping? {
-        store.getMatchMapping(for: barcode)
+        store?.getMatchMapping(for: barcode)
     }
     
     func toggleFavorite(userId: UUID, productId: UUID) async throws {
-        try store.toggleFavorite(userId: userId, productId: productId)
+        try requireStore().toggleFavorite(userId: userId, productId: productId)
     }
     
     func isFavorite(userId: UUID, productId: UUID) -> Bool {
-        store.isFavorite(userId: userId, productId: productId)
+        store?.isFavorite(userId: userId, productId: productId) ?? false
     }
     
     func saveScanHistory(userId: UUID, productId: UUID) async throws {
-        try store.saveScanHistory(userId: userId, productId: productId)
+        try requireStore().saveScanHistory(userId: userId, productId: productId)
     }
     
     func getRecentScans(userId: UUID, limit: Int = 15) async -> [ScanHistory] {
-        store.getRecentScans(userId: userId, limit: limit)
+        store?.getRecentScans(userId: userId, limit: limit) ?? []
     }
     
     func saveWeightEntry(_ entry: WeightEntry) async throws {
-        try store.saveWeightEntry(entry)
+        try requireStore().saveWeightEntry(entry)
     }
     
     func deleteWeightEntry(_ id: UUID) async throws {
-        try store.deleteWeightEntry(id)
+        try requireStore().deleteWeightEntry(id)
     }
     
     func getWeightEntries(userId: UUID) async -> [WeightEntry] {
-        store.getWeightEntries(userId: userId)
+        store?.getWeightEntries(userId: userId) ?? []
     }
     
     func getFavorites(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
-        store.getFavorites(userId: userId, kind: kind)
+        store?.getFavorites(userId: userId, kind: kind) ?? []
     }
     
     func getRecentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
-        store.getRecentProducts(userId: userId, kind: kind, limit: limit)
+        store?.getRecentProducts(userId: userId, kind: kind, limit: limit) ?? []
     }
     
     func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {
-        store.saveMatvaretabellenCache(items)
+        store?.saveMatvaretabellenCache(items)
     }
     
     func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? {
-        store.getMatvaretabellenCache(maxAgeDays: maxAgeDays)
+        store?.getMatvaretabellenCache(maxAgeDays: maxAgeDays)
     }
     
     func pendingSyncCount() async -> Int {
-        store.pendingSyncCount()
+        store?.pendingSyncCount() ?? 0
+    }
+
+    func failedSyncCount() async -> Int {
+        store?.failedSyncCount() ?? 0
+    }
+
+    func nextPendingRetryDate() async -> Date? {
+        store?.nextPendingRetryDate()
     }
 
     func localSchemaVersion() async -> Int {
-        store.schemaVersion()
+        store?.schemaVersion() ?? 0
     }
 
     func resetAllLocalData() async throws {
-        try store.resetAllData()
+        try requireStore().resetAllData()
         UserDefaults.standard.removeObject(forKey: "personalDetails")
     }
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {
-        store.fetchPendingEvents(limit: limit)
+        store?.fetchPendingEvents(limit: limit) ?? []
     }
     
     func markEventsInFlight(_ eventIds: [UUID]) async {
-        store.markEventsInFlight(eventIds)
+        store?.markEventsInFlight(eventIds)
     }
     
     func markEventsAcked(_ eventIds: [UUID]) async {
-        store.markEventsAcked(eventIds)
+        store?.markEventsAcked(eventIds)
     }
     
     func markEventForRetry(_ eventId: UUID, error: String?, backoffSeconds: TimeInterval) async {
-        store.markEventForRetry(eventId, error: error, backoffSeconds: backoffSeconds)
+        store?.markEventForRetry(eventId, error: error, backoffSeconds: backoffSeconds)
+    }
+
+    func markEventDeadLetter(_ eventId: UUID, error: String) async {
+        store?.markEventDeadLetter(eventId, error: error)
+    }
+
+    func retryFailedEvents() async {
+        store?.retryDeadLetterEvents()
     }
     
     func resetInFlightEvents() async {
-        store.resetInFlightToPending()
+        store?.resetInFlightToPending()
     }
     
     func cleanupAckedEvents(olderThanDays: Int) async {
-        store.cleanupAckedEvents(olderThanDays: olderThanDays)
+        store?.cleanupAckedEvents(olderThanDays: olderThanDays)
+    }
+}
+
+enum DatabaseServiceError: LocalizedError {
+    case unavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable:
+            return "Den lokale databasen er ikke tilgjengelig. Dataene er ikke slettet."
+        }
     }
 }

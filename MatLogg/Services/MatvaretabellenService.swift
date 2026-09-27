@@ -16,7 +16,21 @@ struct MatvaretabellenProduct: Codable {
 
 final class MatvaretabellenService {
     private let baseURLString = "https://www.matvaretabellen.no"
-    private let session = URLSession.shared
+    private let httpClient: any HTTPClientProtocol
+    private let retryLimit: Int
+    private let sleep: (TimeInterval) async throws -> Void
+
+    init(
+        session: URLSession = .shared,
+        retryLimit: Int = 1,
+        sleep: @escaping (TimeInterval) async throws -> Void = { seconds in
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+    ) {
+        self.httpClient = URLSessionHTTPClient(session: session)
+        self.retryLimit = max(0, retryLimit)
+        self.sleep = sleep
+    }
     
     func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
         let params = ["query", "search", "q", "name"]
@@ -76,8 +90,36 @@ final class MatvaretabellenService {
             return []
         }
         
-        let (data, _) = try await session.data(from: url)
-        return MatvaretabellenResponseParser.parse(data: data)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        for attempt in 0...retryLimit {
+            do {
+                let result = try await httpClient.send(request, timeout: 10)
+                let statusCode = result.response.statusCode
+                if statusCode == 429 {
+                    let retryAfter = result.response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+                    if attempt < retryLimit,
+                       RequestBackoff.shouldRetryRateLimit(retryAfterSeconds: retryAfter) {
+                        try await sleep(RequestBackoff.delay(attempt: attempt, retryAfterSeconds: retryAfter))
+                        continue
+                    }
+                    throw APIService.APIError.rateLimited(retryAfterSeconds: retryAfter)
+                }
+                if (500...599).contains(statusCode), attempt < retryLimit {
+                    try await sleep(RequestBackoff.delay(attempt: attempt))
+                    continue
+                }
+                guard (200...299).contains(statusCode) else {
+                    throw APIService.APIError.serverError(statusCode)
+                }
+                return MatvaretabellenResponseParser.parse(data: result.data)
+            } catch let error as HTTPClientError {
+                guard attempt < retryLimit else { throw error }
+                try await sleep(RequestBackoff.delay(attempt: attempt))
+            }
+        }
+        throw APIService.APIError.networkError("Matvaretabellen svarte ikke")
     }
 }
 

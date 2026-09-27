@@ -92,7 +92,7 @@ struct ProgressTabView: View {
         HStack(spacing: 12) {
             highlightCard(
                 eyebrow: "I DAG",
-                value: "\(today?.totalCalories ?? 0)",
+                value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
                 detail: hidesGoals || goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
                 fill: AppColors.calorieBlue
             )
@@ -156,7 +156,7 @@ struct ProgressTabView: View {
             HStack {
                 ForEach(summaries, id: \.date) { summary in
                     VStack(spacing: 4) {
-                        Text("\(summary.totalCalories)")
+                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
                             .font(.caption2.weight(.semibold))
                         Text(dayLabel(summary.date))
                             .font(.caption2)
@@ -242,7 +242,7 @@ struct ProgressTabView: View {
     }
 
     private func macroValue(_ value: Float, _ target: Float) -> String {
-        "\(Int(value.rounded())) / \(Int(target.rounded())) g"
+        "\(NutritionDisplay.wholeGrams(value)) / \(NutritionDisplay.wholeGrams(target)) g"
     }
 
     private func dayLabel(_ date: Date) -> String {
@@ -342,7 +342,7 @@ struct ProgressMetrics {
     let summaries: [DailySummary]
     let today: DailySummary?
     let averageCalories: Int
-    private let caloriesByMeal: [String: Int]
+    private let caloriesByMeal: [String: Float]
 
     init(summaries: [DailySummary]) {
         self.summaries = summaries
@@ -350,13 +350,13 @@ struct ProgressMetrics {
         if summaries.isEmpty {
             averageCalories = 0
         } else {
-            averageCalories = Int((Double(summaries.reduce(0) { $0 + $1.totalCalories }) / Double(summaries.count)).rounded())
+            averageCalories = NutritionDisplay.wholeCalories(summaries.reduce(0) { $0 + $1.totalCalories } / Float(summaries.count))
         }
         caloriesByMeal = Dictionary(grouping: summaries.last?.logs ?? [], by: \.mealType)
             .mapValues { $0.reduce(0) { $0 + $1.calories } }
     }
 
     func calories(forMeal mealType: String) -> Int {
-        caloriesByMeal[mealType, default: 0]
+        NutritionDisplay.wholeCalories(caloriesByMeal[mealType, default: 0])
     }
 }

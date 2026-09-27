@@ -106,7 +106,7 @@ struct ProductDetailView: View {
                                     if !preferencesViewModel.safeModeHideCalories {
                                         NutritionRowView(
                                             label: "Energi",
-                                            value: "\(Int(product.caloriesPer100g)) kcal"
+                                            value: "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal"
                                         )
                                     }
                                     NutritionRowView(
@@ -207,7 +207,7 @@ struct ProductDetailView: View {
                                     if !preferencesViewModel.safeModeHideCalories {
                                         SummaryPill(
                                             label: "Energi",
-                                            value: "\(Int(nutrition.calories)) kcal",
+                                            value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
                                             tintColor: AppColors.brand
                                         )
                                     }

@@ -223,8 +223,25 @@ struct RawMaterialsSearchView: View {
             guard !Task.isCancelled,
                   query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             searchResults = []
-            searchState = .failure("Sjekk forbindelsen og prøv igjen. Du kan fortsatt skanne eller bruke lagrede varer.")
+            searchState = .failure(searchFailureMessage(for: error))
         }
+    }
+
+    private func searchFailureMessage(for error: Error) -> String {
+        if let networkError = error as? HTTPClientError {
+            return networkError.localizedDescription + " Du kan fortsatt bruke lagrede varer."
+        }
+        if let apiError = error as? APIService.APIError {
+            switch apiError {
+            case .rateLimited:
+                return apiError.localizedDescription
+            case .serverError(let statusCode) where (500...599).contains(statusCode):
+                return "Produkttjenesten er midlertidig utilgjengelig. Prøv igjen litt senere."
+            default:
+                break
+            }
+        }
+        return "Sjekk forbindelsen og prøv igjen. Du kan fortsatt skanne eller bruke lagrede varer."
     }
     
     private func rawRow(item: MatvaretabellenProduct) -> some View {
@@ -312,7 +329,7 @@ struct RawMaterialsSearchView: View {
     private func productContext(_ product: Product) -> String {
         let source = product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : "Open Food Facts"
         guard !preferencesViewModel.safeModeHideCalories else { return source }
-        return "\(product.caloriesPer100g) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
+        return "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
     }
     
     private func toProduct(item: MatvaretabellenProduct) -> Product {
@@ -323,7 +340,7 @@ struct RawMaterialsSearchView: View {
             barcodeEan: nil,
             source: "matvaretabellen",
             kind: .genericFood,
-            caloriesPer100g: item.caloriesPer100g,
+            caloriesPer100g: Float(item.caloriesPer100g),
             proteinGPer100g: item.proteinGPer100g,
             carbsGPer100g: item.carbsGPer100g,
             fatGPer100g: item.fatGPer100g,

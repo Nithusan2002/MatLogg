@@ -32,6 +32,9 @@ Release-bygg viser alltid autentisering.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
+- Feil ved åpning eller migrering beholder databasefilen urørt og viser en
+  blokkerende feiltilstand i stedet for å krasje eller starte med et tomt lager.
+  Uleselige JSON-rader logges diagnostisk uten å bli slettet.
 - Logging med mengde og bevart enhet (`g`/`ml`), måltid, kalorier og
   makronæringsstoffer. Eldre data uten enhet tolkes som gram.
 - Dagsnavigasjon med piler og kalender på Hjem og i Logg. Valgt dato følger
@@ -44,6 +47,9 @@ Release-bygg viser alltid autentisering.
   får stabil identitet fra kilde + strekkode og caches lokalt uten å opprette
   `product.upsert`-hendelser. Dokumenterte væskemengder og næringsgrunnlag per
   100 ml bevares som milliliter uten å gjette tetthet eller konvertere til gram.
+- Cachede Open Food Facts-produkter brukes uten nettverkskall i 30 dager. Eldre
+  treff vises fortsatt umiddelbart og revalideres én gang per strekkode i
+  bakgrunnen; ved feil beholdes snapshotet og nytt forsøk utsettes i 24 timer.
 - Kombinert matsøk: råvarer fra Matvaretabellen med lokal cache og navnesøk etter
   merkevarer i Open Food Facts. Eksterne treff uten komplett kcal-/makrogrunnlag
   vises ikke, fordi manglende næringsverdier ikke skal gjettes som null.
@@ -52,6 +58,10 @@ Release-bygg viser alltid autentisering.
   strekkodetreff uten komplett kcal-/makrogrunnlag avvises fremfor å fylle
   manglende verdier med null. Navnesøk sendes bare eksplisitt med Søk-knappen
   eller tastaturets søkehandling, ikke fortløpende per tastetrykk.
+- Backend- og katalogkall bruker en felles transportgrense med eksplisitt
+  timeout og egne feil for offline, timeout og brutt forbindelse.
+  Matvaretabellen validerer nå HTTP-status i stedet for å tolke 429/5xx som
+  tomme søkeresultater. Idempotente katalogoppslag retries høyst én gang.
 - Favoritter, nylig brukte produkter og skannehistorikk.
 - Persondetaljer, målberegning, vektregistrering og Safe Mode.
 - Personlige målforslag er avgrenset til voksne med komplett, støttet
@@ -69,7 +79,9 @@ Release-bygg viser alltid autentisering.
 ### Local-first og synk
 
 - Lokale domeneskrivinger oppretter versjonerte synkhendelser.
-- Synkkøen støtter pending, in-flight, ack, retry og bounded backoff.
+- Synkkøen støtter pending, in-flight, ack, retry, dead-letter og bounded
+  backoff. Køen vekkes ved `nextRetryAt` og når nettforbindelsen kommer tilbake;
+  permanent avviste hendelser beholdes for manuelt nytt forsøk.
 - Hendelsesformatet er dokumentert i `sync-contract-v1.md`.
 - Synkmotoren kan sende batcher og behandle bekreftede og avviste hendelser.
 
@@ -79,8 +91,9 @@ Release-bygg viser alltid autentisering.
   med atomisk upsert, idempotens og eierskapskontroll.
 
 - NestJS-applikasjon med health-, auth-, Prisma- og sync-moduler.
-- E-postregistrering/-innlogging med passordhashing og JWT, samt opt-in
-  dev-login for lokal utvikling.
+- E-postregistrering/-innlogging med passordhashing, kortlivet JWT og roterende
+  refresh-token, samt opt-in dev-login for lokal utvikling. Refresh-token lagres
+  kun som hash på serveren og tokenparet lagres samlet i Keychain på iOS.
 - API-et nekter å starte uten eksplisitt JWT-hemmelighet. Dev-login er alltid
   deaktivert i produksjon og krever eget flagg lokalt.
 - Autentisert soft-delete av konto, token-revokering og permanent purge etter
@@ -165,6 +178,23 @@ Før backend-synk aktiveres:
 
 Oppdater dette dokumentet når en funksjon flyttes mellom planlagt, delvis
 implementert og implementert.
+
+### Nettverks-, retry- og sesjonshardening – kontrollert 2026-09-27
+
+- Nye og berørte Swift-kilder består syntaksparse, og den selvstendige
+  HTTP-transporten består `swiftc -typecheck`.
+- Målrettede tester er lagt til for offline, timeout, katalog-500/retry,
+  Matvaretabellen-429, dead-letter og lagret retrytid.
+- Appen bygger for generisk iOS Simulator. De 23 målrettede testene i
+  `APIServiceTests`, `AuthServiceTests`, `AuthViewModelTests` og
+  `SyncRetryTests` består på iPhone 18 Pro / iOS 27.0.
+- Automatisk refresh ved 401 er implementert for autentiserte iOS-kall. Det
+  opprinnelige kallet gjentas høyst én gang; ugyldig eller gjenbrukt
+  refresh-token tømmer lokal sesjon og sender brukeren til innlogging.
+- Backend bygger, Prisma-skjemaet validerer og enhetlige kontrakt-/konfigtester
+  består. Auth-integrasjonstesten er utvidet med rotasjon og gjenbruksvern, men
+  kunne ikke kjøres i kontrollmiljøet fordi PostgreSQL/Docker ikke var
+  tilgjengelig. Produksjonssynk forblir derfor deaktivert.
 
 ### Daglige mål – verifisert 2026-09-21
 

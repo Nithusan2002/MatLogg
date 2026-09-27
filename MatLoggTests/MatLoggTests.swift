@@ -7,6 +7,7 @@
 
 import Testing
 import Foundation
+import SQLite3
 @testable import MatLogg
 
 struct MatLoggTests {
@@ -197,7 +198,7 @@ struct MatLoggTests {
         let databaseURL = directory.appendingPathComponent("restart.sqlite")
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        var store: LocalStore? = LocalStore(databaseURL: databaseURL)
+        var store: LocalStore? = try LocalStore(databaseURL: databaseURL)
         let goal = Goal(
             userId: UUID(),
             goalType: "maintain",
@@ -213,7 +214,7 @@ struct MatLoggTests {
         #expect(store?.fetchPendingEvents(limit: 10).isEmpty == true)
 
         store = nil
-        let reopenedStore = LocalStore(databaseURL: databaseURL)
+        let reopenedStore = try LocalStore(databaseURL: databaseURL)
         let recovered = try #require(
             reopenedStore.fetchPendingEvents(limit: 10)
                 .first(where: { $0.entityId == goal.id.uuidString })
@@ -334,7 +335,7 @@ struct MatLoggTests {
             .appendingPathComponent("MatLoggCatalogCache-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let store = LocalStore(databaseURL: directory.appendingPathComponent("catalog.sqlite"))
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("catalog.sqlite"))
         let barcode = "1234567890123"
         let product = Product(
             id: Product.catalogID(source: "openfoodfacts", externalID: barcode),
@@ -363,7 +364,7 @@ struct MatLoggTests {
             .appendingPathComponent("MatLoggProductBatch-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let store = LocalStore(databaseURL: directory.appendingPathComponent("products.sqlite"))
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("products.sqlite"))
         let requested = Product(name: "Forespurt", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
         let omitted = Product(name: "Ikke forespurt", caloriesPer100g: 200, proteinGPer100g: 2, carbsGPer100g: 2, fatGPer100g: 2)
         try store.cacheCatalogProduct(requested)
@@ -382,12 +383,210 @@ struct MatLoggTests {
         #expect(version == LocalStore.latestSchemaVersion)
     }
 
+    @Test func schemaVersionThreeAddsBarcodeIndexWithoutDeletingProducts() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggSchemaV3-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("schema-v2.sqlite")
+
+        let product = Product(
+            name: "Eksisterende produkt",
+            barcodeEan: "1234567890123",
+            caloriesPer100g: 100,
+            proteinGPer100g: 1,
+            carbsGPer100g: 2,
+            fatGPer100g: 3
+        )
+        var seededStore: LocalStore? = try LocalStore(databaseURL: url)
+        try seededStore?.cacheCatalogProduct(product)
+        seededStore = nil
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "PRAGMA user_version = 2;", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        let store = try LocalStore(databaseURL: url)
+        #expect(store.schemaVersion() == 3)
+        #expect(store.getProduct(product.id)?.name == product.name)
+
+        db = nil
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        var statement: OpaquePointer?
+        try #require(sqlite3_prepare_v2(
+            db,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'products_barcode_idx';",
+            -1,
+            &statement,
+            nil
+        ) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        #expect(sqlite3_column_int(statement, 0) == 1)
+    }
+
+    @Test func unversionedDatabaseMigratesThroughEveryStageAndPreservesProduct() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggUnversionedMigration-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("unversioned.sqlite")
+        let product = Product(
+            name: "Historisk produkt",
+            barcodeEan: "9876543210123",
+            caloriesPer100g: 120,
+            proteinGPer100g: 4,
+            carbsGPer100g: 20,
+            fatGPer100g: 2
+        )
+
+        var seededStore: LocalStore? = try LocalStore(databaseURL: url)
+        try seededStore?.cacheCatalogProduct(product)
+        seededStore = nil
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP TABLE saved_meals;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "PRAGMA user_version = 0;", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        let migrated = try LocalStore(databaseURL: url)
+        #expect(migrated.schemaVersion() == LocalStore.latestSchemaVersion)
+        #expect(migrated.getProduct(product.id)?.name == product.name)
+        #expect(migrated.getSavedMeals(userId: UUID()).isEmpty)
+    }
+
+    @Test func newerSchemaReturnsControlledErrorInsteadOfOpeningStore() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggFutureSchema-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("future.sqlite")
+        let futureVersion = LocalStore.latestSchemaVersion + 1
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "PRAGMA user_version = \(futureVersion);", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        do {
+            _ = try LocalStore(databaseURL: url)
+            Issue.record("Et nyere skjema skal ikke åpnes")
+        } catch LocalStoreError.unsupportedSchema(let version) {
+            #expect(version == futureVersion)
+        } catch {
+            Issue.record("Forventet unsupportedSchema, fikk \(error)")
+        }
+    }
+
+    @MainActor
+    @Test func unavailableDatabaseServiceRejectsWrites() async {
+        let service = DatabaseService(
+            storeResult: .failure(LocalStoreError.unsupportedSchema(LocalStore.latestSchemaVersion + 1))
+        )
+        let goal = Goal(
+            userId: UUID(),
+            goalType: "maintain",
+            dailyCalories: 2_000,
+            proteinTargetG: 100,
+            carbsTargetG: 200,
+            fatTargetG: 70
+        )
+
+        #expect(!service.isAvailable)
+        do {
+            try await service.saveGoal(goal)
+            Issue.record("Skriving skal avvises når databasen ikke er tilgjengelig")
+        } catch {
+            #expect(error is DatabaseServiceError)
+        }
+    }
+
+    @Test func failedMigrationRollsBackAndLeavesExistingSchemaVersionUntouched() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggMigrationRollback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("broken-v2.sqlite")
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "CREATE TABLE products(id TEXT PRIMARY KEY);", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "INSERT INTO products(id) VALUES('preserved');", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "PRAGMA user_version = 2;", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        #expect(throws: (any Error).self) {
+            _ = try LocalStore(databaseURL: url)
+        }
+
+        db = nil
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        var statement: OpaquePointer?
+        try #require(sqlite3_prepare_v2(db, "SELECT id FROM products LIMIT 1;", -1, &statement, nil) == SQLITE_OK)
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        let preservedID = try #require(sqlite3_column_text(statement, 0))
+        #expect(String(cString: preservedID) == "preserved")
+        sqlite3_finalize(statement)
+
+        statement = nil
+        try #require(sqlite3_prepare_v2(db, "PRAGMA user_version;", -1, &statement, nil) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        #expect(sqlite3_column_int(statement, 0) == 2)
+    }
+
+    @Test func corruptStoredJSONEmitsDiagnosticWithoutDeletingRow() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggDecodeDiagnostic-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("decode.sqlite")
+        var diagnostics: [LocalStoreDiagnostic] = []
+        let store = try LocalStore(databaseURL: url) { diagnostics.append($0) }
+        let product = Product(
+            name: "Produkt",
+            caloriesPer100g: 100,
+            proteinGPer100g: 1,
+            carbsGPer100g: 2,
+            fatGPer100g: 3
+        )
+        try store.cacheCatalogProduct(product)
+
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "UPDATE products SET json = X'7B';", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        #expect(store.getProduct(product.id) == nil)
+        #expect(diagnostics.count == 1)
+        guard case .decodingFailed(let entity, _) = diagnostics[0] else {
+            Issue.record("Forventet dekodingsdiagnostikk")
+            return
+        }
+        #expect(entity == "product")
+
+        db = nil
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        var statement: OpaquePointer?
+        try #require(sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM products;", -1, &statement, nil) == SQLITE_OK)
+        defer { sqlite3_finalize(statement) }
+        try #require(sqlite3_step(statement) == SQLITE_ROW)
+        #expect(sqlite3_column_int(statement, 0) == 1)
+    }
+
     @Test func resetAllDataClearsDomainTablesAndSyncQueue() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MatLoggReset-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let store = LocalStore(databaseURL: directory.appendingPathComponent("reset.sqlite"))
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("reset.sqlite"))
         let userId = UUID()
         let product = Product(name: "Slettes", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
         try store.saveProduct(product)
@@ -464,6 +663,51 @@ struct LogViewModelTests {
         #expect(repository.savedLogs.first?.userId == userId)
         #expect(repository.savedLogs.first?.calories == 100)
         #expect(repository.savedLogs.first?.proteinG == 5)
+    }
+
+    @Test func fractionalCaloriesArePreservedUntilDailyDisplayRounding() async throws {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let userId = UUID()
+        let product = Product(
+            name: "Desimalvare",
+            caloriesPer100g: 99.9,
+            proteinGPer100g: 1.25,
+            carbsGPer100g: 2.5,
+            fatGPer100g: 0.75
+        )
+
+        for _ in 0..<3 {
+            #expect(await viewModel.logFood(product: product, amountG: 50, mealType: "lunsj", userId: userId))
+        }
+
+        let totals = NutritionCalculator.totals(for: repository.savedLogs)
+        #expect(abs(totals.calories - 149.85) < 0.001)
+        #expect(NutritionDisplay.wholeCalories(totals.calories) == 150)
+    }
+
+    @Test func editingLogScalesHistoricalSnapshotWithoutChangingItsUnitBasis() async throws {
+        let repository = FoodLogRepositorySpy()
+        let viewModel = LogViewModel(repository: repository)
+        let userId = UUID()
+        let original = FoodLog(
+            userId: userId,
+            productId: UUID(),
+            mealType: "lunsj",
+            amountG: 200,
+            amountUnit: .milliliters,
+            loggedDate: Date(),
+            calories: 101.5,
+            proteinG: 2.5,
+            carbsG: 20,
+            fatG: 1
+        )
+
+        #expect(await viewModel.updateLog(original, amountG: 100, mealType: "lunsj", userId: userId))
+        let updated = try #require(repository.savedLogs.first)
+        #expect(updated.resolvedAmountUnit == .milliliters)
+        #expect(abs(updated.calories - 50.75) < 0.001)
+        #expect(abs(updated.carbsG - 10) < 0.001)
     }
 
     @Test func repositoryFailureBecomesViewModelErrorState() async {
@@ -760,6 +1004,27 @@ struct AuthViewModelTests {
         #expect(!viewModel.isLoading)
     }
 
+    @Test func loginDoesNotAuthenticateWhenTokenCannotBeStored() async {
+        let user = makeUser()
+        let store = AuthSessionStoreSpy(tokenStorageSucceeds: false)
+        let viewModel = AuthViewModel(
+            apiClient: AuthAPIClientSpy(user: user, token: "test-token"),
+            sessionStore: store
+        )
+
+        await viewModel.login(email: user.email, password: "password")
+
+        #expect(viewModel.currentUser == nil)
+        #expect(store.user == nil)
+        #expect(store.token == nil)
+        #expect(viewModel.errorMessage == "Innloggingen kunne ikke lagres sikkert på enheten. Prøv igjen.")
+        if case .error = viewModel.authState {
+            #expect(true)
+        } else {
+            #expect(false)
+        }
+    }
+
     @Test func debugSessionKeepsSameIdentityAcrossAppRestarts() {
         let first = AuthViewModel(
             apiClient: AuthAPIClientSpy(user: makeUser()),
@@ -775,6 +1040,21 @@ struct AuthViewModelTests {
 
         #expect(first.currentUser?.id == restarted.currentUser?.id)
         #expect(first.currentUser?.authProvider == "debug")
+    }
+
+    @Test func expiredSessionClearsCredentialsAndShowsLoginMessage() {
+        let user = makeUser()
+        let store = AuthSessionStoreSpy(user: user, token: "expired-token")
+        let viewModel = AuthViewModel(
+            apiClient: AuthAPIClientSpy(user: user),
+            sessionStore: store
+        )
+
+        viewModel.handleSessionExpired()
+
+        #expect(viewModel.currentUser == nil)
+        #expect(store.token == nil)
+        #expect(viewModel.errorMessage == "Økten din er utløpt. Logg inn på nytt.")
     }
 
     @Test func successfulAccountDeletionClearsLocalDataAndCredentials() async {
@@ -824,22 +1104,24 @@ struct AuthViewModelTests {
 
 private final class AuthAPIClientSpy: AuthAPIClient {
     let user: User
-    let token: String
+    let tokens: AuthTokens
     var deleteCallCount = 0
     var deleteError: Error?
 
     init(user: User, token: String = "token") {
         self.user = user
-        self.token = token
+        self.tokens = AuthTokens(accessToken: token, refreshToken: "refresh-token")
     }
 
-    func loginEmail(email: String, password: String) async throws -> (User, String) {
-        (user, token)
+    func loginEmail(email: String, password: String) async throws -> (User, AuthTokens) {
+        (user, tokens)
     }
 
-    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, String) {
-        (user, token)
+    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, AuthTokens) {
+        (user, tokens)
     }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {}
 
     func deleteAccount() async throws -> AccountDeletionReceipt {
         deleteCallCount += 1
@@ -884,10 +1166,14 @@ struct AppStateTests {
 private final class AuthSessionStoreSpy: AuthSessionStore {
     var user: User?
     var token: String?
+    var tokenStorageSucceeds: Bool
+    var refreshToken: String?
 
-    init(user: User? = nil, token: String? = nil) {
+    init(user: User? = nil, token: String? = nil, tokenStorageSucceeds: Bool = true) {
         self.user = user
         self.token = token
+        self.refreshToken = token == nil ? nil : "refresh-token"
+        self.tokenStorageSucceeds = tokenStorageSucceeds
     }
 
     func storeUser(_ user: User) {
@@ -898,17 +1184,36 @@ private final class AuthSessionStoreSpy: AuthSessionStore {
         user
     }
 
-    func storeToken(_ token: String) {
-        self.token = token
+    @discardableResult
+    func storeToken(_ token: String) -> Bool {
+        if tokenStorageSucceeds {
+            self.token = token
+        }
+        return tokenStorageSucceeds
     }
 
     func getStoredToken() -> String? {
         token
     }
 
-    func clearStoredCredentials() {
+    @discardableResult
+    func storeTokens(_ tokens: AuthTokens) -> Bool {
+        guard tokenStorageSucceeds else { return false }
+        token = tokens.accessToken
+        refreshToken = tokens.refreshToken
+        return true
+    }
+
+    func getStoredRefreshToken() -> String? {
+        refreshToken
+    }
+
+    @discardableResult
+    func clearStoredCredentials() -> Bool {
         user = nil
         token = nil
+        refreshToken = nil
+        return true
     }
 }
 

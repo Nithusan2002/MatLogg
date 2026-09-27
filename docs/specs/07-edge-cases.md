@@ -11,15 +11,16 @@ Nettverkskabel trekkes ut midt i POST request
 ```
 
 **Handling:**
-1. URLSession timeout (30 sekunder default)
+1. Klienten bruker eksplisitt timeout og klassifiserer timeout/offline separat
 2. Request er added to sync_events queue (is_synced=0)
 3. Log entry er allerede inserted lokalt (optimistic write)
 4. UI shows: "Lagring pågår... vil synkronisere når nett er tilbake"
-5. When network returns: auto-sync retry
+5. Når nett kommer tilbake, trigges synk automatisk
 
 **Recovery:**
-- Eksponentiel backoff: 1s → 2s → 4s → 8s (max 5 attempts)
-- If all retries fail: user prompted to retry manually
+- Eksponentiell backoff med jitter, fra ca. 10 sekunder og maks 6 timer
+- Maks 5 automatiske forsøk før hendelsen beholdes som `deadLetter`
+- Hvis alle forsøk feiler, viser innstillinger at hendelsen krever manuelt forsøk
 - Log blir ikke duplikert (event_id = idempotency key)
 
 ---
@@ -36,12 +37,12 @@ Sync sends 10 events, server returns 500
 1. Client receives 500 error
 2. Event queue NOT marked as synced
 3. Exponential backoff triggered
-4. After 5 failed attempts, event moved to "manual review" queue
-5. User gets notification: "Synk-feil. Vil du prøve igjen?"
+4. Etter 5 mislykkede forsøk flyttes hendelsen til `deadLetter`, uten å slettes
+5. Innstillinger viser synkfeil og tilbyr manuelt nytt forsøk
 
 **Recovery:**
 - Manual retry button in Settings
-- Or auto-retry after 1 hour
+- Eller automatisk retry ved lagret `nextRetryAt`/gjenopprettet nett før maksgrensen
 - No data loss (events are persistent)
 
 ---
@@ -603,4 +604,3 @@ User enters: "Brød, super delicious artisanal sourdough baked with traditional 
 2. Validation: truncated or error shown
 3. Backend: VARCHAR(255) enforced
 4. UI: overflow handling (text wrap or ellipsis)
-

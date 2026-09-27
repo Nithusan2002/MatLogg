@@ -5,6 +5,140 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProductSearchTests {
+    @Test func freshBarcodeCacheDoesNotRevalidate() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cached = makeCachedBarcodeProduct(name: "Fersk", fetchedAt: now.addingTimeInterval(-60))
+        let repository = ProductRepositorySpy(product: cached)
+        let barcodeService = BarcodeServiceSpy(result: .success(cached))
+        let viewModel = makeProductViewModel(
+            repository: repository,
+            barcodeService: barcodeService,
+            now: now
+        )
+
+        let refreshed = await viewModel.refreshCachedProductIfNeeded(cached)
+
+        #expect(refreshed == nil)
+        #expect(await barcodeService.callCount == 0)
+        #expect(repository.cachedProducts.isEmpty)
+    }
+
+    @Test func staleBarcodeCacheReturnsOneSharedBackgroundRefresh() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cached = makeCachedBarcodeProduct(
+            name: "Gammel",
+            fetchedAt: now.addingTimeInterval(-31 * 24 * 60 * 60)
+        )
+        let refreshed = makeCachedBarcodeProduct(name: "Oppdatert", fetchedAt: now)
+        let repository = ProductRepositorySpy(product: cached)
+        let barcodeService = BarcodeServiceSpy(result: .success(refreshed), delayNanoseconds: 30_000_000)
+        let viewModel = makeProductViewModel(
+            repository: repository,
+            barcodeService: barcodeService,
+            now: now
+        )
+
+        let firstTask = Task { await viewModel.refreshCachedProductIfNeeded(cached) }
+        let secondTask = Task { await viewModel.refreshCachedProductIfNeeded(cached) }
+        let first = await firstTask.value
+        let second = await secondTask.value
+
+        #expect(first?.name == "Oppdatert")
+        #expect(second?.name == "Oppdatert")
+        #expect(await barcodeService.callCount == 1)
+        #expect(repository.cachedProducts.map(\.name) == ["Oppdatert"])
+    }
+
+    @Test func failedBarcodeRefreshUsesRetryBackoffAndKeepsCachedSnapshot() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cached = makeCachedBarcodeProduct(name: "Behold meg", fetchedAt: nil)
+        let repository = ProductRepositorySpy(product: cached)
+        let barcodeService = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let viewModel = makeProductViewModel(
+            repository: repository,
+            barcodeService: barcodeService,
+            now: now
+        )
+
+        let first = await viewModel.refreshCachedProductIfNeeded(cached)
+        let second = await viewModel.refreshCachedProductIfNeeded(cached)
+
+        #expect(first == nil)
+        #expect(second == nil)
+        #expect(await barcodeService.callCount == 1)
+        #expect(repository.getProductByBarcode("1234567890123")?.name == "Behold meg")
+        #expect(repository.cachedProducts.isEmpty)
+    }
+
+    @Test func matvaretabellenNutritionIsNotDowngradedByBarcodeRefresh() async {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let cached = Product(
+            id: Product.catalogID(source: "openfoodfacts", externalID: "1234567890123"),
+            name: "Matchet",
+            barcodeEan: "1234567890123",
+            source: "openfoodfacts",
+            caloriesPer100g: 90,
+            proteinGPer100g: 3,
+            carbsGPer100g: 15,
+            fatGPer100g: 2,
+            nutritionSource: .matvaretabellen,
+            imageSource: .openFoodFacts,
+            fetchedAt: now.addingTimeInterval(-90 * 24 * 60 * 60)
+        )
+        let repository = ProductRepositorySpy(product: cached)
+        let barcodeService = BarcodeServiceSpy(result: .success(cached))
+        let viewModel = makeProductViewModel(
+            repository: repository,
+            barcodeService: barcodeService,
+            now: now
+        )
+
+        let refreshed = await viewModel.refreshCachedProductIfNeeded(cached)
+
+        #expect(refreshed == nil)
+        #expect(await barcodeService.callCount == 0)
+    }
+
+    @Test func matvaretabellenUpgradeUsesGramBasisForFormerVolumeProduct() {
+        let original = Product(
+            name: "Flytende testvare",
+            barcodeEan: "1234567890123",
+            source: "openfoodfacts",
+            caloriesPer100g: 80.5,
+            proteinGPer100g: 1,
+            carbsGPer100g: 10,
+            fatGPer100g: 2,
+            nutritionSource: .openFoodFacts,
+            nutritionBasis: .per100ml
+        )
+        let mapping = ProductMatchMapping(
+            barcode: "1234567890123",
+            matvaretabellenId: "42",
+            matchedName: "Flytende testvare",
+            confidenceScore: 0.9,
+            updatedAt: Date(),
+            caloriesPer100g: 91.25,
+            proteinGPer100g: 2,
+            carbsGPer100g: 11,
+            fatGPer100g: 3,
+            sugarGPer100g: nil,
+            fiberGPer100g: nil,
+            sodiumMgPer100g: nil,
+            category: nil
+        )
+        let viewModel = makeProductViewModel(
+            repository: ProductRepositorySpy(product: original),
+            barcodeService: BarcodeServiceSpy(result: .success(original)),
+            now: Date()
+        )
+
+        let upgraded = viewModel.makeUpgradedProduct(from: original, mapping: mapping, verified: true)
+
+        #expect(upgraded.nutritionBasis == .per100g)
+        #expect(upgraded.amountUnit == .grams)
+        #expect(upgraded.caloriesPer100g == 91.25)
+    }
+
     @Test func searchFiltersUnrelatedCatalogRowsAndRanksExactProductFirst() {
         let unrelatedNames = [
             "Adzukibønner, tørr",
@@ -101,7 +235,10 @@ struct ProductSearchTests {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
-        let service = APIService(session: URLSession(configuration: configuration))
+        let service = APIService(
+            session: URLSession(configuration: configuration),
+            catalogRetryLimit: 0
+        )
 
         let products = try await service.searchProductsByNameOpenFoodFacts("Monster")
 
@@ -230,7 +367,10 @@ struct ProductSearchTests {
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [SearchURLProtocolStub.self]
-        let service = APIService(session: URLSession(configuration: configuration))
+        let service = APIService(
+            session: URLSession(configuration: configuration),
+            catalogRetryLimit: 0
+        )
 
         do {
             _ = try await service.searchProductsByNameOpenFoodFacts("brød")
@@ -243,6 +383,145 @@ struct ProductSearchTests {
             #expect(retryAfterSeconds == 30)
         }
     }
+
+    @Test func openFoodFactsRetriesServerFailureOnce() async throws {
+        var callCount = 0
+        SearchURLProtocolStub.handler = { request in
+            callCount += 1
+            let requestURL = try #require(request.url)
+            if callCount == 1 {
+                let response = try #require(HTTPURLResponse(
+                    url: requestURL,
+                    statusCode: 503,
+                    httpVersion: nil,
+                    headerFields: nil
+                ))
+                return (response, Data())
+            }
+            let response = try #require(HTTPURLResponse(
+                url: requestURL,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            ))
+            return (response, Data(#"{"products":[]}"#.utf8))
+        }
+        defer { SearchURLProtocolStub.handler = nil }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchURLProtocolStub.self]
+        let service = APIService(
+            session: URLSession(configuration: configuration),
+            catalogRetryLimit: 1,
+            sleep: { _ in }
+        )
+
+        let products = try await service.searchProductsByNameOpenFoodFacts("brød")
+
+        #expect(products.isEmpty)
+        #expect(callCount == 2)
+    }
+}
+
+private extension ProductSearchTests {
+    func makeCachedBarcodeProduct(name: String, fetchedAt: Date?) -> Product {
+        Product(
+            id: Product.catalogID(source: "openfoodfacts", externalID: "1234567890123"),
+            name: name,
+            barcodeEan: "1234567890123",
+            source: "openfoodfacts",
+            caloriesPer100g: 100,
+            proteinGPer100g: 4,
+            carbsGPer100g: 18,
+            fatGPer100g: 3,
+            nutritionSource: .openFoodFacts,
+            imageSource: .none,
+            externalID: "1234567890123",
+            nutritionBasis: .per100g,
+            fetchedAt: fetchedAt
+        )
+    }
+
+    func makeProductViewModel(
+        repository: ProductRepositorySpy,
+        barcodeService: BarcodeServiceSpy,
+        now: Date
+    ) -> ProductViewModel {
+        ProductViewModel(
+            repository: repository,
+            catalogService: ProductCatalogServiceStub(),
+            barcodeService: barcodeService,
+            nameSearchService: ProductNameSearchServiceStub(),
+            matchingService: MatchingService(),
+            cachePolicy: .standard,
+            now: { now }
+        )
+    }
+}
+
+private enum TestBarcodeError: Error {
+    case offline
+}
+
+private final class BarcodeServiceSpy: BarcodeProductService {
+    private(set) var callCount = 0
+    private let result: Result<Product, Error>
+    private let delayNanoseconds: UInt64
+
+    init(result: Result<Product, Error>, delayNanoseconds: UInt64 = 0) {
+        self.result = result
+        self.delayNanoseconds = delayNanoseconds
+    }
+
+    func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
+        callCount += 1
+        if delayNanoseconds > 0 {
+            try await Task.sleep(nanoseconds: delayNanoseconds)
+        }
+        return try result.get()
+    }
+}
+
+private struct ProductCatalogServiceStub: ProductCatalogService {
+    func fetchCommonFoods() async throws -> [MatvaretabellenProduct] { [] }
+    func searchProducts(query: String) async throws -> [MatvaretabellenProduct] { [] }
+}
+
+private struct ProductNameSearchServiceStub: ProductNameSearchService {
+    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] { [] }
+}
+
+private final class ProductRepositorySpy: ProductRepository {
+    private var product: Product?
+    private(set) var cachedProducts: [Product] = []
+
+    init(product: Product?) {
+        self.product = product
+    }
+
+    func saveProduct(_ product: Product) async throws { self.product = product }
+
+    func cacheCatalogProduct(_ product: Product) async throws {
+        self.product = product
+        cachedProducts.append(product)
+    }
+
+    func getProduct(_ id: UUID) -> Product? { product?.id == id ? product : nil }
+
+    func getProductByBarcode(_ barcode: String) -> Product? {
+        product?.barcodeEan == barcode ? product : nil
+    }
+
+    func saveMatchMapping(_ mapping: ProductMatchMapping) {}
+    func getMatchMapping(for barcode: String) -> ProductMatchMapping? { nil }
+    func toggleFavorite(userId: UUID, productId: UUID) async throws {}
+    func isFavorite(userId: UUID, productId: UUID) -> Bool { false }
+    func saveScanHistory(userId: UUID, productId: UUID) async throws {}
+    func getRecentScans(userId: UUID, limit: Int) async -> [ScanHistory] { [] }
+    func getFavorites(userId: UUID, kind: ProductKind?) async -> [Product] { [] }
+    func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) async -> [Product] { [] }
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {}
+    func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? { nil }
 }
 
 private final class SearchURLProtocolStub: URLProtocol, @unchecked Sendable {

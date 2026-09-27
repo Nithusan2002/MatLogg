@@ -2,20 +2,34 @@ import Foundation
 
 class APIService {
     private let baseURL: String
-    private let session: URLSession
+    private let httpClient: any HTTPClientProtocol
     private let accessTokenProvider: () -> String?
+    private let authSessionStore: (any AuthSessionStore)?
+    private let refreshCoordinator: TokenRefreshCoordinator
     private let syncEnabled: () -> Bool
+    private let catalogRetryLimit: Int
+    private let sleep: (TimeInterval) async throws -> Void
 
     init(
         session: URLSession = .shared,
         baseURL: String = "https://api.matlogg.app/v1",
         accessTokenProvider: @escaping () -> String? = { nil },
-        syncEnabled: @escaping () -> Bool = { FeatureFlags.backendSyncEnabled }
+        authSessionStore: (any AuthSessionStore)? = nil,
+        refreshCoordinator: TokenRefreshCoordinator = TokenRefreshCoordinator(),
+        syncEnabled: @escaping () -> Bool = { FeatureFlags.backendSyncEnabled },
+        catalogRetryLimit: Int = 1,
+        sleep: @escaping (TimeInterval) async throws -> Void = { seconds in
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
     ) {
-        self.session = session
+        self.httpClient = URLSessionHTTPClient(session: session)
         self.baseURL = baseURL
         self.accessTokenProvider = accessTokenProvider
+        self.authSessionStore = authSessionStore
+        self.refreshCoordinator = refreshCoordinator
         self.syncEnabled = syncEnabled
+        self.catalogRetryLimit = max(0, catalogRetryLimit)
+        self.sleep = sleep
     }
     
     enum APIError: LocalizedError {
@@ -28,6 +42,8 @@ class APIService {
         case batchLimitExceeded(Int)
         case payloadTooLarge(Int)
         case missingAccessToken
+        case sessionExpired
+        case credentialPersistenceFailed
         case rateLimited(retryAfterSeconds: Int?)
         case incompleteProductData
         
@@ -51,11 +67,15 @@ class APIService {
                 return "For stor payload i sync-event (maks \(limit) bytes)"
             case .missingAccessToken:
                 return "Du må være innlogget for å synkronisere"
+            case .sessionExpired:
+                return "Økten din er utløpt. Logg inn på nytt."
+            case .credentialPersistenceFailed:
+                return "Den fornyede innloggingen kunne ikke lagres sikkert. Logg inn på nytt."
             case .rateLimited(let seconds):
                 if let seconds {
-                    return "Produktdatabasen ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
+                    return "Tjenesten ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
                 }
-                return "Produktdatabasen ber oss vente litt før neste søk."
+                return "Tjenesten ber oss vente litt før neste forsøk."
             case .incompleteProductData:
                 return "Produktet mangler komplette næringsverdier per 100 g eller 100 ml."
             }
@@ -111,7 +131,7 @@ class APIService {
         return url
     }
     
-    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, String) {
+    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, AuthTokens) {
         let url = try endpointURL("/auth/register")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -126,14 +146,14 @@ class APIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await session.data(for: request)
+        let result = try await httpClient.send(request, timeout: 30)
         
-        try requireBackendSuccess(data: data, response: response)
+        try requireBackendSuccess(data: result.data, response: result.response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        let authResponse = try decoder.decode(AuthResponse.self, from: data)
+        let authResponse = try decoder.decode(AuthResponse.self, from: result.data)
         
         let user = User(
             id: authResponse.user_id,
@@ -144,10 +164,10 @@ class APIService {
             createdAt: authResponse.created_at
         )
         
-        return (user, authResponse.token)
+        return (user, authResponse.tokens)
     }
     
-    func loginEmail(email: String, password: String) async throws -> (User, String) {
+    func loginEmail(email: String, password: String) async throws -> (User, AuthTokens) {
         let url = try endpointURL("/auth/login")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -160,14 +180,14 @@ class APIService {
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        let (data, response) = try await session.data(for: request)
+        let result = try await httpClient.send(request, timeout: 30)
         
-        try requireBackendSuccess(data: data, response: response)
+        try requireBackendSuccess(data: result.data, response: result.response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         
-        let authResponse = try decoder.decode(AuthResponse.self, from: data)
+        let authResponse = try decoder.decode(AuthResponse.self, from: result.data)
         
         let user = User(
             id: authResponse.user_id,
@@ -178,23 +198,29 @@ class APIService {
             createdAt: authResponse.created_at
         )
         
-        return (user, authResponse.token)
+        return (user, authResponse.tokens)
+    }
+
+    func revokeRefreshToken(_ refreshToken: String) async throws {
+        let url = try endpointURL("/auth/logout")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(RefreshRequest(refresh_token: refreshToken))
+        let result = try await httpClient.send(request, timeout: 10)
+        try requireBackendSuccess(data: result.data, response: result.response)
     }
 
     func deleteAccount() async throws -> AccountDeletionReceipt {
-        guard let token = accessTokenProvider(), !token.isEmpty else {
-            throw APIError.missingAccessToken
-        }
         guard let url = URL(string: "\(baseURL)/user") else { throw APIError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let (data, response) = try await session.data(for: request)
-        try requireBackendSuccess(data: data, response: response)
+        let result = try await sendAuthorized(request, timeout: 30)
+        try requireBackendSuccess(data: result.data, response: result.response)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return try decoder.decode(AccountDeletionReceipt.self, from: data)
+        return try decoder.decode(AccountDeletionReceipt.self, from: result.data)
     }
     
     // MARK: - Sync (stub)
@@ -212,15 +238,10 @@ class APIService {
         if events.contains(where: { $0.payload.count > maxPayloadBytes }) {
             throw APIError.payloadTooLarge(maxPayloadBytes)
         }
-        guard let token = accessTokenProvider(), !token.isEmpty else {
-            throw APIError.missingAccessToken
-        }
-        
         let url = try endpointURL("/sync/events")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         let envelopes = events.map { event in
             SyncEventEnvelope(
@@ -242,12 +263,12 @@ class APIService {
         encoder.dateEncodingStrategy = .iso8601
         request.httpBody = try encoder.encode(payload)
         
-        let (data, response) = try await session.data(for: request)
-        try requireBackendSuccess(data: data, response: response)
+        let result = try await sendAuthorized(request, timeout: 30)
+        try requireBackendSuccess(data: result.data, response: result.response)
         
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode(UploadEventsResponse.self, from: data)
+        let decoded = try decoder.decode(UploadEventsResponse.self, from: result.data)
         let rejected = decoded.rejected?.map {
             RejectedEvent(eventId: $0.eventId, code: $0.code, message: $0.message)
         } ?? []
@@ -282,11 +303,9 @@ class APIService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
-        }
+        let result = try await httpClient.send(request, timeout: 10)
+        let data = result.data
+        let httpResponse = result.response
         
         if httpResponse.statusCode == 404 {
             throw APIError.serverError(404)
@@ -305,7 +324,7 @@ class APIService {
             let brand: String?
             let category: String?
             let barcode_ean: String?
-            let calories_per_100g: Int
+            let calories_per_100g: Float
             let protein_g_per_100g: Float
             let carbs_g_per_100g: Float
             let fat_g_per_100g: Float
@@ -407,21 +426,35 @@ class APIService {
     private func openFoodFactsData(from url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 10
         request.setValue(openFoodFactsUserAgent, forHTTPHeaderField: "User-Agent")
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.networkError("Ugyldig respons")
+        for attempt in 0...catalogRetryLimit {
+            do {
+                let result = try await httpClient.send(request, timeout: 10)
+                let statusCode = result.response.statusCode
+                if statusCode == 429 {
+                    let retryAfter = result.response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+                    if attempt < catalogRetryLimit,
+                       RequestBackoff.shouldRetryRateLimit(retryAfterSeconds: retryAfter) {
+                        try await sleep(RequestBackoff.delay(attempt: attempt, retryAfterSeconds: retryAfter))
+                        continue
+                    }
+                    throw APIError.rateLimited(retryAfterSeconds: retryAfter)
+                }
+                if (500...599).contains(statusCode), attempt < catalogRetryLimit {
+                    try await sleep(RequestBackoff.delay(attempt: attempt))
+                    continue
+                }
+                guard (200...299).contains(statusCode) else {
+                    throw APIError.serverError(statusCode)
+                }
+                return result.data
+            } catch let error as HTTPClientError {
+                guard attempt < catalogRetryLimit else { throw error }
+                try await sleep(RequestBackoff.delay(attempt: attempt))
+            }
         }
-        if httpResponse.statusCode == 429 {
-            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
-            throw APIError.rateLimited(retryAfterSeconds: retryAfter)
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-            throw APIError.serverError(httpResponse.statusCode)
-        }
-        return data
+        throw APIError.networkError("Produktdatabasen svarte ikke")
     }
 
     private var openFoodFactsUserAgent: String {
@@ -433,6 +466,10 @@ class APIService {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.networkError("Ugyldig respons")
         }
+        if httpResponse.statusCode == 429 {
+            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
+            throw APIError.rateLimited(retryAfterSeconds: retryAfter)
+        }
         guard (200...299).contains(httpResponse.statusCode) else {
             let decoded = try? JSONDecoder().decode(BackendErrorResponse.self, from: data)
             throw APIError.backendError(
@@ -441,6 +478,64 @@ class APIService {
                 message: decoded?.message ?? "Serverfeil (\(httpResponse.statusCode))"
             )
         }
+    }
+
+    private func sendAuthorized(_ request: URLRequest, timeout: TimeInterval) async throws -> HTTPClientResponse {
+        guard let token = authSessionStore?.getStoredToken() ?? accessTokenProvider(), !token.isEmpty else {
+            throw APIError.missingAccessToken
+        }
+        var authorized = request
+        authorized.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let initial = try await httpClient.send(authorized, timeout: timeout)
+        guard initial.response.statusCode == 401 else { return initial }
+        guard let authSessionStore,
+              let refreshToken = authSessionStore.getStoredRefreshToken(),
+              !refreshToken.isEmpty else {
+            invalidateSession()
+            throw APIError.sessionExpired
+        }
+
+        do {
+            let tokens = try await refreshCoordinator.refresh { [weak self] in
+                guard let self else { throw APIError.sessionExpired }
+                let refreshed = try await self.refreshTokens(using: refreshToken)
+                guard authSessionStore.storeTokens(refreshed) else {
+                    self.invalidateSession()
+                    throw APIError.credentialPersistenceFailed
+                }
+                return refreshed
+            }
+            authorized.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+            let retried = try await httpClient.send(authorized, timeout: timeout)
+            if retried.response.statusCode == 401 || retried.response.statusCode == 403 {
+                invalidateSession()
+                throw APIError.sessionExpired
+            }
+            return retried
+        } catch let error as APIError {
+            if case .backendError(let statusCode, _, _) = error,
+               statusCode == 401 || statusCode == 403 {
+                invalidateSession()
+                throw APIError.sessionExpired
+            }
+            throw error
+        }
+    }
+
+    private func refreshTokens(using refreshToken: String) async throws -> AuthTokens {
+        let url = try endpointURL("/auth/refresh")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(RefreshRequest(refresh_token: refreshToken))
+        let result = try await httpClient.send(request, timeout: 30)
+        try requireBackendSuccess(data: result.data, response: result.response)
+        return try JSONDecoder().decode(TokenResponse.self, from: result.data).tokens
+    }
+
+    private func invalidateSession() {
+        _ = authSessionStore?.clearStoredCredentials()
+        NotificationCenter.default.post(name: .authSessionExpired, object: nil)
     }
 
     private func makeOpenFoodFactsProduct(
@@ -478,7 +573,7 @@ class APIService {
             barcodeEan: barcode,
             source: "openfoodfacts",
             kind: .packaged,
-            caloriesPer100g: Int(completeNutrition.energyKcal.rounded()),
+            caloriesPer100g: Float(completeNutrition.energyKcal),
             proteinGPer100g: Float(completeNutrition.protein),
             carbsGPer100g: Float(completeNutrition.carbohydrates),
             fatGPer100g: Float(completeNutrition.fat),
@@ -682,6 +777,32 @@ private struct AuthResponse: Decodable {
     let auth_provider: String
     let created_at: Date
     let token: String
+    let refresh_token: String?
+
+    var tokens: AuthTokens { AuthTokens(accessToken: token, refreshToken: refresh_token) }
+}
+
+private struct RefreshRequest: Encodable {
+    let refresh_token: String
+}
+
+private struct TokenResponse: Decodable {
+    let token: String
+    let refresh_token: String?
+
+    var tokens: AuthTokens { AuthTokens(accessToken: token, refreshToken: refresh_token) }
+}
+
+actor TokenRefreshCoordinator {
+    private var inFlight: Task<AuthTokens, Error>?
+
+    func refresh(operation: @escaping () async throws -> AuthTokens) async throws -> AuthTokens {
+        if let inFlight { return try await inFlight.value }
+        let task = Task { try await operation() }
+        inFlight = task
+        defer { inFlight = nil }
+        return try await task.value
+    }
 }
 
 private struct BackendErrorResponse: Decodable {

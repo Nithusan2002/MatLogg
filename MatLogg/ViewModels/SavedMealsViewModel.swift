@@ -122,14 +122,20 @@ final class SavedMealsViewModel: ObservableObject {
                 errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 i oppgitt enhet."
                 return false
             }
-            let factor = amount / original.amountG
-            guard factor.isFinite else { return false }
+            guard let nutrition = NutritionCalculator.scaledSnapshot(
+                calories: original.calories,
+                protein: original.proteinG,
+                carbs: original.carbsG,
+                fat: original.fatG,
+                from: original.amountG,
+                to: amount
+            ) else { return false }
             var item = original
             item.amountG = amount
-            item.calories = Int((Double(original.calories) * Double(factor)).rounded())
-            item.proteinG = original.proteinG * factor
-            item.carbsG = original.carbsG * factor
-            item.fatG = original.fatG * factor
+            item.calories = nutrition.calories
+            item.proteinG = nutrition.protein
+            item.carbsG = nutrition.carbs
+            item.fatG = nutrition.fat
             item.sortIndex = index
             updatedItems.append(item)
         }
@@ -184,11 +190,14 @@ final class SavedMealsViewModel: ObservableObject {
                 errorMessage = "Alle mengder må være større enn 0 og høyst 10 000 i oppgitt enhet."
                 return false
             }
-            let factor = amount / item.amountG
-            let calories = Double(item.calories) * Double(factor)
-            let macros = [item.proteinG, item.carbsG, item.fatG].map { $0 * factor }
-            guard calories.isFinite, calories >= 0, calories.rounded() <= Double(Int32.max),
-                  macros.allSatisfy({ $0.isFinite && $0 >= 0 }) else {
+            guard let nutrition = NutritionCalculator.scaledSnapshot(
+                calories: item.calories,
+                protein: item.proteinG,
+                carbs: item.carbsG,
+                fat: item.fatG,
+                from: item.amountG,
+                to: amount
+            ), nutrition.calories <= Float(Int32.max) else {
                 errorMessage = "Næringsgrunnlaget kunne ikke beregnes."
                 return false
             }
@@ -200,10 +209,10 @@ final class SavedMealsViewModel: ObservableObject {
                 amountUnit: item.resolvedAmountUnit,
                 loggedDate: targetDate,
                 loggedTime: timestamp,
-                calories: Int(calories.rounded()),
-                proteinG: macros[0],
-                carbsG: macros[1],
-                fatG: macros[2],
+                calories: nutrition.calories,
+                proteinG: nutrition.protein,
+                carbsG: nutrition.carbs,
+                fatG: nutrition.fat,
                 createdAt: timestamp
             ))
         }

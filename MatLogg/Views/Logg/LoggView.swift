@@ -231,10 +231,10 @@ struct LoggView: View {
                                 
                                 if !preferencesViewModel.safeModeHideCalories {
                                     HStack(spacing: 12) {
-                                        Text("\(logViewModel.selectedSummary?.totalCalories ?? 0) kcal")
-                                        Text("P \(Int(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
-                                        Text("K \(Int(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
-                                        Text("F \(Int(logViewModel.selectedSummary?.totalFat ?? 0)) g")
+                                        Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
+                                        Text("P \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
+                                        Text("K \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
+                                        Text("F \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) g")
                                     }
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)

@@ -68,7 +68,7 @@ struct MealReuseTests {
         #expect(saved.amountG == 30.25)
         #expect(abs(saved.proteinG - kept.original.proteinG * (30.25 / kept.original.amountG)) < 0.0001)
         // Product values deliberately differ from the stored snapshot.
-        #expect(saved.calories != f.product.calculateNutrition(forGrams: 30.25).calories)
+        #expect(saved.calories != f.product.calculateNutrition(forAmount: 30.25).calories)
     }
 
     @Test func volumeUnitIsPreservedWhenMealIsReused() async throws {

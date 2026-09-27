@@ -16,6 +16,23 @@ struct FoodSearchOutcome {
     let source: RawFoodSearchOutcome.Source
 }
 
+struct BarcodeProductCachePolicy {
+    nonisolated static let standard = BarcodeProductCachePolicy(
+        freshnessLifetime: 30 * 24 * 60 * 60,
+        refreshRetryDelay: 24 * 60 * 60
+    )
+
+    let freshnessLifetime: TimeInterval
+    let refreshRetryDelay: TimeInterval
+
+    nonisolated func needsRevalidation(_ product: Product, now: Date) -> Bool {
+        guard product.source == "openfoodfacts",
+              product.nutritionSource == .openFoodFacts else { return false }
+        guard let fetchedAt = product.fetchedAt else { return true }
+        return now.timeIntervalSince(fetchedAt) >= freshnessLifetime
+    }
+}
+
 private enum FoodSearchMatcher {
     static func matches(query: String, name: String, brand: String? = nil) -> Bool {
         let tokens = normalized(query).split(separator: " ")
@@ -61,6 +78,10 @@ final class ProductViewModel: ObservableObject {
     private let barcodeService: any BarcodeProductService
     private let nameSearchService: any ProductNameSearchService
     private let matchingService: MatchingService
+    private let cachePolicy: BarcodeProductCachePolicy
+    private let now: () -> Date
+    private var barcodeRefreshTasks: [String: Task<Product?, Never>] = [:]
+    private var barcodeRefreshRetryAfter: [String: Date] = [:]
 
     static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
         FoodSearchMatcher.matches(query: query, name: name, brand: brand)
@@ -77,7 +98,8 @@ final class ProductViewModel: ObservableObject {
             catalogService: MatvaretabellenService(),
             barcodeService: apiService,
             nameSearchService: apiService,
-            matchingService: MatchingService()
+            matchingService: MatchingService(),
+            cachePolicy: .standard
         )
     }
 
@@ -86,13 +108,17 @@ final class ProductViewModel: ObservableObject {
         catalogService: any ProductCatalogService,
         barcodeService: any BarcodeProductService,
         nameSearchService: any ProductNameSearchService,
-        matchingService: MatchingService
+        matchingService: MatchingService,
+        cachePolicy: BarcodeProductCachePolicy = .standard,
+        now: @escaping () -> Date = Date.init
     ) {
         self.repository = repository
         self.catalogService = catalogService
         self.barcodeService = barcodeService
         self.nameSearchService = nameSearchService
         self.matchingService = matchingService
+        self.cachePolicy = cachePolicy
+        self.now = now
     }
 
     func product(id: UUID) -> Product? {
@@ -113,6 +139,41 @@ final class ProductViewModel: ObservableObject {
 
     func fetchProduct(barcode: String) async throws -> Product {
         try await barcodeService.searchProductByBarcodeOpenFoodFacts(barcode)
+    }
+
+    /// Returns a refreshed snapshot only when a stale Open Food Facts cache row
+    /// was successfully revalidated. Callers continue using the cached product
+    /// while this work runs, preserving offline-first scan behavior.
+    func refreshCachedProductIfNeeded(_ cached: Product) async -> Product? {
+        guard let barcode = cached.barcodeEan,
+              cachePolicy.needsRevalidation(cached, now: now()) else { return nil }
+
+        if let retryAfter = barcodeRefreshRetryAfter[barcode], retryAfter > now() {
+            return nil
+        }
+        if let existingTask = barcodeRefreshTasks[barcode] {
+            return await existingTask.value
+        }
+
+        let task = Task<Product?, Never> { [barcodeService, repository] in
+            do {
+                let refreshed = try await barcodeService.searchProductByBarcodeOpenFoodFacts(barcode)
+                try await repository.cacheCatalogProduct(refreshed)
+                return refreshed
+            } catch {
+                return nil
+            }
+        }
+        barcodeRefreshTasks[barcode] = task
+
+        let refreshed = await task.value
+        barcodeRefreshTasks[barcode] = nil
+        if refreshed == nil {
+            barcodeRefreshRetryAfter[barcode] = now().addingTimeInterval(cachePolicy.refreshRetryDelay)
+        } else {
+            barcodeRefreshRetryAfter[barcode] = nil
+        }
+        return refreshed
     }
 
     @discardableResult
@@ -287,7 +348,7 @@ final class ProductViewModel: ObservableObject {
             matchedName: best.product.name,
             confidenceScore: best.score,
             updatedAt: Date(),
-            caloriesPer100g: best.product.caloriesPer100g,
+            caloriesPer100g: Float(best.product.caloriesPer100g),
             proteinGPer100g: best.product.proteinGPer100g,
             carbsGPer100g: best.product.carbsGPer100g,
             fatGPer100g: best.product.fatGPer100g,
@@ -342,7 +403,7 @@ final class ProductViewModel: ObservableObject {
         return nil
     }
 
-    private func makeUpgradedProduct(from product: Product, mapping: ProductMatchMapping, verified: Bool) -> Product {
+    func makeUpgradedProduct(from product: Product, mapping: ProductMatchMapping, verified: Bool) -> Product {
         Product(
             id: product.id,
             name: product.name,
@@ -368,7 +429,7 @@ final class ProductViewModel: ObservableObject {
             isVerified: verified,
             createdAt: product.createdAt,
             externalID: product.externalID,
-            nutritionBasis: product.nutritionBasis,
+            nutritionBasis: .per100g,
             sourceUpdatedAt: product.sourceUpdatedAt,
             sourceRevision: product.sourceRevision,
             sourceSchemaVersion: product.sourceSchemaVersion,
@@ -395,7 +456,7 @@ final class ProductViewModel: ObservableObject {
             barcodeEan: nil,
             source: "matvaretabellen",
             kind: .genericFood,
-            caloriesPer100g: item.caloriesPer100g,
+            caloriesPer100g: Float(item.caloriesPer100g),
             proteinGPer100g: item.proteinGPer100g,
             carbsGPer100g: item.carbsGPer100g,
             fatGPer100g: item.fatGPer100g,

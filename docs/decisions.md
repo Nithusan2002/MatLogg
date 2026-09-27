@@ -256,3 +256,93 @@ vesentlig større view-trær enn nødvendig.
 repositories tilbyr batchlesing. Stabil identitet og `Equatable` brukes målrettet
 etter måling; `.id()` skal ikke brukes som en generell ytelsesmekanisme. Dette
 endrer ingen domeneskriving, synkhendelse eller wire-kontrakt.
+
+## 2026-09-26 – Stale-while-revalidate for strekkodeprodukter
+
+**Beslutning:** Lokale Open Food Facts-snapshots brukes uten nettverkskall i 30
+dager. Eldre snapshots vises umiddelbart og revalideres i bakgrunnen med maks ett
+samtidig kall per strekkode. Etter feil beholdes snapshotet og nye forsøk utsettes
+i 24 timer. Matvaretabellen-næring overskrives ikke av denne revalideringen.
+
+**Begrunnelse:** Gjentatt logging skal være umiddelbar og fungere offline, men en
+permanent cache kan skjule endringer i produsentens næringsinnhold. Periodisk,
+ikke-blokkerende revalidering balanserer respons, tilgjengelighet og datakvalitet.
+
+**Konsekvens:** Lokalt SQLite-skjema økes til v3 med indeks på produktstrekkode.
+Katalogcache forblir enhetslokal og oppretter ingen synkhendelse. Historiske
+logger beholder sine lagrede næringssnapshots; backend- og synkkontrakten endres
+ikke.
+
+## 2026-09-27 – Kontrollert feil ved lokal databaseoppstart
+
+**Beslutning:** Feil ved åpning eller migrering av den lokale SQLite-databasen
+skal gjøre lageret utilgjengelig uten å slette, nullstille eller erstatte
+databasefilen. Appen viser en blokkerende feiltilstand i stedet for å krasje eller
+fortsette mot et tomt lager. Skriveoperasjoner avvises eksplisitt.
+
+**Begrunnelse:** Et tomt fallback-lager kan se ut som datatap og ta imot nye
+endringer uten sammenheng med den opprinnelige synkkøen. En kontrollert stopp
+bevarer local-first-data og gir et trygt grunnlag for senere recovery.
+
+**Konsekvens:** `LocalStore` har kastbar initialisering, migreringer rulles fortsatt
+tilbake transaksjonelt, og dekodingsfeil logges uten å endre den berørte raden.
+Migreringstester dekker uversjonert database, v2→v3, rollback og ukjent nyere
+skjemaversjon.
+
+## 2026-09-26 – Felles nettverksfeil og avgrenset retry
+
+**Beslutning:** Klientens HTTP-kall bruker eksplisitte timeouts og felles
+klassifisering av offline, timeout, brutt forbindelse og ugyldig respons.
+Idempotente katalogoppslag kan retries én gang ved transportfeil, kortvarig 429
+og 5xx; lengre `Retry-After` vises til brukeren. Muterende auth- og kontokall
+retries ikke automatisk. Synk respekterer `Retry-After` persistent.
+
+Synkhendelser retries persistent med eksponentiell backoff og jitter. Etter fem
+automatiske forsøk, eller ved permanent 4xx/eksplisitt event-avvisning, beholdes
+hendelsen som `deadLetter` til brukeren velger et nytt manuelt forsøk. En timer
+vekker køen ved `nextRetryAt`, og nettverksmonitoren trigger synk når forbindelsen
+kommer tilbake. Produksjonssynk forblir deaktivert.
+
+**Begrunnelse:** Brukeren skal kunne skille reelle tomme søkeresultater fra
+nettverksfeil, uten at ikke-idempotente operasjoner dupliseres. Synkdata skal
+aldri slettes fordi nett eller server er midlertidig utilgjengelig.
+
+**Avgrensning:** Automatisk refresh-token og endring av sesjons-/tilgangslogikk
+inngikk ikke i denne endringen; dette ble senere besluttet separat.
+
+## 2026-09-27 – Roterende refresh-token og ett autentiseringsretry
+
+**Beslutning:** Access-token varer som standard i 15 minutter. Ved 401 på et
+autentisert kall bruker iOS et refresh-token fra Keychain, lagrer det roterte
+tokenparet samlet og gjentar originalkallet høyst én gang. 403 behandles som
+manglende autorisasjon og utløser ikke refresh. Ugyldig eller gjenbrukt
+refresh-token avslutter den lokale sesjonen.
+Vanlig utlogging fjerner lokale credentials umiddelbart og forsøker deretter å
+revokere refresh-sesjonen på serveren uten å blokkere offline-utlogging.
+
+Backend genererer kryptografisk tilfeldige refresh-tokens, lagrer bare SHA-256-
+hashen og roterer tokenet atomisk ved bruk. Gjenbruk av et revokert token
+revokerer øvrige aktive refresh-sesjoner for brukeren. Refresh-token varer i 30
+dager og slettes sammen med brukeren.
+
+**Begrunnelse:** Kortlivede bearer-tokens begrenser skadeomfanget ved lekkasje,
+mens rotasjon gir en sømløs sesjon uten å gjøre muterende nettverkskall til
+generelle retry-operasjoner. Ett eksplisitt retry etter vellykket refresh er
+trygt for synk fordi hendelsene allerede er idempotente, og nødvendig for
+kontosletting fordi første 401 betyr at domenekallet ikke ble utført.
+
+**Utrulling:** Prisma-migrasjonen må kjøres før backend med refresh-endepunktet
+rulles ut. Ny backend er bakoverkompatibel med eldre klienter; ny iOS-klient kan
+logge inn mot eldre backend, men må logge inn på nytt når access-tokenet utløper
+fordi eldre svar ikke inneholder refresh-token.
+## 2026-09-26 – Bevar desimalpresisjon i næringssummer
+
+- Kaloriverdier bevares som desimaltall fra per-100-grunnlag gjennom logger,
+  lagrede måltider, dagsoppsummering og synk. Hele kcal er kun presentasjon.
+- Porsjons- og mengdeberegning skalerer lagret snapshot gjennom én felles
+  kalkulator. Redigering av en historisk logg bruker dens snapshot og enhet.
+- Gram og milliliter konverteres ikke uten dokumentert tetthet. Når
+  Matvaretabellen erstatter næringsgrunnlaget, settes basis eksplisitt til
+  per 100 g i stedet for å arve en mulig per-100-ml-basis.
+- Wire-formatet forblir schema v1 fordi heltall er en delmengde av JSON-tall;
+  backend må likevel støtte desimallagring før nye klienter rulles ut.

@@ -127,12 +127,17 @@ final class LogViewModel: ObservableObject {
             errorMessage = "Kunne ikke oppdatere logging: Loggen tilhører en annen bruker"
             return false
         }
-        guard let product = repository.getProduct(log.productId) else {
-            errorMessage = "Kunne ikke oppdatere logging: Produktet finnes ikke lokalt"
+        guard let nutrition = NutritionCalculator.scaledSnapshot(
+            calories: log.calories,
+            protein: log.proteinG,
+            carbs: log.carbsG,
+            fat: log.fatG,
+            from: log.amountG,
+            to: amountG
+        ) else {
+            errorMessage = "Kunne ikke oppdatere logging: Næringsgrunnlaget er ugyldig"
             return false
         }
-
-        let nutrition = product.calculateNutrition(forAmount: amountG)
         let updated = FoodLog(
             id: log.id,
             userId: log.userId,

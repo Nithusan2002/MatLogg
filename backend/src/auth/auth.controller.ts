@@ -36,6 +36,12 @@ class LoginDto {
   password!: string;
 }
 
+class RefreshDto {
+  @IsString()
+  @MinLength(32)
+  refresh_token!: string;
+}
+
 @ApiTags('auth')
 @Controller(['auth', 'v1/auth'])
 export class AuthController {
@@ -57,6 +63,16 @@ export class AuthController {
   @Post('login')
   async login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password);
+  }
+
+  @Post('refresh')
+  async refresh(@Body() body: RefreshDto) {
+    return this.authService.refresh(body.refresh_token);
+  }
+
+  @Post('logout')
+  async logout(@Body() body: RefreshDto) {
+    return this.authService.revokeRefreshToken(body.refresh_token);
   }
 }
 

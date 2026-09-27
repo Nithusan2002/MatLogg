@@ -24,7 +24,7 @@ struct LogRowView: View {
                 Spacer()
                 
                 if showCalories {
-                    Text("\(log.calories) kcal")
+                    Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal")
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.ink)
                 }

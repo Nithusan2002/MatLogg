@@ -522,7 +522,7 @@ struct HomeTabView: View {
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.deepInk)
                                         .lineLimit(2)
-                                    Text("\(product.caloriesPer100g) kcal per 100 \(product.amountUnit.rawValue)")
+                                    Text("\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)")
                                         .font(AppTypography.caption)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
@@ -632,7 +632,7 @@ struct MealOverviewCard: View {
     var onAdjustReuse: (MealReuseSuggestion) -> Void = { _ in }
     var onDismissReuse: () -> Void = {}
 
-    private var totalCalories: Int { logs.reduce(0) { $0 + $1.calories } }
+    private var totalCalories: Int { NutritionDisplay.wholeCalories(NutritionCalculator.totals(for: logs).calories) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -686,7 +686,7 @@ struct MealOverviewCard: View {
                                         .lineLimit(1)
                                     Spacer()
                                     if !hideCalories {
-                                        Text("\(log.calories)")
+                                        Text("\(NutritionDisplay.wholeCalories(log.calories))")
                                             .font(AppTypography.title)
                                             .foregroundColor(AppColors.deepInk)
                                     }
@@ -695,9 +695,9 @@ struct MealOverviewCard: View {
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
                                 HStack(spacing: 6) {
-                                    macroTag("P \(Int(log.proteinG)) g", color: AppColors.macroProteinTint)
-                                    macroTag("K \(Int(log.carbsG)) g", color: AppColors.macroCarbTint)
-                                    macroTag("F \(Int(log.fatG)) g", color: AppColors.macroFatTint)
+                                    macroTag("P \(NutritionDisplay.wholeGrams(log.proteinG)) g", color: AppColors.macroProteinTint)
+                                    macroTag("K \(NutritionDisplay.wholeGrams(log.carbsG)) g", color: AppColors.macroCarbTint)
+                                    macroTag("F \(NutritionDisplay.wholeGrams(log.fatG)) g", color: AppColors.macroFatTint)
                                 }
                                 Text(log.loggedTime.formatted(date: .omitted, time: .shortened))
                                     .font(AppTypography.caption)
@@ -749,11 +749,11 @@ struct StatusCardView: View {
     let hideCalories: Bool
     
     var remainingCalories: Int {
-        max(0, goal.dailyCalories - summary.totalCalories)
+        max(0, goal.dailyCalories - NutritionDisplay.wholeCalories(summary.totalCalories))
     }
     
     var overCalories: Int {
-        max(0, summary.totalCalories - goal.dailyCalories)
+        max(0, NutritionDisplay.wholeCalories(summary.totalCalories) - goal.dailyCalories)
     }
     
     var body: some View {
@@ -774,7 +774,7 @@ struct StatusCardView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("KALORIER SPIST")
                         .font(AppTypography.captionEmphasis)
-                    Text("\(summary.totalCalories)")
+                    Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
                         .font(AppTypography.display)
                     if !hideGoals {
                         Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
@@ -792,19 +792,19 @@ struct StatusCardView: View {
                 VStack(spacing: 12) {
                         ProgressRow(
                             label: "Proteiner",
-                            valueText: "\(Int(summary.totalProtein))g / \(Int(goal.proteinTargetG))g",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
                             progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
                             tint: AppColors.macroProteinTint
                         )
                         ProgressRow(
                             label: "Karbohydrater",
-                            valueText: "\(Int(summary.totalCarbs))g / \(Int(goal.carbsTargetG))g",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
                             progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
                             tint: AppColors.macroCarbTint
                         )
                         ProgressRow(
                             label: "Fett",
-                            valueText: "\(Int(summary.totalFat))g / \(Int(goal.fatTargetG))g",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
                             progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
                             tint: AppColors.macroFatTint
                         )
@@ -1190,6 +1190,10 @@ struct CameraView: View {
             showProductDetail = true
             Task {
                 await recordCachedScan(cached)
+                if let refreshed = await productViewModel.refreshCachedProductIfNeeded(cached),
+                   scannedBarcode == barcode {
+                    scannedProduct = refreshed
+                }
             }
             return
         }
@@ -1220,6 +1224,16 @@ struct CameraView: View {
                         showProductNotFound = true
                     case .backendError(let statusCode, _, _) where statusCode == 404:
                         showProductNotFound = true
+                    case .rateLimited:
+                        presentScanHelp(
+                            title: apiError.localizedDescription,
+                            hints: ["Vent litt", "Prøv deretter å skanne på nytt"]
+                        )
+                    case .serverError(let statusCode) where (500...599).contains(statusCode):
+                        presentScanHelp(
+                            title: "Produktdatabasen er midlertidig utilgjengelig",
+                            hints: ["Prøv igjen litt senere", "Legg til produktet manuelt om nødvendig"]
+                        )
                     default:
                         HapticFeedbackService.shared.trigger(
                             .error,

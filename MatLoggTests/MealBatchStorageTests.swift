@@ -69,10 +69,29 @@ struct MealBatchStorageTests {
         }
     }
 
-    private func makeLog(_ userId: UUID) -> FoodLog {
+    @Test func fractionalCaloriesSurviveLocalStorageSummaryAndSyncPayload() throws {
+        try withStore { store, _ in
+            let userId = UUID()
+            let first = makeLog(userId, calories: 49.95)
+            let second = makeLog(userId, calories: 49.95)
+
+            try store.saveLogs([first, second])
+
+            let stored = store.getAllLogs(userId: userId)
+            #expect(stored.count == 2)
+            #expect(stored.allSatisfy { abs($0.calories - 49.95) < 0.001 })
+            let summary = store.getSummary(userId: userId, date: first.loggedDate)
+            #expect(abs(summary.totalCalories - 99.9) < 0.001)
+            let event = try #require(store.fetchPendingEvents(limit: 1).first)
+            let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            #expect(abs((payload["kcal"] as? Double ?? 0) - 49.95) < 0.001)
+        }
+    }
+
+    private func makeLog(_ userId: UUID, calories: Float = 210) -> FoodLog {
         FoodLog(userId: userId, productId: UUID(), mealType: "frokost", amountG: 60,
                 amountUnit: .milliliters,
-                loggedDate: Calendar.current.startOfDay(for: Date()), calories: 210,
+                loggedDate: Calendar.current.startOfDay(for: Date()), calories: calories,
                 proteinG: 8, carbsG: 30, fatG: 6)
     }
 
@@ -82,7 +101,7 @@ struct MealBatchStorageTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("test.sqlite")
-        try body(LocalStore(databaseURL: url), url)
+        try body(try LocalStore(databaseURL: url), url)
     }
 
     private func installEventFailure(_ url: URL, entityId: UUID, type: String) throws {

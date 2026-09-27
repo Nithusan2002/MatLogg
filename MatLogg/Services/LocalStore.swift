@@ -1,14 +1,20 @@
 import Foundation
+import OSLog
 import SQLite3
 
 private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
 final class LocalStore {
-    static let shared = LocalStore(databaseURL: nil)
-    static let latestSchemaVersion = 2
+    static let sharedResult: Result<LocalStore, Error> = Result {
+        try LocalStore(databaseURL: nil)
+    }
+    static let latestSchemaVersion = 3
+
+    private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
     private let queue = DispatchQueue(label: "matlogg.localstore.queue")
     private let configuredDatabaseURL: URL?
+    private let diagnosticHandler: (LocalStoreDiagnostic) -> Void
     private var db: OpaquePointer?
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -18,13 +24,21 @@ final class LocalStore {
         return encoder
     }()
     
-    init(databaseURL: URL?) {
+    init(
+        databaseURL: URL?,
+        diagnosticHandler: @escaping (LocalStoreDiagnostic) -> Void = LocalStore.logDiagnostic
+    ) throws {
         configuredDatabaseURL = databaseURL
-        openDatabase()
+        self.diagnosticHandler = diagnosticHandler
         do {
+            try openDatabase()
             try migrateDatabase()
         } catch {
-            fatalError("Kunne ikke migrere lokal database: \(error.localizedDescription)")
+            if let db {
+                sqlite3_close(db)
+                self.db = nil
+            }
+            throw error
         }
         resetInFlightToPending()
     }
@@ -89,7 +103,7 @@ final class LocalStore {
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0) {
-                    return try? decoder.decode(Goal.self, from: data)
+                    return decode(Goal.self, from: data, entity: "goal")
                 }
             }
             return nil
@@ -129,7 +143,7 @@ final class LocalStore {
         sqlite3_bind_text(stmt, 4, log.mealType, -1, SQLITE_TRANSIENT)
         sqlite3_bind_double(stmt, 5, log.loggedDate.timeIntervalSince1970)
         sqlite3_bind_double(stmt, 6, log.loggedTime.timeIntervalSince1970)
-        sqlite3_bind_int(stmt, 7, Int32(log.calories))
+        sqlite3_bind_double(stmt, 7, Double(log.calories))
         sqlite3_bind_double(stmt, 8, Double(log.proteinG))
         sqlite3_bind_double(stmt, 9, Double(log.carbsG))
         sqlite3_bind_double(stmt, 10, Double(log.fatG))
@@ -175,7 +189,7 @@ final class LocalStore {
             var results: [FoodLog] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0),
-                   let log = try? decoder.decode(FoodLog.self, from: data) {
+                   let log = decode(FoodLog.self, from: data, entity: "food_log") {
                     results.append(log)
                 }
             }
@@ -203,24 +217,21 @@ final class LocalStore {
             var results: [FoodLog] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0),
-                   let log = try? decoder.decode(FoodLog.self, from: data) {
+                   let log = decode(FoodLog.self, from: data, entity: "food_log") {
                     results.append(log)
                 }
             }
             return results
         }
         
-        let totalCalories = logs.reduce(0) { $0 + $1.calories }
-        let totalProtein = logs.reduce(0) { $0 + $1.proteinG }
-        let totalCarbs = logs.reduce(0) { $0 + $1.carbsG }
-        let totalFat = logs.reduce(0) { $0 + $1.fatG }
+        let totals = NutritionCalculator.totals(for: logs)
         
         return DailySummary(
             date: dayStart,
-            totalCalories: totalCalories,
-            totalProtein: totalProtein,
-            totalCarbs: totalCarbs,
-            totalFat: totalFat,
+            totalCalories: totals.calories,
+            totalProtein: totals.protein,
+            totalCarbs: totals.carbs,
+            totalFat: totals.fat,
             logs: logs
         )
     }
@@ -276,7 +287,7 @@ final class LocalStore {
             var meals: [SavedMeal] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0),
-                   let meal = try? decoder.decode(SavedMeal.self, from: data) {
+                   let meal = decode(SavedMeal.self, from: data, entity: "saved_meal") {
                     meals.append(meal)
                 }
             }
@@ -329,7 +340,7 @@ final class LocalStore {
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0) {
-                    return try? decoder.decode(Product.self, from: data)
+                    return decode(Product.self, from: data, entity: "product")
                 }
             }
             return nil
@@ -355,7 +366,7 @@ final class LocalStore {
                 guard let idText = sqlite3_column_text(stmt, 0),
                       let id = UUID(uuidString: String(cString: idText)),
                       let data = readBlob(stmt, index: 1),
-                      let product = try? decoder.decode(Product.self, from: data) else { continue }
+                      let product = decode(Product.self, from: data, entity: "product") else { continue }
                 products[id] = product
             }
             return products
@@ -371,7 +382,7 @@ final class LocalStore {
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0) {
-                    return try? decoder.decode(Product.self, from: data)
+                    return decode(Product.self, from: data, entity: "product")
                 }
             }
             return nil
@@ -547,7 +558,7 @@ final class LocalStore {
             var results: [WeightEntry] = []
             while sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0),
-                   let entry = try? decoder.decode(WeightEntry.self, from: data) {
+                   let entry = decode(WeightEntry.self, from: data, entity: "weight_entry") {
                     results.append(entry)
                 }
             }
@@ -623,7 +634,7 @@ final class LocalStore {
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW,
                let data = readBlob(stmt, index: 0) {
-                return try? decoder.decode(ProductMatchMapping.self, from: data)
+                return decode(ProductMatchMapping.self, from: data, entity: "product_match_mapping")
             }
             return nil
         }
@@ -657,7 +668,7 @@ final class LocalStore {
                 let ageDays = Calendar.current.dateComponents([.day], from: updatedAt, to: Date()).day ?? 0
                 guard ageDays <= maxAgeDays,
                       let data = readBlob(stmt, index: 1) else { return nil }
-                return try? decoder.decode([MatvaretabellenProduct].self, from: data)
+                return decode([MatvaretabellenProduct].self, from: data, entity: "matvaretabellen_cache")
             }
             return nil
         }
@@ -675,6 +686,29 @@ final class LocalStore {
                 return Int(sqlite3_column_int(stmt, 0))
             }
             return 0
+        }
+    }
+
+    func failedSyncCount() -> Int {
+        queue.sync {
+            let sql = "SELECT COUNT(*) FROM sync_queue WHERE status = 'deadLetter';"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+            return Int(sqlite3_column_int(stmt, 0))
+        }
+    }
+
+    func nextPendingRetryDate() -> Date? {
+        queue.sync {
+            let sql = "SELECT MIN(nextRetryAt) FROM sync_queue WHERE status = 'pending' AND nextRetryAt IS NOT NULL;"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW,
+                  sqlite3_column_type(stmt, 0) != SQLITE_NULL else { return nil }
+            return Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0))
         }
     }
     
@@ -786,6 +820,25 @@ final class LocalStore {
             sqlite3_finalize(stmt)
         }
     }
+
+    func markEventDeadLetter(_ eventId: UUID, error: String) {
+        queue.sync {
+            let sql = "UPDATE sync_queue SET status = 'deadLetter', nextRetryAt = NULL, lastError = ? WHERE eventId = ?;"
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, error, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, eventId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_step(stmt)
+        }
+    }
+
+    func retryDeadLetterEvents() {
+        queue.sync {
+            let sql = "UPDATE sync_queue SET status = 'pending', nextRetryAt = NULL WHERE status = 'deadLetter';"
+            sqlite3_exec(db, sql, nil, nil, nil)
+        }
+    }
     
     func resetInFlightToPending() {
         queue.sync {
@@ -812,10 +865,10 @@ final class LocalStore {
     
     // MARK: - Helpers
     
-    private func openDatabase() {
+    private func openDatabase() throws {
         let url = databaseFileURL()
         guard sqlite3_open(url.path, &db) == SQLITE_OK else {
-            fatalError("Kunne ikke åpne lokal database")
+            throw databaseError()
         }
     }
 
@@ -835,6 +888,8 @@ final class LocalStore {
                         try migrateToVersion1Locked()
                     case 2:
                         try migrateToVersion2Locked()
+                    case 3:
+                        try migrateToVersion3Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -867,7 +922,7 @@ final class LocalStore {
                 mealType TEXT,
                 loggedDate REAL,
                 loggedTime REAL,
-                calories INTEGER,
+                calories REAL,
                 protein REAL,
                 carbs REAL,
                 fat REAL,
@@ -953,6 +1008,10 @@ final class LocalStore {
         """)
         try execute("CREATE INDEX IF NOT EXISTS saved_meals_user_updated_idx ON saved_meals(userId, updatedAt DESC);")
     }
+
+    private func migrateToVersion3Locked() throws {
+        try execute("CREATE INDEX IF NOT EXISTS products_barcode_idx ON products(barcode);")
+    }
     
     private func databaseFileURL() -> URL {
         if let configuredDatabaseURL {
@@ -975,6 +1034,22 @@ final class LocalStore {
     private func bindBlob(_ stmt: OpaquePointer?, index: Int32, data: Data) {
         _ = data.withUnsafeBytes { buffer in
             sqlite3_bind_blob(stmt, index, buffer.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
+        }
+    }
+
+    private func decode<T: Decodable>(_ type: T.Type, from data: Data, entity: String) -> T? {
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            diagnosticHandler(.decodingFailed(entity: entity, reason: error.localizedDescription))
+            return nil
+        }
+    }
+
+    private nonisolated static func logDiagnostic(_ diagnostic: LocalStoreDiagnostic) {
+        switch diagnostic {
+        case .decodingFailed(let entity, let reason):
+            logger.error("Kunne ikke dekode lokal \(entity, privacy: .public): \(reason, privacy: .public)")
         }
     }
 
@@ -1123,7 +1198,7 @@ private struct LogSyncPayload: Codable {
     let meal: String
     let grams: Float
     let unit: String
-    let kcal: Int
+    let kcal: Float
     let protein: Float
     let carbs: Float
     let fat: Float
@@ -1198,7 +1273,7 @@ private struct SavedMealItemSyncPayload: Codable {
     let productName: String
     let amountG: Float
     let amountUnit: String
-    let calories: Int
+    let calories: Float
     let protein: Float
     let carbs: Float
     let fat: Float
@@ -1220,7 +1295,11 @@ private struct SavedMealItemSyncPayload: Codable {
     }
 }
 
-private enum LocalStoreError: LocalizedError {
+enum LocalStoreDiagnostic: Equatable {
+    case decodingFailed(entity: String, reason: String)
+}
+
+enum LocalStoreError: LocalizedError {
     case sqlite(String)
     case unsupportedSchema(Int)
     case ownershipMismatch

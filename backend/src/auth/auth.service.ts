@@ -1,11 +1,12 @@
 import { ConflictException, GoneException, Injectable, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { randomBytes, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(nodeScrypt);
 const deletionRetentionMs = 30 * 24 * 60 * 60 * 1000;
+const refreshTokenLifetimeMs = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService implements OnModuleInit, OnModuleDestroy {
@@ -38,16 +39,28 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException({ code: 'EMAIL_ALREADY_REGISTERED', message: 'E-postadressen er allerede registrert' });
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        firstName: input.first_name.trim(),
-        lastName: input.last_name.trim(),
-        passwordHash: await this.hashPassword(input.password),
-        authProvider: 'email',
-      },
+    const passwordHash = await this.hashPassword(input.password);
+    const refreshToken = this.generateRefreshToken();
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email,
+          firstName: input.first_name.trim(),
+          lastName: input.last_name.trim(),
+          passwordHash,
+          authProvider: 'email',
+        },
+      });
+      await tx.refreshSession.create({
+        data: {
+          userId: created.id,
+          tokenHash: this.hashRefreshToken(refreshToken),
+          expiresAt: new Date(Date.now() + refreshTokenLifetimeMs),
+        },
+      });
+      return created;
     });
-    return this.authResponse(user);
+    return this.authResponse(user, refreshToken);
   }
 
   async login(emailInput: string, password: string) {
@@ -61,11 +74,69 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return this.authResponse(user);
   }
 
+  async refresh(refreshToken: string) {
+    const tokenHash = this.hashRefreshToken(refreshToken);
+    const session = await this.prisma.refreshSession.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!session || session.expiresAt <= new Date() || session.user.deletedAt) {
+      throw new UnauthorizedException({ code: 'INVALID_REFRESH_TOKEN', message: 'Sesjonen er utløpt' });
+    }
+    if (session.revokedAt) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId: session.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSED', message: 'Sesjonen er ikke lenger gyldig' });
+    }
+
+    const now = new Date();
+    const nextRefreshToken = this.generateRefreshToken();
+    const rotated = await this.prisma.$transaction(async (tx) => {
+      const revoked = await tx.refreshSession.updateMany({
+        where: { id: session.id, revokedAt: null, expiresAt: { gt: now } },
+        data: { revokedAt: now },
+      });
+      if (revoked.count !== 1) return false;
+      await tx.refreshSession.create({
+        data: {
+          userId: session.userId,
+          tokenHash: this.hashRefreshToken(nextRefreshToken),
+          expiresAt: new Date(now.getTime() + refreshTokenLifetimeMs),
+        },
+      });
+      return true;
+    });
+    if (!rotated) {
+      await this.prisma.refreshSession.updateMany({
+        where: { userId: session.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException({ code: 'REFRESH_TOKEN_REUSED', message: 'Sesjonen er ikke lenger gyldig' });
+    }
+
+    return this.tokenResponse(session.user, nextRefreshToken);
+  }
+
+  async revokeRefreshToken(refreshToken: string) {
+    await this.prisma.refreshSession.updateMany({
+      where: { tokenHash: this.hashRefreshToken(refreshToken), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { code: 'SESSION_REVOKED' };
+  }
+
   async markAccountForDeletion(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException({ code: 'INVALID_TOKEN', message: 'Ugyldig bruker' });
     const deletedAt = user.deletedAt ?? new Date();
-    if (!user.deletedAt) await this.prisma.user.update({ where: { id: userId }, data: { deletedAt } });
+    if (!user.deletedAt) {
+      await this.prisma.$transaction([
+        this.prisma.user.update({ where: { id: userId }, data: { deletedAt } }),
+        this.prisma.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: deletedAt } }),
+      ]);
+    }
     return {
       code: 'ACCOUNT_PENDING_DELETION',
       message: 'Kontoen er markert for sletting',
@@ -90,8 +161,21 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return users.length;
   }
 
-  private async authResponse(user: { id: string; email: string; firstName: string | null; lastName: string | null; authProvider: string; createdAt: Date }) {
-    const token = await this.jwtService.signAsync({ sub: user.id, email: user.email });
+  private async authResponse(
+    user: { id: string; email: string; firstName: string | null; lastName: string | null; authProvider: string; createdAt: Date },
+    issuedRefreshToken?: string,
+  ) {
+    const refreshToken = issuedRefreshToken ?? this.generateRefreshToken();
+    if (!issuedRefreshToken) {
+      await this.prisma.refreshSession.create({
+        data: {
+          userId: user.id,
+          tokenHash: this.hashRefreshToken(refreshToken),
+          expiresAt: new Date(Date.now() + refreshTokenLifetimeMs),
+        },
+      });
+    }
+    const tokens = await this.tokenResponse(user, refreshToken);
     return {
       user_id: user.id,
       email: user.email,
@@ -99,8 +183,26 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       last_name: user.lastName ?? '',
       auth_provider: user.authProvider,
       created_at: user.createdAt,
-      token,
+      ...tokens,
     };
+  }
+
+  private async tokenResponse(user: { id: string; email: string }, refreshToken: string) {
+    const token = await this.jwtService.signAsync({ sub: user.id, email: user.email });
+    const decoded = this.jwtService.decode(token) as { exp?: number; iat?: number } | null;
+    return {
+      token,
+      refresh_token: refreshToken,
+      expires_in: decoded?.exp && decoded?.iat ? decoded.exp - decoded.iat : null,
+    };
+  }
+
+  private generateRefreshToken() {
+    return randomBytes(32).toString('base64url');
+  }
+
+  private hashRefreshToken(token: string) {
+    return createHash('sha256').update(token, 'utf8').digest('hex');
   }
 
   private async hashPassword(password: string) {

@@ -49,6 +49,13 @@ enhet; navnet beholdes i v1 for wire-kompatibilitet. Manglende `unit` tolkes som
 `g`. Nye klienter og backend bevarer enheten, og backend må rulles ut før en
 klient som sender `ml` dersom produksjonssynk senere aktiveres.
 
+`kcal` i `log.upsert` og `calories` i elementene til `saved_meal.upsert` er
+ikke-negative desimaltall. Klient og backend bevarer beregnet presisjon gjennom
+lagring og synk; avrunding til hele kcal skjer bare ved visning. Heltall fra
+eldre klienter er fortsatt gyldige tall i samme v1-format. Backend med støtte
+for desimallagring må rulles ut før en klient som sender desimale
+`saved_meal.upsert`-verdier.
+
 Produksjonsflagget skal ikke aktiveres før integrasjonstest mot PostgreSQL og en
 full iOS testkjøring er grønn.
 

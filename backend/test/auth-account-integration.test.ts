@@ -40,6 +40,8 @@ async function run() {
     });
     assert.equal(registration.status, 201);
     assert.equal(typeof registration.json.token, 'string');
+    assert.equal(typeof registration.json.refresh_token, 'string');
+    assert.ok(registration.json.expires_in > 0);
     assert.equal('passwordHash' in registration.json, false);
 
     const stored = await prisma.user.findUniqueOrThrow({ where: { email } });
@@ -61,7 +63,39 @@ async function run() {
 
     const login = await request(baseUrl, '/v1/auth/login', 'POST', { email, password: 'correct-horse-battery' });
     assert.equal(login.status, 201);
-    const token = login.json.token as string;
+    assert.equal(typeof login.json.refresh_token, 'string');
+
+    const refreshed = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: login.json.refresh_token,
+    });
+    assert.equal(refreshed.status, 201);
+    assert.equal(typeof refreshed.json.token, 'string');
+    assert.equal(typeof refreshed.json.refresh_token, 'string');
+    assert.notEqual(refreshed.json.refresh_token, login.json.refresh_token);
+
+    const reused = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: login.json.refresh_token,
+    });
+    assert.equal(reused.status, 401);
+    assert.equal(reused.json.code, 'REFRESH_TOKEN_REUSED');
+
+    const revokedRotatedToken = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: refreshed.json.refresh_token,
+    });
+    assert.equal(revokedRotatedToken.status, 401);
+
+    const logoutLogin = await request(baseUrl, '/v1/auth/login', 'POST', { email, password: 'correct-horse-battery' });
+    const logout = await request(baseUrl, '/v1/auth/logout', 'POST', {
+      refresh_token: logoutLogin.json.refresh_token,
+    });
+    assert.equal(logout.status, 201);
+    assert.equal(logout.json.code, 'SESSION_REVOKED');
+    const refreshAfterLogout = await request(baseUrl, '/v1/auth/refresh', 'POST', {
+      refresh_token: logoutLogin.json.refresh_token,
+    });
+    assert.equal(refreshAfterLogout.status, 401);
+
+    const token = refreshed.json.token as string;
 
     const deletion = await request(baseUrl, '/v1/user', 'DELETE', undefined, token);
     assert.equal(deletion.status, 200);

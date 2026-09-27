@@ -54,7 +54,7 @@ export const savedMealPayloadSchema = z.object({
     productName: z.string().trim().min(1).max(200),
     amountG: z.number().positive().max(10_000),
     amountUnit: z.enum(['g', 'ml']).optional().default('g'),
-    calories: z.number().int().nonnegative(),
+    calories: z.number().nonnegative(),
     protein: z.number().nonnegative(),
     carbs: z.number().nonnegative(),
     fat: z.number().nonnegative(),

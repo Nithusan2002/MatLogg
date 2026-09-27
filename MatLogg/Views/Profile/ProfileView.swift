@@ -252,6 +252,11 @@ private struct ProfileSettingsView: View {
             .listRowBackground(AppColors.surface)
             Section("Data og synk") {
                 LabeledContent("Status", value: syncStatusText)
+                if appState.failedSyncCount > 0 {
+                    Text("\(appState.failedSyncCount) endring(er) krever et nytt manuelt forsøk.")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
                 if let error = appState.lastSyncError, appState.lastSyncSucceeded == false {
                     Text(error).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
                 }
@@ -304,6 +309,7 @@ private struct ProfileSettingsView: View {
     private var authProviderLabel: String { authViewModel.currentUser?.authProvider.capitalized ?? "Ukjent" }
     private var syncStatusText: String {
         if !FeatureFlags.backendSyncEnabled { return appState.pendingSyncCount == 0 ? "Lagret lokalt" : "\(appState.pendingSyncCount) venter" }
+        if appState.failedSyncCount > 0 { return "\(appState.failedSyncCount) krever handling" }
         if appState.pendingSyncCount > 0 { return "\(appState.pendingSyncCount) venter" }
         if appState.lastSyncSucceeded == true { return "Alt synket" }
         if appState.lastSyncSucceeded == false { return "Synk feilet" }

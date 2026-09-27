@@ -30,7 +30,7 @@ final class ManualProductViewModel: ObservableObject {
             barcodeEan: barcode,
             source: "user",
             kind: .packaged,
-            caloriesPer100g: values.calories,
+            caloriesPer100g: Float(values.calories),
             proteinGPer100g: values.protein,
             carbsGPer100g: values.carbs,
             fatGPer100g: values.fat,

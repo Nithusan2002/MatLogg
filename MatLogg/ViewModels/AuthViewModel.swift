@@ -3,6 +3,20 @@ import Combine
 
 @MainActor
 final class AuthViewModel: ObservableObject {
+    private enum SessionStorageError: LocalizedError {
+        case tokenPersistenceFailed
+        case credentialDeletionFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .tokenPersistenceFailed:
+                "Innloggingen kunne ikke lagres sikkert på enheten. Prøv igjen."
+            case .credentialDeletionFailed:
+                "Innloggingen ble avsluttet, men lagrede credentials kunne ikke fjernes fra enheten."
+            }
+        }
+    }
+
     private static let debugUserId = UUID(uuid: (
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00,
         0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
@@ -22,7 +36,7 @@ final class AuthViewModel: ObservableObject {
     convenience init() {
         let sessionStore = AuthService()
         self.init(
-            apiClient: APIService(accessTokenProvider: { sessionStore.getStoredToken() }),
+            apiClient: APIService(authSessionStore: sessionStore),
             sessionStore: sessionStore,
             localDataResetter: DatabaseService.shared
         )
@@ -63,9 +77,12 @@ final class AuthViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let (user, token) = try await apiClient.loginEmail(email: email, password: password)
+            let (user, tokens) = try await apiClient.loginEmail(email: email, password: password)
+            guard sessionStore.storeTokens(tokens) else {
+                sessionStore.clearStoredCredentials()
+                throw SessionStorageError.tokenPersistenceFailed
+            }
             sessionStore.storeUser(user)
-            sessionStore.storeToken(token)
             currentUser = user
             authState = .authenticated(user: user)
             isOnboarding = false
@@ -81,14 +98,17 @@ final class AuthViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let (user, token) = try await apiClient.signupEmail(
+            let (user, tokens) = try await apiClient.signupEmail(
                 email: email,
                 password: password,
                 firstName: firstName,
                 lastName: lastName
             )
+            guard sessionStore.storeTokens(tokens) else {
+                sessionStore.clearStoredCredentials()
+                throw SessionStorageError.tokenPersistenceFailed
+            }
             sessionStore.storeUser(user)
-            sessionStore.storeToken(token)
             currentUser = user
             authState = .onboarding(user: user)
             isOnboarding = true
@@ -104,12 +124,28 @@ final class AuthViewModel: ObservableObject {
         authState = .authenticated(user: currentUser)
     }
 
-    func logout() {
-        sessionStore.clearStoredCredentials()
+    @discardableResult
+    func logout() -> Bool {
+        let refreshToken = sessionStore.getStoredRefreshToken()
+        let credentialsCleared = sessionStore.clearStoredCredentials()
         currentUser = nil
         isOnboarding = false
         authState = .notAuthenticated
-        errorMessage = nil
+        errorMessage = credentialsCleared
+            ? nil
+            : SessionStorageError.credentialDeletionFailed.localizedDescription
+        if let refreshToken {
+            Task { try? await apiClient.revokeRefreshToken(refreshToken) }
+        }
+        return credentialsCleared
+    }
+
+    func handleSessionExpired() {
+        _ = sessionStore.clearStoredCredentials()
+        currentUser = nil
+        isOnboarding = false
+        errorMessage = "Økten din er utløpt. Logg inn på nytt."
+        authState = .notAuthenticated
     }
 
     @discardableResult

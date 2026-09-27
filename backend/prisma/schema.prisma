@@ -22,6 +22,21 @@ model User {
   favorites Favorite[]
   weights   Weight[]
   savedMeals SavedMeal[]
+  refreshSessions RefreshSession[]
+}
+
+model RefreshSession {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model EventInbox {
@@ -44,7 +59,7 @@ model Log {
   meal       String
   grams      Float
   unit       String   @default("g")
-  kcal       Int
+  kcal       Float
   protein    Float
   carbs      Float
   fat        Float
@@ -116,7 +131,7 @@ model SavedMealItem {
   productName     String
   grams           Float
   unit            String    @default("g")
-  kcal            Int
+  kcal            Float
   protein         Float
   carbs           Float
   fat             Float

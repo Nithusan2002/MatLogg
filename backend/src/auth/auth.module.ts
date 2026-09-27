@@ -11,7 +11,7 @@ import { jwtSecret } from './auth.config';
     PassportModule,
     JwtModule.register({
       secret: jwtSecret(),
-      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '7d' },
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '15m' },
     }),
   ],
   controllers: [AuthController, UserController],

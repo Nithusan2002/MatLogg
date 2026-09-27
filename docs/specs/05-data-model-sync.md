@@ -111,7 +111,7 @@ struct Log {
     logged_time: DateTime (full timestamp)
     
     // Calculated (de-normalized for fast queries)
-    calories: Int (amount * produktets dokumenterte per-100-grunnlag / 100)
+    calories: Float (amount * produktets dokumenterte per-100-grunnlag / 100; avrundes bare ved visning)
     protein_g: Float
     carbs_g: Float
     fat_g: Float
@@ -151,7 +151,7 @@ struct SavedMealItem {
     product_name: String
     amount_g: Float (historisk feltnavn; numerisk mengde)
     amount_unit: String ("g" | "ml", default "g")
-    calories: Int
+    calories: Float
     protein_g: Float
     carbs_g: Float
     fat_g: Float
@@ -301,7 +301,7 @@ CREATE TABLE logs (
     amount_g REAL NOT NULL,
     logged_date TEXT NOT NULL, -- YYYY-MM-DD
     logged_time TEXT NOT NULL, -- ISO8601
-    calories INTEGER,
+    calories REAL,
     protein_g REAL,
     carbs_g REAL,
     fat_g REAL,
@@ -379,7 +379,15 @@ CREATE INDEX idx_sync_events_user_synced ON sync_events(user_id, is_synced);
 
 **Cache / latency:**
 - Lokal cache: `ean -> productSnapshot`
-- Stale‑while‑revalidate i bakgrunnen
+- Open Food Facts-treff regnes som ferske i 30 dager. Ferske treff returneres
+  lokalt uten nettverkskall.
+- Stale‑while‑revalidate: eldre treff returneres umiddelbart og revalideres i
+  bakgrunnen. Bare ett oppslag per EAN kan være aktivt samtidig.
+- Ved mislykket bakgrunnsoppdatering beholdes siste kjente snapshot og nytt
+  forsøk utsettes i 24 timer.
+- Produkter med Matvaretabellen som næringskilde følger matchingens separate
+  ferskhetsregel og skal ikke nedgraderes til Open Food Facts-næring av
+  bakgrunnsoppdateringen.
 - Ved OFF‑nedetid: fallback til cache + “prøv igjen”
 
 ---

@@ -8,7 +8,7 @@ struct SavedMealStorageTests {
         try withStore { store, url in
             let userId = UUID()
             let meal = makeMeal(userId: userId)
-            #expect(store.schemaVersion() == 2)
+            #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
             try store.saveSavedMeal(meal)
             let event = try #require(store.fetchPendingEvents(limit: 10).first)
             #expect(event.type == "saved_meal.upsert")
@@ -18,7 +18,7 @@ struct SavedMealStorageTests {
             let items = try #require(payload["items"] as? [[String: Any]])
             #expect(items.first?["amountUnit"] as? String == "ml")
 
-            let reopened = LocalStore(databaseURL: url)
+            let reopened = try LocalStore(databaseURL: url)
             #expect(reopened.getSavedMeals(userId: userId) == [meal])
             try reopened.deleteSavedMeal(meal.id, userId: userId)
             #expect(reopened.getSavedMeals(userId: userId).isEmpty)
@@ -59,7 +59,7 @@ struct SavedMealStorageTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("test.sqlite")
-        try body(LocalStore(databaseURL: url), url)
+        try body(try LocalStore(databaseURL: url), url)
     }
 
     private func executeSQL(_ sql: String, at url: URL) throws {

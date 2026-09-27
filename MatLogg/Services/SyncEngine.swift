@@ -12,17 +12,51 @@ struct SyncResult {
     let errorMessage: String?
 }
 
+protocol SyncQueueStore {
+    func fetchPendingEvents(limit: Int) async -> [SyncEvent]
+    func markEventsInFlight(_ eventIds: [UUID]) async
+    func markEventsAcked(_ eventIds: [UUID]) async
+    func markEventForRetry(_ eventId: UUID, error: String?, backoffSeconds: TimeInterval) async
+    func markEventDeadLetter(_ eventId: UUID, error: String) async
+    func nextPendingRetryDate() async -> Date?
+}
+
+extension DatabaseService: SyncQueueStore {}
+
+protocol SyncAPIClient {
+    func uploadEvents(_ events: [SyncEvent]) async throws -> APIService.UploadResult
+}
+
+extension APIService: SyncAPIClient {}
+
+@MainActor
 final class SyncEngine {
-    static let shared = SyncEngine()
+    static let shared: SyncEngine = {
+        let authService = AuthService()
+        return SyncEngine(
+            databaseService: DatabaseService.shared,
+            apiService: APIService(authSessionStore: authService),
+            syncEnabled: { FeatureFlags.backendSyncEnabled }
+        )
+    }()
     
-    private let databaseService = DatabaseService.shared
-    private let apiService = APIService(accessTokenProvider: { AuthService().getStoredToken() })
+    private let databaseService: any SyncQueueStore
+    private let apiService: any SyncAPIClient
+    private let syncEnabled: () -> Bool
     private var isSyncing = false
+    private var scheduledRetry: Task<Void, Never>?
+    private let maximumAutomaticAttempts: Int
     
-    private init() {}
-    
-    func triggerSync(reason: SyncReason) {
-        Task { _ = await syncPendingEvents() }
+    init(
+        databaseService: any SyncQueueStore,
+        apiService: any SyncAPIClient,
+        syncEnabled: @escaping () -> Bool,
+        maximumAutomaticAttempts: Int = 5
+    ) {
+        self.databaseService = databaseService
+        self.apiService = apiService
+        self.syncEnabled = syncEnabled
+        self.maximumAutomaticAttempts = max(1, maximumAutomaticAttempts)
     }
     
     func syncPendingEvents() async -> SyncResult {
@@ -32,12 +66,13 @@ final class SyncEngine {
         isSyncing = true
         defer { isSyncing = false }
         
-        guard FeatureFlags.backendSyncEnabled else {
+        guard syncEnabled() else {
             return SyncResult(success: false, errorMessage: "Backend ikke aktiv")
         }
         
         let pending = await databaseService.fetchPendingEvents(limit: 50)
         guard !pending.isEmpty else {
+            await scheduleNextRetryIfNeeded()
             return SyncResult(success: true, errorMessage: nil)
         }
         
@@ -52,23 +87,96 @@ final class SyncEngine {
             }
             
             let rejectedMap = Dictionary(uniqueKeysWithValues: result.rejected.map { ($0.eventId, $0) })
-            let toRetry = pending.filter { !acked.contains($0.eventId) }
-            for event in toRetry {
+            var failedCount = 0
+            let unresolved = pending.filter { !acked.contains($0.eventId) }
+            for event in unresolved {
+                if let rejected = rejectedMap[event.eventId] {
+                    failedCount += 1
+                    await databaseService.markEventDeadLetter(event.eventId, error: rejected.message)
+                    continue
+                }
                 let attempt = event.attemptCount + 1
-                let backoff = Backoff.nextDelay(attempt: attempt)
-                let error = rejectedMap[event.eventId]?.message ?? "Ikke bekreftet av server"
-                await databaseService.markEventForRetry(event.eventId, error: error, backoffSeconds: backoff)
+                if attempt >= maximumAutomaticAttempts {
+                    failedCount += 1
+                    await databaseService.markEventDeadLetter(event.eventId, error: "Ikke bekreftet av server")
+                } else {
+                    let backoff = Backoff.nextDelay(attempt: attempt)
+                    await databaseService.markEventForRetry(
+                        event.eventId,
+                        error: "Ikke bekreftet av server",
+                        backoffSeconds: backoff
+                    )
+                }
             }
-            
+
+            await scheduleNextRetryIfNeeded()
+            guard unresolved.isEmpty else {
+                let message = failedCount > 0
+                    ? "\(failedCount) endring(er) krever et nytt manuelt synkforsøk."
+                    : "Noen endringer ble ikke bekreftet av serveren og prøves igjen automatisk."
+                return SyncResult(success: false, errorMessage: message)
+            }
             return SyncResult(success: true, errorMessage: nil)
         } catch {
+            let permanent = Self.isPermanentFailure(error)
+            let retryAfter = Self.retryAfterSeconds(error)
+            var failedCount = 0
             for event in pending {
                 let attempt = event.attemptCount + 1
-                let backoff = Backoff.nextDelay(attempt: attempt)
-                await databaseService.markEventForRetry(event.eventId, error: error.localizedDescription, backoffSeconds: backoff)
+                if permanent || attempt >= maximumAutomaticAttempts {
+                    failedCount += 1
+                    await databaseService.markEventDeadLetter(
+                        event.eventId,
+                        error: error.localizedDescription
+                    )
+                } else {
+                    let backoff = retryAfter.map(TimeInterval.init) ?? Backoff.nextDelay(attempt: attempt)
+                    await databaseService.markEventForRetry(
+                        event.eventId,
+                        error: error.localizedDescription,
+                        backoffSeconds: backoff
+                    )
+                }
             }
-            return SyncResult(success: false, errorMessage: error.localizedDescription)
+            await scheduleNextRetryIfNeeded()
+            let message = failedCount > 0
+                ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. \(error.localizedDescription)"
+                : error.localizedDescription
+            return SyncResult(success: false, errorMessage: message)
         }
+    }
+
+    private func scheduleNextRetryIfNeeded() async {
+        scheduledRetry?.cancel()
+        scheduledRetry = nil
+        guard syncEnabled(),
+              let retryDate = await databaseService.nextPendingRetryDate() else { return }
+
+        let delay = max(0.1, retryDate.timeIntervalSinceNow)
+        scheduledRetry = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                await self?.runScheduledRetry()
+            } catch {}
+        }
+    }
+
+    private func runScheduledRetry() async {
+        scheduledRetry = nil
+        _ = await syncPendingEvents()
+    }
+
+    private static func isPermanentFailure(_ error: Error) -> Bool {
+        guard case APIService.APIError.backendError(let statusCode, _, _) = error else {
+            return false
+        }
+        return (400...499).contains(statusCode) && statusCode != 408 && statusCode != 429
+    }
+
+    private static func retryAfterSeconds(_ error: Error) -> Int? {
+        guard case APIService.APIError.rateLimited(let seconds) = error else { return nil }
+        return seconds
     }
 }
 

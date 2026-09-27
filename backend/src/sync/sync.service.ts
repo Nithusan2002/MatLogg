@@ -157,7 +157,7 @@ export class SyncService {
             meal: log.meal,
             grams: log.grams,
             unit: log.unit,
-            kcal: Math.round(log.kcal),
+            kcal: log.kcal,
             protein: log.protein,
             carbs: log.carbs,
             fat: log.fat,

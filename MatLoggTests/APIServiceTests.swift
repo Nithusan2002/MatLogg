@@ -62,7 +62,8 @@ struct APIServiceTests {
               "last_name": "Bruker",
               "auth_provider": "email",
               "created_at": "2026-09-24T10:00:00.000Z",
-              "token": "token"
+              "token": "token",
+              "refresh_token": "refresh-token"
             }
             """
             let url = try #require(request.url)
@@ -76,17 +77,122 @@ struct APIServiceTests {
         }
         defer { APIURLProtocolStub.handler = nil }
 
-        let (user, token) = try await makeService().loginEmail(email: "test@matlogg.no", password: "hemmelig")
+        let (user, tokens) = try await makeService().loginEmail(email: "test@matlogg.no", password: "hemmelig")
         #expect(user.id == userId)
         #expect(user.authProvider == "email")
         #expect(user.createdAt == Date(timeIntervalSince1970: 1_790_244_000))
-        #expect(token == "token")
+        #expect(tokens == AuthTokens(accessToken: "token", refreshToken: "refresh-token"))
+    }
+
+    @Test func protectedRequestRefreshesOnceAfterUnauthorizedResponse() async throws {
+        let store = APIAuthSessionStore(
+            tokens: AuthTokens(accessToken: "expired-access", refreshToken: "valid-refresh")
+        )
+        var requestNumber = 0
+        APIURLProtocolStub.handler = { request in
+            requestNumber += 1
+            let url = try #require(request.url)
+            switch requestNumber {
+            case 1:
+                #expect(request.httpMethod == "DELETE")
+                #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer expired-access")
+                return (try #require(HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)), Data())
+            case 2:
+                #expect(request.url?.path == "/v1/auth/refresh")
+                let body = #"{"token":"new-access","refresh_token":"new-refresh","expires_in":900}"#
+                return (try #require(HTTPURLResponse(url: url, statusCode: 201, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+            default:
+                #expect(request.httpMethod == "DELETE")
+                #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer new-access")
+                let body = #"{"code":"ACCOUNT_PENDING_DELETION","message":"Kontoen er markert for sletting","permanentDeletionAt":"2026-10-27T10:00:00Z"}"#
+                return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+            }
+        }
+        defer { APIURLProtocolStub.handler = nil }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [APIURLProtocolStub.self]
+        let service = APIService(
+            session: URLSession(configuration: configuration),
+            baseURL: "https://api.test/v1",
+            authSessionStore: store
+        )
+
+        _ = try await service.deleteAccount()
+
+        #expect(requestNumber == 3)
+        #expect(store.tokens == AuthTokens(accessToken: "new-access", refreshToken: "new-refresh"))
+    }
+
+    @Test func rejectedRefreshClearsSessionWithoutRetryingDomainRequest() async throws {
+        let store = APIAuthSessionStore(
+            tokens: AuthTokens(accessToken: "expired-access", refreshToken: "invalid-refresh")
+        )
+        var requestNumber = 0
+        APIURLProtocolStub.handler = { request in
+            requestNumber += 1
+            let url = try #require(request.url)
+            if requestNumber == 1 {
+                return (try #require(HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)), Data())
+            }
+            #expect(request.url?.path == "/v1/auth/refresh")
+            let body = #"{"code":"INVALID_REFRESH_TOKEN","message":"Sesjonen er utløpt"}"#
+            return (try #require(HTTPURLResponse(url: url, statusCode: 401, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+        }
+        defer { APIURLProtocolStub.handler = nil }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [APIURLProtocolStub.self]
+        let service = APIService(
+            session: URLSession(configuration: configuration),
+            baseURL: "https://api.test/v1",
+            authSessionStore: store
+        )
+
+        do {
+            _ = try await service.deleteAccount()
+            Issue.record("Ugyldig refresh-token skulle ha avsluttet sesjonen")
+        } catch let error as APIService.APIError {
+            guard case .sessionExpired = error else {
+                Issue.record("Forventet APIError.sessionExpired")
+                return
+            }
+        }
+        #expect(requestNumber == 2)
+        #expect(store.tokens == nil)
     }
 
     private func makeService() -> APIService {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [APIURLProtocolStub.self]
         return APIService(session: URLSession(configuration: configuration), baseURL: "https://api.test/v1")
+    }
+}
+
+private final class APIAuthSessionStore: AuthSessionStore {
+    var tokens: AuthTokens?
+    private var user: User?
+
+    init(tokens: AuthTokens?) {
+        self.tokens = tokens
+    }
+
+    func storeUser(_ user: User) { self.user = user }
+    func getStoredUser() -> User? { user }
+    func storeToken(_ token: String) -> Bool {
+        tokens = AuthTokens(accessToken: token, refreshToken: nil)
+        return true
+    }
+    func getStoredToken() -> String? { tokens?.accessToken }
+    func storeTokens(_ tokens: AuthTokens) -> Bool {
+        self.tokens = tokens
+        return true
+    }
+    func getStoredRefreshToken() -> String? { tokens?.refreshToken }
+    func clearStoredCredentials() -> Bool {
+        user = nil
+        tokens = nil
+        return true
     }
 }
 

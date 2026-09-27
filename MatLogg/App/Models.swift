@@ -108,7 +108,7 @@ struct Product: Codable, Identifiable {
     let kind: ProductKind
     
     // Nutrition per 100g
-    let caloriesPer100g: Int
+    let caloriesPer100g: Float
     let proteinGPer100g: Float
     let carbsGPer100g: Float
     let fatGPer100g: Float
@@ -144,7 +144,7 @@ struct Product: Codable, Identifiable {
         barcodeEan: String? = nil,
         source: String = "user",
         kind: ProductKind = .packaged,
-        caloriesPer100g: Int,
+        caloriesPer100g: Float,
         proteinGPer100g: Float,
         carbsGPer100g: Float,
         fatGPer100g: Float,
@@ -216,28 +216,34 @@ struct Product: Codable, Identifiable {
     }
     
     nonisolated var amountUnit: AmountUnit {
-        nutritionBasis == .per100ml ? .milliliters : .grams
+        (nutritionBasis ?? .per100g).amountUnit
     }
 
     // Nutrition values use the product's documented per-100 g or per-100 ml basis.
+    // Keep the calculated values exact; presentation is responsible for rounding.
     func calculateNutrition(forAmount amount: Float) -> NutritionBreakdown {
-        let multiplier = amount / 100.0
-        return NutritionBreakdown(
-            calories: Int(Float(caloriesPer100g) * multiplier),
-            protein: proteinGPer100g * multiplier,
-            carbs: carbsGPer100g * multiplier,
-            fat: fatGPer100g * multiplier
+        NutritionCalculator.calculated(
+            per100: NutritionBreakdown(
+                calories: caloriesPer100g,
+                protein: proteinGPer100g,
+                carbs: carbsGPer100g,
+                fat: fatGPer100g
+            ),
+            amount: amount
         )
-    }
-
-    func calculateNutrition(forGrams grams: Float) -> NutritionBreakdown {
-        calculateNutrition(forAmount: grams)
     }
 }
 
 enum NutritionBasis: String, Codable {
     case per100g
     case per100ml
+
+    nonisolated var amountUnit: AmountUnit {
+        switch self {
+        case .per100g: return .grams
+        case .per100ml: return .milliliters
+        }
+    }
 }
 
 enum AmountUnit: String, Codable, CaseIterable {
@@ -291,7 +297,7 @@ enum ServingSource: String, Codable {
 }
 
 struct NutritionBreakdown: Codable {
-    let calories: Int
+    let calories: Float
     let protein: Float
     let carbs: Float
     let fat: Float
@@ -303,7 +309,7 @@ struct ProductMatchMapping: Codable {
     let matchedName: String
     let confidenceScore: Double
     let updatedAt: Date
-    let caloriesPer100g: Int
+    let caloriesPer100g: Float
     let proteinGPer100g: Float
     let carbsGPer100g: Float
     let fatGPer100g: Float
@@ -430,7 +436,7 @@ struct FoodLog: Codable, Identifiable {
     let loggedTime: Date // full timestamp
     
     // Calculated (denormalized)
-    let calories: Int
+    let calories: Float
     let proteinG: Float
     let carbsG: Float
     let fatG: Float
@@ -447,7 +453,7 @@ struct FoodLog: Codable, Identifiable {
         amountUnit: AmountUnit = .grams,
         loggedDate: Date,
         loggedTime: Date = Date(),
-        calories: Int,
+        calories: Float,
         proteinG: Float,
         carbsG: Float,
         fatG: Float,
@@ -511,7 +517,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
     let productName: String
     var amountG: Float
     var amountUnit: AmountUnit?
-    var calories: Int
+    var calories: Float
     var proteinG: Float
     var carbsG: Float
     var fatG: Float
@@ -524,7 +530,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         productName: String,
         amountG: Float,
         amountUnit: AmountUnit = .grams,
-        calories: Int,
+        calories: Float,
         proteinG: Float,
         carbsG: Float,
         fatG: Float,
@@ -596,7 +602,7 @@ struct ScanHistory: Codable, Identifiable {
 
 struct DailySummary {
     let date: Date
-    let totalCalories: Int
+    let totalCalories: Float
     let totalProtein: Float
     let totalCarbs: Float
     let totalFat: Float
@@ -604,6 +610,61 @@ struct DailySummary {
     
     var logsByMeal: [String: [FoodLog]] {
         Dictionary(grouping: logs) { $0.mealType }
+    }
+}
+
+enum NutritionCalculator {
+    static func calculated(per100: NutritionBreakdown, amount: Float) -> NutritionBreakdown {
+        let multiplier = amount / 100
+        return NutritionBreakdown(
+            calories: per100.calories * multiplier,
+            protein: per100.protein * multiplier,
+            carbs: per100.carbs * multiplier,
+            fat: per100.fat * multiplier
+        )
+    }
+
+    static func totals(for logs: [FoodLog]) -> NutritionBreakdown {
+        logs.reduce(NutritionBreakdown(calories: 0, protein: 0, carbs: 0, fat: 0)) { total, log in
+            NutritionBreakdown(
+                calories: total.calories + log.calories,
+                protein: total.protein + log.proteinG,
+                carbs: total.carbs + log.carbsG,
+                fat: total.fat + log.fatG
+            )
+        }
+    }
+
+    static func scaledSnapshot(
+        calories: Float,
+        protein: Float,
+        carbs: Float,
+        fat: Float,
+        from originalAmount: Float,
+        to amount: Float
+    ) -> NutritionBreakdown? {
+        guard originalAmount.isFinite, originalAmount > 0, amount.isFinite else { return nil }
+        let factor = amount / originalAmount
+        let result = NutritionBreakdown(
+            calories: calories * factor,
+            protein: protein * factor,
+            carbs: carbs * factor,
+            fat: fat * factor
+        )
+        guard [result.calories, result.protein, result.carbs, result.fat].allSatisfy({ $0.isFinite && $0 >= 0 }) else {
+            return nil
+        }
+        return result
+    }
+}
+
+enum NutritionDisplay {
+    static func wholeCalories(_ value: Float) -> Int {
+        Int(value.rounded())
+    }
+
+    static func wholeGrams(_ value: Float) -> Int {
+        Int(value.rounded())
     }
 }
 

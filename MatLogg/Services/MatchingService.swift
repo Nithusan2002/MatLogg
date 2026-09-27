@@ -26,7 +26,7 @@ final class MatchingService {
         let categoryScore = categoryMatch(offProduct.category, candidate.category)
         let brandScore = brandMatch(offProduct.brand, candidate.brand)
         let keywordScore = keywordOverlap(offProduct.name, candidate.name)
-        let energyPenalty = energyDeviationPenalty(offProduct.caloriesPer100g, candidate.caloriesPer100g)
+        let energyPenalty = energyDeviationPenalty(offProduct.caloriesPer100g, Float(candidate.caloriesPer100g))
         
         var score = 0.0
         score += nameScore * 0.5
@@ -65,7 +65,7 @@ final class MatchingService {
         return matches.isEmpty ? 0.0 : 1.0
     }
     
-    private func energyDeviationPenalty(_ lhs: Int, _ rhs: Int) -> Double {
+    private func energyDeviationPenalty(_ lhs: Float, _ rhs: Float) -> Double {
         let maxValue = max(lhs, rhs)
         guard maxValue > 0 else { return 0 }
         let diff = abs(lhs - rhs)

@@ -10,8 +10,8 @@
 ### Implementasjonsstatus
 
 Teknisk sannhetskilde er `backend/src/` og generert Swagger på `/docs`.
-Implementert nå: health, e-postregistrering/-innlogging, kontosletting og
-`POST /v1/sync/events`. Produkt-, logg-, mål-, delings-, refresh- og OAuth-
+Implementert nå: health, e-postregistrering/-innlogging, token-refresh,
+kontosletting og `POST /v1/sync/events`. Produkt-, logg-, mål-, delings- og OAuth-
 endepunktene nedenfor er målbilde til de finnes i backend-koden.
 
 ---
@@ -41,7 +41,9 @@ Registrer ny bruker
   "last_name": "Doe",
   "auth_provider": "email",
   "created_at": "2026-09-24T12:00:00Z",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "opaque-random-token",
+  "expires_in": 900
 }
 ```
 
@@ -76,7 +78,9 @@ Innlogging (email/passord)
   "last_name": "Doe",
   "auth_provider": "email",
   "created_at": "2026-09-16T12:00:00Z",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "opaque-random-token",
+  "expires_in": 900
 }
 ```
 
@@ -135,12 +139,34 @@ Refresh access token
 }
 ```
 
-**Response (200):**
+**Response (201):**
 ```json
 {
   "token": "new-jwt-token",
-  "expires_in": 86400
+  "refresh_token": "new-opaque-random-token",
+  "expires_in": 900
 }
+```
+
+Refresh-tokenet er engangsbruk og roteres ved hvert vellykket kall. Bare en
+SHA-256-hash lagres i databasen, og tokenet utløper etter 30 dager. Gjenbruk av
+et allerede rotert token revokerer brukerens øvrige aktive refresh-sesjoner.
+Ugyldig, utløpt eller gjenbrukt token returnerer 401 med maskinlesbar feilkode.
+
+### **POST /auth/logout**
+
+Revoker gjeldende refresh-sesjon. Endepunktet er idempotent og returnerer samme
+svar også når tokenet allerede er ukjent eller revokert, slik at det ikke lekker
+informasjon om aktive sesjoner.
+
+```json
+{ "refresh_token": "refresh-token-here" }
+```
+
+**Response (201):**
+
+```json
+{ "code": "SESSION_REVOKED" }
 ```
 
 ---

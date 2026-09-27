@@ -230,7 +230,7 @@ struct DailyGoalsTests {
         let userId = UUID()
         var eventId: UUID?
         do {
-            let repository = LocalGoalRepository(store: LocalStore(databaseURL: url))
+            let repository = LocalGoalRepository(store: try LocalStore(databaseURL: url))
             let vm = DailyGoalsViewModel(repository: repository)
             vm.begin(goal: nil, userId: userId)
             vm.calories = "2100"
@@ -242,7 +242,7 @@ struct DailyGoalsTests {
             #expect(events.count == 1)
             eventId = events.first?.eventId
         }
-        let reopened = LocalStore(databaseURL: url)
+        let reopened = try LocalStore(databaseURL: url)
         let saved = try #require(reopened.getLatestGoal(userId: userId))
         #expect(saved.dailyCalories == 2100)
         #expect(saved.proteinTargetG == 120.25)

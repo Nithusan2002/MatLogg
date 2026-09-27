@@ -49,6 +49,8 @@ Carthage/Build
 # Secrets
 .env
 .env.local
+Secrets.xcconfig
+*.xcconfig.local
 *.pem
 *.p12
 *.key

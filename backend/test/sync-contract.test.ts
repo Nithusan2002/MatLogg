@@ -23,7 +23,7 @@ const legacyLog = logPayloadSchema.safeParse({
 assert(legacyLog.success);
 if (legacyLog.success) assert.equal(legacyLog.data.unit, 'g');
 assert(logPayloadSchema.safeParse({
-  id, date: '2026-09-15T10:00:00Z', meal: 'lunsj', grams: 500, unit: 'ml', kcal: 10,
+  id, date: '2026-09-15T10:00:00Z', meal: 'lunsj', grams: 500, unit: 'ml', kcal: 10.25,
   protein: 0, carbs: 4, fat: 0, productRef: id,
 }).success);
 assert(!logPayloadSchema.safeParse({
@@ -39,7 +39,7 @@ const savedMeal = savedMealPayloadSchema.safeParse({
   updatedAt: '2026-09-24T12:00:00Z',
   items: [{
     id, productId: id, productName: 'Havregryn',
-    amountG: 80, calories: 296, protein: 10, carbs: 48, fat: 6,
+    amountG: 80, calories: 296.4, protein: 10, carbs: 48, fat: 6,
     nutritionSource: 'matvaretabellen', sortIndex: 0,
   }],
 });

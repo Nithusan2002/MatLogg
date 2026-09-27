@@ -19,7 +19,7 @@ struct MealReuseSuggestionView: View {
                     Text("\(item.name) · \(item.original.amountG.formatted(.number.locale(Locale(identifier: "nb_NO")))) \(item.original.resolvedAmountUnit.rawValue)")
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if !hideCalories {
-                        Text("\(item.original.calories) kcal")
+                        Text("\(NutritionDisplay.wholeCalories(item.original.calories)) kcal")
                             .foregroundStyle(AppColors.ink)
                     }
                 }

@@ -31,7 +31,9 @@ HTTP-testen starter NestJS på en tilfeldig lokal port og bruker en egen
 `JWT_SECRET` kun for testprosessen.
 
 Auth-integrasjonstesten dekker registrering, passordhashing, innlogging,
-token-revokering, soft-delete og permanent purge etter retensjonsperioden.
+rotering/gjenbruksvern og utloggingsrevokering for refresh-token, soft-delete og
+permanent purge etter retensjonsperioden. Access-token varer som standard i 15
+minutter; refresh-token varer i 30 dager og lagres bare som hash.
 
 Health check:
 
