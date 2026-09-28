@@ -1,0 +1,5 @@
+// Staging values belong in the ignored Supabase-Debug.xcconfig.local file.
+SUPABASE_URL =
+SUPABASE_PUBLISHABLE_KEY =
+SUPABASE_AUTH_CALLBACK_URL = matlogg:/$()/auth/callback
+#include? "Supabase-Debug.xcconfig.local"

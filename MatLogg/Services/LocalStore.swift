@@ -67,6 +67,55 @@ final class LocalStore {
             }
         }
     }
+
+    func localDataSummary(ownerId: UUID) -> LocalDataSummary {
+        queue.sync {
+            LocalDataSummary(
+                logs: countLocked(table: "logs", ownerId: ownerId),
+                goals: countLocked(table: "goals", ownerId: ownerId),
+                favorites: countLocked(table: "favorites", ownerId: ownerId),
+                scans: countLocked(table: "scans", ownerId: ownerId),
+                weights: countLocked(table: "weights", ownerId: ownerId),
+                savedMeals: countLocked(table: "saved_meals", ownerId: ownerId)
+            )
+        }
+    }
+
+    func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) throws {
+        guard localOwnerId != accountOwnerId else { return }
+        try queue.sync {
+            try execute("BEGIN IMMEDIATE TRANSACTION;")
+            do {
+                for table in ["goals", "logs", "weights", "saved_meals"] {
+                    try rewriteUserIdInJSONLocked(table: table, from: localOwnerId, to: accountOwnerId)
+                }
+                for table in ["goals", "logs", "favorites", "scans", "weights", "saved_meals"] {
+                    try updateOwnerLocked(table: table, column: "userId", from: localOwnerId, to: accountOwnerId)
+                }
+                try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
+                try execute("COMMIT;")
+            } catch {
+                _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                throw error
+            }
+        }
+    }
+
+    func deleteLocalData(ownerId: UUID) throws {
+        try queue.sync {
+            try execute("BEGIN IMMEDIATE TRANSACTION;")
+            do {
+                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights"] {
+                    try deleteOwnerRowsLocked(table: table, column: "userId", ownerId: ownerId)
+                }
+                try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
+                try execute("COMMIT;")
+            } catch {
+                _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                throw error
+            }
+        }
+    }
     
     // MARK: - Goals
     
@@ -1312,6 +1361,72 @@ final class LocalStore {
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw databaseError() }
     }
 
+    private func countLocked(table: String, ownerId: UUID) -> Int {
+        precondition(["logs", "goals", "favorites", "scans", "weights", "saved_meals"].contains(table))
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table) WHERE userId = ?;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, ownerId.uuidString, -1, SQLITE_TRANSIENT)
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        return Int(sqlite3_column_int(stmt, 0))
+    }
+
+    private func updateOwnerLocked(table: String, column: String, from: UUID, to: UUID) throws {
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue"]
+        precondition(allowedTables.contains(table))
+        precondition(column == "userId" || column == "ownerUserId")
+        var stmt: OpaquePointer?
+        let sql = "UPDATE \(table) SET \(column) = ? WHERE \(column) = ?;"
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, to.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, from.uuidString, -1, SQLITE_TRANSIENT)
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    private func deleteOwnerRowsLocked(table: String, column: String, ownerId: UUID) throws {
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue"]
+        precondition(allowedTables.contains(table))
+        precondition(column == "userId" || column == "ownerUserId")
+        var stmt: OpaquePointer?
+        let sql = "DELETE FROM \(table) WHERE \(column) = ?;"
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, ownerId.uuidString, -1, SQLITE_TRANSIENT)
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    private func rewriteUserIdInJSONLocked(table: String, from: UUID, to: UUID) throws {
+        precondition(["goals", "logs", "weights", "saved_meals"].contains(table))
+        var select: OpaquePointer?
+        let selectSQL = "SELECT id, json FROM \(table) WHERE userId = ?;"
+        guard sqlite3_prepare_v2(db, selectSQL, -1, &select, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(select) }
+        sqlite3_bind_text(select, 1, from.uuidString, -1, SQLITE_TRANSIENT)
+
+        var rewritten: [(String, Data)] = []
+        while sqlite3_step(select) == SQLITE_ROW {
+            guard let idValue = sqlite3_column_text(select, 0),
+                  let data = readBlob(select, index: 1),
+                  var object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw LocalStoreError.invalidStoredData("Kunne ikke oppdatere lokal eier i \(table)")
+            }
+            object["userId"] = to.uuidString
+            rewritten.append((String(cString: idValue), try JSONSerialization.data(withJSONObject: object)))
+        }
+
+        for (id, data) in rewritten {
+            var update: OpaquePointer?
+            let updateSQL = "UPDATE \(table) SET json = ? WHERE id = ?;"
+            guard sqlite3_prepare_v2(db, updateSQL, -1, &update, nil) == SQLITE_OK else { throw databaseError() }
+            bindBlob(update, index: 1, data: data)
+            sqlite3_bind_text(update, 2, id, -1, SQLITE_TRANSIENT)
+            let result = sqlite3_step(update)
+            sqlite3_finalize(update)
+            try requireDone(result)
+        }
+    }
+
     private func requireDone(_ result: Int32) throws {
         guard result == SQLITE_DONE else { throw databaseError() }
     }
@@ -1450,10 +1565,12 @@ enum LocalStoreError: LocalizedError {
     case sqlite(String)
     case unsupportedSchema(Int)
     case ownershipMismatch
+    case invalidStoredData(String)
     var errorDescription: String? {
         if case .sqlite(let message) = self { return "Lokal databasefeil: \(message)" }
         if case .unsupportedSchema(let version) = self { return "Databaseskjema \(version) er nyere enn appen støtter" }
         if case .ownershipMismatch = self { return "Dataene tilhører en annen bruker" }
+        if case .invalidStoredData(let message) = self { return message }
         return nil
     }
 }

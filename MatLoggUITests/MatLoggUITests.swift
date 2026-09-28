@@ -25,7 +25,6 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testExample() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("--show-auth")
         app.launch()
         XCTAssertTrue(app.staticTexts["MatLogg"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Logg inn"].exists)
@@ -35,6 +34,7 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testDebugSessionShowsHomeAndPrimaryNavigation() throws {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
 
         let logButton = app.buttons["Loggfør mat"]
@@ -55,6 +55,7 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testHomeCanNavigateAcrossPastAndFutureDates() throws {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
 
         let dateButton = app.buttons["day-navigation-date"]
@@ -77,6 +78,7 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testProfileOpensFavoritesEmptyState() throws {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
 
         let profileTab = app.buttons["Profil"]
@@ -94,6 +96,7 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testProfileSettingsDoesNotDuplicateOverview() throws {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
 
         let profileTab = app.buttons["Profil"]

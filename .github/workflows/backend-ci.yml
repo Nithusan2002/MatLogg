@@ -1,0 +1,83 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Build, test, migrate, and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: matlogg
+          POSTGRES_PASSWORD: matlogg-ci
+          POSTGRES_DB: matlogg
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U matlogg -d matlogg"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://matlogg:matlogg-ci@localhost:5432/matlogg?schema=public
+      JWT_SECRET: backend-ci-secret-that-is-never-used-outside-tests
+      DEV_LOGIN_ENABLED: "false"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Run unit and contract tests
+        run: npm test
+
+      - name: Apply migrations to disposable PostgreSQL
+        run: npx prisma migrate deploy
+
+      - name: Run database integration tests
+        run: npm run test:integration
+
+      - name: Run authenticated HTTP integration tests
+        run: npm run test:http-integration
+
+      - name: Run auth and account integration tests
+        run: npm run test:auth-integration
+
+      - name: Block critical production dependency vulnerabilities
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Build production container
+        run: docker build --target runtime -t matlogg-backend:ci .

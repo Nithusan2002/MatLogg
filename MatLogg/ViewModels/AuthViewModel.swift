@@ -1,19 +1,13 @@
-import Foundation
 import Combine
+import Foundation
 
 @MainActor
 final class AuthViewModel: ObservableObject {
     private enum SessionStorageError: LocalizedError {
-        case tokenPersistenceFailed
         case credentialDeletionFailed
 
         var errorDescription: String? {
-            switch self {
-            case .tokenPersistenceFailed:
-                "Innloggingen kunne ikke lagres sikkert på enheten. Prøv igjen."
-            case .credentialDeletionFailed:
-                "Innloggingen ble avsluttet, men lagrede credentials kunne ikke fjernes fra enheten."
-            }
+            "Innloggingen ble avsluttet, men lagrede kontodata kunne ikke fjernes fra enheten."
         }
     }
 
@@ -25,138 +19,224 @@ final class AuthViewModel: ObservableObject {
     @Published private(set) var authState: AuthState = .notAuthenticated
     @Published private(set) var currentUser: User?
     @Published private(set) var isOnboarding = false
+    @Published private(set) var isRestoringSession = true
     @Published private(set) var isLoading = false
     @Published private(set) var isDeletingAccount = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var pendingLocalDataSummary: LocalDataSummary?
+    @Published private(set) var pendingVerificationEmail: String?
+    @Published private(set) var verificationMessage: String?
 
-    private let apiClient: any AuthAPIClient
-    private let sessionStore: any AuthSessionStore
-    private let localDataResetter: any LocalDataResetting
+    private let authRepository: any AccountAuthRepository
+    private let localStore: any AuthSessionStore
+    private let localProfileManager: any LocalProfileManaging
+    private var pendingAccountSession: (user: User, localUser: User, shouldOnboard: Bool)?
+
+    var isLocalMode: Bool { currentUser?.isLocalProfile == true }
+    var authenticatedUser: User? {
+        guard let currentUser, !currentUser.isLocalProfile else { return nil }
+        return currentUser
+    }
 
     convenience init() {
-        let sessionStore = AuthService()
+        let localStore = AuthService()
+        let repository: any AccountAuthRepository
+        if let configuration = try? SupabaseConfiguration.load() {
+            repository = SupabaseService(configuration: configuration)
+        } else {
+            repository = UnavailableAccountAuthRepository()
+        }
+        self.init(authRepository: repository, localStore: localStore, localProfileManager: DatabaseService.shared)
+    }
+
+    convenience init(apiClient: any AuthAPIClient, sessionStore: any AuthSessionStore) {
         self.init(
-            apiClient: APIService(authSessionStore: sessionStore),
-            sessionStore: sessionStore,
-            localDataResetter: DatabaseService.shared
+            authRepository: LegacyAccountAuthRepository(apiClient: apiClient, sessionStore: sessionStore),
+            localStore: sessionStore,
+            localProfileManager: DatabaseService.shared
         )
     }
 
     convenience init(
         apiClient: any AuthAPIClient,
-        sessionStore: any AuthSessionStore
+        sessionStore: any AuthSessionStore,
+        localProfileManager: any LocalProfileManaging
     ) {
-        self.init(apiClient: apiClient, sessionStore: sessionStore, localDataResetter: DatabaseService.shared)
+        self.init(
+            authRepository: LegacyAccountAuthRepository(apiClient: apiClient, sessionStore: sessionStore),
+            localStore: sessionStore,
+            localProfileManager: localProfileManager
+        )
     }
 
     init(
-        apiClient: any AuthAPIClient,
-        sessionStore: any AuthSessionStore,
-        localDataResetter: any LocalDataResetting
+        authRepository: any AccountAuthRepository,
+        localStore: any AuthSessionStore,
+        localProfileManager: any LocalProfileManaging
     ) {
-        self.apiClient = apiClient
-        self.sessionStore = sessionStore
-        self.localDataResetter = localDataResetter
-        restoreSession()
+        self.authRepository = authRepository
+        self.localStore = localStore
+        self.localProfileManager = localProfileManager
     }
 
-    func restoreSession() {
-        guard let user = sessionStore.getStoredUser(),
-              sessionStore.getStoredToken() != nil else {
+    func restoreSession() async {
+        isRestoringSession = true
+        defer { isRestoringSession = false }
+        if let user = await authRepository.restoreSession() {
+            localStore.storeUser(user)
+            show(user: user, account: true)
+        } else if let localUser = localStore.getActiveLocalProfile() {
+            show(user: localUser, account: false)
+        } else {
             currentUser = nil
+            isOnboarding = false
             authState = .notAuthenticated
-            return
         }
-        currentUser = user
-        authState = .authenticated(user: user)
+    }
+
+    func continueLocally() {
+        errorMessage = nil
+        pendingVerificationEmail = nil
+        show(user: localStore.activateLocalProfile(), account: false)
     }
 
     func login(email: String, password: String) async {
+        await authenticate { try await self.authRepository.signIn(email: email, password: password) }
+    }
+
+    func signUp(email: String, password: String) async {
         isLoading = true
         errorMessage = nil
+        verificationMessage = nil
         defer { isLoading = false }
-
         do {
-            let (user, tokens) = try await apiClient.loginEmail(email: email, password: password)
-            guard sessionStore.storeTokens(tokens) else {
-                sessionStore.clearStoredCredentials()
-                throw SessionStorageError.tokenPersistenceFailed
+            switch try await authRepository.signUp(email: email, password: password) {
+            case .authenticated(let user):
+                try await prepareAccountSession(user: user, shouldOnboard: true)
+            case .pendingEmailVerification(let address):
+                pendingVerificationEmail = address
+                verificationMessage = "Vi har sendt en bekreftelseslenke til \(address)."
             }
-            sessionStore.storeUser(user)
-            currentUser = user
-            authState = .authenticated(user: user)
-            isOnboarding = false
         } catch {
-            errorMessage = error.localizedDescription
-            authState = .error(error.localizedDescription)
+            present(error)
         }
     }
 
-    func signUp(email: String, password: String, firstName: String, lastName: String) async {
+    func resendEmailVerification() async {
+        guard let pendingVerificationEmail, !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
+        verificationMessage = nil
+        defer { isLoading = false }
+        do {
+            try await authRepository.resendEmailVerification(to: pendingVerificationEmail)
+            verificationMessage = "En ny bekreftelseslenke er sendt."
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func dismissEmailVerification() {
+        pendingVerificationEmail = nil
+        verificationMessage = nil
+        errorMessage = nil
+    }
+
+    func loginWithApple(identityToken: String, authorizationCode: String?, nonce: String) async {
+        await authenticate {
+            try await self.authRepository.signInWithApple(identityToken: identityToken, nonce: nonce)
+        }
+    }
+
+    func handleAuthCallback(_ url: URL) async {
+        guard url.scheme == "matlogg", url.host == "auth" else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
-
         do {
-            let (user, tokens) = try await apiClient.signupEmail(
-                email: email,
-                password: password,
-                firstName: firstName,
-                lastName: lastName
-            )
-            guard sessionStore.storeTokens(tokens) else {
-                sessionStore.clearStoredCredentials()
-                throw SessionStorageError.tokenPersistenceFailed
-            }
-            sessionStore.storeUser(user)
-            currentUser = user
-            authState = .onboarding(user: user)
-            isOnboarding = true
+            let user = try await authRepository.handleAuthCallback(url)
+            let shouldOnboard = pendingVerificationEmail != nil
+                || localStore.onboardingCompletion(userId: user.id) == nil
+            pendingVerificationEmail = nil
+            verificationMessage = nil
+            try await prepareAccountSession(user: user, shouldOnboard: shouldOnboard)
         } catch {
-            errorMessage = error.localizedDescription
-            authState = .error(error.localizedDescription)
+            errorMessage = "Bekreftelseslenken kunne ikke åpnes. Be om en ny lenke og prøv igjen."
         }
+    }
+
+    func reportAuthenticationError(_ message: String) {
+        errorMessage = message
+    }
+
+    func confirmLocalDataLink() async {
+        guard let pending = pendingAccountSession else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            try await localProfileManager.claimLocalData(from: pending.localUser.id, to: pending.user.id)
+            let completedLocally = localStore.hasCompletedOnboarding(userId: pending.localUser.id)
+            if completedLocally { localStore.setOnboardingCompleted(true, userId: pending.user.id) }
+            completeAccountSession(
+                user: pending.user,
+                shouldOnboard: pending.shouldOnboard && !completedLocally
+            )
+            pendingAccountSession = nil
+            pendingLocalDataSummary = nil
+        } catch {
+            errorMessage = "Kunne ikke knytte lokale data til kontoen. Ingen data ble flyttet. \(error.localizedDescription)"
+        }
+    }
+
+    func cancelLocalDataLink() {
+        guard let pending = pendingAccountSession else { return }
+        Task { try? await authRepository.signOut() }
+        pendingAccountSession = nil
+        pendingLocalDataSummary = nil
+        currentUser = pending.localUser
+        isOnboarding = false
+        authState = .local(user: pending.localUser)
     }
 
     func finishOnboarding() {
         guard let currentUser else { return }
+        localStore.setOnboardingCompleted(true, userId: currentUser.id)
         isOnboarding = false
-        authState = .authenticated(user: currentUser)
+        authState = currentUser.isLocalProfile ? .local(user: currentUser) : .authenticated(user: currentUser)
     }
 
     @discardableResult
     func logout() -> Bool {
-        let refreshToken = sessionStore.getStoredRefreshToken()
-        let credentialsCleared = sessionStore.clearStoredCredentials()
+        let credentialsCleared = localStore.clearStoredCredentials()
+        localStore.deactivateLocalMode()
         currentUser = nil
         isOnboarding = false
+        pendingVerificationEmail = nil
         authState = .notAuthenticated
-        errorMessage = credentialsCleared
-            ? nil
-            : SessionStorageError.credentialDeletionFailed.localizedDescription
-        if let refreshToken {
-            Task { try? await apiClient.revokeRefreshToken(refreshToken) }
-        }
+        errorMessage = credentialsCleared ? nil : SessionStorageError.credentialDeletionFailed.localizedDescription
+        Task { try? await authRepository.signOut() }
         return credentialsCleared
     }
 
     func handleSessionExpired() {
-        _ = sessionStore.clearStoredCredentials()
+        _ = localStore.clearStoredCredentials()
+        localStore.deactivateLocalMode()
         currentUser = nil
         isOnboarding = false
-        errorMessage = "Økten din er utløpt. Logg inn på nytt."
+        errorMessage = "Økten din er utløpt. Logg inn på nytt. Dataene på denne enheten er beholdt."
         authState = .notAuthenticated
     }
 
     @discardableResult
     func deleteAccount() async -> Bool {
-        guard !isDeletingAccount else { return false }
+        guard !isDeletingAccount, let currentUser, !currentUser.isLocalProfile else { return false }
         isDeletingAccount = true
         errorMessage = nil
         defer { isDeletingAccount = false }
         do {
-            _ = try await apiClient.deleteAccount()
-            try await localDataResetter.resetAllLocalData()
+            _ = try await authRepository.deleteAccount()
+            try await localProfileManager.deleteLocalData(ownerId: currentUser.id)
             logout()
             return true
         } catch {
@@ -165,8 +245,22 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func removeAccountDataFromDevice() async -> Bool {
+        guard let currentUser, !currentUser.isLocalProfile else { return false }
+        do {
+            try await localProfileManager.deleteLocalData(ownerId: currentUser.id)
+            logout()
+            return true
+        } catch {
+            errorMessage = "Dataene kunne ikke fjernes fra denne iPhonen. \(error.localizedDescription)"
+            return false
+        }
+    }
+
     func enableDebugSession() {
         guard currentUser == nil else { return }
+        isRestoringSession = false
         let user = User(
             id: Self.debugUserId,
             email: "dev@matlogg.app",
@@ -178,5 +272,61 @@ final class AuthViewModel: ObservableObject {
         currentUser = user
         isOnboarding = false
         authState = .authenticated(user: user)
+    }
+
+    private func authenticate(operation: () async throws -> User) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let user = try await operation()
+            try await prepareAccountSession(user: user, shouldOnboard: false)
+        } catch {
+            present(error)
+        }
+    }
+
+    private func prepareAccountSession(user: User, shouldOnboard: Bool) async throws {
+        if let localUser = currentUser, localUser.isLocalProfile {
+            let summary = await localProfileManager.localDataSummary(ownerId: localUser.id)
+            if summary.hasData {
+                pendingAccountSession = (user, localUser, shouldOnboard)
+                pendingLocalDataSummary = summary
+                authState = .awaitingLocalDataLink(localUser: localUser, accountUser: user)
+                return
+            }
+        }
+        completeAccountSession(user: user, shouldOnboard: shouldOnboard)
+    }
+
+    private func completeAccountSession(user: User, shouldOnboard: Bool) {
+        localStore.storeUser(user)
+        localStore.consumeLocalProfile()
+        currentUser = user
+        if shouldOnboard { localStore.setOnboardingCompleted(false, userId: user.id) }
+        isOnboarding = shouldOnboard && !localStore.hasCompletedOnboarding(userId: user.id)
+        authState = isOnboarding ? .onboarding(user: user) : .authenticated(user: user)
+    }
+
+    private func show(user: User, account: Bool) {
+        currentUser = user
+        if account, localStore.onboardingCompletion(userId: user.id) == nil {
+            localStore.setOnboardingCompleted(true, userId: user.id)
+        }
+        isOnboarding = !(localStore.onboardingCompletion(userId: user.id) ?? false)
+        if isOnboarding {
+            authState = .onboarding(user: user)
+        } else {
+            authState = account ? .authenticated(user: user) : .local(user: user)
+        }
+    }
+
+    private func present(_ error: Error) {
+        errorMessage = error.localizedDescription
+        if let currentUser {
+            authState = currentUser.isLocalProfile ? .local(user: currentUser) : .authenticated(user: currentUser)
+        } else {
+            authState = .error(error.localizedDescription)
+        }
     }
 }

@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 25. september 2026
+Sist oppdatert: 28. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -13,7 +13,10 @@ Kontakt: nithusank.2002@gmail.com
 2. Hvilke data behandler vi?
 
 Konto og innlogging
-  - Nar du oppretter konto med e-post/passord lagrer vi e-post, navn, bruker-ID og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst.
+  - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
+  - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn.
+  - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
+  - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
@@ -37,7 +40,7 @@ Vi bruker data for a:
   - La deg logge mat og se historikk over tid.
   - La deg lagre og gjenbruke egne maltider uten a velge hver matvare pa nytt.
   - Vise garsdagens maltid som et valgfritt forslag til raskere logging. Dette beregnes lokalt pa enheten, uten a sende spisehistorikk til en ekstern AI-tjeneste. Et forslag lagres som et nytt maltid bare nar du velger a loggfore det.
-  - Lagra data pa tvers av enheter nar du er innlogget.
+  - Knytte lokale data til kontoen etter at du bekrefter det. Dagens synk støtter bare opplasting fra denne enheten; gjenoppretting og synk mellom enheter er ikke tilgjengelig ennå.
   - Gi raskere oppslag ved skanning (cache/historikk).
   - Forbedre datakvalitet (f.eks. markere kilde og handtere “ikke funnet”/brukeropprettede produkter).
   - Gjore appen stabil og sikker.
@@ -55,6 +58,7 @@ MatLogg er “offline-first”, som betyr at data normalt lagres lokalt pa enhet
 6. Deling med tredjepart
 
 Vi kan dele begrensede data med:
+  - Supabase som databehandler for konto, autentisering, database, Edge Functions, backup og opplastingssynk. Prosjektene skal ligge i en valgt EØS-region.
   - Open Food Facts og Matvaretabellen for oppslag av produkt-/naeringsdata nar du aktivt soker eller skanner. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 

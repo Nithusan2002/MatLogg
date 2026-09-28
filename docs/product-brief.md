@@ -71,7 +71,8 @@ Den sentrale kjerneflyten er:
 
 MVP-en prioriterer:
 
-- e-postbasert innlogging og onboarding
+- valgfri konto med Apple eller e-post/passord; lokal bruk krever ikke konto
+- onboarding for både lokal profil og konto
 - dagsoversikt og fire måltider
 - logging via søk, strekkode og manuell registrering
 - norske råvarer fra Matvaretabellen og produktoppslag fra Open Food Facts

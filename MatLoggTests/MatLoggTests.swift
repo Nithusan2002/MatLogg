@@ -227,6 +227,36 @@ struct MatLoggTests {
         #expect(recovered.payload == created.payload)
     }
 
+    @Test @MainActor func localProfileClaimMovesDomainAndQueueOwnershipAtomically() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggProfileClaim-" + UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("claim.sqlite"))
+        let localId = UUID()
+        let accountId = UUID()
+        let goal = Goal(
+            userId: localId,
+            goalType: "maintain",
+            dailyCalories: 2_000,
+            proteinTargetG: 100,
+            carbsTargetG: 250,
+            fatTargetG: 70
+        )
+        try store.saveGoal(goal)
+        let originalEvent = try #require(store.fetchPendingEvents(ownerUserId: localId, limit: 10).first)
+
+        try store.claimLocalData(from: localId, to: accountId)
+
+        #expect(store.localDataSummary(ownerId: localId) == .empty)
+        #expect(store.localDataSummary(ownerId: accountId).goals == 1)
+        #expect(store.getLatestGoal(userId: localId) == nil)
+        #expect(store.getLatestGoal(userId: accountId)?.userId == accountId)
+        #expect(store.fetchPendingEvents(ownerUserId: localId, limit: 10).isEmpty)
+        let claimedEvent = try #require(store.fetchPendingEvents(ownerUserId: accountId, limit: 10).first)
+        #expect(claimedEvent.eventId == originalEvent.eventId)
+    }
+
     @Test func swiftClientSyncsThroughHTTPToPostgres() async throws {
         #if MATLOGG_SYNC_E2E
         let serverURL = URL(string: "http://127.0.0.1:4000")!
@@ -1003,17 +1033,36 @@ private final class HealthProfileRepositorySpy: HealthProfileRepository {
 private final class PersonalDetailsStoreSpy: PersonalDetailsStore {
     var details: PersonalDetails = .empty
 
-    func load() -> PersonalDetails {
+    func load(userId: UUID) -> PersonalDetails {
         details
     }
 
-    func save(_ details: PersonalDetails) throws {
+    func save(_ details: PersonalDetails, userId: UUID) throws {
         self.details = details
     }
 }
 
 @MainActor
 struct AuthViewModelTests {
+    @Test func restoreSessionPublishesOnlyAValidatedRepositoryUser() async {
+        let user = makeUser()
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = user
+        let store = AuthSessionStoreSpy()
+        let viewModel = AuthViewModel(
+            authRepository: repository,
+            localStore: store,
+            localProfileManager: LocalProfileManagerSpy()
+        )
+
+        #expect(viewModel.isRestoringSession)
+        await viewModel.restoreSession()
+
+        #expect(!viewModel.isRestoringSession)
+        #expect(viewModel.authenticatedUser?.id == user.id)
+        #expect(store.user?.id == user.id)
+    }
+
     @Test func sessionRequiresBothStoredUserAndToken() {
         let user = makeUser()
         let incompleteStore = AuthSessionStoreSpy(user: user, token: nil)
@@ -1045,6 +1094,43 @@ struct AuthViewModelTests {
         #expect(store.user?.id == user.id)
         #expect(store.token == "test-token")
         #expect(!viewModel.isLoading)
+    }
+
+    @Test func localProfileCanBeUsedWithoutCredentials() {
+        let store = AuthSessionStoreSpy()
+        let viewModel = AuthViewModel(apiClient: AuthAPIClientSpy(user: makeUser()), sessionStore: store)
+
+        viewModel.continueLocally()
+
+        #expect(viewModel.currentUser?.isLocalProfile == true)
+        #expect(viewModel.authenticatedUser == nil)
+        #expect(store.token == nil)
+        #expect(viewModel.isOnboarding)
+    }
+
+    @Test func accountLoginWaitsForConfirmationBeforeClaimingLocalData() async {
+        let account = makeUser()
+        let store = AuthSessionStoreSpy()
+        let manager = LocalProfileManagerSpy()
+        manager.summary = LocalDataSummary(logs: 2, goals: 1, favorites: 0, scans: 0, weights: 0, savedMeals: 0)
+        let viewModel = AuthViewModel(
+            apiClient: AuthAPIClientSpy(user: account),
+            sessionStore: store,
+            localProfileManager: manager
+        )
+        viewModel.continueLocally()
+        let localId = viewModel.currentUser?.id
+
+        await viewModel.login(email: account.email, password: "password")
+
+        #expect(viewModel.currentUser?.id == localId)
+        #expect(viewModel.pendingLocalDataSummary?.logs == 2)
+        #expect(store.token == nil)
+        await viewModel.confirmLocalDataLink()
+        #expect(manager.claimedFrom == localId)
+        #expect(manager.claimedTo == account.id)
+        #expect(viewModel.authenticatedUser?.id == account.id)
+        #expect(store.token == "token")
     }
 
     @Test func loginDoesNotAuthenticateWhenTokenCannotBeStored() async {
@@ -1097,21 +1183,22 @@ struct AuthViewModelTests {
 
         #expect(viewModel.currentUser == nil)
         #expect(store.token == nil)
-        #expect(viewModel.errorMessage == "Økten din er utløpt. Logg inn på nytt.")
+        #expect(viewModel.errorMessage == "Økten din er utløpt. Logg inn på nytt. Dataene på denne enheten er beholdt.")
     }
 
     @Test func successfulAccountDeletionClearsLocalDataAndCredentials() async {
         let user = makeUser()
         let api = AuthAPIClientSpy(user: user)
         let store = AuthSessionStoreSpy(user: user, token: "token")
-        let resetter = LocalDataResetterSpy()
-        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localDataResetter: resetter)
+        let resetter = LocalProfileManagerSpy()
+        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await viewModel.restoreSession()
 
         let succeeded = await viewModel.deleteAccount()
 
         #expect(succeeded)
         #expect(api.deleteCallCount == 1)
-        #expect(resetter.resetCallCount == 1)
+        #expect(resetter.deleteCallCount == 1)
         #expect(store.user == nil)
         #expect(store.token == nil)
     }
@@ -1121,16 +1208,71 @@ struct AuthViewModelTests {
         let api = AuthAPIClientSpy(user: user)
         api.deleteError = TestRepositoryError.saveFailed
         let store = AuthSessionStoreSpy(user: user, token: "token")
-        let resetter = LocalDataResetterSpy()
-        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localDataResetter: resetter)
+        let resetter = LocalProfileManagerSpy()
+        let viewModel = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await viewModel.restoreSession()
 
         let succeeded = await viewModel.deleteAccount()
 
         #expect(!succeeded)
-        #expect(resetter.resetCallCount == 0)
+        #expect(resetter.deleteCallCount == 0)
         #expect(store.user?.id == user.id)
         #expect(store.token == "token")
         #expect(viewModel.errorMessage != nil)
+    }
+
+    @Test func signupWaitsForVerifiedEmailBeforeCreatingAccountSession() async {
+        let repository = AccountAuthRepositorySpy()
+        repository.registrationResult = .pendingEmailVerification(email: "test@example.com")
+        let store = AuthSessionStoreSpy()
+        let viewModel = AuthViewModel(
+            authRepository: repository,
+            localStore: store,
+            localProfileManager: LocalProfileManagerSpy()
+        )
+
+        await viewModel.signUp(email: "test@example.com", password: "password")
+
+        #expect(viewModel.pendingVerificationEmail == "test@example.com")
+        #expect(viewModel.currentUser == nil)
+        #expect(store.user == nil)
+    }
+
+    @Test func resendUsesPendingVerificationAddress() async {
+        let repository = AccountAuthRepositorySpy()
+        repository.registrationResult = .pendingEmailVerification(email: "test@example.com")
+        let viewModel = AuthViewModel(
+            authRepository: repository,
+            localStore: AuthSessionStoreSpy(),
+            localProfileManager: LocalProfileManagerSpy()
+        )
+
+        await viewModel.signUp(email: "test@example.com", password: "password")
+        await viewModel.resendEmailVerification()
+
+        #expect(repository.resentAddress == "test@example.com")
+        #expect(viewModel.verificationMessage == "En ny bekreftelseslenke er sendt.")
+    }
+
+    @Test func emailCallbackCreatesVerifiedSession() async {
+        let user = makeUser()
+        let repository = AccountAuthRepositorySpy()
+        repository.registrationResult = .pendingEmailVerification(email: user.email)
+        repository.callbackUser = user
+        let store = AuthSessionStoreSpy()
+        let viewModel = AuthViewModel(
+            authRepository: repository,
+            localStore: store,
+            localProfileManager: LocalProfileManagerSpy()
+        )
+
+        await viewModel.signUp(email: user.email, password: "password")
+        await viewModel.handleAuthCallback(URL(string: "matlogg://auth/callback?code=test")!)
+
+        #expect(viewModel.pendingVerificationEmail == nil)
+        #expect(viewModel.currentUser?.id == user.id)
+        #expect(store.user?.id == user.id)
+        #expect(viewModel.isOnboarding)
     }
 
     private func makeUser() -> User {
@@ -1141,6 +1283,41 @@ struct AuthViewModelTests {
             lastName: "User",
             authProvider: "email",
             createdAt: Date()
+        )
+    }
+}
+
+@MainActor
+private final class AccountAuthRepositorySpy: AccountAuthRepository {
+    var registrationResult: AccountRegistrationResult?
+    var callbackUser: User?
+    var restoredUser: User?
+    var resentAddress: String?
+
+    func restoreSession() async -> User? { restoredUser }
+    func signIn(email: String, password: String) async throws -> User {
+        guard let callbackUser else { throw TestRepositoryError.saveFailed }
+        return callbackUser
+    }
+    func signUp(email: String, password: String) async throws -> AccountRegistrationResult {
+        guard let registrationResult else { throw TestRepositoryError.saveFailed }
+        return registrationResult
+    }
+    func resendEmailVerification(to email: String) async throws { resentAddress = email }
+    func signInWithApple(identityToken: String, nonce: String) async throws -> User {
+        guard let callbackUser else { throw TestRepositoryError.saveFailed }
+        return callbackUser
+    }
+    func handleAuthCallback(_ url: URL) async throws -> User {
+        guard let callbackUser else { throw TestRepositoryError.saveFailed }
+        return callbackUser
+    }
+    func signOut() async throws {}
+    func deleteAccount() async throws -> AccountDeletionReceipt {
+        AccountDeletionReceipt(
+            code: "ACCOUNT_PENDING_DELETION",
+            message: "Kontoen er markert for sletting",
+            permanentDeletionAt: Date().addingTimeInterval(30 * 86_400)
         )
     }
 }
@@ -1160,7 +1337,11 @@ private final class AuthAPIClientSpy: AuthAPIClient {
         (user, tokens)
     }
 
-    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, AuthTokens) {
+    func signupEmail(email: String, password: String) async throws -> (User, AuthTokens) {
+        (user, tokens)
+    }
+
+    func loginApple(identityToken: String, authorizationCode: String?, nonce: String) async throws -> (User, AuthTokens) {
         (user, tokens)
     }
 
@@ -1177,12 +1358,18 @@ private final class AuthAPIClientSpy: AuthAPIClient {
     }
 }
 
-private final class LocalDataResetterSpy: LocalDataResetting {
-    var resetCallCount = 0
+private final class LocalProfileManagerSpy: LocalProfileManaging {
+    var deleteCallCount = 0
+    var summary: LocalDataSummary = .empty
+    var claimedFrom: UUID?
+    var claimedTo: UUID?
 
-    func resetAllLocalData() async throws {
-        resetCallCount += 1
+    func localDataSummary(ownerId: UUID) async -> LocalDataSummary { summary }
+    func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
+        claimedFrom = localOwnerId
+        claimedTo = accountOwnerId
     }
+    func deleteLocalData(ownerId: UUID) async throws { deleteCallCount += 1 }
 }
 
 @MainActor
@@ -1211,6 +1398,8 @@ private final class AuthSessionStoreSpy: AuthSessionStore {
     var token: String?
     var tokenStorageSucceeds: Bool
     var refreshToken: String?
+    var localUser: User?
+    var onboardingCompleted: Set<UUID> = []
 
     init(user: User? = nil, token: String? = nil, tokenStorageSucceeds: Bool = true) {
         self.user = user
@@ -1257,6 +1446,22 @@ private final class AuthSessionStoreSpy: AuthSessionStore {
         token = nil
         refreshToken = nil
         return true
+    }
+
+    func activateLocalProfile() -> User {
+        if let localUser { return localUser }
+        let created = User.local(id: UUID())
+        localUser = created
+        return created
+    }
+
+    func getActiveLocalProfile() -> User? { localUser }
+    func consumeLocalProfile() { localUser = nil }
+    func deactivateLocalMode() {}
+    func hasCompletedOnboarding(userId: UUID) -> Bool { onboardingCompleted.contains(userId) }
+    func onboardingCompletion(userId: UUID) -> Bool? { onboardingCompleted.contains(userId) ? true : nil }
+    func setOnboardingCompleted(_ completed: Bool, userId: UUID) {
+        if completed { onboardingCompleted.insert(userId) } else { onboardingCompleted.remove(userId) }
     }
 }
 

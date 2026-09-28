@@ -51,6 +51,8 @@ Carthage/Build
 .env.local
 Secrets.xcconfig
 *.xcconfig.local
+Config/Supabase-Debug.xcconfig.local
+Config/Supabase-Release.xcconfig.local
 *.pem
 *.p12
 *.key
@@ -62,3 +64,5 @@ temp/
 git-xcode-recovery-backup/
 backend/node_modules/
 backend/dist/
+supabase/.branches/
+supabase/.temp/

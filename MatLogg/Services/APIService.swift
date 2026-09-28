@@ -1,6 +1,16 @@
 import Foundation
 
 class APIService {
+    private static let productionBaseURL = "https://api.matlogg.app/v1"
+
+    private static var defaultBaseURL: String {
+#if DEBUG
+        ProcessInfo.processInfo.environment["MATLOGG_API_BASE_URL"] ?? productionBaseURL
+#else
+        productionBaseURL
+#endif
+    }
+
     private let baseURL: String
     private let httpClient: any HTTPClientProtocol
     private let accessTokenProvider: () -> String?
@@ -12,7 +22,7 @@ class APIService {
 
     init(
         httpClient: any HTTPClientProtocol = URLSessionHTTPClient(),
-        baseURL: String = "https://api.matlogg.app/v1",
+        baseURL: String? = nil,
         accessTokenProvider: @escaping () -> String? = { nil },
         authSessionStore: (any AuthSessionStore)? = nil,
         refreshCoordinator: TokenRefreshCoordinator = TokenRefreshCoordinator(),
@@ -23,7 +33,7 @@ class APIService {
         }
     ) {
         self.httpClient = httpClient
-        self.baseURL = baseURL
+        self.baseURL = baseURL ?? Self.defaultBaseURL
         self.accessTokenProvider = accessTokenProvider
         self.authSessionStore = authSessionStore
         self.refreshCoordinator = refreshCoordinator
@@ -131,7 +141,7 @@ class APIService {
         return url
     }
     
-    func signupEmail(email: String, password: String, firstName: String, lastName: String) async throws -> (User, AuthTokens) {
+    func signupEmail(email: String, password: String) async throws -> (User, AuthTokens) {
         let url = try endpointURL("/auth/register")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -139,9 +149,7 @@ class APIService {
         
         let body: [String: Any] = [
             "email": email,
-            "password": password,
-            "first_name": firstName,
-            "last_name": lastName
+            "password": password
         ]
         
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -165,6 +173,22 @@ class APIService {
         )
         
         return (user, authResponse.tokens)
+    }
+
+    func loginApple(identityToken: String, authorizationCode: String?, nonce: String) async throws -> (User, AuthTokens) {
+        let url = try endpointURL("/auth/apple")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = ["identity_token": identityToken, "nonce": nonce]
+        if let authorizationCode { body["authorization_code"] = authorizationCode }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let result = try await httpClient.send(request, timeout: 30)
+        try requireBackendSuccess(data: result.data, response: result.response)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let authResponse = try decoder.decode(AuthResponse.self, from: result.data)
+        return (authResponse.user, authResponse.tokens)
     }
     
     func loginEmail(email: String, password: String) async throws -> (User, AuthTokens) {
@@ -780,6 +804,16 @@ private struct AuthResponse: Decodable {
     let refresh_token: String?
 
     var tokens: AuthTokens { AuthTokens(accessToken: token, refreshToken: refresh_token) }
+    var user: User {
+        User(
+            id: user_id,
+            email: email,
+            firstName: first_name,
+            lastName: last_name,
+            authProvider: auth_provider,
+            createdAt: created_at
+        )
+    }
 }
 
 private struct RefreshRequest: Encodable {
@@ -903,7 +937,7 @@ private struct OpenFoodFactsNutriments: Codable {
     }
 }
 
-private enum SyncDeviceIdentity {
+enum SyncDeviceIdentity {
     private static let key = "ml_sync_device_id"
 
     static var id: UUID {

@@ -1,0 +1,15 @@
+{
+  "name": "matlogg-platform",
+  "private": true,
+  "scripts": {
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:test": "supabase test db",
+    "supabase:lint": "supabase db lint --local --schema public --schema private --level warning",
+    "functions:test": "deno test --allow-env supabase/functions/tests"
+  },
+  "devDependencies": {
+    "supabase": "2.118.0"
+  }
+}

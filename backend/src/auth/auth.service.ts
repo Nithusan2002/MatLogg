@@ -1,8 +1,9 @@
-import { ConflictException, GoneException, Injectable, Logger, OnModuleDestroy, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, GoneException, Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { AppleTokenVerifier } from './apple-token-verifier';
 
 const scrypt = promisify(nodeScrypt);
 const deletionRetentionMs = 30 * 24 * 60 * 60 * 1000;
@@ -13,7 +14,11 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuthService.name);
   private purgeTimer?: NodeJS.Timeout;
 
-  constructor(private readonly jwtService: JwtService, private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly appleTokenVerifier: AppleTokenVerifier = new AppleTokenVerifier(),
+  ) {}
 
   async onModuleInit() {
     await this.runMaintenance();
@@ -36,7 +41,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return { accessToken };
   }
 
-  async register(input: { email: string; password: string; first_name: string; last_name: string }) {
+  async register(input: { email: string; password: string }) {
     const email = input.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException({ code: 'EMAIL_ALREADY_REGISTERED', message: 'E-postadressen er allerede registrert' });
@@ -47,8 +52,6 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       const created = await tx.user.create({
         data: {
           email,
-          firstName: input.first_name.trim(),
-          lastName: input.last_name.trim(),
           passwordHash,
           authProvider: 'email',
         },
@@ -63,6 +66,34 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       return created;
     });
     return this.authResponse(user, refreshToken);
+  }
+
+  async loginApple(identityToken: string, nonce: string) {
+    let identity;
+    try {
+      identity = await this.appleTokenVerifier.verify(identityToken, nonce);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'APPLE_CLIENT_ID_NOT_CONFIGURED') {
+        throw new ServiceUnavailableException({ code: 'APPLE_AUTH_NOT_CONFIGURED', message: 'Apple-innlogging er ikke konfigurert' });
+      }
+      throw new UnauthorizedException({ code: 'INVALID_APPLE_CREDENTIAL', message: 'Apple-innloggingen kunne ikke verifiseres' });
+    }
+
+    let user = await this.prisma.user.findUnique({ where: { appleSubject: identity.subject } });
+    if (user?.deletedAt) throw new GoneException({ code: 'ACCOUNT_PENDING_DELETION', message: 'Kontoen er markert for sletting' });
+    if (!user) {
+      if (!identity.email) {
+        throw new UnauthorizedException({ code: 'APPLE_EMAIL_REQUIRED', message: 'Apple må dele en e-postadresse første gang kontoen opprettes' });
+      }
+      const emailOwner = await this.prisma.user.findUnique({ where: { email: identity.email } });
+      if (emailOwner) {
+        throw new ConflictException({ code: 'EMAIL_ACCOUNT_EXISTS', message: 'Denne e-posten har allerede en konto. Logg inn med e-post.' });
+      }
+      user = await this.prisma.user.create({
+        data: { email: identity.email, appleSubject: identity.subject, authProvider: 'apple' },
+      });
+    }
+    return this.authResponse(user);
   }
 
   async login(emailInput: string, password: string) {

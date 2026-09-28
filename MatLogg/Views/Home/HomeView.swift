@@ -1011,26 +1011,40 @@ struct ScanHistoryView: View {
 
 struct CameraView: View {
     @Environment(\.dismiss) var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onLogComplete: (ReceiptPayload) -> Void
+
+    @StateObject private var cameraAuthorization: CameraAuthorizationViewModel
     
     @State private var scannedBarcode: String?
     @State private var scannedProduct: Product?
     @State private var isLoading = false
     @State private var isTorchOn = false
+    @State private var isTorchAvailable = false
     @State private var scanHelpTitle: String?
     @State private var scanHelpHints: [String] = []
     @State private var showScanHelp = false
     @State private var showProductDetail = false
     @State private var showProductNotFound = false
     @State private var showManualProduct = false
-    @State private var showCameraPrePrompt = false
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
+
+    init(
+        onLogComplete: @escaping (ReceiptPayload) -> Void,
+        authorizationProvider: any CameraAuthorizationProviding = CameraAuthorizationService()
+    ) {
+        self.onLogComplete = onLogComplete
+        _cameraAuthorization = StateObject(
+            wrappedValue: CameraAuthorizationViewModel(authorizationProvider: authorizationProvider)
+        )
+    }
     
     var body: some View {
         ZStack {
@@ -1039,8 +1053,11 @@ struct CameraView: View {
                 HStack {
                     Button("Avbryt") { dismiss() }
                     Spacer()
-                    Button(action: { isTorchOn.toggle() }) {
-                        Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                    if cameraAuthorization.state == .authorized, isTorchAvailable {
+                        Button(action: { isTorchOn.toggle() }) {
+                            Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                        }
+                        .accessibilityLabel(isTorchOn ? "Slå av lommelykt" : "Slå på lommelykt")
                     }
                 }
                 .padding(16)
@@ -1048,33 +1065,29 @@ struct CameraView: View {
                 
                 Spacer()
                 
-                // Camera View
-                if showCameraPrePrompt {
-                    VStack(spacing: 12) {
-                        Text("Vi trenger kamera for å skanne strekkoder.")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        Text("Du kan gi tilgang når du er klar.")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.85))
-                        Button(action: { showCameraPrePrompt = false }) {
-                            Text("Fortsett")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.black)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
-                                .background(Color.white)
-                                .cornerRadius(12)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
+                switch cameraAuthorization.state {
+                case .authorized:
                     BarcodeScannerView(
                         onBarcodeDetected: handleBarcodeDetected,
                         onError: handleError,
+                        onCameraUnavailable: handleCameraUnavailable,
+                        onTorchAvailabilityChanged: { isAvailable in
+                            isTorchAvailable = isAvailable
+                            if !isAvailable { isTorchOn = false }
+                        },
                         torchOn: $isTorchOn
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .checking, .requesting:
+                    cameraAuthorizationProgress
+                case .needsRequest:
+                    cameraPermissionRequest
+                case .denied:
+                    cameraPermissionDenied
+                case .restricted:
+                    cameraPermissionRestricted
+                case .unavailable:
+                    cameraUnavailable
                 }
                 
                 Spacer()
@@ -1115,7 +1128,7 @@ struct CameraView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
             
-            if !showCameraPrePrompt {
+            if cameraAuthorization.state == .authorized {
                 // Centered Viewfinder Overlay
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.white.opacity(0.9), lineWidth: 3)
@@ -1145,9 +1158,12 @@ struct CameraView: View {
         .onDisappear {
             isTorchOn = false
         }
-        .onAppear {
-            let status = AVCaptureDevice.authorizationStatus(for: .video)
-            showCameraPrePrompt = (status == .notDetermined)
+        .task {
+            cameraAuthorization.refresh()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            cameraAuthorization.refresh()
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
             scannedBarcode = nil
@@ -1198,6 +1214,123 @@ struct CameraView: View {
         } message: {
             Text("Vi fant ikke komplette næringsverdier per 100 g eller 100 ml. Vil du legge produktet til manuelt?")
         }
+    }
+
+    private var cameraAuthorizationProgress: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .tint(.white)
+            Text(cameraAuthorization.state == .requesting ? "Venter på kameratilgang …" : "Sjekker kameratilgang …")
+                .font(AppTypography.body)
+                .foregroundColor(.white.opacity(0.85))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var cameraPermissionRequest: some View {
+        cameraPermissionMessage(
+            icon: "barcode.viewfinder",
+            title: "Skann strekkoder med kameraet",
+            message: "MatLogg bruker kameraet bare til å lese strekkoder på matvarer. Ingen bilder lagres.",
+            primaryTitle: "Gi kameratilgang",
+            primarySystemImage: "camera.fill",
+            primaryAction: {
+                Task { await cameraAuthorization.requestAccess() }
+            }
+        )
+    }
+
+    private var cameraPermissionDenied: some View {
+        cameraPermissionMessage(
+            icon: "camera.fill",
+            title: "Kameratilgang er slått av",
+            message: "Gi MatLogg kameratilgang i Innstillinger for å skanne strekkoder.",
+            primaryTitle: "Åpne Innstillinger",
+            primarySystemImage: "gearshape.fill",
+            primaryAction: openAppSettings
+        )
+    }
+
+    private var cameraPermissionRestricted: some View {
+        cameraPermissionMessage(
+            icon: "camera.fill",
+            title: "Kameraet kan ikke brukes",
+            message: "Kameratilgang er begrenset på denne enheten, for eksempel av Skjermtid eller en administrert profil.",
+            primaryTitle: nil,
+            primarySystemImage: nil,
+            primaryAction: {}
+        )
+    }
+
+    private var cameraUnavailable: some View {
+        cameraPermissionMessage(
+            icon: "camera.fill",
+            title: "Kameraet er ikke tilgjengelig",
+            message: "MatLogg får ikke startet kameraet på denne enheten akkurat nå. Du kan fortsatt registrere produktet manuelt eller velge en annen metode.",
+            primaryTitle: nil,
+            primarySystemImage: nil,
+            primaryAction: {}
+        )
+    }
+
+    private func cameraPermissionMessage(
+        icon: String,
+        title: String,
+        message: String,
+        primaryTitle: String?,
+        primarySystemImage: String?,
+        primaryAction: @escaping () -> Void
+    ) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 42, weight: .semibold))
+                .accessibilityHidden(true)
+
+            Text(title)
+                .font(AppTypography.title)
+                .multilineTextAlignment(.center)
+
+            Text(message)
+                .font(AppTypography.body)
+                .foregroundColor(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+
+            if let primaryTitle {
+                PrimaryButton(
+                    title: primaryTitle,
+                    systemImage: primarySystemImage,
+                    action: primaryAction
+                )
+            }
+
+            Button("Registrer manuelt") {
+                scannedBarcode = nil
+                showManualProduct = true
+            }
+            .font(AppTypography.bodyEmphasis)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .overlay(
+                Capsule().stroke(Color.white.opacity(0.75), lineWidth: 1)
+            )
+
+            Button("Velg en annen metode") { dismiss() }
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(.white)
+                .frame(minHeight: 44)
+                .accessibilityHint("Lukker kameraet og går tilbake til de andre måtene å legge til mat på")
+        }
+        .foregroundColor(.white)
+        .padding(24)
+        .frame(maxWidth: 420, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func openAppSettings() {
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(settingsURL)
     }
     
     private func handleBarcodeDetected(_ barcode: String) {
@@ -1348,6 +1481,12 @@ struct CameraView: View {
         )
         HapticFeedbackService.shared.trigger(.error, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
         SoundFeedbackService.shared.play(.error, isEnabled: preferencesViewModel.soundFeedbackEnabled)
+    }
+
+    private func handleCameraUnavailable() {
+        isTorchOn = false
+        isTorchAvailable = false
+        cameraAuthorization.reportCameraUnavailable()
     }
     
     private func presentScanHelp(title: String, hints: [String]) {
@@ -1579,70 +1718,102 @@ extension Date {
 struct BarcodeScannerView: UIViewControllerRepresentable {
     let onBarcodeDetected: (String) -> Void
     let onError: (String) -> Void
+    let onCameraUnavailable: () -> Void
+    let onTorchAvailabilityChanged: (Bool) -> Void
     @Binding var torchOn: Bool
     
     func makeUIViewController(context: Context) -> BarcodeScannerViewController {
         let controller = BarcodeScannerViewController()
         controller.onBarcodeDetected = onBarcodeDetected
         controller.onError = onError
+        controller.onCameraUnavailable = onCameraUnavailable
+        controller.onTorchAvailabilityChanged = onTorchAvailabilityChanged
         return controller
     }
     
     func updateUIViewController(_ uiViewController: BarcodeScannerViewController, context: Context) {
         uiViewController.setTorch(on: torchOn)
     }
+
+    static func dismantleUIViewController(_ uiViewController: BarcodeScannerViewController, coordinator: ()) {
+        uiViewController.stopScanning()
+    }
 }
 
 class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     var onBarcodeDetected: ((String) -> Void)?
     var onError: ((String) -> Void)?
+    var onCameraUnavailable: (() -> Void)?
+    var onTorchAvailabilityChanged: ((Bool) -> Void)?
     
     private let captureSession = AVCaptureSession()
+    private let sessionQueue = DispatchQueue(label: "com.matlogg.barcode-scanner.session", qos: .userInitiated)
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var lastScannedCode: String?
     private var lastScanTime: Date = Date()
     private var videoDevice: AVCaptureDevice?
+    private var isSessionConfigured = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupCamera()
+        sessionQueue.async { [weak self] in
+            self?.configureSession()
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
+        updatePreviewRotation()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if !captureSession.isRunning {
-            DispatchQueue.global(qos: .userInitiated).async { [captureSession] in
-                captureSession.startRunning()
-            }
+        sessionQueue.async { [weak self] in
+            self?.startSessionIfPossible()
         }
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if captureSession.isRunning {
-            captureSession.stopRunning()
+        stopScanning()
+    }
+
+    func stopScanning() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            self.setTorchOnSessionQueue(on: false)
+            if self.captureSession.isRunning {
+                self.captureSession.stopRunning()
+            }
         }
     }
     
-    private func setupCamera() {
+    private func configureSession() {
+        guard !isSessionConfigured else { return }
+
         guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else {
-            onError?("Kamera er ikkje tilgjengeleg")
+            reportCameraUnavailable()
             return
         }
         videoDevice = videoCaptureDevice
-        
+
+        captureSession.beginConfiguration()
+        defer { captureSession.commitConfiguration() }
+
         let videoInput: AVCaptureDeviceInput
         do {
             videoInput = try AVCaptureDeviceInput(device: videoCaptureDevice)
         } catch {
-            onError?("Kan ikkje aksesuere kamera")
+            reportCameraUnavailable()
             return
         }
         
         if captureSession.canAddInput(videoInput) {
             captureSession.addInput(videoInput)
         } else {
-            onError?("Kan ikkje legge til video input")
+            reportCameraUnavailable()
             return
         }
         
@@ -1660,36 +1831,69 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
                 .code93
             ]
         } else {
-            onError?("Kan ikkje legge til metadata output")
+            reportCameraUnavailable()
             return
         }
-        
-        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        previewLayer?.frame = view.layer.bounds
-        previewLayer?.videoGravity = .resizeAspectFill
-        
-        if let previewLayer = previewLayer {
-            view.layer.addSublayer(previewLayer)
+
+        isSessionConfigured = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let previewLayer = AVCaptureVideoPreviewLayer(session: self.captureSession)
+            previewLayer.videoGravity = .resizeAspectFill
+            previewLayer.frame = self.view.bounds
+            self.previewLayer = previewLayer
+            self.rotationCoordinator = AVCaptureDevice.RotationCoordinator(
+                device: videoCaptureDevice,
+                previewLayer: previewLayer
+            )
+            self.view.layer.insertSublayer(previewLayer, at: 0)
+            self.updatePreviewRotation()
+            self.onTorchAvailabilityChanged?(videoCaptureDevice.hasTorch)
         }
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.captureSession.startRunning()
+    }
+
+    private func startSessionIfPossible() {
+        guard isSessionConfigured, !captureSession.isRunning else { return }
+        captureSession.startRunning()
+    }
+
+    private func updatePreviewRotation() {
+        guard let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelPreview,
+              let connection = previewLayer?.connection,
+              connection.isVideoRotationAngleSupported(angle) else { return }
+        connection.videoRotationAngle = angle
+    }
+
+    private func reportCameraUnavailable() {
+        DispatchQueue.main.async { [weak self] in
+            self?.onTorchAvailabilityChanged?(false)
+            self?.onCameraUnavailable?()
         }
     }
     
     func setTorch(on: Bool) {
-        guard let device = videoDevice, device.hasTorch else { return }
-        DispatchQueue.main.async {
-            do {
-                try device.lockForConfiguration()
-                if on {
-                    try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
-                } else {
-                    device.torchMode = .off
-                }
-                device.unlockForConfiguration()
-            } catch {
-                self.onError?("Kunne ikkje slå på lommelykt")
+        sessionQueue.async { [weak self] in
+            self?.setTorchOnSessionQueue(on: on)
+        }
+    }
+
+    private func setTorchOnSessionQueue(on: Bool) {
+        guard let device = videoDevice,
+              device.hasTorch,
+              device.isTorchModeSupported(on ? .on : .off) else { return }
+
+        do {
+            try device.lockForConfiguration()
+            defer { device.unlockForConfiguration() }
+            if on {
+                try device.setTorchModeOn(level: AVCaptureDevice.maxAvailableTorchLevel)
+            } else {
+                device.torchMode = .off
+            }
+        } catch {
+            DispatchQueue.main.async { [weak self] in
+                self?.onError?("Kunne ikke slå på lommelykten")
             }
         }
     }

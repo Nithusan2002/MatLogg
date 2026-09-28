@@ -2,17 +2,18 @@
 
 ## 6.1 API Arkitektur
 
-**Base URL:** `https://api.matlogg.app/v1`  
+**Supabase Functions URL:** `<SUPABASE_URL>/functions/v1`
 **Protocol:** REST + JSON  
 **Auth:** Bearer JWT (Authorization header)  
 **Versioning:** URL-based (`/v1`, `/v2`, etc.)
 
 ### Implementasjonsstatus
 
-Teknisk sannhetskilde er `backend/src/` og generert Swagger på `/docs`.
-Implementert nå: health, e-postregistrering/-innlogging, token-refresh,
-kontosletting og `POST /v1/sync/events`. Produkt-, logg-, mål-, delings- og OAuth-
-endepunktene nedenfor er målbilde til de finnes i backend-koden.
+Teknisk sannhetskilde for ny serverplattform er `supabase/`. Supabase Auth eier
+registrering, e-postbekreftelse, innlogging, tokenrefresh og lokal utlogging.
+Edge Functions eier synk og kontosletting. De eldre REST-endepunktene nedenfor
+beskriver legacy-backenden eller målbilde og skal ikke bygges videre under
+cutover.
 
 ---
 
@@ -26,9 +27,7 @@ Registrer ny bruker
 ```json
 {
   "email": "nithu@example.com",
-  "password": "SecurePassword123!", // only for email provider
-  "first_name": "Nithu",
-  "last_name": "Doe"
+  "password": "SecurePassword123!"
 }
 ```
 
@@ -37,8 +36,8 @@ Registrer ny bruker
 {
   "user_id": "user-uuid-here",
   "email": "nithu@example.com",
-  "first_name": "Nithu",
-  "last_name": "Doe",
+  "first_name": "",
+  "last_name": "",
   "auth_provider": "email",
   "created_at": "2026-09-24T12:00:00Z",
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -74,8 +73,8 @@ Innlogging (email/passord)
 {
   "user_id": "user-uuid-here",
   "email": "nithu@example.com",
-  "first_name": "Nithu",
-  "last_name": "Doe",
+  "first_name": "",
+  "last_name": "",
   "auth_provider": "email",
   "created_at": "2026-09-16T12:00:00Z",
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -98,20 +97,19 @@ Innlogging (email/passord)
 
 ---
 
-### **POST /auth/oauth**
+### **POST /auth/apple**
 
-OAuth-innlogging (Apple/Google)
+Innlogging eller opprettelse med Apple
 
-**Status:** Senere scope. Endepunktet er ikke implementert eller eksponert i
-iOS-klienten.
+**Status:** Implementert. Backend verifiserer signatur, issuer, audience,
+utløp og nonce. Lik e-post kobler ikke automatisk Apple til en e-postkonto.
 
 **Request:**
 ```json
 {
-  "auth_provider": "apple", // or "google"
-  "id_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "first_name": "Nithu",
-  "last_name": "Doe"
+  "identity_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "authorization_code": "valgfri-kode-fra-Apple",
+  "nonce": "rå-engangsverdi-fra-klienten"
 }
 ```
 
@@ -119,10 +117,14 @@ iOS-klienten.
 ```json
 {
   "user_id": "user-uuid-here",
-  "is_new_user": true,
+  "email": "privat-adresse@privaterelay.appleid.com",
+  "first_name": "",
+  "last_name": "",
+  "auth_provider": "apple",
+  "created_at": "2026-09-27T12:00:00Z",
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 86400,
-  "refresh_token": "refresh-token-here"
+  "refresh_token": "refresh-token-here",
+  "expires_in": 900
 }
 ```
 
@@ -239,7 +241,7 @@ Søk etter produkt (navn-basert)
 GET /products/search?q=brød&limit=10
 ```
 
-**Response (200):**
+**Response (201):**
 ```json
 {
   "results": [
@@ -544,7 +546,7 @@ Hent alle favoritter
 
 ## 6.7 Sync Endpoint
 
-### **POST /v1/sync/events**
+### **POST /functions/v1/sync-events**
 
 Synkroniser offline-events til backend
 
@@ -566,7 +568,7 @@ Synkroniser offline-events til backend
 }
 ```
 
-**Response (201):**
+**Response (200):**
 ```json
 {
   "ackedEventIds": ["1b6b94e6-8e1b-4f2d-9c7a-2ef9f9df77d9"],

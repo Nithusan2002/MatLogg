@@ -32,10 +32,15 @@ extension APIService: SyncAPIClient {}
 @MainActor
 final class SyncEngine {
     static let shared: SyncEngine = {
-        let authService = AuthService()
+        let client: any SyncAPIClient
+        if let configuration = try? SupabaseConfiguration.load() {
+            client = SupabaseService(configuration: configuration)
+        } else {
+            client = UnavailableSyncAPIClient()
+        }
         return SyncEngine(
             databaseService: DatabaseService.shared,
-            apiService: APIService(authSessionStore: authService),
+            apiService: client,
             syncEnabled: { FeatureFlags.backendSyncEnabled }
         )
     }()

@@ -1,0 +1,5 @@
+// Production values belong in the ignored Supabase-Release.xcconfig.local file.
+SUPABASE_URL =
+SUPABASE_PUBLISHABLE_KEY =
+SUPABASE_AUTH_CALLBACK_URL = matlogg:/$()/auth/callback
+#include? "Supabase-Release.xcconfig.local"

@@ -1,6 +1,6 @@
 # MatLogg-dokumentasjon
 
-Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode, Prisma-skjema og migrasjoner er teknisk sannhetskilde.
+Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode og versjonerte migrasjoner er teknisk sannhetskilde. Under Supabase-cutover er `supabase/` sannhetskilde for ny serverplattform, mens `backend/` beholdes midlertidig fram til godkjent pilot.
 
 Start produkt- og designarbeid med [produktbriefen](product-brief.md),
 [design- og brukerflyten](design-and-user-flow.md) og
@@ -17,6 +17,8 @@ Funksjonsscope for gjenbruk finnes i [gårsdagens måltid](meal-reuse.md) og
 For å skille faktisk implementasjon fra planlagt scope, start med
 [gjeldende prosjektstatus](current-state.md). Kommandoer og kvalitetskrav finnes
 i [testveiledningen](testing.md).
+Operative krav for staging, pilot og produksjon finnes i
+[produksjonsberedskap](production-readiness.md).
 
 ## Leserekkefølge
 
@@ -40,10 +42,12 @@ i [testveiledningen](testing.md).
 - iOS-oppstart og dependency composition: `MatLogg/MatLoggApp.swift` og `MatLogg/App/AppState.swift`
 - Lokal lagring og synkkø: `MatLogg/Services/LocalStore.swift` og `MatLogg/Services/SyncEngine.swift`
 - API-klient: `MatLogg/Services/APIService.swift`
-- Backend-kontrakt: `backend/src/`
-- Persistensmodell: `backend/prisma/schema.prisma`
-- Lokal backend-oppskrift: `backend/README.md`
+- Supabase-kontrakt og Edge Functions: `supabase/functions/`
+- Serverpersistens og RLS: `supabase/migrations/`
+- Lokal Supabase- og deployoppskrift: `supabase/README.md`
+- Legacy-backend under cutover: `backend/`
 - Varige prosjektvalg: [beslutningslogg](decisions.md)
+- Staging-, pilot- og releaseport: [produksjonsberedskap](production-readiness.md)
 - Produktets hensikt og avgrensning: [produktbrief](product-brief.md)
 - Gjeldende UX-retning og hovedflyter: [design- og brukerflyt](design-and-user-flow.md)
 - Visuelle regler og komponentbruk: [designsystem](design-system.md)
@@ -53,4 +57,4 @@ i [testveiledningen](testing.md).
 Når implementasjonen bevisst avviker fra en spesifikasjon, oppdater dokumentet eller noter beslutningen i samme endring.
 
 `specs/06-api-endpoints.md` beskriver også planlagte endepunkter. Et endepunkt
-regnes ikke som implementert før det finnes i `backend/src/` og er verifisert.
+regnes ikke som implementert før det finnes i `supabase/` og er verifisert.

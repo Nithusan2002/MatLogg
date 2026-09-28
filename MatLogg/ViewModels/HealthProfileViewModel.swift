@@ -10,6 +10,7 @@ final class HealthProfileViewModel: ObservableObject {
 
     private let repository: any HealthProfileRepository
     private let personalDetailsStore: any PersonalDetailsStore
+    private var activeUserId: UUID?
 
     convenience init(repository: any HealthProfileRepository) {
         self.init(
@@ -24,7 +25,7 @@ final class HealthProfileViewModel: ObservableObject {
     ) {
         self.repository = repository
         self.personalDetailsStore = personalDetailsStore
-        self.personalDetails = personalDetailsStore.load()
+        self.personalDetails = .empty
     }
 
     func acceptSavedGoal(_ goal: Goal) {
@@ -32,6 +33,8 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func loadGoal(userId: UUID) async {
+        activeUserId = userId
+        personalDetails = personalDetailsStore.load(userId: userId)
         currentGoal = await repository.latestGoal(userId: userId)
     }
 
@@ -66,9 +69,13 @@ final class HealthProfileViewModel: ObservableObject {
 
     @discardableResult
     func savePersonalDetails(_ details: PersonalDetails) -> Bool {
+        guard let activeUserId else {
+            errorMessage = "Kunne ikke lagre personlige detaljer uten en aktiv profil."
+            return false
+        }
         errorMessage = nil
         do {
-            try personalDetailsStore.save(details)
+            try personalDetailsStore.save(details, userId: activeUserId)
             personalDetails = details
             return true
         } catch {
@@ -113,7 +120,9 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func resetUserState() {
+        activeUserId = nil
         currentGoal = nil
+        personalDetails = .empty
         weightEntries = []
         errorMessage = nil
     }

@@ -38,6 +38,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testEditSaveAndRelaunchPreservesCustomMacros() {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
         openGoals(app)
         let protein = app.textFields["daily-goals-protein"]
@@ -60,6 +61,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testInvalidInputAndCancelDoNotChangeSavedGoal() {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
         openGoals(app)
         let calories = app.textFields["daily-goals-calories"]
@@ -79,6 +81,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testSuggestionMustBeAppliedAndSavedExplicitly() {
         let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
         app.launch()
         openGoals(app)
         let original = app.textFields["daily-goals-calories"].value as! String
@@ -102,7 +105,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testLargeTextKeepsFieldsAndSaveReachable() {
         let app = XCUIApplication()
-        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         openGoals(app)
         XCTAssertTrue(app.textFields["daily-goals-calories"].exists)
@@ -126,7 +129,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testSafeModeRemovesGoalFieldsAndActions() {
         let app = XCUIApplication()
-        app.launchArguments += ["-safeModeEnabled", "YES", "-safeModeHideGoals", "YES", "-safeModeHideCalories", "YES"]
+        app.launchArguments += ["--skip-auth", "-safeModeEnabled", "YES", "-safeModeHideGoals", "YES", "-safeModeHideCalories", "YES"]
         app.launch()
         openGoals(app)
         XCTAssertTrue(app.staticTexts["Du har valgt en visning uten mål. Du kan endre visningen i Profil → Innstillinger."].exists)
@@ -144,7 +147,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testHiddenCaloriesLeaveOnlyMacrosEditable() {
         let app = XCUIApplication()
-        app.launchArguments += ["-safeModeEnabled", "NO", "-safeModeHideGoals", "NO", "-safeModeHideCalories", "YES"]
+        app.launchArguments += ["--skip-auth", "-safeModeEnabled", "NO", "-safeModeHideGoals", "NO", "-safeModeHideCalories", "YES"]
         app.launch()
         openGoals(app)
         XCTAssertFalse(app.textFields["daily-goals-calories"].exists)

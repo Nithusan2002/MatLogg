@@ -15,17 +15,19 @@ beskrevet i [lagrede måltider](../saved-meals.md).
 
 ### **Epic 1: Autentisering & Onboarding**
 
-#### US-1.1: Bruker registrerer seg
+#### US-1.1: Bruker velger lokal profil eller konto
 ```
 SOM: ny bruker
-ØNSKER: rask innlogging med eksisterende konto
-SÅ AT: jeg slipper å opprette nytt passord
+ØNSKER: å kunne starte lokalt uten konto, eller logge inn med Apple/e-post
+SÅ AT: jeg kan prøve kjerneverdien uten å dele unødvendige persondata
 
 Acceptance Criteria:
-□ Apple Sign in, Google Sign in, Email-passord-registrering tilgjengelig
-□ Registrering krever minimum: e-post, navn, passord (hvis email)
+□ «Fortsett på denne iPhonen» er primær handling; lokal bruk er tidsubegrenset
+□ Apple Sign in og e-post/passord er tilgjengelig; Google er senere scope
+□ E-postregistrering krever bare e-post og passord; navn er ikke påkrevd
 □ Validering: e-post format, passord >8 tegn
-□ Bruker sendes til onboarding etter registrering
+□ Ny lokal profil og ny konto sendes til onboarding
+□ Eksisterende lokale data knyttes aldri til konto uten eksplisitt bekreftelse
 □ Sessionstoken lagres sikkert i Keychain (iOS)
 □ Ingen cookies; kun JWT-bearer-token i Authorization-header
 ```

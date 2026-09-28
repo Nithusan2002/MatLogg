@@ -2,6 +2,24 @@
 
 Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datakontrakter eller drift. Hold hvert innslag kort: dato, beslutning, begrunnelse og konsekvens.
 
+## 2026-09-28 – Supabase erstatter egen auth- og synkbackend
+
+**Beslutning:** Supabase Auth, PostgreSQL, RLS og Edge Functions overtar konto,
+opplastingssynk og kontosletting. Synkkontrakt v1 og local-first-køen beholdes.
+Staging og produksjon er separate EØS-prosjekter. E-post må bekreftes, og
+Supabase kan koble Apple og verifisert e-post med samme adresse automatisk.
+
+**Begrunnelse:** En driftet auth- og databaseplattform fjerner egen tokenrefresh,
+passordlagring og nettverkstilgang til en utviklermaskin, samtidig som
+eierskapsreglene kan håndheves i databasen og Edge Functions.
+
+**Konsekvens:** `supabase/` er teknisk sannhetskilde for ny serverkode. Direkte
+domene-skriving fra klienten er sperret; `apply_sync_event_v1` henter alltid
+eier fra `auth.uid()`. Produksjonssynk forblir av til staging, fysisk iPhone,
+backup/restore og intern TestFlight er godkjent. NestJS/Prisma beholdes kun som
+midlertidig referanse fram til stabil pilot og skal ikke reaktiveres etter
+produksjonscutover.
+
 ## 2026-09-25 – Ekstern produktkatalog er lokal cache
 
 **Beslutning:** Open Food Facts brukes direkte fra iOS for strekkodeoppslag via
@@ -397,3 +415,40 @@ fail-closed fremfor å gjette eierskap fra payload eller nåværende sesjon.
 **Konsekvens:** Den tidligere lokale eierbindingsblockeren er lukket, men
 produksjonssynk forblir deaktivert til relevante integrasjons- og
 produksjonsforberedende tester er kjørt og godkjent.
+
+## 2026-09-27 – Minste produksjonsfundament før synkpilot
+
+**Beslutning:** Backend pakkes som et flertrinns containerimage med separat
+migrasjonsjobb og en minimal runtime som kjører kompilert kode som ikke-root.
+Produksjonskonfigurasjon feiler lukket ved manglende database eller svak
+JWT-hemmelighet. Swagger er av i produksjon, sikkerhetsheadere er på, og auth,
+token og synk har per-klient rate limits i tillegg til en global grense.
+
+Backendendringer verifiseres i CI mot midlertidig PostgreSQL med migrasjoner,
+kontrakt-, auth-, HTTP- og idempotens-/eierskapstester før runtime-imaget bygges.
+Kritiske dependency-funn stopper CI. Kjente high/moderate funn i NestJS 10 må
+oppgraderes eller eksplisitt risikovurderes før offentlig produksjon.
+
+**Begrunnelse:** Local-first begrenser konsekvensen av backendnedetid, men ikke
+risikoen for misbruk av auth, feil eierbinding eller tap av serverkopier. Dette
+er det minste tekniske sikkerhetsnettet for en kontrollert pilot uten å låse
+prosjektet til en bestemt skyleverandør.
+
+**Avgrensning:** Endringen oppretter ikke staging, backup, alarmer eller secrets
+hos en leverandør og aktiverer ikke produksjonssynk. Disse krever faktiske
+verifiseringsresultater etter porten i `docs/production-readiness.md`.
+
+## 2026-09-27 – Lokal bruk uten konto og valgfri Apple/e-postkonto
+
+**Beslutning:** Førstegangsbruk kan fortsette med en stabil lokal profil uten
+konto. Konto med Apple eller e-post/passord er valgfritt. Eksisterende lokale
+data knyttes atomisk til kontoen bare etter eksplisitt bekreftelse. Utlogging
+skjuler kontodata på enheten og oppretter ikke automatisk en ny identitet.
+
+**Begrunnelse:** Kjerneverdien er local-first logging, og konto skal ikke være
+en personvern- og konverteringsbarriere før den gir en tydelig brukerverdi.
+Navn er derfor fjernet fra registreringen. Apple-identitet kobles ikke
+automatisk til e-postkonto ved lik adresse.
+
+**Konsekvens:** Synk v1 er fortsatt bare opplasting og markedsføres ikke som
+backup, gjenoppretting eller flerenhetssynk. Produksjonssynk forblir deaktivert.

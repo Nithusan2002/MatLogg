@@ -68,7 +68,10 @@ struct ManualProductView: View {
     private var introduction: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Produktet ble ikke funnet", systemImage: "barcode.viewfinder")
+                Label(
+                    barcode == nil ? "Registrer produkt manuelt" : "Produktet ble ikke funnet",
+                    systemImage: "barcode.viewfinder"
+                )
                     .font(AppTypography.title)
                     .foregroundColor(AppColors.deepInk)
                 Text("Legg inn næringsverdiene per 100 g fra emballasjen.")

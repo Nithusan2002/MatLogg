@@ -6,20 +6,29 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
-    @State private var firstName = ""
-    @State private var lastName = ""
     @State private var showPassword = false
     
     var isFormValid: Bool {
         !email.isEmpty &&
         !password.isEmpty &&
         password == confirmPassword &&
-        !firstName.isEmpty &&
-        !lastName.isEmpty &&
         password.count >= 8
     }
     
     var body: some View {
+        Group {
+            if let pendingEmail = authViewModel.pendingVerificationEmail {
+                verificationContent(email: pendingEmail)
+            } else {
+                registrationContent
+            }
+        }
+        .padding(20)
+        .background(AppColors.background.ignoresSafeArea())
+        .navigationBarBackButtonHidden(true)
+    }
+
+    private var registrationContent: some View {
         VStack(spacing: 20) {
             VStack(spacing: 8) {
                 HStack {
@@ -42,22 +51,6 @@ struct SignUpView: View {
             
             ScrollView {
                 VStack(spacing: 12) {
-                    HStack(spacing: 12) {
-                        TextField("Fornavn", text: $firstName)
-                            .textContentType(.givenName)
-                            .foregroundColor(AppColors.ink)
-                            .padding(12)
-                            .background(AppColors.mutedSurface)
-                            .cornerRadius(12)
-                        
-                        TextField("Etternavn", text: $lastName)
-                            .textContentType(.familyName)
-                            .foregroundColor(AppColors.ink)
-                            .padding(12)
-                            .background(AppColors.mutedSurface)
-                            .cornerRadius(12)
-                    }
-                    
                     TextField("E-post", text: $email)
                         .textContentType(.emailAddress)
                         .foregroundColor(AppColors.ink)
@@ -151,18 +144,69 @@ struct SignUpView: View {
             .clipShape(Capsule())
             .disabled(!isFormValid || authViewModel.isLoading)
         }
-        .padding(20)
-        .background(AppColors.background.ignoresSafeArea())
-        .navigationBarBackButtonHidden(true)
+    }
+
+    private func verificationContent(email: String) -> some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            Image(systemName: "envelope.badge")
+                .font(.system(size: 48, weight: .semibold))
+                .foregroundColor(AppColors.action)
+                .accessibilityHidden(true)
+
+            VStack(spacing: 12) {
+                Text("Sjekk e-posten din")
+                    .font(AppTypography.hero)
+                    .foregroundColor(AppColors.deepInk)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("Vi har sendt en bekreftelseslenke til \(email). Åpne lenken på denne iPhonen for å fullføre registreringen.")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let message = authViewModel.verificationMessage {
+                Label(message, systemImage: "checkmark.circle")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.ink)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            if let error = authViewModel.errorMessage {
+                Label(error, systemImage: "exclamationmark.circle")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.ink)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            PrimaryButton(title: authViewModel.isLoading ? "Sender …" : "Send på nytt") {
+                Task { await authViewModel.resendEmailVerification() }
+            }
+            .disabled(authViewModel.isLoading)
+
+            Button("Tilbake") {
+                authViewModel.dismissEmailVerification()
+            }
+            .font(AppTypography.bodyEmphasis)
+            .foregroundColor(AppColors.action)
+            .frame(minHeight: 44)
+
+            Spacer()
+        }
     }
     
     private func signupAction() {
         Task {
             await authViewModel.signUp(
                 email: email,
-                password: password,
-                firstName: firstName,
-                lastName: lastName
+                password: password
             )
         }
     }

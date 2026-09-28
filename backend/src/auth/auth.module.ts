@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController, UserController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { jwtSecret } from './auth.config';
+import { AppleTokenVerifier } from './apple-token-verifier';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { jwtSecret } from './auth.config';
     }),
   ],
   controllers: [AuthController, UserController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, AppleTokenVerifier],
   exports: [AuthService],
 })
 export class AuthModule {}

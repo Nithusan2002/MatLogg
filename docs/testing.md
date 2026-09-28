@@ -7,8 +7,8 @@ visuell dekning.
 ## Forutsetninger
 
 - Xcode med en kompatibel iOS-simulator
-- Node.js og npm for backend
-- Docker når tester krever PostgreSQL
+- Node.js og npm for Supabase CLI og legacy-backend
+- Docker når tester krever lokal Supabase/PostgreSQL
 - backend-avhengigheter installert med `npm install` i `backend/`
 
 ## iOS
@@ -65,7 +65,24 @@ xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
 ```
 
-## Backend
+## Supabase
+
+Fra repo-roten:
+
+```bash
+npm ci
+npm run supabase:start
+npm run supabase:reset
+npm run supabase:lint
+npm run supabase:test
+npm run functions:test
+```
+
+`.github/workflows/supabase-ci.yml` kjører database-reset, lint, pgTAP,
+Deno check/lint/test og målrettet iOS-bygg/test. pgTAP dekker blant annet RLS,
+grants, `auth.uid()`, kryssbrukerangrep, slettet profil og purge.
+
+## Legacy-backend under cutover
 
 Fra `backend/`:
 
@@ -74,6 +91,11 @@ npm install
 npm run build
 npm test
 ```
+
+Pull requests som berører `backend/` kjører også `.github/workflows/backend-ci.yml`:
+låst installasjon, Prisma-generering, build, enhets-/kontrakttester, migrasjoner
+og alle PostgreSQL-integrasjonstestene, kritisk dependency-audit og bygging av
+produksjonscontaineren.
 
 Gjeldende `npm test` kjører kontrakttesten i
 `backend/test/sync-contract.test.ts`. Den validerer schema-versjon,

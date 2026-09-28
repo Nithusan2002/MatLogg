@@ -14,7 +14,7 @@
 
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
-| **Autentisering** | P0 | E-post/passord. Apple og Google er senere scope. |
+| **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
 | **Onboarding** | P0 | Måltype (weght loss/maintain/gain), kalorimål, makromål, valgfri vektlogg |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
 | **Strekkode-skanning** | P0 | EAN-skann → produktoppslag → produktkort → logging |
@@ -102,7 +102,7 @@
 
 ### Ny bruker:
 ```
-Åpne app → Innlogging → Onboarding (mål) → Home → Skann/Legg til
+Åpne app → Fortsett lokalt eller logg inn → Onboarding (mål) → Home → Skann/Legg til
 ```
 
 ### Aktiv bruker:

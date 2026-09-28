@@ -1,0 +1,55 @@
+name: Supabase CI
+
+on:
+  push:
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+  pull_request:
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supabase:
+    name: Database and Edge Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Start disposable Supabase
+        run: npx supabase start
+      - name: Lint application schemas
+        run: npx supabase db lint --local --schema public --schema private --level warning
+      - name: Run pgTAP tests
+        run: npx supabase test db
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.4
+      - name: Check Edge Functions
+        run: deno check supabase/functions/sync-events/index.ts supabase/functions/delete-account/index.ts supabase/functions/purge-accounts/index.ts
+      - name: Lint Edge Functions
+        run: deno lint supabase/functions
+      - name: Test Edge Function contract
+        run: deno test --allow-env supabase/functions/tests
+
+  ios:
+    name: iOS auth and sync gate
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app
+        run: xcodebuild -project MatLogg.xcodeproj -scheme MatLogg -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+      - name: Run auth and sync tests
+        run: >-
+          xcodebuild -project MatLogg.xcodeproj -scheme MatLogg
+          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+          -only-testing:MatLoggTests/AuthViewModelTests
+          -only-testing:MatLoggTests/SyncRetryTests test

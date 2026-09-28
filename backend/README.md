@@ -1,4 +1,11 @@
-# MatLogg Backend (MVP)
+# MatLogg Backend (legacy under Supabase-cutover)
+
+Denne NestJS/Prisma-backenden beholdes midlertidig for sammenligning og trygg
+cutover. Ny serverutvikling skjer i `../supabase/`. Ikke fjern denne mappen før
+fysisk iPhone, staging, backup/restore og intern TestFlight-pilot er godkjent.
+
+Backenden bygges og kjøres på Node.js 24 LTS. Eldre lokale Node-versjoner er
+ikke en støttet produksjonsruntime.
 
 ## Lokal oppstart
 
@@ -7,6 +14,7 @@ docker compose up -d
 npm install
 export DATABASE_URL="postgresql://matlogg:matlogg@localhost:5432/matlogg?schema=public"
 export JWT_SECRET="replace-with-a-long-local-secret"
+export APPLE_CLIENT_ID="com.nithusan.MatLogg"
 export DEV_LOGIN_ENABLED="true"
 npx prisma migrate deploy
 npm run start:dev
@@ -38,6 +46,11 @@ refresh-token varer i 30 dager og lagres bare som hash. Utløpte
 refresh-sesjonsrader ryddes ved oppstart og deretter daglig; revokerte rader
 beholdes frem til utløp for å kunne oppdage gjenbruk.
 
+Apple-innlogging krever at `APPLE_CLIENT_ID` matcher appens Services ID eller
+bundle-ID. Backend verifiserer Apple-tokenets signatur, issuer, audience,
+utløp og nonce. Lik e-post kobler ikke automatisk en Apple-identitet til en
+eksisterende e-postkonto.
+
 Health check:
 
 ```
@@ -49,6 +62,33 @@ Swagger:
 ```
 http://localhost:4000/docs
 ```
+
+Swagger er på i utvikling og av som standard når `NODE_ENV=production`.
+
+## Produksjonsimage
+
+Bygg og kjør det minimale runtime-imaget:
+
+```bash
+docker build --target runtime -t matlogg-backend .
+docker run --rm -p 4000:4000 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL="postgresql://..." \
+  -e JWT_SECRET="<tilfeldig hemmelighet på minst 32 tegn>" \
+  matlogg-backend
+```
+
+Kjør migrasjoner som en separat engangsjobb fra `migration`-målet før ny
+runtime-versjon startes. Produksjonskrav, staging-port og rollback finnes i
+[`docs/production-readiness.md`](../docs/production-readiness.md).
+
+API-et har en standardgrense på 120 kall/minutt per klient og endepunkt, med
+strammere grenser på auth og synk. Den innebygde telleren er per backendinstans;
+offentlig produksjon trenger i tillegg delt eller plattformstyrt edge-begrensning.
+Sett `TRUST_PROXY_HOPS` til det dokumenterte antallet
+proxyledd hos driftsleverandøren; feil verdi kan gjøre IP-basert begrensning
+upålitelig. Native iOS trenger ikke CORS. Eventuelle web-origins oppgis som
+eksakte HTTPS-adresser i `CORS_ALLOWED_ORIGINS`.
 
 ## Dev-login
 

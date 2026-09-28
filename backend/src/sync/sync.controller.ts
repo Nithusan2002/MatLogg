@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SyncService } from './sync.service';
 import { SyncEventsRequestDto } from './dto';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMIT_WINDOW_MS, SYNC_RATE_LIMIT } from '../security/rate-limit.config';
 
 @ApiTags('sync')
 @ApiBearerAuth()
@@ -12,6 +14,7 @@ export class SyncController {
 
   @UseGuards(JwtAuthGuard)
   @Post('events')
+  @Throttle({ default: { limit: SYNC_RATE_LIMIT, ttl: RATE_LIMIT_WINDOW_MS } })
   async syncEvents(@Req() req: any, @Body() body: SyncEventsRequestDto) {
     const userId = req.user.userId as string;
     const result = await this.syncService.syncEvents(userId, body);

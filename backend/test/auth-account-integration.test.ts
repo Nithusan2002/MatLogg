@@ -35,8 +35,6 @@ async function run() {
     const registration = await request(baseUrl, '/v1/auth/register', 'POST', {
       email,
       password: 'correct-horse-battery',
-      first_name: 'Auth',
-      last_name: 'Test',
     });
     assert.equal(registration.status, 201);
     assert.equal(typeof registration.json.token, 'string');
@@ -51,8 +49,6 @@ async function run() {
     const duplicate = await request(baseUrl, '/v1/auth/register', 'POST', {
       email,
       password: 'correct-horse-battery',
-      first_name: 'Auth',
-      last_name: 'Test',
     });
     assert.equal(duplicate.status, 409);
     assert.equal(duplicate.json.code, 'EMAIL_ALREADY_REGISTERED');

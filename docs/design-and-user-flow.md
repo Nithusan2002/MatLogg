@@ -150,13 +150,20 @@ måltider](saved-meals.md).
 
 ```text
 Åpne appen
-  → logg inn eller opprett konto
+  → fortsett på denne iPhonen, eller logg inn med Apple/e-post
   → se kort forklaring av mål, databruk og personvern
   → angi eller hopp over valgfrie person- og vektopplysninger
   → velg veiledende energi- og makromål
   → velg trygghets-/visningspreferanser
   → Hjem
 ```
+
+Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
+velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
+flerenhetssynk før servernedlasting og gjenoppretting er implementert. Hvis en
+lokal profil med data logger inn, må brukeren bekrefte før dataene atomisk
+knyttes til kontoen. Utlogging skjuler kontodataene på enheten; de blir ikke
+synlige for en ny lokal profil.
 
 Målberegninger skal merkes som veiledende. Onboarding skal ikke love medisinsk
 effekt eller gjøre vekt obligatorisk når funksjonen kan fungere uten.

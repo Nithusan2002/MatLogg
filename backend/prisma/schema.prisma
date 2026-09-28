@@ -13,6 +13,7 @@ model User {
   firstName    String?
   lastName     String?
   passwordHash String?
+  appleSubject String?    @unique
   authProvider String    @default("email")
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())

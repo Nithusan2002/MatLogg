@@ -14,6 +14,19 @@ struct User: Codable, Identifiable {
     var fullName: String {
         "\(firstName) \(lastName)"
     }
+
+    var isLocalProfile: Bool { authProvider == "local" }
+
+    static func local(id: UUID, createdAt: Date = Date()) -> User {
+        User(
+            id: id,
+            email: "",
+            firstName: "",
+            lastName: "",
+            authProvider: "local",
+            createdAt: createdAt
+        )
+    }
 }
 
 // MARK: - Goals
@@ -755,7 +768,23 @@ enum NetworkAvailability: Equatable {
 enum AuthState {
     case notAuthenticated
     case authenticating
+    case local(user: User)
     case authenticated(user: User)
     case onboarding(user: User)
+    case awaitingLocalDataLink(localUser: User, accountUser: User)
     case error(String)
+}
+
+struct LocalDataSummary: Equatable {
+    let logs: Int
+    let goals: Int
+    let favorites: Int
+    let scans: Int
+    let weights: Int
+    let savedMeals: Int
+
+    static let empty = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0)
+
+    var totalCount: Int { logs + goals + favorites + scans + weights + savedMeals }
+    var hasData: Bool { totalCount > 0 }
 }

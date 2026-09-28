@@ -1,14 +1,23 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert: 2026-09-26.
+Sist kontrollert: 2026-09-28.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
-implementasjonen. Kode, Prisma-skjema og migrasjoner er teknisk sannhetskilde.
+implementasjonen. Kode og versjonerte migrasjoner er teknisk sannhetskilde.
 
-Midlertidig utviklingsoppsett: Debug-bygg åpner appen med en lokal debug-session
-uten innlogging. Launch-argumentet `--show-auth` viser den reelle e-postflyten.
-Release-bygg viser alltid autentisering.
+Supabase-cutover er deployet til et eget staging-prosjekt i Stockholm-regionen:
+SQL-skjema/RLS, Edge Functions, e-postbekreftelse, 15-minutters JWT,
+30-dagers sletting og daglig purge-cron er konfigurert. Debug-konfigurasjonen
+peker lokalt til staging, og simulatorbygg samt autentisert kill-switch-test er
+grønne. `backendSyncEnabled` og serverens synk-kill-switch er fortsatt `false`.
+Apple-secret/provider, eget SMTP-oppsett, backup/restore, fysisk iPhone,
+TestFlight og separat produksjonsprosjekt gjenstår. NestJS/Prisma beholdes fram
+til disse portene og stabil pilot er godkjent.
+
+Midlertidig utviklingsoppsett: Debug-bygg åpner appen med en lokal debug-session.
+Launch-argumentet `--show-auth` viser den reelle velkomstflyten. Release-bygg
+lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
 
 ## Implementert
 
@@ -115,6 +124,13 @@ Release-bygg viser alltid autentisering.
 - Kontrakttest for sentrale synkgrenser og payload-skjemaer.
 - PostgreSQL-integrasjonstest for duplikatlevering, atomisk inbox-skriving og
   eierskapskontroll ved produktoppdatering.
+- Flertrinns produksjonscontainer kjører kompilert backend som ikke-root, med
+  separat migrasjonsmål og health check. Produksjonskonfigurasjon validerer
+  database, JWT-hemmelighet, port, proxy og CORS før oppstart.
+- API-et setter sikkerhetsheadere, skjuler Swagger som standard i produksjon og
+  begrenser global trafikk samt auth-, token- og synkkall per klient.
+- Backend-CI bygger, tester, migrerer en midlertidig PostgreSQL-database, kjører
+  integrasjonstester, stopper på kritiske dependency-funn og bygger runtime-imaget.
 
 ## Delvis implementert eller deaktivert
 
@@ -126,19 +142,27 @@ Release-bygg viser alltid autentisering.
   hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--debug-auth`.
-- Apple- og Google-innlogging er senere scope og vises ikke i klienten.
+- Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
+  Google-innlogging er senere scope. Apple krever konfigurert
+  `APPLE_CLIENT_ID` og aktivert Sign in with Apple-capability før distribusjon.
 - Manuell opprettelse av ukjente produkter finnes fra skanneflyten.
 - Backend dekker ikke alle endepunktene i `specs/06-api-endpoints.md`.
   API-spesifikasjonen er derfor et målbilde med mindre kode viser noe annet.
 
 ## Ikke dokumentert som produksjonsklart
 
-- Produksjonsmiljø, deploy og rollback.
-- Overvåkning, alarmer og operativ hendelseshåndtering.
+- Faktisk staging-/produksjonsmiljø og leverandørspesifikk deploy. Generisk
+  utrullings-, staging- og rollback-port er dokumentert i
+  `docs/production-readiness.md`, men er ikke gjennomført i et eksternt miljø.
+- Faktisk overvåkning, alarmer og operativ mottaker. Krav og terskler er
+  dokumentert, men ikke koblet til en leverandør.
 - Backup- og restore-prosedyre for PostgreSQL.
 - Full kontrakt-, retry-, idempotens-, eierskaps- og integrasjonstestdekning.
 - App Store-klargjøring og eksplisitt release-godkjenning.
 - Verifisert samsvar mellom faktisk databruk, samtykke og juridisk tekst.
+- Produksjonsavhengighetene har kjente high/moderate audit-funn i den nåværende
+  NestJS 10-stakken. CI stopper nye critical-funn; eksisterende funn må
+  oppgraderes eller risikovurderes før offentlig produksjon.
 
 ## Gjeldende verifiseringsstatus
 

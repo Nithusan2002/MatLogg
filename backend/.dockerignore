@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+Dockerfile
+README.md
+dist
+node_modules
+npm-debug.log*
+test
+coverage
+*.pem
+*.key
+*.p12

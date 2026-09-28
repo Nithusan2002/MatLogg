@@ -25,15 +25,20 @@ struct MatLoggApp: App {
 
     init() {
         let databaseService = DatabaseService()
-        let authService = AuthService()
-        let refreshCoordinator = TokenRefreshCoordinator()
-        let apiService = APIService(
-            authSessionStore: authService,
-            refreshCoordinator: refreshCoordinator
-        )
+        let localAuthStore = AuthService()
+        let authRepository: any AccountAuthRepository
+        let syncAPIClient: any SyncAPIClient
+        if let configuration = try? SupabaseConfiguration.load() {
+            let supabaseService = SupabaseService(configuration: configuration)
+            authRepository = supabaseService
+            syncAPIClient = supabaseService
+        } else {
+            authRepository = UnavailableAccountAuthRepository()
+            syncAPIClient = UnavailableSyncAPIClient()
+        }
         let syncEngine = SyncEngine(
             databaseService: databaseService,
-            apiService: apiService,
+            apiService: syncAPIClient,
             syncEnabled: { FeatureFlags.backendSyncEnabled }
         )
         databaseStartupFailed = !databaseService.isAvailable
@@ -54,9 +59,9 @@ struct MatLoggApp: App {
             repository: databaseService, onSaved: healthProfile.acceptSavedGoal
         ))
         _authViewModel = StateObject(wrappedValue: AuthViewModel(
-            apiClient: apiService,
-            sessionStore: authService,
-            localDataResetter: databaseService
+            authRepository: authRepository,
+            localStore: localAuthStore,
+            localProfileManager: databaseService
         ))
         _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel())
         _userDataExportService = StateObject(wrappedValue: UserDataExportService(
@@ -88,7 +93,7 @@ struct MatLoggApp: App {
     private var operationalContent: some View {
         configuredContent
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
-                appState.updateAuthenticatedUser(userId)
+                appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
                 if let userId {
@@ -110,9 +115,13 @@ struct MatLoggApp: App {
                 if skipAuthForDev {
                     authViewModel.enableDebugSession()
                 }
-                appState.updateAuthenticatedUser(authViewModel.currentUser?.id)
+                appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 appState.updateNetworkAvailability(isConnected: networkMonitor.isConnected)
                 Task { await appState.triggerSync(reason: .appLaunch) }
+            }
+            .task {
+                guard !skipAuthForDev else { return }
+                await authViewModel.restoreSession()
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
@@ -128,6 +137,9 @@ struct MatLoggApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: .authSessionExpired)) { _ in
                 authViewModel.handleSessionExpired()
+            }
+            .onOpenURL { url in
+                Task { await authViewModel.handleAuthCallback(url) }
             }
             .task(id: authViewModel.currentUser?.id) { await loadHealthProfile() }
     }
@@ -152,6 +164,8 @@ struct MatLoggApp: App {
         Group {
             if skipAuthForDev {
                 HomeView()
+            } else if authViewModel.isRestoringSession {
+                ProgressView("Åpner MatLogg …")
             } else if authViewModel.currentUser != nil {
                 if authViewModel.isOnboarding {
                     OnboardingView()
@@ -159,7 +173,7 @@ struct MatLoggApp: App {
                     HomeView()
                 }
             } else {
-                LoginView()
+                WelcomeView()
             }
         }
         .environmentObject(appState)
@@ -176,9 +190,9 @@ struct MatLoggApp: App {
 
     private var skipAuthForDev: Bool {
         #if DEBUG
-        // Debug builds bypass authentication while the app is under active
-        // development. Use --show-auth to exercise the real auth flow.
-        return !ProcessInfo.processInfo.arguments.contains("--show-auth")
+        // Keep the real authentication flow as the Debug default. Feature and
+        // UI tests can opt into a deterministic local developer session.
+        return ProcessInfo.processInfo.arguments.contains("--skip-auth")
         #else
         return false
         #endif

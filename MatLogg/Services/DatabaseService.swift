@@ -209,6 +209,26 @@ class DatabaseService {
         try requireStore().resetAllData()
         UserDefaults.standard.removeObject(forKey: "personalDetails")
     }
+
+    func localDataSummary(ownerId: UUID) async -> LocalDataSummary {
+        store?.localDataSummary(ownerId: ownerId) ?? .empty
+    }
+
+    func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
+        try requireStore().claimLocalData(from: localOwnerId, to: accountOwnerId)
+        let defaults = UserDefaults.standard
+        let oldKey = "personalDetails.\(localOwnerId.uuidString)"
+        let newKey = "personalDetails.\(accountOwnerId.uuidString)"
+        if defaults.object(forKey: newKey) == nil, let details = defaults.data(forKey: oldKey) {
+            defaults.set(details, forKey: newKey)
+        }
+        defaults.removeObject(forKey: oldKey)
+    }
+
+    func deleteLocalData(ownerId: UUID) async throws {
+        try requireStore().deleteLocalData(ownerId: ownerId)
+        UserDefaults.standard.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
+    }
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {
         store?.fetchPendingEvents(limit: limit) ?? []

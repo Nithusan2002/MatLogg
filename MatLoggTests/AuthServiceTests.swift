@@ -107,6 +107,19 @@ struct AuthServiceTests {
         #expect(keychain.deletedQueries.count == 2)
     }
 
+    @Test func localProfilePersistsUntilItIsConsumed() {
+        let defaults = isolatedDefaults()
+        let service = AuthService(defaults: defaults, keychain: KeychainClientSpy())
+
+        let created = service.activateLocalProfile()
+        let restored = service.getActiveLocalProfile()
+
+        #expect(created.isLocalProfile)
+        #expect(restored?.id == created.id)
+        service.consumeLocalProfile()
+        #expect(service.getActiveLocalProfile() == nil)
+    }
+
     private func isolatedDefaults() -> UserDefaults {
         UserDefaults(suiteName: "AuthServiceTests.\(UUID().uuidString)")!
     }

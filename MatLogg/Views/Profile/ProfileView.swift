@@ -135,13 +135,15 @@ struct ProfileView: View {
     }
 
     private var profileName: String {
+        if authViewModel.isLocalMode { return "På denne iPhonen" }
         let name = authViewModel.currentUser?.fullName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? "MatLogg-bruker" : name
     }
 
     private var profileInitials: String {
-        guard let user = authViewModel.currentUser else { return "ML" }
-        return String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
+        guard let user = authViewModel.currentUser, !user.isLocalProfile else { return "ML" }
+        let initials = String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
+        return initials.isEmpty ? "ML" : initials
     }
 
     private var mealCount: Int { Set(logViewModel.todaysSummary.logs.map(\.mealType)).count }
@@ -227,6 +229,7 @@ private struct ProfileSettingsView: View {
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
     @EnvironmentObject private var userDataExportService: UserDataExportService
     @State private var showDeleteConfirm = false
+    @State private var showRemoveLocalConfirm = false
     @State private var showShareSheet = false
     @State private var exportURL: URL?
 
@@ -311,11 +314,6 @@ private struct ProfileSettingsView: View {
 
                 Text(syncExplanationText)
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-            }
-            .listRowBackground(AppColors.surface)
-            Section("Konto") {
-                LabeledContent("Innlogging", value: authProviderLabel)
-                if let email = authViewModel.currentUser?.email, !email.isEmpty { LabeledContent("E-post", value: email) }
                 Button("Last ned data") {
                     Task {
                         guard let user = authViewModel.currentUser else { return }
@@ -323,9 +321,23 @@ private struct ProfileSettingsView: View {
                         showShareSheet = exportURL != nil
                     }
                 }
-                Button("Logg ut", role: .destructive) { authViewModel.logout() }
-                Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
-                    .disabled(authViewModel.isDeletingAccount)
+            }
+            .listRowBackground(AppColors.surface)
+            Section("Konto") {
+                if authViewModel.isLocalMode {
+                    LabeledContent("Status", value: "På denne iPhonen")
+                    Text("Konto er valgfritt. Dataene dine er lagret på denne enheten. Synk mellom enheter er ikke tilgjengelig ennå.")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                    NavigationLink("Logg inn eller opprett konto") { LoginView() }
+                } else {
+                    LabeledContent("Innlogging", value: authProviderLabel)
+                    if let email = authViewModel.currentUser?.email, !email.isEmpty { LabeledContent("E-post", value: email) }
+                    Button("Logg ut", role: .destructive) { authViewModel.logout() }
+                    Button("Fjern data fra denne iPhonen", role: .destructive) { showRemoveLocalConfirm = true }
+                    Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
+                        .disabled(authViewModel.isDeletingAccount)
+                }
             }
             .listRowBackground(AppColors.surface)
             #if DEBUG
@@ -351,10 +363,29 @@ private struct ProfileSettingsView: View {
         } message: {
             Text("Lokale data slettes umiddelbart. Kontoen markeres for permanent sletting etter 30 dager. Dette kan ikke angres i appen.")
         }
+        .alert("Fjern data fra denne iPhonen?", isPresented: $showRemoveLocalConfirm) {
+            Button("Fjern og logg ut", role: .destructive) {
+                Task {
+                    if !(await authViewModel.removeAccountDataFromDevice()) {
+                        appState.presentError(title: "Kunne ikke fjerne data", message: authViewModel.errorMessage)
+                    }
+                }
+            }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            Text("Dataene fjernes bare fra denne iPhonen. Gjenoppretting fra server er ikke tilgjengelig ennå.")
+        }
         .sheet(isPresented: $showShareSheet) { if let exportURL { ShareSheet(activityItems: [exportURL]) } }
     }
 
-    private var authProviderLabel: String { authViewModel.currentUser?.authProvider.capitalized ?? "Ukjent" }
+    private var authProviderLabel: String {
+        switch authViewModel.currentUser?.authProvider {
+        case "apple": return "Apple"
+        case "email": return "E-post"
+        case "debug": return "Utvikling"
+        default: return "Ukjent"
+        }
+    }
     private var syncStatusText: String {
         if !appState.isSyncAvailable { return "Lagret bare på denne enheten" }
         if appState.isSyncing || appState.inFlightSyncCount > 0 { return "Synkroniserer" }

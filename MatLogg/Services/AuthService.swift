@@ -33,6 +33,8 @@ final class AuthService {
     private static let legacyTokenAccount = "matlogg_auth"
 
     private let userDefaultsKey = "ml_current_user"
+    private let localProfileKey = "ml_local_profile"
+    private let localModeActiveKey = "ml_local_mode_active"
     private let tokenKeychainKey = "ml_auth_token"
     private let defaults: UserDefaults
     private let keychain: any KeychainClient
@@ -57,6 +59,49 @@ final class AuthService {
             return nil
         }
         return user
+    }
+
+    func activateLocalProfile() -> User {
+        let user: User
+        if let data = defaults.data(forKey: localProfileKey),
+           let stored = try? JSONDecoder().decode(User.self, from: data) {
+            user = stored
+        } else {
+            user = .local(id: UUID())
+            if let encoded = try? JSONEncoder().encode(user) {
+                defaults.set(encoded, forKey: localProfileKey)
+            }
+        }
+        defaults.set(true, forKey: localModeActiveKey)
+        return user
+    }
+
+    func getActiveLocalProfile() -> User? {
+        guard defaults.bool(forKey: localModeActiveKey),
+              let data = defaults.data(forKey: localProfileKey),
+              let user = try? JSONDecoder().decode(User.self, from: data) else { return nil }
+        return user
+    }
+
+    func consumeLocalProfile() {
+        defaults.removeObject(forKey: localProfileKey)
+        defaults.removeObject(forKey: localModeActiveKey)
+    }
+
+    func deactivateLocalMode() {
+        defaults.removeObject(forKey: localModeActiveKey)
+    }
+
+    func hasCompletedOnboarding(userId: UUID) -> Bool {
+        defaults.bool(forKey: onboardingKey(userId))
+    }
+
+    func onboardingCompletion(userId: UUID) -> Bool? {
+        defaults.object(forKey: onboardingKey(userId)) as? Bool
+    }
+
+    func setOnboardingCompleted(_ completed: Bool, userId: UUID) {
+        defaults.set(completed, forKey: onboardingKey(userId))
     }
 
     @discardableResult
@@ -171,5 +216,9 @@ final class AuthService {
 
     private func isSuccessfulDeletion(_ status: OSStatus) -> Bool {
         status == errSecSuccess || status == errSecItemNotFound
+    }
+
+    private func onboardingKey(_ userId: UUID) -> String {
+        "ml_onboarding_complete_\(userId.uuidString)"
     }
 }

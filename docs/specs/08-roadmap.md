@@ -29,7 +29,7 @@
 
 ### **MVP Features (Frozen)**
 
-✅ Auth (e-post/passord; Apple/Google planlegges senere)
+✅ Valgfri konto (Apple eller e-post/passord) og full lokal bruk uten konto
 ✅ Onboarding (mål, kalorier, makroer)  
 ✅ Home: status + logg-liste + måltidsrad  
 ✅ Strekkode-skanning  

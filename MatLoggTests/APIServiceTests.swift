@@ -92,6 +92,46 @@ struct APIServiceTests {
         #expect(tokens == AuthTokens(accessToken: "token", refreshToken: "refresh-token"))
     }
 
+    @Test func signupSendsOnlyEmailAndPassword() async throws {
+        let userId = UUID()
+        let httpClient = HTTPClientStub { request, _ in
+            #expect(request.url?.path == "/v1/auth/register")
+            let data = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+            #expect(body == ["email": "ny@matlogg.no", "password": "hemmelig-passord"])
+            let responseBody = """
+            {"user_id":"\(userId.uuidString)","email":"ny@matlogg.no","first_name":"","last_name":"","auth_provider":"email","created_at":"2026-09-27T10:00:00Z","token":"token","refresh_token":"refresh"}
+            """
+            let response = try #require(HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil))
+            return (response, Data(responseBody.utf8))
+        }
+
+        let (user, _) = try await makeService(httpClient: httpClient).signupEmail(email: "ny@matlogg.no", password: "hemmelig-passord")
+        #expect(user.firstName.isEmpty)
+        #expect(user.lastName.isEmpty)
+    }
+
+    @Test func appleLoginSendsCredentialAndNonce() async throws {
+        let userId = UUID()
+        let httpClient = HTTPClientStub { request, _ in
+            #expect(request.url?.path == "/v1/auth/apple")
+            let data = try #require(request.httpBody)
+            let body = try #require(JSONSerialization.jsonObject(with: data) as? [String: String])
+            #expect(body["identity_token"] == "identity")
+            #expect(body["authorization_code"] == "code")
+            #expect(body["nonce"] == "raw-nonce")
+            let responseBody = """
+            {"user_id":"\(userId.uuidString)","email":"relay@privaterelay.appleid.com","first_name":"","last_name":"","auth_provider":"apple","created_at":"2026-09-27T10:00:00Z","token":"token","refresh_token":"refresh"}
+            """
+            let response = try #require(HTTPURLResponse(url: request.url!, statusCode: 201, httpVersion: nil, headerFields: nil))
+            return (response, Data(responseBody.utf8))
+        }
+
+        let (user, _) = try await makeService(httpClient: httpClient)
+            .loginApple(identityToken: "identity", authorizationCode: "code", nonce: "raw-nonce")
+        #expect(user.authProvider == "apple")
+    }
+
     @Test func protectedRequestRefreshesOnceAfterUnauthorizedResponse() async throws {
         let store = APIAuthSessionStore(
             tokens: AuthTokens(accessToken: "expired-access", refreshToken: "valid-refresh")
@@ -192,6 +232,13 @@ private final class APIAuthSessionStore: AuthSessionStore {
         tokens = nil
         return true
     }
+    func activateLocalProfile() -> User { .local(id: UUID()) }
+    func getActiveLocalProfile() -> User? { nil }
+    func consumeLocalProfile() {}
+    func deactivateLocalMode() {}
+    func hasCompletedOnboarding(userId: UUID) -> Bool { true }
+    func onboardingCompletion(userId: UUID) -> Bool? { true }
+    func setOnboardingCompleted(_ completed: Bool, userId: UUID) {}
 }
 
 private final class HTTPClientStub: HTTPClientProtocol {

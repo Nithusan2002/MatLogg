@@ -30,7 +30,8 @@ skal senere nettverksfeil aldri rulle tilbake eller skjule de lokale dataene.
 
 ## Dette krever nett
 
-- første gangs registrering, innlogging og gjenoppretting av en utløpt sesjon
+- konto-opprettelse, innlogging og gjenoppretting av en utløpt kontosesjon;
+  opprettelse og bruk av lokal profil krever ikke nett
 - nye oppslag i eksterne produktkataloger og oppdatering av gammel katalogcache
 - serverbasert deling, kontosletting og andre handlinger som eksplisitt endrer
   servertilstand utenfor synkkøen
@@ -45,8 +46,10 @@ produktet ikke finnes; brukeren tilbys manuelt produkt eller nytt forsøk senere
 1. Synkkøen vekkes når appen starter eller blir aktiv, og mens appen kjører når
    nettverksmonitoren oppdager at forbindelsen er tilbake. iOS garanterer ikke
    kjøring i bakgrunnen akkurat idet nettet kommer tilbake.
-2. Bare hendelser med `ownerUserId` lik den aktive autentiserte brukeren kan
+2. Bare hendelser med `ownerUserId` lik den aktive autentiserte kontoen kan
    velges for opplasting. Brukerbytte eller utlogging avbryter planlagte retries.
+   En lokal profil kan eie domenedata og køhendelser, men disse hendelsene kan
+   ikke lastes opp før brukeren eksplisitt knytter dem til en konto.
 3. Eldre hendelser uten verifiserbar eierbinding beholdes lokalt i karantene.
    De sendes aldri, og Innstillinger viser bare et generisk antall uten innhold.
 4. Ventende hendelser sendes i rekkefølge i batcher på maksimalt 50.
