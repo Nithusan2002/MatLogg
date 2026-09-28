@@ -1,4 +1,4 @@
-import { z } from "npm:zod@3.23.8";
+import { z } from "zod";
 
 export const MAX_SYNC_EVENTS = 50;
 export const MAX_SYNC_PAYLOAD_BYTES = 64 * 1024;

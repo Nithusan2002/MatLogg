@@ -107,7 +107,7 @@ utløp og nonce. Lik e-post kobler ikke automatisk Apple til en e-postkonto.
 **Request:**
 ```json
 {
-  "identity_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "identity_token": "<apple-identity-token>",
   "authorization_code": "valgfri-kode-fra-Apple",
   "nonce": "rå-engangsverdi-fra-klienten"
 }

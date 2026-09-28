@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "@std/assert";
 import { MAX_SYNC_EVENTS, validateEvent } from "../_shared/sync-contract.ts";
 
 const id = "550e8400-e29b-41d4-a716-446655440000";
