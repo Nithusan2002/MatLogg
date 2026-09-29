@@ -41,8 +41,9 @@ SÅ AT: jeg kan begynne på en måte som passer meg
 Acceptance Criteria:
 □ Velkomstens budskap og handlinger er synlige uten scrolling på standard iPhone og standard tekststørrelse
 □ Små skjermer, liggende retning og store tekststørrelser kan scrolle som tilgjengelighetsfallback
-□ Brukeren velger standardvisning, skjulte kalorier eller Trygg modus før eventuelt mål
-□ «Start uten mål», «Kun loggføring», skjulte kalorier og Trygg modus oppretter ikke et skjult mål
+□ Brukeren velger kun loggføring eller et valgfritt mål
+□ «Start uten mål» og «Kun loggføring» oppretter ikke et skjult mål
+□ Kalorier og tilgjengelige makroverdier vises også uten mål
 □ Måltype: rolig nedgang / stabil vekt / rolig oppgang (bestemmer beregningsretning)
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
 □ Makromål: generell profil eller egendefinerte gram for protein/karbohydrat/fett
@@ -66,7 +67,8 @@ Acceptance Criteria:
 - Forslag omtales som estimert startpunkt. Ufullstendig grunnlag, alder under 18
   eller manglende støttet formelvariant gir ingen automatisk kaloriverdi.
 - Feil beholder input; vellykket lokal lagring oppdaterer profil og målstatus.
-- Mål og kalorier følger visningsvalgene også i tilgjengelighetstreet.
+- Mål vises bare når brukeren har opprettet dem; næringsverdier er tilgjengelige
+  i både synlig UI og tilgjengelighetstreet.
 - Lagring virker uten nett, med eksisterende atomiske `goal.set`-hendelse.
 
 ### **Epic 2: Logging & Oversikt (Home)**

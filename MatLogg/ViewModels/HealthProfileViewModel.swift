@@ -47,7 +47,7 @@ final class HealthProfileViewModel: ObservableObject {
         currentGoal = await repository.latestGoal(userId: userId)
     }
 
-    func useDevelopmentGoalIfMissing(userId: UUID, safeModeEnabled: Bool) {
+    func useDevelopmentGoalIfMissing(userId: UUID) {
         guard currentGoal == nil else { return }
         currentGoal = Goal(
             userId: userId,
@@ -58,8 +58,7 @@ final class HealthProfileViewModel: ObservableObject {
             fatTargetG: 65,
             intent: .maintain,
             pace: .calm,
-            activityLevel: .moderat,
-            safeModeEnabled: safeModeEnabled
+            activityLevel: .moderat
         )
     }
 

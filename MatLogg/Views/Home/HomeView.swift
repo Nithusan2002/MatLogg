@@ -290,7 +290,7 @@ struct HomeTabView: View {
                         .accessibilityLabel(homeSyncStatusText)
                     }
 
-                    if preferencesViewModel.showGoalStatusOnHome && !preferencesViewModel.safeModeHideGoals {
+                    if preferencesViewModel.showGoalStatusOnHome {
                         if isSummaryLoading {
                             CardContainer {
                                 HStack(spacing: 12) {
@@ -306,9 +306,7 @@ struct HomeTabView: View {
                             StatusCardView(
                                 summary: summary,
                                 goal: goal,
-                                dayLabel: intakeTitle,
-                                hideGoals: preferencesViewModel.safeModeHideGoals,
-                                hideCalories: preferencesViewModel.safeModeHideCalories
+                                dayLabel: intakeTitle
                             )
                         } else {
                             CardContainer {
@@ -364,7 +362,6 @@ struct HomeTabView: View {
                         MealOverviewCard(
                             meal: meal,
                             logs: logsByMeal[meal.key] ?? [],
-                            hideCalories: preferencesViewModel.safeModeHideCalories,
                             productName: { productNames[$0] ?? "Ukjent produkt" },
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
@@ -643,7 +640,6 @@ struct QuickSearchBar: View {
 struct MealOverviewCard: View {
     let meal: MealPresentation
     let logs: [FoodLog]
-    let hideCalories: Bool
     let productName: (UUID) -> String
     let onOpen: () -> Void
     let onAdd: () -> Void
@@ -680,7 +676,6 @@ struct MealOverviewCard: View {
                 MealReuseSuggestionView(
                     suggestion: suggestion,
                     isSaving: isReusing,
-                    hideCalories: hideCalories,
                     onLog: { onReuse(suggestion) },
                     onAdjust: { onAdjustReuse(suggestion) },
                     onDismiss: onDismissReuse
@@ -706,11 +701,9 @@ struct MealOverviewCard: View {
                                         .foregroundColor(AppColors.deepInk)
                                         .lineLimit(1)
                                     Spacer()
-                                    if !hideCalories {
-                                        Text("\(NutritionDisplay.wholeCalories(log.calories))")
-                                            .font(AppTypography.title)
-                                            .foregroundColor(AppColors.deepInk)
-                                    }
+                                    Text("\(NutritionDisplay.wholeCalories(log.calories))")
+                                        .font(AppTypography.title)
+                                        .foregroundColor(AppColors.deepInk)
                                 }
                                 Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                     .font(AppTypography.caption)
@@ -766,8 +759,6 @@ struct StatusCardView: View {
     let summary: DailySummary
     let goal: Goal
     let dayLabel: String
-    let hideGoals: Bool
-    let hideCalories: Bool
 
     private var calorieBalance: CalorieBalance? {
         GoalCalculator.calorieBalance(dailyGoal: goal.dailyCalories, consumed: summary.totalCalories)
@@ -795,49 +786,43 @@ struct StatusCardView: View {
                     .minimumScaleFactor(0.75)
             }
 
-            if !hideCalories {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("KALORIER SPIST")
-                        .font(AppTypography.captionEmphasis)
-                    Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                        .font(AppTypography.display)
-                    if !hideGoals {
-                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                            .font(AppTypography.bodyEmphasis)
-                    }
-                }
-                .foregroundColor(AppColors.deepInk)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(20)
-                .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("KALORIER SPIST")
+                    .font(AppTypography.captionEmphasis)
+                Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
+                    .font(AppTypography.display)
+                Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                    .font(AppTypography.bodyEmphasis)
             }
+            .foregroundColor(AppColors.deepInk)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
+            .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
 
-            if !hideGoals {
-                VStack(spacing: 12) {
-                        ProgressRow(
-                            label: "Proteiner",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
-                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
-                            tint: AppColors.macroProteinTint
-                        )
-                        ProgressRow(
-                            label: "Karbohydrater",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
-                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
-                            tint: AppColors.macroCarbTint
-                        )
-                        ProgressRow(
-                            label: "Fett",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
-                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
-                            tint: AppColors.macroFatTint
-                        )
-                }
-                .padding(16)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
+            VStack(spacing: 12) {
+                ProgressRow(
+                    label: "Proteiner",
+                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
+                    progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
+                    tint: AppColors.macroProteinTint
+                )
+                ProgressRow(
+                    label: "Karbohydrater",
+                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
+                    progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
+                    tint: AppColors.macroCarbTint
+                )
+                ProgressRow(
+                    label: "Fett",
+                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
+                    progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
+                    tint: AppColors.macroFatTint
+                )
             }
+            .padding(16)
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
         }
     }
 

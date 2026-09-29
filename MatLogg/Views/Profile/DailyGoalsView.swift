@@ -3,7 +3,6 @@ import SwiftUI
 struct DailyGoalsView: View {
     @EnvironmentObject private var viewModel: DailyGoalsViewModel
     @EnvironmentObject private var healthProfile: HealthProfileViewModel
-    @EnvironmentObject private var preferences: PreferencesViewModel
     @EnvironmentObject private var auth: AuthViewModel
     @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
@@ -11,57 +10,41 @@ struct DailyGoalsView: View {
     @State private var initialized = false
     @State private var showSuggestion = false
 
-    private var hideGoals: Bool { preferences.safeModeEnabled || preferences.safeModeHideGoals }
-    private var hideCalories: Bool { preferences.safeModeEnabled || preferences.safeModeHideCalories }
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if hideGoals {
-                    Text("Du har valgt en visning uten mål. Du kan endre visningen i Profil → Innstillinger.")
-                        .foregroundStyle(AppColors.textSecondary)
-                } else if hideCalories && !viewModel.hasGoal {
-                    Text("For å sette opp daglige mål må du først slå på kalorivisning i Profil → Innstillinger.")
-                        .foregroundStyle(AppColors.textSecondary)
-                } else {
-                    Text(viewModel.hasGoal ? "Juster målene dine. Endringene lagres først når du trykker Lagre endringer." : "Du har ikke satt opp mål ennå. Fyll inn egne verdier eller beregn et veiledende forslag.")
-                        .foregroundStyle(AppColors.textSecondary)
-                    CardContainer {
-                        VStack(alignment: .leading, spacing: 16) {
-                            if !hideCalories {
-                                goalField("Kalorier", unit: "kcal/dag", field: .calories, text: $viewModel.calories)
-                            }
-                            goalField("Protein", unit: "g/dag", field: .protein, text: $viewModel.protein)
-                            goalField("Karbohydrater", unit: "g/dag", field: .carbs, text: $viewModel.carbs)
-                            goalField("Fett", unit: "g/dag", field: .fat, text: $viewModel.fat)
-                        }
+                Text(viewModel.hasGoal ? "Juster målene dine. Endringene lagres først når du trykker Lagre endringer." : "Du har ikke satt opp mål ennå. Fyll inn egne verdier eller beregn et veiledende forslag.")
+                    .foregroundStyle(AppColors.textSecondary)
+                CardContainer {
+                    VStack(alignment: .leading, spacing: 16) {
+                        goalField("Kalorier", unit: "kcal/dag", field: .calories, text: $viewModel.calories)
+                        goalField("Protein", unit: "g/dag", field: .protein, text: $viewModel.protein)
+                        goalField("Karbohydrater", unit: "g/dag", field: .carbs, text: $viewModel.carbs)
+                        goalField("Fett", unit: "g/dag", field: .fat, text: $viewModel.fat)
                     }
-                    if !hideCalories {
-                        Button("Beregn nytt forslag") {
-                            focusedField = nil
-                            showSuggestion = true
-                        }
-                        .frame(minHeight: 44)
-                        .accessibilityIdentifier("daily-goals-suggest")
-                    }
-                    if let error = viewModel.errorMessage {
-                        Text(error).foregroundStyle(AppColors.ink)
-                            .accessibilityIdentifier("daily-goals-error")
-                    }
-                    PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre endringer") {
-                        focusedField = nil
-                        Task {
-                            if await viewModel.save(hideGoals: hideGoals, hideCalories: hideCalories,
-                                                    safeModeEnabled: preferences.safeModeEnabled) {
-                                await appState.refreshSyncStatus()
-                            }
-                        }
-                    }
-                    .accessibilityIdentifier("daily-goals-save")
-                    Text("Lagres på enheten, også uten nett. Målene er veiledende.")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
                 }
+                Button("Beregn nytt forslag") {
+                    focusedField = nil
+                    showSuggestion = true
+                }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("daily-goals-suggest")
+                if let error = viewModel.errorMessage {
+                    Text(error).foregroundStyle(AppColors.ink)
+                        .accessibilityIdentifier("daily-goals-error")
+                }
+                PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre endringer") {
+                    focusedField = nil
+                    Task {
+                        if await viewModel.save() {
+                            await appState.refreshSyncStatus()
+                        }
+                    }
+                }
+                .accessibilityIdentifier("daily-goals-save")
+                Text("Lagres på enheten, også uten nett. Målene er veiledende.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
             }
             .font(AppTypography.body)
             .padding(20)
@@ -77,7 +60,7 @@ struct DailyGoalsView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(hideGoals ? "Lukk" : "Avbryt") {
+                Button("Avbryt") {
                     viewModel.discard()
                     dismiss()
                 }
@@ -130,7 +113,6 @@ struct DailyGoalsView: View {
 
 private struct GoalSuggestionView: View {
     @StateObject private var viewModel: GoalSuggestionViewModel
-    @EnvironmentObject private var preferences: PreferencesViewModel
     @Environment(\.dismiss) private var dismiss
     let onApply: (GoalSuggestion) -> Void
 
@@ -142,10 +124,7 @@ private struct GoalSuggestionView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if preferences.safeModeEnabled || preferences.safeModeHideGoals || preferences.safeModeHideCalories {
-                    Text("Du har valgt en visning uten målforslag. Du kan endre visningen i Innstillinger.")
-                        .listRowBackground(AppColors.surface)
-                } else if viewModel.showingResult, let suggestion = viewModel.suggestion {
+                if viewModel.showingResult, let suggestion = viewModel.suggestion {
                     Section("Veiledende forslag") {
                         LabeledContent("Estimert startpunkt", value: "ca. \(suggestion.calories) kcal/dag")
                         LabeledContent("Protein", value: "\(suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")

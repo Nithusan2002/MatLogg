@@ -41,8 +41,8 @@ behandling, diagnostikk eller individuell ernæringsfaglig rådgivning.
    alarmisme, press eller overdrevne helseløfter.
 4. **Kilde og enhet bevares.** Dokumenterte, beregnede og brukeroppgitte verdier
    skal kunne skilles. Manglende næringsverdier skal ikke gjettes.
-5. **Brukeren styrer detaljnivået.** Safe Mode, kildevisning og målstatus skal
-   være sammenhengende valg, ikke kosmetiske brytere.
+5. **Næringsverdier er kjernen.** Kalorier og tilgjengelige makroverdier vises
+   konsekvent, mens mål, vektregistrering og personopplysninger er valgfrie.
 6. **Personvern som standard.** Mat-, mål- og vektdata behandles som sensitive,
    samles inn med et tydelig formål og deles ikke unødvendig.
 
@@ -80,7 +80,7 @@ MVP-en prioriterer:
 - favoritter, nylig brukt og skannehistorikk
 - navngitte lagrede måltider for rask, eksplisitt gjenbruk
 - lokal lagring og versjonert synkkø
-- mål, valgfri vektregistrering og Safe Mode
+- mål og valgfri vektregistrering
 - synlig datakilde når brukeren ønsker det
 - eksport og sletting av brukerdata
 
@@ -111,7 +111,7 @@ samtykke. Nyttige produktsignaler er:
 - søk eller skanning fører til en gyldig registrering
 - brukeren kan fortsette å logge uten nett
 - brukeren forstår hvilken kilde og måleenhet verdiene kommer fra
-- Safe Mode skjuler kalorier og mål konsekvent
+- kalorier og tilgjengelige makroverdier vises konsekvent
 - feil kan rettes uten at allerede utfylt mengde eller måltid går tapt
 
 ## Viktigste risikoer

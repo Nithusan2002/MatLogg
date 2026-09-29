@@ -16,8 +16,9 @@ tokens og komponenter.
 5. Skill datakilde, dokumenterte verdier og brukeroppgitte verdier tydelig.
 6. Design lys modus, mørk modus, Dynamic Type, VoiceOver og økt kontrast
    samtidig.
-7. Ernæringsstatus, mål og vekt skal presenteres nøytralt. Safe Mode skal være
-   konsekvent i både synlig UI og tilgjengelighetstre.
+7. Ernæringsstatus, mål og vekt skal presenteres nøytralt. Kalorier og
+   tilgjengelige makroverdier skal være konsistente i synlig UI og
+   tilgjengelighetstre.
 
 ## Farger
 
@@ -186,17 +187,12 @@ synk vises som lokalt lagret, ikke som en mislykket registrering.
 - kildeinformasjon er sekundær i hierarkiet, men skal være tilgjengelig
 - avrund ved visning; bevar råverdien i modellen
 
-## Safe Mode og sensitiv informasjon
+## Næringsverdier og valgfrie mål
 
-Når kalorier eller mål skjules, fjernes de fra:
-
-- synlig tekst
-- diagrammer og etiketter som avslører verdien
-- VoiceOver-labels og accessibility values
-- tomme plassholdere som antyder skjult innhold
-
-Mengde, måltid, produktnavn og kilde skal fortsatt være tilgjengelig. Safe Mode
-skal ikke endre eller slette underliggende brukerdata.
+Kalorier og tilgjengelige makroverdier vises konsekvent sammen med relevant
+mengde, porsjonsgrunnlag og kilde. VoiceOver skal lese de samme verdiene som er
+synlige. Når brukeren ikke har opprettet mål, vises næringsverdier uten
+målprogresjon, gjenstående-verdi eller konstruerte plassholdere.
 
 ## Bevegelse, haptikk og lyd
 

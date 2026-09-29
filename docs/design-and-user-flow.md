@@ -115,7 +115,7 @@ Profil samler:
 
 - personlige detaljer
 - mål og visning av målstatus
-- Safe Mode og kildevisning
+- kildevisning
 - personvernvalg og valgfrie samtykker
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
@@ -128,9 +128,9 @@ serveren og eventuell retensjonsperiode før brukeren bekrefter.
 ### Gjenbruk av gårsdagens måltid
 
 Et tomt måltidskort kan vise gårsdagens matvarer og mengder med «Loggfør»,
-«Juster» og «Ikke nå». Når kalorivisning er aktiv, vises lagret kcal sekundært
-for hver vare; Trygg modus skjuler dette også for VoiceOver. Brukeren velger
-selv; appen skriver aldri automatisk. En kvittering med «Angre» vises etter
+«Juster» og «Ikke nå». Lagret kcal vises sekundært for hver vare, også for
+VoiceOver. Brukeren velger selv; appen skriver aldri automatisk. En kvittering
+med «Angre» vises etter
 atomisk lokal lagring. Forslaget fungerer uten nett. Detaljer og tilstander er
 samlet
 i [måltidsgjenbruk](meal-reuse.md).
@@ -152,7 +152,6 @@ måltider](saved-meals.md).
 Åpne appen
   → fortsett på denne iPhonen, eller logg inn med Apple/e-post
   → se kort forklaring av lokal lagring, valgfrie opplysninger og avgrensning
-  → velg standardvisning, skjulte kalorier eller Trygg modus
   → velg kun loggføring, eller sett opp et valgfritt mål
   → oppgi eller hopp over beregningsgrunnlag; appen gjetter aldri manglende data
   → kontroller eventuelt estimert energi- og makromål
@@ -163,8 +162,8 @@ måltider](saved-meals.md).
 Velkomstskjermen skal vise budskap, trygghetspunkter og primærhandling uten
 scrolling på en vanlig iPhone i standard tekststørrelse. Innholdet ligger fortsatt
 i en scrollbar beholder som tilgjengelighetsfallback for små skjermer, liggende
-retning og store tekststørrelser. «Start uten mål» og visningsvalg som skjuler mål
-skal ikke opprette et skjult kalorimål i bakgrunnen.
+retning og store tekststørrelser. «Start uten mål» og «Kun loggføring» skal ikke
+opprette et skjult kalorimål i bakgrunnen.
 
 Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
 velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
@@ -198,11 +197,9 @@ fasit. Standardprofilene for makroer ligger innenfor NNR 2023-intervallene for
 voksne: Balansert 15/50/35, Mer protein 20/45/35 og Mer karbohydrat 15/55/30
 energiprosent for protein/karbohydrat/fett. Egendefinerte gramverdier beholdes.
 
-Når mål eller Trygg modus er aktivert som skjuling, erstattes skjemaet med en
-kort forklaring om visningsvalget og veien til Innstillinger. Ingen måltall,
-inputfelt eller forslag finnes i tilgjengelighetstreet. Når bare kalorier er
-skjult, kan eksisterende makromål redigeres; kalorimålet beholdes. Opprettelse av
-nye mål og beregning av forslag krever at kalorivisning er slått på.
+Målskjermen viser alltid kalori- og makrofelt. Har brukeren ikke opprettet mål,
+forklarer tomtilstanden at egne verdier eller et veiledende forslag kan brukes.
+Ingen mål opprettes før brukeren eksplisitt lagrer.
 
 Feltene har synlige etiketter og enheter, norsk desimaltegn og feil ved feltet.
 Skjermen ruller ved tastatur og stor tekst. Eksisterende `CardContainer`,
@@ -286,15 +283,11 @@ Alle nye eller vesentlig endrede skjermer skal definere:
 | Deaktivert | Forklar årsaken når den ikke er åpenbar; bruk ikke bare redusert opacity. |
 | Ekstreme data | Støtt lange navn, store verdier, manglende næringsstoffer og mange logger. |
 
-## Safe Mode
+## Næringsvisning uten mål
 
-Safe Mode er et sammenhengende presentasjonsvalg:
-
-- skjulte kalorier og mål fjernes også fra tilgjengelighetstekst
-- plassholdere skal ikke avsløre at en verdi finnes
-- logging, mengde, måltid og kilde skal fortsatt fungere
-- skjermen skal ikke få tomme hull eller etiketter som «skjult mål»
-- innstillingen skal påvirke alle relevante skjermer konsekvent
+Kalorier og tilgjengelige makroverdier vises konsekvent. Brukere som velger kun
+loggføring får næringsoversikt uten målprogresjon. Måltall, gjenstående-verdi og
+progresjonskomponenter vises først når et mål er eksplisitt opprettet.
 
 ## UX-tekst
 
@@ -333,6 +326,6 @@ En ny eller endret flyt er ikke ferdig før:
 - loading, tom, offline, feil og suksess er vurdert
 - lokal lagring og eventuell synk er tydelig skilt
 - kilde, måleenhet og manglende data håndteres uten gjetting
-- Safe Mode og tilgjengelighet er kontrollert
+- synlige næringsverdier og tilgjengelighetstekst samsvarer
 - varige nye mønstre eller tokens er dokumentert i designsystemet
 - implementert status og relevante detaljspesifikasjoner er oppdatert

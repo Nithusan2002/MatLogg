@@ -4,7 +4,6 @@ import SwiftUI
 struct MealReuseSuggestionView: View {
     let suggestion: MealReuseSuggestion
     let isSaving: Bool
-    let hideCalories: Bool
     let onLog: () -> Void
     let onAdjust: () -> Void
     let onDismiss: () -> Void
@@ -18,10 +17,8 @@ struct MealReuseSuggestionView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text("\(item.name) · \(item.original.amountG.formatted(.number.locale(Locale(identifier: "nb_NO")))) \(item.original.resolvedAmountUnit.rawValue)")
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    if !hideCalories {
-                        Text("\(NutritionDisplay.wholeCalories(item.original.calories)) kcal")
-                            .foregroundStyle(AppColors.ink)
-                    }
+                    Text("\(NutritionDisplay.wholeCalories(item.original.calories)) kcal")
+                        .foregroundStyle(AppColors.ink)
                 }
                 .font(AppTypography.body)
                 .foregroundStyle(AppColors.textSecondary)

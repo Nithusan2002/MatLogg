@@ -88,14 +88,8 @@ struct ProfileView: View {
     private var dailyGoalCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Dagens mål").font(AppTypography.title).foregroundColor(AppColors.deepInk)
-            if preferencesViewModel.safeModeHideGoals {
-                Label("Mål er skjult i Trygg modus", systemImage: "eye.slash")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-            } else if let goal = healthProfileViewModel.currentGoal {
-                if !preferencesViewModel.safeModeHideCalories {
-                    GoalValueRow(label: "Kalorier", value: "\(goal.dailyCalories) kcal")
-                }
+            if let goal = healthProfileViewModel.currentGoal {
+                GoalValueRow(label: "Kalorier", value: "\(goal.dailyCalories) kcal")
                 GoalValueRow(label: "Protein", value: "\(Int(goal.proteinTargetG)) g")
                 GoalValueRow(label: "Karbohydrater", value: "\(Int(goal.carbsTargetG)) g")
                 GoalValueRow(label: "Fett", value: "\(Int(goal.fatTargetG)) g")
@@ -154,9 +148,8 @@ struct ProfileView: View {
     }
 
     private var goalSummary: String? {
-        guard !preferencesViewModel.safeModeHideGoals else { return "Skjult" }
         guard let goal = healthProfileViewModel.currentGoal else { return "Ikke satt" }
-        return preferencesViewModel.safeModeHideCalories ? "Satt" : "\(goal.dailyCalories) kcal"
+        return "\(goal.dailyCalories) kcal"
     }
 
     private func refreshProfileSummary() async {
@@ -246,16 +239,6 @@ private struct ProfileSettingsView: View {
                 Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
                 Toggle("Vis datakilde", isOn: $preferencesViewModel.showNutritionSource)
                 LabeledContent("Enheter", value: "Gram")
-            }
-            .listRowBackground(AppColors.surface)
-            Section("Trygghet") {
-                Toggle("Trygg modus", isOn: $preferencesViewModel.safeModeEnabled)
-                Text("Gir en roligere visning og skjuler kalorier og mål.")
-                    .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                if !preferencesViewModel.safeModeEnabled {
-                    Toggle("Skjul kalorier", isOn: $preferencesViewModel.safeModeHideCalories)
-                    Toggle("Skjul mål og progresjon", isOn: $preferencesViewModel.safeModeHideGoals)
-                }
             }
             .listRowBackground(AppColors.surface)
             Section("Data og synk") {

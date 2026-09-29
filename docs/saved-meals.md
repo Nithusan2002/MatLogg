@@ -30,8 +30,8 @@ matvarer. «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
 
-Trygg modus viser ikke kalorier eller mål. Kilde vises bare når brukerens
-kildevalg er aktivert. Eksisterende semantiske farger, typografi, kort og
+Kilde vises bare når brukerens kildevalg er aktivert. Eksisterende semantiske
+farger, typografi, kort og
 knapper brukes. Handlinger har minst 44 pt trykkflate og tekst kan brytes ved
 Dynamic Type.
 

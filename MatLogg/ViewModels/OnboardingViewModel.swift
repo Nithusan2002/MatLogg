@@ -5,7 +5,6 @@ import Foundation
 final class OnboardingViewModel: ObservableObject {
     enum Step: Hashable {
         case introduction
-        case visibility
         case intent
         case goalSetup
         case personalDetails
@@ -13,38 +12,6 @@ final class OnboardingViewModel: ObservableObject {
         case macros
         case privacy
         case summary
-    }
-
-    enum VisibilityChoice: String, CaseIterable, Identifiable {
-        case standard
-        case hideCalories
-        case safeMode
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .standard: return "Vis kalorier og mål"
-            case .hideCalories: return "Skjul kalorier"
-            case .safeMode: return "Trygg modus"
-            }
-        }
-
-        var description: String {
-            switch self {
-            case .standard:
-                return "Energi og dagsmål vises i oversikten."
-            case .hideCalories:
-                return "Se mat og mengder uten kaloritall. Nye mål settes opp senere."
-            case .safeMode:
-                return "Skjul kalorier, vekt og målframdrift konsekvent."
-            }
-        }
-
-        var hidesCalories: Bool { self != .standard }
-        var hidesGoals: Bool { self == .safeMode }
-        var enablesSafeMode: Bool { self == .safeMode }
-        var allowsGoalCreation: Bool { self == .standard }
     }
 
     enum IntentChoice: String, CaseIterable, Identifiable {
@@ -93,7 +60,6 @@ final class OnboardingViewModel: ObservableObject {
     @Published private(set) var step: Step = .introduction
     @Published private(set) var isSaving = false
     @Published private(set) var errorMessage: String?
-    @Published var visibility: VisibilityChoice = .standard
     @Published var intent: IntentChoice = .maintain
     @Published var pace: GoalPace = .calm
     @Published var activity: ActivityLevel = .moderat
@@ -138,7 +104,6 @@ final class OnboardingViewModel: ObservableObject {
         initialDetails = details
         step = .introduction
         history = []
-        visibility = goal?.safeModeEnabled == true ? .safeMode : .standard
         if let goalIntent = goal?.intent {
             switch goalIntent {
             case .lose: intent = .lose
@@ -165,7 +130,7 @@ final class OnboardingViewModel: ObservableObject {
     func chooseQuickStart() {
         skipsGoalSetup = true
         intent = .loggingOnly
-        go(to: .visibility)
+        go(to: .privacy)
     }
 
     func advance() {
@@ -173,14 +138,7 @@ final class OnboardingViewModel: ObservableObject {
         switch step {
         case .introduction:
             skipsGoalSetup = false
-            go(to: .visibility)
-        case .visibility:
-            if skipsGoalSetup || !visibility.allowsGoalCreation {
-                intent = .loggingOnly
-                go(to: .privacy)
-            } else {
-                go(to: .intent)
-            }
+            go(to: .intent)
         case .intent:
             go(to: intent == .loggingOnly ? .privacy : .goalSetup)
         case .goalSetup:
@@ -268,7 +226,7 @@ final class OnboardingViewModel: ObservableObject {
     var primaryButtonTitle: String {
         switch step {
         case .introduction: return "Sett opp min oversikt"
-        case .visibility, .intent, .goalSetup: return "Fortsett"
+        case .intent, .goalSetup: return "Fortsett"
         case .personalDetails: return "Se estimert startpunkt"
         case .result: return "Bruk dette målet"
         case .macros: return "Se min oppsummering"
@@ -323,7 +281,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     var shouldCreateGoal: Bool {
-        !skipsGoalSetup && visibility.allowsGoalCreation && intent.goalIntent != nil
+        !skipsGoalSetup && intent.goalIntent != nil
     }
 
     var goalSummary: String {
@@ -340,10 +298,10 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     private var activeSequence: [Step] {
-        if skipsGoalSetup || !visibility.allowsGoalCreation || intent == .loggingOnly {
-            return [.visibility, .privacy, .summary]
+        if skipsGoalSetup || intent == .loggingOnly {
+            return [.privacy, .summary]
         }
-        return [.visibility, .intent, .goalSetup, .personalDetails, .result, .macros, .privacy, .summary]
+        return [.intent, .goalSetup, .personalDetails, .result, .macros, .privacy, .summary]
     }
 
     private func go(to destination: Step) {
@@ -374,8 +332,7 @@ final class OnboardingViewModel: ObservableObject {
             fatTargetG: macros.fatG,
             intent: goalIntent,
             pace: pace,
-            activityLevel: activity,
-            safeModeEnabled: false
+            activityLevel: activity
         )
     }
 

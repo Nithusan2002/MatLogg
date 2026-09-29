@@ -15,8 +15,6 @@ struct OnboardingViewModelTests {
 
         viewModel.begin(userId: userId, goal: nil, details: .empty)
         viewModel.chooseQuickStart()
-        #expect(viewModel.step == .visibility)
-        viewModel.advance()
         #expect(viewModel.step == .privacy)
         viewModel.advance()
         #expect(viewModel.step == .summary)
@@ -30,7 +28,7 @@ struct OnboardingViewModelTests {
         #expect(detailsStore.saved.isEmpty)
     }
 
-    @Test func safeModeDoesNotCreateHiddenGoal() async {
+    @Test func loggingOnlyDoesNotCreateGoal() async {
         let repository = OnboardingGoalRepositoryStub()
         let detailsStore = OnboardingPersonalDetailsStoreStub()
         let userId = UUID()
@@ -41,7 +39,7 @@ struct OnboardingViewModelTests {
 
         viewModel.begin(userId: userId, goal: nil, details: .empty)
         viewModel.advance()
-        viewModel.visibility = .safeMode
+        viewModel.intent = .loggingOnly
         viewModel.advance()
         #expect(viewModel.step == .privacy)
         #expect(!viewModel.shouldCreateGoal)
@@ -65,7 +63,6 @@ struct OnboardingViewModelTests {
 
         viewModel.begin(userId: userId, goal: nil, details: .empty)
         viewModel.advance()
-        viewModel.advance()
         viewModel.intent = .lose
         viewModel.advance()
         viewModel.pace = .calm
@@ -88,7 +85,6 @@ struct OnboardingViewModelTests {
         #expect(completion.goal?.userId == userId)
         #expect(completion.goal?.intent == .lose)
         #expect(completion.goal?.dailyCalories == suggestion)
-        #expect(completion.goal?.safeModeEnabled == false)
         #expect(repository.saved.count == 1)
         #expect(detailsStore.saved[userId]?.weightKg == 72)
         #expect(detailsStore.saved[userId]?.heightCm == 178)

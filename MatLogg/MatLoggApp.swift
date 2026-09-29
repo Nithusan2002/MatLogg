@@ -153,10 +153,7 @@ struct MatLoggApp: App {
             await healthProfileViewModel.loadGoal(userId: userId)
             #if DEBUG
             if authViewModel.currentUser?.authProvider == "debug" {
-                healthProfileViewModel.useDevelopmentGoalIfMissing(
-                    userId: userId,
-                    safeModeEnabled: preferencesViewModel.safeModeEnabled
-                )
+                healthProfileViewModel.useDevelopmentGoalIfMissing(userId: userId)
             }
             #endif
         } else {

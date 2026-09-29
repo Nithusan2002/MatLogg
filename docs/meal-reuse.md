@@ -10,8 +10,7 @@ matforslag, automatisk rutinegjenkjenning eller helgemodus.
 ## Flyt og tilstander
 
 - Et tomt måltidskort på Hjem kan vise «Frokosten fra i går?» (tilsvarende for
-  øvrige måltider), med alle matvarer og mengder. Når kalorier er synlige,
-  vises også lagret kcal for hvert innslag; Trygg modus fjerner kcal fullstendig.
+  øvrige måltider), med alle matvarer, mengder og lagret kcal for hvert innslag.
   Det foreslås ikke matvarer
   som mangler produktinformasjon lokalt.
 - «Loggfør» lagrer måltidet på dagens dato i samme måltidskategori.
@@ -54,8 +53,8 @@ servertransaksjon på tvers av hele måltidet. Produksjonssynk forblir deaktiver
 - Ugyldig eller tom mengde, tomt utkast og foreldet dagskontekst kan ikke lagres.
 - Lagringsfeil gir verken et halvt måltid eller delvis tilhørende synkkø.
 - Angre berører ikke gårsdagens data eller andre registreringer i dag.
-- Forslaget viser lagret kcal når kalorivisning er aktivert. Trygg modus fjerner
-  kcal og mål fra både synlig UI og VoiceOver. Editor viser ikke kalorier.
+- Forslaget viser lagret kcal i både synlig UI og VoiceOver. Editor viser ikke
+  kalorier fordi den bare redigerer mengder før ny beregning ved lagring.
 - Semantiske farger/typografi, eksisterende knapper og kort brukes. Tekst kan
   bryte over flere linjer, og handlinger har minst 44 pt trykkflate. Ingen ny
   animasjon, lyd eller haptikk er nødvendig for å forstå bekreftelsen.
@@ -65,8 +64,8 @@ servertransaksjon på tvers av hele måltidet. Produksjonssynk forblir deaktiver
 Bruk syntetiske måltider og la deltakerne både gjenbruke et uendret måltid og
 endre én mengde/fjerne én matvare. Bytt rekkefølge mellom vanlig logging og
 gjenbruk mellom deltakerne. Noter tid til korrekt lagring, feilregistreringer,
-behov for hjelp og om «Angre» blir forstått. Test også manglende historikk og
-Trygg modus. Dette er en testplan; ingen brukertest er gjennomført ennå.
+behov for hjelp og om «Angre» blir forstått. Test også manglende historikk.
+Dette er en testplan; ingen brukertest er gjennomført ennå.
 
 ## Verifisering 2026-09-21
 

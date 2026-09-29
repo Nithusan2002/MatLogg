@@ -8,7 +8,6 @@ struct ProgressTabView: View {
     @EnvironmentObject private var logViewModel: LogViewModel
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
-    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
 
     @State private var summaries: [DailySummary] = []
     @State private var metrics = ProgressMetrics(summaries: [])
@@ -16,8 +15,6 @@ struct ProgressTabView: View {
 
     private var today: DailySummary? { metrics.today }
     private var goal: Goal? { healthProfileViewModel.currentGoal }
-    private var hidesCalories: Bool { preferencesViewModel.safeModeHideCalories }
-    private var hidesGoals: Bool { preferencesViewModel.safeModeHideGoals }
 
     var body: some View {
         NavigationStack {
@@ -33,9 +30,9 @@ struct ProgressTabView: View {
                     } else if summaries.allSatisfy({ $0.logs.isEmpty }) {
                         emptyState
                     } else {
-                        if !hidesCalories { calorieHighlights }
-                        if !hidesCalories { weeklyCard }
-                        if !hidesGoals, let goal { macroCard(goal: goal) }
+                        calorieHighlights
+                        weeklyCard
+                        if let goal { macroCard(goal: goal) }
                         mealDistributionCard
                     }
 
@@ -93,7 +90,7 @@ struct ProgressTabView: View {
             highlightCard(
                 eyebrow: "I DAG",
                 value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
-                detail: hidesGoals || goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
+                detail: goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
                 fill: AppColors.calorieBlue
             )
             highlightCard(
@@ -137,7 +134,7 @@ struct ProgressTabView: View {
                 )
                 .foregroundStyle(Calendar.current.isDateInToday(summary.date) ? AppColors.calorieBlue : AppColors.calorieBlue.opacity(0.42))
                 .cornerRadius(6)
-                if let goal, !hidesGoals {
+                if let goal {
                     RuleMark(y: .value("Mål", goal.dailyCalories))
                         .foregroundStyle(AppColors.textSecondary.opacity(0.55))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
@@ -185,7 +182,7 @@ struct ProgressTabView: View {
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.deepInk)
                     Spacer()
-                    Text(hidesCalories ? (calories > 0 ? "logget" : "ikke logget") : (calories > 0 ? "\(calories) kcal" : "ikke logget"))
+                    Text(calories > 0 ? "\(calories) kcal" : "ikke logget")
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(calories > 0 ? AppColors.action : AppColors.textSecondary)
                 }

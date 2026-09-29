@@ -58,33 +58,27 @@ final class DailyGoalsViewModel: ObservableObject {
     }
 
     @discardableResult
-    func save(hideGoals: Bool, hideCalories: Bool, safeModeEnabled: Bool) async -> Bool {
+    func save() async -> Bool {
         guard !isSaving, !didSave else { return false }
         errors = [:]
         errorMessage = nil
-        guard !hideGoals, !safeModeEnabled else { return false }
         guard let userId else {
             errorMessage = "Åpne skjermen på nytt når du er logget inn."
             return false
         }
-        // Hidden calories are never changed by an existing draft or suggestion.
-        let kcal = hideCalories ? original?.dailyCalories : Int(calories.trimmingCharacters(in: .whitespacesAndNewlines))
+        let kcal = Int(calories.trimmingCharacters(in: .whitespacesAndNewlines))
         if let kcal {
-            if !hideCalories && !GoalCalculator.calorieRange.contains(kcal) {
+            if !GoalCalculator.calorieRange.contains(kcal) {
                 errors[.calories] = "Skriv et heltall mellom 1200 og 4500 kcal."
             }
         } else {
-            if hideCalories {
-                errorMessage = "Vis kalorier i Innstillinger for å sette opp et nytt mål."
-            } else {
-                errors[.calories] = "Skriv et heltall mellom 1200 og 4500 kcal."
-            }
+            errors[.calories] = "Skriv et heltall mellom 1200 og 4500 kcal."
         }
         let p = macro(protein, field: .protein)
         let c = macro(carbs, field: .carbs)
         let f = macro(fat, field: .fat)
         guard errors.isEmpty, errorMessage == nil, let kcal, let p, let c, let f else { return false }
-        let acceptedSuggestion = hideCalories ? nil : suggestion
+        let acceptedSuggestion = suggestion
         let intent = acceptedSuggestion?.intent ?? original?.intent
         let goalType = acceptedSuggestion.map { Self.goalType($0.intent) } ?? original?.goalType ?? "maintain"
         let pace = acceptedSuggestion?.pace ?? original?.pace
@@ -99,8 +93,7 @@ final class DailyGoalsViewModel: ObservableObject {
         }
         let goal = Goal(userId: userId, goalType: goalType, dailyCalories: kcal,
                         proteinTargetG: p, carbsTargetG: c, fatTargetG: f,
-                        intent: intent, pace: pace, activityLevel: activity,
-                        safeModeEnabled: safeModeEnabled)
+                        intent: intent, pace: pace, activityLevel: activity)
         isSaving = true
         defer { isSaving = false }
         do {

@@ -94,8 +94,6 @@ struct MatLoggOnboardingFlowView: View {
         switch onboardingViewModel.step {
         case .introduction:
             introductionStep
-        case .visibility:
-            visibilityStep
         case .intent:
             intentStep
         case .goalSetup:
@@ -117,38 +115,14 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             stepTitle(
                 eyebrow: "PÅ DINE PREMISSER",
-                title: "Du bestemmer detaljnivået",
-                body: "Mål kan gi mer oversikt, men MatLogg fungerer like godt uten mål. Alt kan endres senere."
+                title: "Logg mat på din måte",
+                body: "Kalorier og næringsverdier gir oversikt, mens mål og personlige opplysninger er valgfrie."
             )
             VStack(spacing: 12) {
                 TrustCard(title: "Lagres først lokalt", message: "Du kan bruke matloggen uten konto eller nett.", systemImage: "iphone")
                 TrustCard(title: "Valgfrie opplysninger", message: "Du bestemmer selv hva du vil legge inn.", systemImage: "slider.horizontal.3")
                 TrustCard(title: "Ingen medisinske råd", message: "Dette er en logg og oversikt, ikke behandling.", systemImage: "heart")
             }
-        }
-    }
-
-    private var visibilityStep: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            stepTitle(
-                eyebrow: "VISNING",
-                title: "Hvordan vil du se oversikten?",
-                body: "Velg det som kjennes riktig for deg nå."
-            )
-            VStack(spacing: 12) {
-                ForEach(OnboardingViewModel.VisibilityChoice.allCases) { choice in
-                    ChoiceCard(
-                        title: choice.title,
-                        description: choice.description,
-                        isSelected: onboardingViewModel.visibility == choice
-                    ) {
-                        onboardingViewModel.visibility = choice
-                    }
-                }
-            }
-            Label("Du kan endre dette når som helst i Innstillinger.", systemImage: "info.circle")
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
         }
     }
 
@@ -312,11 +286,8 @@ struct MatLoggOnboardingFlowView: View {
                 title: "Slik blir oversikten din",
                 body: "Alt kan justeres senere i Innstillinger og Profil."
             )
-            SummaryCard(title: "Visning", value: onboardingViewModel.visibility.title) {
-                onboardingViewModel.edit(.visibility)
-            }
             SummaryCard(title: "Mål", value: onboardingViewModel.goalSummary) {
-                onboardingViewModel.edit(onboardingViewModel.visibility.allowsGoalCreation ? .intent : .visibility)
+                onboardingViewModel.edit(.intent)
             }
             if onboardingViewModel.shouldCreateGoal {
                 SummaryCard(title: "Næringsoversikt", value: onboardingViewModel.macroSummary) {
@@ -410,11 +381,6 @@ struct MatLoggOnboardingFlowView: View {
                 appState.errorMessage = onboardingViewModel.errorMessage
                 return
             }
-            preferencesViewModel.applyOnboardingVisibility(
-                hideCalories: onboardingViewModel.visibility.hidesCalories,
-                hideGoals: onboardingViewModel.visibility.hidesGoals,
-                safeModeEnabled: onboardingViewModel.visibility.enablesSafeMode
-            )
             preferencesViewModel.hasSeenPrivacyChoices = true
             healthProfileViewModel.acceptOnboardingCompletion(
                 goal: result.goal,

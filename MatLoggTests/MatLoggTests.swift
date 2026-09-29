@@ -1507,22 +1507,6 @@ private final class AuthSessionStoreSpy: AuthSessionStore {
 }
 
 @MainActor
-struct PreferencesViewModelTests {
-    @Test func enablingSafeModeAlwaysHidesCaloriesAndGoals() {
-        let suiteName = "PreferencesViewModelTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        let viewModel = PreferencesViewModel(defaults: defaults)
-        viewModel.safeModeHideCalories = false
-        viewModel.safeModeHideGoals = false
-
-        viewModel.safeModeEnabled = true
-
-        #expect(viewModel.safeModeHideCalories)
-        #expect(viewModel.safeModeHideGoals)
-    }
-}
-
-@MainActor
 struct ManualProductViewModelTests {
     @Test @MainActor func rejectsProductNameAboveMaximumLength() async {
         var didSave = false

@@ -103,12 +103,10 @@ struct ProductDetailView: View {
                         CardContainer {
                             DisclosureGroup(isExpanded: $showPer100g) {
                                 VStack(spacing: 8) {
-                                    if !preferencesViewModel.safeModeHideCalories {
-                                        NutritionRowView(
-                                            label: "Energi",
-                                            value: "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal"
-                                        )
-                                    }
+                                    NutritionRowView(
+                                        label: "Energi",
+                                        value: "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal"
+                                    )
                                     NutritionRowView(
                                         label: "Protein",
                                         value: "\(String(format: "%.1f", product.proteinGPer100g)) g"
@@ -204,13 +202,11 @@ struct ProductDetailView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 LazyVGrid(columns: summaryColumns, spacing: 8) {
-                                    if !preferencesViewModel.safeModeHideCalories {
-                                        SummaryPill(
-                                            label: "Energi",
-                                            value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
-                                            tintColor: AppColors.brand
-                                        )
-                                    }
+                                    SummaryPill(
+                                        label: "Energi",
+                                        value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
+                                        tintColor: AppColors.brand
+                                    )
                                     SummaryPill(
                                         label: "Proteiner",
                                         value: String(format: "%.1f g", nutrition.protein),

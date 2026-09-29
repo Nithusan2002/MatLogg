@@ -49,10 +49,11 @@ Eksisterende iOS-tester dekker blant annet:
 - reset av in-flight-hendelser og retry/backoff
 
 `DailyGoalsTests` dekker presis bevaring av mål, feltvalidering, avbryt,
-lagringsfeil/retry, gjentatte lagretrykk, skjulte verdier, forslag og gjenåpning
-av lokal database med tilhørende synkhendelse. `DailyGoalsUITests` dekker
-målredigering med omstart, ugyldig input, avbryt, eksplisitt bruk av forslag,
-Trygg modus og svært stor tekst. Øvrige kritiske brukerflyter trenger fortsatt
+lagringsfeil/retry, gjentatte lagretrykk, bakoverkompatibel dekoding, forslag og
+gjenåpning av lokal database med tilhørende synkhendelse. `DailyGoalsUITests`
+dekker målredigering med omstart, ugyldig input, avbryt, eksplisitt bruk av
+forslag, eldre visningspreferanser og svært stor tekst. Øvrige kritiske
+brukerflyter trenger fortsatt
 utvidet UI-dekning før release.
 
 Målrettet kjøring for daglige mål (legg til en installert simulator):
@@ -118,7 +119,7 @@ destruktive migrasjoner mot eneste kopi av data.
 - normal-, loading-, tom-, offline-, feil- og deaktivert tilstand
 - Dynamic Type, VoiceOver, kontrast og touchflater
 - tastatur, modalpresentasjon og tilbake-navigasjon
-- Safe Mode uten lekkasje gjennom tekst eller tilgjengelighetstre
+- næringsverdier samsvarer mellom synlig UI og tilgjengelighetstre
 - raske kontekstskifter (for eksempel dato eller søk) der svar kan komme ute av
   rekkefølge; bare resultatet for siste valgte kontekst skal publiseres
 - profiler hyppige flyter med SwiftUI Instruments ved ytelsesrelevante endringer:

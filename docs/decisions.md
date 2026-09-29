@@ -510,3 +510,21 @@ og mål skal være eksplisitte valg, ikke forutsetninger for å komme i gang.
 **Konsekvens:** «Start uten mål», skjulte kalorier og Trygg modus oppretter ikke
 et skjult mål. Automatisk estimat krever komplett, støttet grunnlag; ellers kan
 brukeren supplere opplysninger, angi et eget mål eller fortsette uten mål.
+
+## 2026-09-29 – Næringsverdier vises alltid, mål forblir valgfrie
+
+**Beslutning:** Safe Mode og separate valg for å skjule kalorier eller mål
+fjernes. Kalorier og tilgjengelige makroverdier vises konsekvent når data finnes.
+Brukeren kan fortsatt velge kun loggføring uten at et mål eller personlige
+opplysninger opprettes.
+
+**Begrunnelse:** MatLoggs kjerne er mat- og ernæringslogging. En fast
+næringsvisning gjør onboarding, innstillinger, målredigering og skjermhierarki
+enklere, og fjerner tre overlappende presentasjonstilstander. Mål, vekt og
+beregningsgrunnlag forblir eksplisitte og valgfrie, og språket skal fortsatt være
+nøytralt og ikke-dømmende.
+
+**Konsekvens:** Beslutningen erstatter tidligere Safe Mode- og visningsvalg i
+dette dokumentet. Eldre lokale preferansenøkler ignoreres, og eldre mål-JSON med
+`safeModeEnabled` skal fortsatt kunne leses. Lokal databasestruktur,
+`goal.set`-payload, synkkontrakt og backend endres ikke.

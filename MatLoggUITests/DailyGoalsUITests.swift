@@ -127,35 +127,21 @@ final class DailyGoalsUITests: XCTestCase {
     }
 
     @MainActor
-    func testSafeModeRemovesGoalFieldsAndActions() {
+    func testLegacySafeModeLaunchArgumentsDoNotHideGoalEditor() {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-safeModeEnabled", "YES", "-safeModeHideGoals", "YES", "-safeModeHideCalories", "YES"]
         app.launch()
         openGoals(app)
-        XCTAssertTrue(app.staticTexts["Du har valgt en visning uten mål. Du kan endre visningen i Profil → Innstillinger."].exists)
-        XCTAssertFalse(app.textFields["daily-goals-calories"].exists)
-        XCTAssertFalse(app.textFields["daily-goals-protein"].exists)
-        XCTAssertFalse(app.buttons["daily-goals-save"].exists)
-        XCTAssertFalse(app.buttons["daily-goals-suggest"].exists)
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Daglige mål – Trygg modus"
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-        app.navigationBars["Daglige mål"].buttons["Lukk"].tap()
-    }
-
-    @MainActor
-    func testHiddenCaloriesLeaveOnlyMacrosEditable() {
-        let app = XCUIApplication()
-        app.launchArguments += ["--skip-auth", "-safeModeEnabled", "NO", "-safeModeHideGoals", "NO", "-safeModeHideCalories", "YES"]
-        app.launch()
-        openGoals(app)
-        XCTAssertFalse(app.textFields["daily-goals-calories"].exists)
+        XCTAssertTrue(app.textFields["daily-goals-calories"].exists)
         XCTAssertTrue(app.textFields["daily-goals-protein"].exists)
         XCTAssertTrue(app.textFields["daily-goals-carbs"].exists)
         XCTAssertTrue(app.textFields["daily-goals-fat"].exists)
-        XCTAssertFalse(app.buttons["daily-goals-suggest"].exists)
         XCTAssertTrue(app.buttons["daily-goals-save"].exists)
+        XCTAssertTrue(app.buttons["daily-goals-suggest"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Daglige mål – eldre visningsvalg ignoreres"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         app.navigationBars["Daglige mål"].buttons["Avbryt"].tap()
     }
 }

@@ -51,7 +51,8 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
 - Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
-  måltidsfordeling og vektregistrering. Trygg modus skjuler kalorier og mål.
+  måltidsfordeling og vektregistrering. Kalorier og tilgjengelige makroverdier
+  vises også når brukeren ikke har opprettet mål.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
   og andre sporbarhetsfelt forkastes lokalt. Gyldige treff
@@ -77,13 +78,13 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   kobling av lokal profil til konto og slettes sammen med eierens lokale data.
   Ekstern katalogcache er fortsatt felles, lokal cache og synkroniseres ikke.
 - Favoritter, nylig brukte produkter og skannehistorikk.
-- Persondetaljer, målberegning, vektregistrering og Safe Mode.
+- Persondetaljer, målberegning og valgfri vektregistrering.
 - Personlige målforslag er avgrenset til voksne med komplett, støttet
   beregningsgrunnlag. Appen gjetter ikke et generelt kaloriforslag når grunnlaget
   mangler, og standard makroprofiler ligger innenfor NNR 2023-intervallene.
 - Egen redigeringsskjerm for daglige mål med utkast, feltvalidering, eksplisitt
   godkjenning av nye beregningsforslag og lagringsfeil som bevarer input.
-  Skjermen følger separate visningsvalg for kalorier og mål.
+  Skjermen viser alltid kalori- og makrofelt.
 - Eksport av brukerdata.
 - ViewModels og repository-grenser for sentrale features.
 - Minimumsplattform iOS 17. Logging bruker en kompakt, ikke-modal bekreftelse
@@ -244,15 +245,14 @@ implementert og implementert.
   PostgreSQL i Docker. Dette er fortsatt ikke en staging- eller
   produksjonsverifisering, og produksjonssynk forblir deaktivert.
 
-### Daglige mål – verifisert 2026-09-21
+### Daglige mål – verifisert 2026-09-29
 
-- Appen bygger for iOS Simulator. `DailyGoalsTests` og `PreferencesViewModelTests`
-  består (15 testfunksjoner, med flere parameteriserte tilfeller).
-- Seks målrettede UI-tester har bestått på iPhone 17 Pro / iOS 26.5 i separate
-  kjøringer: redigering og omstart, ugyldig input og avbryt, forslag som utkast,
-  svært stor tekst, skjulte kalorier og Trygg modus.
-- UI-testene for visningsvalg setter preferanser ved appstart. Betjening av
-  bryterne i Innstillinger ble ikke bekreftet av denne testkjøringen.
+- Appen bygger for iOS Simulator, og 19 målrettede tester i `DailyGoalsTests`
+  og `OnboardingViewModelTests` består, inkludert dekoding av eldre mål-JSON.
+- UI-testen bekrefter at eldre Safe Mode-preferanser ikke lenger skjuler
+  målfeltene. Hele `DailyGoalsUITests` har fortsatt én feil fordi
+  forslags-testen ikke oppretter nødvendige persondetaljer før den forventer et
+  beregnet forslag; fire øvrige tester består.
 - Arkitekturkontroll: utkast, beregning og validering eies av ViewModels;
   avhengigheter settes sammen ved app-roten; eksisterende lokal mål/event-
   transaksjon gjenbrukes. Ingen nye arkitekturavvik eller synkkontraktsendringer.

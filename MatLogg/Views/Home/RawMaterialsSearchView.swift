@@ -13,7 +13,6 @@ struct RawMaterialsSearchView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @Environment(\.dismiss) var dismiss
     @FocusState private var searchFocused: Bool
     
@@ -267,15 +266,9 @@ struct RawMaterialsSearchView: View {
                     Text(item.name)
                         .font(AppTypography.bodyEmphasis)
                         .foregroundColor(AppColors.ink)
-                    if !preferencesViewModel.safeModeHideCalories {
-                        Text("\(item.caloriesPer100g) kcal per 100 g · Matvaretabellen")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                    } else {
-                        Text("Matvaretabellen")
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
+                    Text("\(item.caloriesPer100g) kcal per 100 g · Matvaretabellen")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -331,7 +324,6 @@ struct RawMaterialsSearchView: View {
 
     private func productContext(_ product: Product) -> String {
         let source = product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : "Open Food Facts"
-        guard !preferencesViewModel.safeModeHideCalories else { return source }
         return "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
     }
     

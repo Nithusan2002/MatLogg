@@ -5,7 +5,6 @@ struct LoggView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @State private var selectedDate: Date = Date()
     @State private var searchText = ""
@@ -232,16 +231,14 @@ struct LoggView: View {
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 
-                                if !preferencesViewModel.safeModeHideCalories {
-                                    HStack(spacing: 12) {
-                                        Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
-                                        Text("P \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
-                                        Text("K \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
-                                        Text("F \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) g")
-                                    }
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundColor(AppColors.ink)
+                                HStack(spacing: 12) {
+                                    Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
+                                    Text("P \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
+                                    Text("K \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
+                                    Text("F \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) g")
                                 }
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundColor(AppColors.ink)
                             }
                         }
                     }
@@ -269,7 +266,6 @@ struct LoggView: View {
                         LogRowView(
                             log: log,
                             productName: logViewModel.selectedProductNames[log.productId] ?? "Ukjent produkt",
-                            showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: {
                                 editingLog = log
                             },

@@ -6,17 +6,6 @@ final class PreferencesViewModel: ObservableObject {
     @Published var hapticsFeedbackEnabled: Bool { didSet { store(hapticsFeedbackEnabled, key: "hapticsFeedbackEnabled") } }
     @Published var soundFeedbackEnabled: Bool { didSet { store(soundFeedbackEnabled, key: "soundFeedbackEnabled") } }
     @Published var showGoalStatusOnHome: Bool { didSet { store(showGoalStatusOnHome, key: "showGoalStatusOnHome") } }
-    @Published var safeModeEnabled: Bool {
-        didSet {
-            store(safeModeEnabled, key: "safeModeEnabled")
-            if safeModeEnabled {
-                safeModeHideCalories = true
-                safeModeHideGoals = true
-            }
-        }
-    }
-    @Published var safeModeHideCalories: Bool { didSet { store(safeModeHideCalories, key: "safeModeHideCalories") } }
-    @Published var safeModeHideGoals: Bool { didSet { store(safeModeHideGoals, key: "safeModeHideGoals") } }
     @Published var showNutritionSource: Bool { didSet { store(showNutritionSource, key: "showNutritionSource") } }
     @Published var analyticsEnabled: Bool {
         didSet {
@@ -39,9 +28,6 @@ final class PreferencesViewModel: ObservableObject {
         hapticsFeedbackEnabled = defaults.object(forKey: "hapticsFeedbackEnabled") as? Bool ?? true
         soundFeedbackEnabled = defaults.object(forKey: "soundFeedbackEnabled") as? Bool ?? true
         showGoalStatusOnHome = defaults.object(forKey: "showGoalStatusOnHome") as? Bool ?? true
-        safeModeEnabled = defaults.bool(forKey: "safeModeEnabled")
-        safeModeHideCalories = defaults.bool(forKey: "safeModeHideCalories")
-        safeModeHideGoals = defaults.bool(forKey: "safeModeHideGoals")
         showNutritionSource = defaults.object(forKey: "showNutritionSource") as? Bool ?? true
         analyticsEnabled = defaults.object(forKey: "analyticsEnabled") as? Bool ?? false
         crashReportsEnabled = defaults.object(forKey: "crashReportsEnabled") as? Bool ?? false
@@ -65,16 +51,6 @@ final class PreferencesViewModel: ObservableObject {
 
     func setUseLastAmount(_ enabled: Bool, for productId: UUID, userId: UUID?) {
         defaults.set(enabled, forKey: useLastAmountKey(productId: productId, userId: userId))
-    }
-
-    func applyOnboardingVisibility(
-        hideCalories: Bool,
-        hideGoals: Bool,
-        safeModeEnabled: Bool
-    ) {
-        self.safeModeEnabled = safeModeEnabled
-        safeModeHideCalories = hideCalories
-        safeModeHideGoals = hideGoals
     }
 
     private func store(_ value: Bool, key: String) {

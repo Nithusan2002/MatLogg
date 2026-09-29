@@ -3,7 +3,6 @@ import SwiftUI
 struct LogRowView: View {
     let log: FoodLog
     let productName: String
-    let showCalories: Bool
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
@@ -23,11 +22,9 @@ struct LogRowView: View {
                 
                 Spacer()
                 
-                if showCalories {
-                    Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.ink)
-                }
+                Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.ink)
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -59,7 +56,6 @@ struct LogRowView: View {
 }
 
 struct CompactLogListView: View {
-    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let summary: DailySummary
     let productNames: [UUID: String]
     let maxPerMeal: Int
@@ -92,7 +88,6 @@ struct CompactLogListView: View {
                         LogRowView(
                             log: log,
                             productName: productNames[log.productId] ?? "Ukjent produkt",
-                            showCalories: !preferencesViewModel.safeModeHideCalories,
                             onEdit: nil,
                             onMove: nil,
                             onDelete: nil

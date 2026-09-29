@@ -31,10 +31,9 @@ navn, initialer og antall måltidstyper logget i dag. Tre oversiktskort viser
 reelle, lokale verdier for dagens måltider, favoritter og ventende synk; appen
 skal ikke vise konstruerte streaks eller prestasjonstall.
 
-«Dagens mål» viser lagrede kalori- og makromål. Trygg modus og de separate
-valgene for å skjule kalorier eller mål gjelder også her. Hurtigmenyen gir
-tilgang til mål, favoritter og innstillinger. Konto, personvern, eksport,
-preferanser, trygghet og synk beholdes samlet under Innstillinger.
+«Dagens mål» viser lagrede kalori- og makromål når brukeren har opprettet dem.
+Hurtigmenyen gir tilgang til mål, favoritter og innstillinger. Konto,
+personvern, eksport, preferanser og synk beholdes samlet under Innstillinger.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt
 trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
@@ -48,9 +47,8 @@ skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 En stor sentral «Loggfør»-knapp åpner et bunnark med søk, skanning, måltidsvalg
 og hurtigvalg fra favoritter og nylig brukte produkter.
-Kortene viser inntil tre innslag, mengde og valgfri kaloriverdi. Trykk åpner
+Kortene viser inntil tre innslag, mengde og kaloriverdi. Trykk åpner
 dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
-Trygg modus skal fjerne kalorier og mål uten å etterlate avslørende etiketter.
 
 Tilstandskrav for Home, hurtigvalg og søk:
 

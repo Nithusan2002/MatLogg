@@ -10,20 +10,28 @@ struct DailyGoalsTests {
              intent: .lose, pace: .standard, activityLevel: .hoy)
     }
 
-    @Test func readsBooleanPresentationPreferencesFromLaunchConfiguration() {
-        let suite = "DailyGoalsPreferences.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defaults.setVolatileDomain([
-            "safeModeEnabled": "YES", "safeModeHideGoals": "YES", "safeModeHideCalories": "YES"
-        ], forName: UserDefaults.argumentDomain)
-        defer {
-            defaults.removeVolatileDomain(forName: UserDefaults.argumentDomain)
-            defaults.removePersistentDomain(forName: suite)
+    @Test func decodesGoalStoredByVersionWithSafeModeField() throws {
+        let id = UUID()
+        let userId = UUID()
+        let data = Data("""
+        {
+          "id": "\(id.uuidString)",
+          "userId": "\(userId.uuidString)",
+          "goalType": "maintain",
+          "dailyCalories": 2100,
+          "proteinTargetG": 120,
+          "carbsTargetG": 250,
+          "fatTargetG": 70,
+          "safeModeEnabled": true,
+          "createdDate": 0
         }
-        let preferences = PreferencesViewModel(defaults: defaults)
-        #expect(preferences.safeModeEnabled)
-        #expect(preferences.safeModeHideGoals)
-        #expect(preferences.safeModeHideCalories)
+        """.utf8)
+
+        let goal = try JSONDecoder().decode(Goal.self, from: data)
+
+        #expect(goal.id == id)
+        #expect(goal.userId == userId)
+        #expect(goal.dailyCalories == 2100)
     }
 
     @Test func unchangedSavePreservesExactValuesAndDoesNotEnqueueAnEvent() async {
@@ -31,7 +39,7 @@ struct DailyGoalsTests {
         let original = goal()
         let vm = DailyGoalsViewModel(repository: repository)
         vm.begin(goal: original, userId: original.userId)
-        #expect(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false))
+        #expect(await vm.save())
         #expect(vm.didSave)
         #expect(repository.saved.isEmpty)
         #expect(Float(vm.protein.replacingOccurrences(of: ",", with: ".")) == original.proteinTargetG)
@@ -44,7 +52,7 @@ struct DailyGoalsTests {
         let vm = DailyGoalsViewModel(repository: repository) { published = $0 }
         vm.begin(goal: original, userId: original.userId)
         vm.protein = "134,75"
-        #expect(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false))
+        #expect(await vm.save())
         #expect(published?.proteinTargetG == 134.75)
         #expect(published?.carbsTargetG == original.carbsTargetG)
         #expect(published?.fatTargetG == original.fatTargetG)
@@ -63,7 +71,7 @@ struct DailyGoalsTests {
         let vm = DailyGoalsViewModel(repository: repository)
         vm.begin(goal: original, userId: original.userId)
         vm.calories = value
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false)))
+        #expect(!(await vm.save()))
         #expect(vm.errors[.calories] != nil)
         #expect(repository.saved.isEmpty)
     }
@@ -77,7 +85,7 @@ struct DailyGoalsTests {
         vm.protein = value
         vm.carbs = value
         vm.fat = value
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false)))
+        #expect(!(await vm.save()))
         #expect(vm.errors.count == 3)
         #expect(repository.saved.isEmpty)
     }
@@ -91,7 +99,7 @@ struct DailyGoalsTests {
         vm.protein = "0"
         vm.carbs = "0"
         vm.fat = "0"
-        #expect(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false))
+        #expect(await vm.save())
         #expect(repository.saved.last?.dailyCalories == calories)
     }
 
@@ -103,13 +111,13 @@ struct DailyGoalsTests {
         let vm = DailyGoalsViewModel(repository: repository) { _ in publications += 1 }
         vm.begin(goal: original, userId: original.userId)
         vm.calories = "2345"
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false)))
+        #expect(!(await vm.save()))
         #expect(vm.calories == "2345")
         #expect(vm.errorMessage != nil)
         #expect(!vm.isSaving && !vm.didSave)
         #expect(publications == 0)
         repository.shouldFail = false
-        #expect(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false))
+        #expect(await vm.save())
         #expect(publications == 1)
         #expect(repository.saved.count == 1)
     }
@@ -121,10 +129,10 @@ struct DailyGoalsTests {
         let vm = DailyGoalsViewModel(repository: repository)
         vm.begin(goal: original, userId: original.userId)
         vm.calories = "2345"
-        let first = Task { await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false) }
+        let first = Task { await vm.save() }
         while repository.continuation == nil { await Task.yield() }
         #expect(vm.isSaving)
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false)))
+        #expect(!(await vm.save()))
         repository.continuation?.resume()
         #expect(await first.value)
         #expect(repository.saved.count == 1)
@@ -142,28 +150,13 @@ struct DailyGoalsTests {
         #expect(repository.saved.isEmpty)
     }
 
-    @Test func hiddenGoalsCannotSaveAndHiddenCaloriesArePreserved() async {
-        let repository = GoalRepositoryStub()
-        let original = goal()
-        let vm = DailyGoalsViewModel(repository: repository)
-        vm.begin(goal: original, userId: original.userId)
-        vm.calories = "9999"
-        vm.protein = "100"
-        #expect(!(await vm.save(hideGoals: true, hideCalories: false, safeModeEnabled: false)))
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: true)))
-        #expect(repository.saved.isEmpty)
-        #expect(await vm.save(hideGoals: false, hideCalories: true, safeModeEnabled: false))
-        #expect(repository.saved.last?.dailyCalories == original.dailyCalories)
-        #expect(repository.saved.last?.proteinTargetG == 100)
-    }
-
     @Test func missingSessionAndMismatchedOwnerNeverReuseAnotherUsersGoal() async {
         let repository = GoalRepositoryStub()
         let vm = DailyGoalsViewModel(repository: repository)
         vm.begin(goal: goal(), userId: UUID())
         #expect(!vm.hasGoal && vm.calories.isEmpty)
         vm.begin(goal: nil, userId: nil)
-        #expect(!(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false)))
+        #expect(!(await vm.save()))
         #expect(repository.saved.isEmpty)
     }
 
@@ -237,7 +230,7 @@ struct DailyGoalsTests {
             vm.protein = "120,25"
             vm.carbs = "220,75"
             vm.fat = "70,125"
-            #expect(await vm.save(hideGoals: false, hideCalories: false, safeModeEnabled: false))
+            #expect(await vm.save())
             let events = repository.store.fetchPendingEvents(limit: 10)
             #expect(events.count == 1)
             eventId = events.first?.eventId

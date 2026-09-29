@@ -42,7 +42,6 @@ struct Goal: Codable, Identifiable {
     let intent: GoalIntent?
     let pace: GoalPace?
     let activityLevel: ActivityLevel?
-    let safeModeEnabled: Bool
     let createdDate: Date
     
     init(
@@ -56,7 +55,6 @@ struct Goal: Codable, Identifiable {
         intent: GoalIntent? = nil,
         pace: GoalPace? = nil,
         activityLevel: ActivityLevel? = nil,
-        safeModeEnabled: Bool = false,
         createdDate: Date = Date()
     ) {
         self.id = id
@@ -69,7 +67,6 @@ struct Goal: Codable, Identifiable {
         self.intent = intent
         self.pace = pace
         self.activityLevel = activityLevel
-        self.safeModeEnabled = safeModeEnabled
         self.createdDate = createdDate
     }
 }

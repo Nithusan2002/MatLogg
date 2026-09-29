@@ -22,7 +22,7 @@ Det du logger i appen
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
   - Lagrede maltider du oppretter for gjenbruk, inkludert navn, matvarer,
     mengder og lagret naeringsgrunnlag/kilde.
-  - Mal (kalorier og makroer) og innstillinger (f.eks. haptics/lyd, trygg modus).
+  - Mal (kalorier og makroer) og innstillinger (f.eks. haptics/lyd og kildevisning).
   - Valgfri fremgang/vektlogg dersom du velger a bruke den.
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
 

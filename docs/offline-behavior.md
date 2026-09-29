@@ -20,7 +20,7 @@ For en bruker som allerede har en gyldig lokal sesjon og har åpnet appen minst
 - opprette brukeroppgitte produkter med dokumenterte verdier; manglende
   næringsdata skal ikke gjettes
 - opprette og endre favoritter, lagrede måltider, daglige mål og vektlogger
-- bruke Trygg modus, visningsvalg og andre lokalt lagrede preferanser
+- bruke lokalt lagrede preferanser
 - angre en lokal logging og eksportere data som allerede finnes på enheten
 
 Hver domeneskriving og tilhørende synkhendelse skal skrives atomisk i samme
