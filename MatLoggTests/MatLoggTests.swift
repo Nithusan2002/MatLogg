@@ -1125,7 +1125,9 @@ struct AuthViewModelTests {
 
         #expect(viewModel.currentUser?.id == localId)
         #expect(viewModel.pendingLocalDataSummary?.logs == 2)
-        #expect(store.token == nil)
+        #expect(manager.claimedFrom == nil)
+        #expect(manager.claimedTo == nil)
+        #expect(store.token == "token")
         await viewModel.confirmLocalDataLink()
         #expect(manager.claimedFrom == localId)
         #expect(manager.claimedTo == account.id)
