@@ -14,226 +14,150 @@ struct MatvaretabellenProduct: Codable {
     let sodiumMgPer100g: Int?
 }
 
+/// Provides the official Norwegian food table as a bundled, searchable snapshot.
 final class MatvaretabellenService {
-    private let baseURLString = "https://www.matvaretabellen.no"
-    private let httpClient: any HTTPClientProtocol
-    private let retryLimit: Int
-    private let sleep: (TimeInterval) async throws -> Void
+    private let bundledData: () throws -> Data
+    private var loadedCatalog: [MatvaretabellenProduct]?
 
     init(
-        session: URLSession = .shared,
-        retryLimit: Int = 1,
-        sleep: @escaping (TimeInterval) async throws -> Void = { seconds in
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-        }
+        bundle: Bundle = .main,
+        bundledData: (() throws -> Data)? = nil
     ) {
-        self.httpClient = URLSessionHTTPClient(session: session)
-        self.retryLimit = max(0, retryLimit)
-        self.sleep = sleep
+        self.bundledData = bundledData ?? {
+            guard let url = bundle.url(forResource: "matvaretabellen-nb", withExtension: "json") else {
+                throw MatvaretabellenCatalogError.missingBundledCatalog
+            }
+            return try Data(contentsOf: url, options: .mappedIfSafe)
+        }
     }
-    
-    func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
-        let params = ["query", "search", "q", "name"]
-        var results: [MatvaretabellenProduct] = []
-        var seen = Set<String>()
-        
-        for param in params {
-            let items = try await fetchProducts(query: query, queryParam: param)
-            for item in items {
-                let key = item.name.lowercased()
-                if seen.insert(key).inserted {
-                    results.append(item)
-                }
-            }
-            if !results.isEmpty {
-                break
-            }
-        }
-        
-        return results
-    }
-    
-    func fetchCommonFoods() async throws -> [MatvaretabellenProduct] {
-        let seeds = [
-            "banan", "eple", "appelsin", "potet", "gulrot",
-            "tomat", "agurk", "brokkoli", "salat", "paprika",
-            "kylling", "laks", "torsk", "egg", "ris",
-            "pasta", "havregryn", "yoghurt", "melk", "brød"
-        ]
-        
-        var results: [MatvaretabellenProduct] = []
-        var seen = Set<String>()
-        for seed in seeds {
-            let items = try await searchProducts(query: seed)
-            for item in items {
-                if seen.insert(item.name.lowercased()).inserted {
-                    results.append(item)
-                }
-            }
-            if results.count >= 50 {
-                break
-            }
-        }
-        return results
-    }
-    
-    private func fetchProducts(query: String, queryParam: String) async throws -> [MatvaretabellenProduct] {
-        guard let baseURL = URL(string: baseURLString) else {
-            throw URLError(.badURL)
-        }
-        var components = URLComponents(url: baseURL.appendingPathComponent("/api/nb/foods.json"), resolvingAgainstBaseURL: false)
-        components?.queryItems = [
-            URLQueryItem(name: queryParam, value: query)
-        ]
-        
-        guard let url = components?.url else {
-            return []
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
 
-        for attempt in 0...retryLimit {
-            do {
-                let result = try await httpClient.send(request, timeout: 10)
-                let statusCode = result.response.statusCode
-                if statusCode == 429 {
-                    let retryAfter = result.response.value(forHTTPHeaderField: "Retry-After").flatMap(Int.init)
-                    if attempt < retryLimit,
-                       RequestBackoff.shouldRetryRateLimit(retryAfterSeconds: retryAfter) {
-                        try await sleep(RequestBackoff.delay(attempt: attempt, retryAfterSeconds: retryAfter))
-                        continue
-                    }
-                    throw APIService.APIError.rateLimited(retryAfterSeconds: retryAfter)
-                }
-                if (500...599).contains(statusCode), attempt < retryLimit {
-                    try await sleep(RequestBackoff.delay(attempt: attempt))
-                    continue
-                }
-                guard (200...299).contains(statusCode) else {
-                    throw APIService.APIError.serverError(statusCode)
-                }
-                return MatvaretabellenResponseParser.parse(data: result.data)
-            } catch let error as HTTPClientError {
-                guard attempt < retryLimit else { throw error }
-                try await sleep(RequestBackoff.delay(attempt: attempt))
-            }
+    func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
+        let catalog = try await loadCatalog()
+        return catalog.filter {
+            catalogSearchMatches(query: query, name: $0.name, brand: $0.brand)
         }
-        throw APIService.APIError.networkError("Matvaretabellen svarte ikke")
     }
+
+    func fetchCommonFoods() async throws -> [MatvaretabellenProduct] {
+        try await loadCatalog()
+    }
+
+    private func loadCatalog() async throws -> [MatvaretabellenProduct] {
+        if let loadedCatalog { return loadedCatalog }
+
+        let data = try bundledData()
+        let products = MatvaretabellenResponseParser.parse(data: data)
+        guard !products.isEmpty else { throw MatvaretabellenCatalogError.invalidCatalog }
+        loadedCatalog = products
+        return products
+    }
+}
+
+enum MatvaretabellenCatalogError: Error {
+    case missingBundledCatalog
+    case invalidCatalog
 }
 
 enum MatvaretabellenResponseParser {
     static func parse(data: Data) -> [MatvaretabellenProduct] {
+        if let normalized = try? JSONDecoder().decode([MatvaretabellenProduct].self, from: data) {
+            return normalized
+        }
         guard let json = try? JSONSerialization.jsonObject(with: data) else { return [] }
-        
+
         func mapDict(_ dict: [String: Any]) -> MatvaretabellenProduct? {
             let name = dict["foodName"] as? String ?? dict["name"] as? String ?? dict["matvarenavn"] as? String
             guard let name, !name.isEmpty else { return nil }
-            
+
             let id = dict["id"] as? String ?? dict["foodId"] as? String ?? UUID().uuidString
             let brand = dict["brand"] as? String ?? dict["merke"] as? String
-            let category = dict["category"] as? String ?? dict["matvaregruppe"] as? String
-            
-            let calories = extractCalories(dict)
-            let protein = extractNutrient(dict, keys: ["protein_100g", "protein"], nutrientIds: ["Protein"])
-            let carbs = extractNutrient(dict, keys: ["carbs_100g", "karbohydrat"], nutrientIds: ["Karbohydrat"])
-            let fat = extractNutrient(dict, keys: ["fat_100g", "fett"], nutrientIds: ["Fett"])
-            let sugar = extractNutrient(dict, keys: ["sugar_100g", "sukkerarter"], nutrientIds: ["Mono+Di"])
-            let fiber = extractNutrient(dict, keys: ["fiber_100g", "kostfiber"], nutrientIds: ["Kostfiber"])
-            let sodiumMg = Int(extractNutrient(dict, keys: ["sodium_mg_100g", "natrium"], nutrientIds: ["Na"]).rounded())
-            
+            let category = dict["category"] as? String ?? dict["foodGroupId"] as? String ?? dict["matvaregruppe"] as? String
             let nutrients = dict["nutrients"] as? [String: Any]
-            let caloriesFromNutrients = (nutrients?["energy_kcal_100g"] as? NSNumber)?.intValue
-                ?? (nutrients?["energi_kcal"] as? NSNumber)?.intValue
-                ?? (dict["energy_kcal_100g"] as? NSNumber)?.intValue
-                ?? (dict["energi_kcal"] as? NSNumber)?.intValue
-            let proteinFromNutrients = (nutrients?["protein_100g"] as? NSNumber)?.floatValue
-                ?? (nutrients?["protein"] as? NSNumber)?.floatValue
-                ?? (dict["protein_100g"] as? NSNumber)?.floatValue
-                ?? (dict["protein"] as? NSNumber)?.floatValue
-            let carbsFromNutrients = (nutrients?["carbs_100g"] as? NSNumber)?.floatValue
-                ?? (nutrients?["karbohydrat"] as? NSNumber)?.floatValue
-                ?? (dict["carbs_100g"] as? NSNumber)?.floatValue
-                ?? (dict["karbohydrat"] as? NSNumber)?.floatValue
-            let fatFromNutrients = (nutrients?["fat_100g"] as? NSNumber)?.floatValue
-                ?? (nutrients?["fett"] as? NSNumber)?.floatValue
-                ?? (dict["fat_100g"] as? NSNumber)?.floatValue
-                ?? (dict["fett"] as? NSNumber)?.floatValue
-            let sugarFromNutrients = (nutrients?["sugar_100g"] as? NSNumber)?.floatValue
-                ?? (nutrients?["sukkerarter"] as? NSNumber)?.floatValue
-            let fiberFromNutrients = (nutrients?["fiber_100g"] as? NSNumber)?.floatValue
-                ?? (nutrients?["kostfiber"] as? NSNumber)?.floatValue
-            let sodiumFromNutrients = (nutrients?["sodium_mg_100g"] as? NSNumber)?.intValue
-                ?? (nutrients?["natrium"] as? NSNumber)?.intValue
-            
+
+            let calories = number(in: nutrients, keys: ["energy_kcal_100g", "energi_kcal"])
+                ?? number(in: dict, keys: ["energy_kcal_100g", "energi_kcal"])
+                ?? extractCalories(dict)
+            let protein = number(in: nutrients, keys: ["protein_100g", "protein"])
+                ?? number(in: dict, keys: ["protein_100g", "protein"])
+                ?? extractNutrient(dict, keys: ["protein_100g", "protein"], nutrientIds: ["Protein"])
+            let carbs = number(in: nutrients, keys: ["carbs_100g", "karbohydrat"])
+                ?? number(in: dict, keys: ["carbs_100g", "karbohydrat"])
+                ?? extractNutrient(dict, keys: ["carbs_100g", "karbohydrat"], nutrientIds: ["Karbo", "Karbohydrat"])
+            let fat = number(in: nutrients, keys: ["fat_100g", "fett"])
+                ?? number(in: dict, keys: ["fat_100g", "fett"])
+                ?? extractNutrient(dict, keys: ["fat_100g", "fett"], nutrientIds: ["Fett"])
+
+            // Required macro values must be present. Missing source data is never converted to zero.
+            guard let calories, let protein, let carbs, let fat else { return nil }
+
+            let sugar = number(in: nutrients, keys: ["sugar_100g", "sukkerarter"])
+                ?? extractNutrient(dict, keys: ["sugar_100g", "sukkerarter"], nutrientIds: ["Mono+Di"])
+            let fiber = number(in: nutrients, keys: ["fiber_100g", "kostfiber"])
+                ?? extractNutrient(dict, keys: ["fiber_100g", "kostfiber"], nutrientIds: ["Fiber", "Kostfiber"])
+            let sodium = number(in: nutrients, keys: ["sodium_mg_100g", "natrium"])
+                ?? extractNutrient(dict, keys: ["sodium_mg_100g", "natrium"], nutrientIds: ["Na"])
+
             return MatvaretabellenProduct(
                 id: id,
                 name: name,
                 brand: brand,
                 category: category,
-                caloriesPer100g: caloriesFromNutrients ?? calories,
-                proteinGPer100g: proteinFromNutrients ?? protein,
-                carbsGPer100g: carbsFromNutrients ?? carbs,
-                fatGPer100g: fatFromNutrients ?? fat,
-                sugarGPer100g: sugarFromNutrients ?? sugar,
-                fiberGPer100g: fiberFromNutrients ?? fiber,
-                sodiumMgPer100g: sodiumFromNutrients ?? sodiumMg
+                caloriesPer100g: Int(calories.rounded()),
+                proteinGPer100g: protein,
+                carbsGPer100g: carbs,
+                fatGPer100g: fat,
+                sugarGPer100g: sugar,
+                fiberGPer100g: fiber,
+                sodiumMgPer100g: sodium.map { Int($0.rounded()) }
             )
         }
-        
-        if let array = json as? [[String: Any]] {
-            return array.compactMap(mapDict)
-        }
-        
+
+        if let array = json as? [[String: Any]] { return array.compactMap(mapDict) }
         if let dict = json as? [String: Any] {
-            if let foods = dict["foods"] as? [[String: Any]] {
-                return foods.compactMap(mapDict)
-            }
-            if let results = dict["results"] as? [[String: Any]] {
-                return results.compactMap(mapDict)
-            }
-            if let items = dict["items"] as? [[String: Any]] {
-                return items.compactMap(mapDict)
+            for key in ["foods", "results", "items"] {
+                if let values = dict[key] as? [[String: Any]] { return values.compactMap(mapDict) }
             }
         }
-        
         return []
     }
 }
 
-private func extractCalories(_ dict: [String: Any]) -> Int {
-    if let calories = dict["calories"] as? [String: Any],
-       let quantity = calories["quantity"] as? NSNumber {
-        return quantity.intValue
+private func number(in dict: [String: Any]?, keys: [String]) -> Float? {
+    guard let dict else { return nil }
+    for key in keys {
+        if let value = dict[key] as? NSNumber { return value.floatValue }
     }
-    if let calories = dict["calories"] as? NSNumber {
-        return calories.intValue
-    }
-    return 0
+    return nil
 }
 
-private func extractNutrient(_ dict: [String: Any], keys: [String], nutrientIds: [String]) -> Float {
-    for key in keys {
-        if let value = dict[key] as? NSNumber {
-            return value.floatValue
-        }
+private func extractCalories(_ dict: [String: Any]) -> Float? {
+    if let calories = dict["calories"] as? [String: Any],
+       let quantity = calories["quantity"] as? NSNumber {
+        return quantity.floatValue
     }
-    if let nutrients = dict["nutrients"] as? [String: Any] {
-        for key in keys {
-            if let value = nutrients[key] as? NSNumber {
-                return value.floatValue
-            }
-        }
+    return (dict["calories"] as? NSNumber)?.floatValue
+}
+
+private func extractNutrient(_ dict: [String: Any], keys: [String], nutrientIds: [String]) -> Float? {
+    if let value = number(in: dict, keys: keys) { return value }
+    if let value = number(in: dict["nutrients"] as? [String: Any], keys: keys) { return value }
+    guard let constituents = dict["constituents"] as? [[String: Any]] else { return nil }
+    return constituents.first { item in
+        guard let nutrientId = item["nutrientId"] as? String else { return false }
+        return nutrientIds.contains(nutrientId) && item["quantity"] is NSNumber
+    }.flatMap { ($0["quantity"] as? NSNumber)?.floatValue }
+}
+
+private func catalogSearchMatches(query: String, name: String, brand: String?) -> Bool {
+    func normalized(_ value: String) -> String {
+        let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        return String(folded.map { $0.isLetter || $0.isNumber ? $0 : " " })
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    if let constituents = dict["constituents"] as? [[String: Any]] {
-        for item in constituents {
-            if let nutrientId = item["nutrientId"] as? String,
-               nutrientIds.contains(nutrientId),
-               let quantity = item["quantity"] as? NSNumber {
-                return quantity.floatValue
-            }
-        }
-    }
-    return 0
+
+    let tokens = normalized(query).split(separator: " ")
+    guard !tokens.isEmpty else { return false }
+    let searchableText = normalized([name, brand].compactMap { $0 }.joined(separator: " "))
+    return tokens.allSatisfy { searchableText.contains($0) }
 }

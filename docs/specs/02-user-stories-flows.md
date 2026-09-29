@@ -35,20 +35,23 @@ Acceptance Criteria:
 #### US-1.2: Bruker setter opp mål
 ```
 SOM: ny bruker
-ØNSKER: raskt kunne angi kalorimål og makromål
-SÅ AT: jeg kan begynne å logge
+ØNSKER: raskt kunne velge loggføring med eller uten mål
+SÅ AT: jeg kan begynne på en måte som passer meg
 
 Acceptance Criteria:
-□ Onboarding-flow: 4 skjermbilder (måltype, kalorimål, makromål, valgfri vektlogg)
-□ Måltype: weight loss / maintain / gain (bestemmer baseline-anbefaling)
+□ Velkomstens budskap og handlinger er synlige uten scrolling på standard iPhone og standard tekststørrelse
+□ Små skjermer, liggende retning og store tekststørrelser kan scrolle som tilgjengelighetsfallback
+□ Brukeren velger standardvisning, skjulte kalorier eller Trygg modus før eventuelt mål
+□ «Start uten mål», «Kun loggføring», skjulte kalorier og Trygg modus oppretter ikke et skjult mål
+□ Måltype: rolig nedgang / stabil vekt / rolig oppgang (bestemmer beregningsretning)
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
-□ Makromål: % eller gram for protein/karb/fett
-□ Valgfri: initiell vektlogg (today's weight)
+□ Makromål: generell profil eller egendefinerte gram for protein/karbohydrat/fett
+□ Vekt, høyde, alder, kjønn/formelvariant og aktivitet er valgfrie personopplysninger
 □ Automatisk estimat krever alder 18+, gyldig vekt/høyde og eksplisitt valg av kvinne- eller mannvarianten i voksenformelen
 □ Manglende eller annet formelgrunnlag gir ikke et gjettet standardestimat; brukeren angir eget mål eller supplerer opplysningene
 □ Makroprofilene følger NNR 2023-intervallene for voksne og omtales som generelle fordelinger, ikke individuelle råd
-□ Lagres til backend + lokal DB
-□ "Hopp over" for vekt-logging
+□ Oppsummering vises før eksplisitt lokal lagring; eksisterende local-first synkhendelse brukes når et mål lagres
+□ Input beholdes ved lagringsfeil, og brukeren kan prøve igjen
 ```
 
 ---
@@ -130,8 +133,9 @@ SÅ AT: jeg ikkje bruker for mye tid på logging
 
 Acceptance Criteria:
 □ Tapp «Loggfør» → «Skann» → åpne kamera (AVFoundation)
-□ Venter på EAN-deteksjon (auto-trigger, ingen knapp)
-□ Ved strekkode-deteksjon: én lett haptisk puls + lyd (pling), utløst kun én gang
+□ Venter på EAN- eller GS1 Data Matrix-deteksjon (auto-trigger, ingen knapp)
+□ For GS1 Data Matrix brukes bare validert GTIN (AI 01); dato, lot og andre sporbarhetsfelt lagres eller sendes ikke
+□ Ved deteksjon av gyldig produktidentifikator: én lett haptisk puls + lyd (pling), utløst kun én gang
 □ Oppslag mot Open Food Facts API v3 med app-identifiserende User-Agent
 □ Hvis produkt finnes:
   - Umiddelbar produktkort-visning (hoppet over loading-state)

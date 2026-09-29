@@ -5,7 +5,7 @@ protocol ProductRepository {
     func cacheCatalogProduct(_ product: Product) async throws
     func getProduct(_ id: UUID) -> Product?
     func getProducts(_ ids: Set<UUID>) async -> [UUID: Product]
-    func getProductByBarcode(_ barcode: String) -> Product?
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product?
     func saveMatchMapping(_ mapping: ProductMatchMapping)
     func getMatchMapping(for barcode: String) -> ProductMatchMapping?
     func toggleFavorite(userId: UUID, productId: UUID) async throws

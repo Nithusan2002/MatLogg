@@ -12,6 +12,7 @@ struct LoggView: View {
     @State private var mealFilter: String?
     @State private var showFilterSheet = false
     @State private var showAddActions = false
+    @State private var showScanCamera = false
     @State private var activeSheet: AddSheet?
     @State private var editingLog: FoodLog?
     @State private var showDeleteConfirm = false
@@ -26,13 +27,11 @@ struct LoggView: View {
     }
     
     enum AddSheet: Identifiable {
-        case scan
         case raw
         case manual
         
         var id: String {
             switch self {
-            case .scan: return "scan"
             case .raw: return "raw"
             case .manual: return "manual"
             }
@@ -74,7 +73,7 @@ struct LoggView: View {
                 }
             }
             .confirmationDialog("Legg til", isPresented: $showAddActions) {
-                Button("Skann") { activeSheet = .scan }
+                Button("Skann") { showScanCamera = true }
                 Button("Søk / Råvarer") { activeSheet = .raw }
                 Button("Legg til manuelt") { activeSheet = .manual }
                 if canCopyFromYesterday {
@@ -93,10 +92,6 @@ struct LoggView: View {
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
-                case .scan:
-                    CameraView(onLogComplete: { _ in
-                        Task { await loadSelectedSummary() }
-                    })
                 case .raw:
                     RawMaterialsSearchView { payload in
                         receiptPayload = payload
@@ -110,6 +105,14 @@ struct LoggView: View {
                     })
                     .environmentObject(appState)
                 }
+            }
+            .fullScreenCover(isPresented: $showScanCamera) {
+                CameraView(
+                    onLogComplete: { _ in
+                        Task { await loadSelectedSummary() }
+                    },
+                    onSearch: { activeSheet = .raw }
+                )
             }
             .sheet(item: $editingLog) { log in
                 EditLogView(

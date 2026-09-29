@@ -67,6 +67,16 @@ final class PreferencesViewModel: ObservableObject {
         defaults.set(enabled, forKey: useLastAmountKey(productId: productId, userId: userId))
     }
 
+    func applyOnboardingVisibility(
+        hideCalories: Bool,
+        hideGoals: Bool,
+        safeModeEnabled: Bool
+    ) {
+        self.safeModeEnabled = safeModeEnabled
+        safeModeHideCalories = hideCalories
+        safeModeHideGoals = hideGoals
+    }
+
     private func store(_ value: Bool, key: String) {
         defaults.set(value, forKey: key)
     }

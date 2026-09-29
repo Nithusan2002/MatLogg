@@ -77,7 +77,6 @@ final class ProductViewModel: ObservableObject {
     private let catalogService: any ProductCatalogService
     private let barcodeService: any BarcodeProductService
     private let nameSearchService: any ProductNameSearchService
-    private let matchingService: MatchingService
     private let cachePolicy: BarcodeProductCachePolicy
     private let now: () -> Date
     private var barcodeRefreshTasks: [String: Task<Product?, Never>] = [:]
@@ -98,7 +97,6 @@ final class ProductViewModel: ObservableObject {
             catalogService: MatvaretabellenService(),
             barcodeService: apiService,
             nameSearchService: apiService,
-            matchingService: MatchingService(),
             cachePolicy: .standard
         )
     }
@@ -108,7 +106,6 @@ final class ProductViewModel: ObservableObject {
         catalogService: any ProductCatalogService,
         barcodeService: any BarcodeProductService,
         nameSearchService: any ProductNameSearchService,
-        matchingService: MatchingService,
         cachePolicy: BarcodeProductCachePolicy = .standard,
         now: @escaping () -> Date = Date.init
     ) {
@@ -116,7 +113,6 @@ final class ProductViewModel: ObservableObject {
         self.catalogService = catalogService
         self.barcodeService = barcodeService
         self.nameSearchService = nameSearchService
-        self.matchingService = matchingService
         self.cachePolicy = cachePolicy
         self.now = now
     }
@@ -133,8 +129,12 @@ final class ProductViewModel: ObservableObject {
         try await repository.saveProduct(product, ownerUserId: ownerUserId)
     }
 
-    func cachedProduct(barcode: String) -> Product? {
-        repository.getProductByBarcode(barcode)
+    func cachedProduct(barcode: String, ownerUserId: UUID?) -> Product? {
+        repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
+    }
+
+    func lookupBarcode(from scannedCode: ScannedBarcode) throws -> String {
+        try ProductBarcodeParser.lookupBarcode(from: scannedCode)
     }
 
     func fetchProduct(barcode: String) async throws -> Product {
@@ -230,7 +230,7 @@ final class ProductViewModel: ObservableObject {
     }
 
     func rawFoodSuggestions() async -> [MatvaretabellenProduct] {
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30) {
+        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365) {
             return cached
         }
         let items = (try? await catalogService.fetchCommonFoods()) ?? []
@@ -248,7 +248,7 @@ final class ProductViewModel: ObservableObject {
             return RawFoodSearchOutcome(items: [], source: .localCache)
         }
 
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
+        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             let filtered = cached.filter {
                 Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand)
             }
@@ -259,10 +259,10 @@ final class ProductViewModel: ObservableObject {
 
         let items = try await catalogService.searchProducts(query: trimmed)
             .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
-        return RawFoodSearchOutcome(items: items, source: .remote)
+        return RawFoodSearchOutcome(items: items, source: .localCache)
     }
 
-    func searchFoodsWithStatus(query: String) async throws -> FoodSearchOutcome {
+    func searchFoodsWithStatus(query: String, ownerUserId: UUID? = nil) async throws -> FoodSearchOutcome {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return FoodSearchOutcome(items: [], source: .localCache)
@@ -272,7 +272,7 @@ final class ProductViewModel: ObservableObject {
         var usedRemoteSource = false
         var firstError: Error?
 
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 30), !cached.isEmpty {
+        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             let cachedMatches = cached
                 .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
             products.append(contentsOf: cachedMatches.map(makeRawFoodProduct))
@@ -282,7 +282,6 @@ final class ProductViewModel: ObservableObject {
                     products.append(contentsOf: rawFoods
                         .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
                         .map(makeRawFoodProduct))
-                    usedRemoteSource = true
                 } catch {
                     firstError = error
                 }
@@ -293,7 +292,6 @@ final class ProductViewModel: ObservableObject {
                 products.append(contentsOf: rawFoods
                     .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
                     .map(makeRawFoodProduct))
-                usedRemoteSource = true
             } catch {
                 firstError = error
             }
@@ -305,7 +303,7 @@ final class ProductViewModel: ObservableObject {
                 .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
                 .map { product in
                     guard let barcode = product.barcodeEan else { return product }
-                    return repository.getProductByBarcode(barcode) ?? product
+                    return repository.getProductByBarcode(barcode, ownerUserId: ownerUserId) ?? product
                 })
             usedRemoteSource = true
         } catch {
@@ -327,80 +325,6 @@ final class ProductViewModel: ObservableObject {
             items: Self.sortedSearchResults(uniqueProducts, query: trimmed),
             source: usedRemoteSource ? .remote : .localCache
         )
-    }
-
-    func upgradeNutritionIfPossible(for product: Product) async -> Product? {
-        guard let barcode = product.barcodeEan else { return nil }
-
-        if let mapping = repository.getMatchMapping(for: barcode) {
-            let daysOld = Calendar.current.dateComponents([.day], from: mapping.updatedAt, to: Date()).day ?? 0
-            if daysOld <= 30, mapping.confidenceScore >= 0.85 {
-                return await persistUpgrade(makeUpgradedProduct(from: product, mapping: mapping, verified: true))
-            }
-        }
-
-        let candidates = (try? await catalogService.searchProducts(query: product.name)) ?? []
-        guard let best = matchingService.bestMatch(offProduct: product, candidates: candidates) else { return nil }
-
-        let mapping = ProductMatchMapping(
-            barcode: barcode,
-            matvaretabellenId: best.product.id,
-            matchedName: best.product.name,
-            confidenceScore: best.score,
-            updatedAt: Date(),
-            caloriesPer100g: Float(best.product.caloriesPer100g),
-            proteinGPer100g: best.product.proteinGPer100g,
-            carbsGPer100g: best.product.carbsGPer100g,
-            fatGPer100g: best.product.fatGPer100g,
-            sugarGPer100g: best.product.sugarGPer100g,
-            fiberGPer100g: best.product.fiberGPer100g,
-            sodiumMgPer100g: best.product.sodiumMgPer100g,
-            category: best.product.category
-        )
-
-        if best.score >= 0.85 {
-            repository.saveMatchMapping(mapping)
-            return await persistUpgrade(makeUpgradedProduct(from: product, mapping: mapping, verified: true))
-        }
-
-        if best.score >= 0.60 {
-            repository.saveMatchMapping(mapping)
-            let suggested = Product(
-                id: product.id,
-                name: product.name,
-                brand: product.brand,
-                category: product.category,
-                barcodeEan: barcode,
-                source: product.source,
-                kind: product.kind,
-                caloriesPer100g: product.caloriesPer100g,
-                proteinGPer100g: product.proteinGPer100g,
-                carbsGPer100g: product.carbsGPer100g,
-                fatGPer100g: product.fatGPer100g,
-                sugarGPer100g: product.sugarGPer100g,
-                fiberGPer100g: product.fiberGPer100g,
-                sodiumMgPer100g: product.sodiumMgPer100g,
-                imageUrl: product.imageUrl,
-                standardPortions: product.standardPortions,
-                servings: product.servings,
-                nutritionSource: product.nutritionSource,
-                imageSource: product.imageUrl == nil ? .none : product.imageSource,
-                verificationStatus: .suggestedMatch,
-                confidenceScore: best.score,
-                isVerified: false,
-                createdAt: product.createdAt,
-                externalID: product.externalID,
-                nutritionBasis: product.nutritionBasis,
-                sourceUpdatedAt: product.sourceUpdatedAt,
-                sourceRevision: product.sourceRevision,
-                sourceSchemaVersion: product.sourceSchemaVersion,
-                fetchedAt: product.fetchedAt,
-                dataQualityWarnings: product.dataQualityWarnings
-            )
-            return await persistUpgrade(suggested)
-        }
-
-        return nil
     }
 
     func makeUpgradedProduct(from product: Product, mapping: ProductMatchMapping, verified: Bool) -> Product {
@@ -438,16 +362,7 @@ final class ProductViewModel: ObservableObject {
         )
     }
 
-    private func persistUpgrade(_ product: Product) async -> Product {
-        do {
-            try await repository.cacheCatalogProduct(product)
-        } catch {
-            errorMessage = "Kunne ikke lagre forbedrede næringsdata: \(error.localizedDescription)"
-        }
-        return product
-    }
-
-    private func makeRawFoodProduct(_ item: MatvaretabellenProduct) -> Product {
+    func makeRawFoodProduct(_ item: MatvaretabellenProduct) -> Product {
         Product(
             id: Product.catalogID(source: "matvaretabellen", externalID: item.id),
             name: item.name,

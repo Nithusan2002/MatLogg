@@ -52,25 +52,30 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
 - Dagsoppsummering og gruppering av logger per måltid.
 - Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
   måltidsfordeling og vektregistrering. Trygg modus skjuler kalorier og mål.
-- Strekkodeskanning og produktoppslag mot Open Food Facts API v3. Gyldige treff
+- EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
+  Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
+  og andre sporbarhetsfelt forkastes lokalt. Gyldige treff
   får stabil identitet fra kilde + strekkode og caches lokalt uten å opprette
   `product.upsert`-hendelser. Dokumenterte væskemengder og næringsgrunnlag per
   100 ml bevares som milliliter uten å gjette tetthet eller konvertere til gram.
 - Cachede Open Food Facts-produkter brukes uten nettverkskall i 30 dager. Eldre
   treff vises fortsatt umiddelbart og revalideres én gang per strekkode i
   bakgrunnen; ved feil beholdes snapshotet og nytt forsøk utsettes i 24 timer.
-- Kombinert matsøk: råvarer fra Matvaretabellen med lokal cache og navnesøk etter
-  merkevarer i Open Food Facts. Eksterne treff uten komplett kcal-/makrogrunnlag
-  vises ikke, fordi manglende næringsverdier ikke skal gjettes som null.
+- Kombinert matsøk: 2 118 råvarer fra en normalisert Matvaretabellen-snapshot
+  følger appen og søkes lokalt uten nett; eksplisitt navnesøk etter merkevarer
+  går til Open Food Facts. Snapshotet bevarer Matvaretabellen-ID og manglende
+  valgfrie verdier som `null`; rader uten komplett kcal-/makrogrunnlag tas ikke
+  inn, fordi manglende næringsverdier ikke skal gjettes som null.
 - Open Food Facts-kall bruker identifiserende app-/kontakt-header og kort
   nettverkstimeout, og 429-svar bevarer eventuell `Retry-After`. Også
   strekkodetreff uten komplett kcal-/makrogrunnlag avvises fremfor å fylle
   manglende verdier med null. Navnesøk sendes bare eksplisitt med Søk-knappen
   eller tastaturets søkehandling, ikke fortløpende per tastetrykk.
-- Backend- og katalogkall bruker en felles transportgrense med eksplisitt
-  timeout og egne feil for offline, timeout og brutt forbindelse.
-  Matvaretabellen validerer nå HTTP-status i stedet for å tolke 429/5xx som
-  tomme søkeresultater. Idempotente katalogoppslag retries høyst én gang.
+- Backend- og Open Food Facts-kall bruker en felles transportgrense med
+  eksplisitt timeout og egne feil for offline, timeout og brutt forbindelse.
+- Brukeropprettede produkter har lokal eierbinding, følger med ved bekreftet
+  kobling av lokal profil til konto og slettes sammen med eierens lokale data.
+  Ekstern katalogcache er fortsatt felles, lokal cache og synkroniseres ikke.
 - Favoritter, nylig brukte produkter og skannehistorikk.
 - Persondetaljer, målberegning, vektregistrering og Safe Mode.
 - Personlige målforslag er avgrenset til voksne med komplett, støttet

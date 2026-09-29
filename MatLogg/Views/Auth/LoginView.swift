@@ -112,7 +112,7 @@ struct LoginView: View {
 
     private var localDataSummaryText: String {
         guard let summary = authViewModel.pendingLocalDataSummary else { return "" }
-        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter."
+        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider, \(summary.products) egne produkter og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter."
     }
 
     private func authLabel(_ title: String) -> some View {

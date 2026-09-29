@@ -106,12 +106,15 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(isPresented: $showScanCamera) {
-            CameraView(onLogComplete: { _ in
-                Task {
-                    await loadTodaysSummary()
-                }
-            })
+        .fullScreenCover(isPresented: $showScanCamera) {
+            CameraView(
+                onLogComplete: { _ in
+                    Task {
+                        await loadTodaysSummary()
+                    }
+                },
+                onSearch: { showRawMaterials = true }
+            )
         }
         .fullScreenCover(isPresented: $showManualAdd) {
             ManualAddView(onOpenRawMaterials: {
@@ -287,7 +290,7 @@ struct HomeTabView: View {
                         .accessibilityLabel(homeSyncStatusText)
                     }
 
-                    if preferencesViewModel.showGoalStatusOnHome {
+                    if preferencesViewModel.showGoalStatusOnHome && !preferencesViewModel.safeModeHideGoals {
                         if isSummaryLoading {
                             CardContainer {
                                 HStack(spacing: 12) {
@@ -899,6 +902,7 @@ struct ScanHistoryView: View {
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var showScanCamera = false
+    @State private var showRawMaterials = false
     
     var body: some View {
         NavigationStack {
@@ -966,7 +970,17 @@ struct ScanHistoryView: View {
             }
         }
         .fullScreenCover(isPresented: $showScanCamera) {
-            CameraView(onLogComplete: { _ in })
+            CameraView(
+                onLogComplete: { _ in },
+                onSearch: { showRawMaterials = true }
+            )
+        }
+        .fullScreenCover(isPresented: $showRawMaterials) {
+            RawMaterialsSearchView { payload in
+                showRawMaterials = false
+                receiptPayload = payload
+            }
+            .environmentObject(appState)
         }
         .alert("Produkt ikke tilgjengelig", isPresented: $showMissingProductAlert) {
             Button("OK", role: .cancel) {}
@@ -1019,6 +1033,7 @@ struct CameraView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onLogComplete: (ReceiptPayload) -> Void
+    let onSearch: () -> Void
 
     @StateObject private var cameraAuthorization: CameraAuthorizationViewModel
     
@@ -1038,9 +1053,11 @@ struct CameraView: View {
 
     init(
         onLogComplete: @escaping (ReceiptPayload) -> Void,
+        onSearch: @escaping () -> Void = {},
         authorizationProvider: any CameraAuthorizationProviding = CameraAuthorizationService()
     ) {
         self.onLogComplete = onLogComplete
+        self.onSearch = onSearch
         _cameraAuthorization = StateObject(
             wrappedValue: CameraAuthorizationViewModel(authorizationProvider: authorizationProvider)
         )
@@ -1048,99 +1065,36 @@ struct CameraView: View {
     
     var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    Button("Avbryt") { dismiss() }
-                    Spacer()
-                    if cameraAuthorization.state == .authorized, isTorchAvailable {
-                        Button(action: { isTorchOn.toggle() }) {
-                            Image(systemName: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill")
-                        }
-                        .accessibilityLabel(isTorchOn ? "Slå av lommelykt" : "Slå på lommelykt")
-                    }
-                }
-                .padding(16)
-                .foregroundColor(.white)
-                
-                Spacer()
-                
-                switch cameraAuthorization.state {
-                case .authorized:
-                    BarcodeScannerView(
-                        onBarcodeDetected: handleBarcodeDetected,
-                        onError: handleError,
-                        onCameraUnavailable: handleCameraUnavailable,
-                        onTorchAvailabilityChanged: { isAvailable in
-                            isTorchAvailable = isAvailable
-                            if !isAvailable { isTorchOn = false }
-                        },
-                        torchOn: $isTorchOn
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                case .checking, .requesting:
-                    cameraAuthorizationProgress
-                case .needsRequest:
-                    cameraPermissionRequest
-                case .denied:
-                    cameraPermissionDenied
-                case .restricted:
-                    cameraPermissionRestricted
-                case .unavailable:
-                    cameraUnavailable
-                }
-                
-                Spacer()
-            }
-            .background(Color.black)
-            
-            // Loading Indicator
-            if isLoading {
-                VStack {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                    Text("Søker produkt...")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                }
+            scannerContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black.opacity(0.8))
-            }
-            
-            if showScanHelp, let scanHelpTitle {
-                VStack(spacing: 8) {
-                    Text(scanHelpTitle)
-                        .font(.subheadline)
-                        .foregroundColor(.white)
-                        .fontWeight(.semibold)
-                    ForEach(Array(scanHelpHints.enumerated()), id: \.offset) { _, hint in
-                        Text(hint)
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(12)
-                .background(Color.black.opacity(0.6))
-                .cornerRadius(12)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 90)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-            
+                .background(Color.black)
+                .ignoresSafeArea()
+
             if cameraAuthorization.state == .authorized {
-                // Centered Viewfinder Overlay
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(0.9), lineWidth: 3)
-                    .frame(width: 240, height: 240)
-                    .overlay(
-                        Text("Skann strekkoden her")
-                            .font(.subheadline)
-                            .foregroundColor(.white)
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                ScannerFocusOverlay(isLoading: isLoading)
+                    .allowsHitTesting(false)
             }
-            
+
+            LinearGradient(
+                colors: [Color.black.opacity(0.58), Color.black.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 170)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+
+            VStack(spacing: 0) {
+                scannerTopBar
+                Spacer(minLength: 0)
+                if cameraAuthorization.state == .authorized {
+                    scannerBottomControls
+                }
+            }
+            .padding(.horizontal, 16)
+            .safeAreaPadding(.top, 8)
+            .safeAreaPadding(.bottom, 16)
         }
         .overlay(alignment: .bottom) {
             if let payload = receiptPayload {
@@ -1164,6 +1118,13 @@ struct CameraView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             cameraAuthorization.refresh()
+        }
+        .onChange(of: cameraAuthorization.state) { _, state in
+            guard state == .authorized else { return }
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: "Kamera klart. Plasser en strekkode eller Data Matrix-kode foran kameraet."
+            )
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
             scannedBarcode = nil
@@ -1213,6 +1174,89 @@ struct CameraView: View {
             }
         } message: {
             Text("Vi fant ikke komplette næringsverdier per 100 g eller 100 ml. Vil du legge produktet til manuelt?")
+        }
+    }
+
+    @ViewBuilder
+    private var scannerContent: some View {
+        switch cameraAuthorization.state {
+        case .authorized:
+            BarcodeScannerView(
+                onBarcodeDetected: handleBarcodeDetected,
+                onError: handleError,
+                onCameraUnavailable: handleCameraUnavailable,
+                onTorchAvailabilityChanged: { isAvailable in
+                    isTorchAvailable = isAvailable
+                    if !isAvailable { isTorchOn = false }
+                },
+                torchOn: $isTorchOn
+            )
+        case .checking, .requesting:
+            cameraAuthorizationProgress
+        case .needsRequest:
+            cameraPermissionRequest
+        case .denied:
+            cameraPermissionDenied
+        case .restricted:
+            cameraPermissionRestricted
+        case .unavailable:
+            cameraUnavailable
+        }
+    }
+
+    private var scannerTopBar: some View {
+        HStack {
+            ScannerOverlayButton(
+                systemImage: "xmark",
+                accessibilityLabel: "Avbryt",
+                action: { dismiss() }
+            )
+
+            Spacer()
+
+            if cameraAuthorization.state == .authorized, isTorchAvailable {
+                ScannerOverlayButton(
+                    systemImage: isTorchOn ? "flashlight.on.fill" : "flashlight.off.fill",
+                    accessibilityLabel: isTorchOn ? "Slå av lommelykt" : "Slå på lommelykt",
+                    isSelected: isTorchOn,
+                    action: { isTorchOn.toggle() }
+                )
+                .accessibilityValue(isTorchOn ? "På" : "Av")
+            }
+        }
+    }
+
+    private var scannerBottomControls: some View {
+        VStack(spacing: 12) {
+            if showScanHelp, let scanHelpTitle {
+                VStack(spacing: 6) {
+                    Text(scanHelpTitle)
+                        .font(AppTypography.bodyEmphasis)
+                    ForEach(Array(scanHelpHints.enumerated()), id: \.offset) { _, hint in
+                        Text(hint)
+                            .font(AppTypography.caption)
+                            .foregroundStyle(Color.white.opacity(0.82))
+                    }
+                }
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity)
+                .padding(12)
+                .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .accessibilityElement(children: .combine)
+            }
+
+            VStack(spacing: 10) {
+                ScannerActionButton(title: "Søk etter vare", systemImage: "magnifyingglass") {
+                    openSearch()
+                }
+                ScannerActionButton(title: "Registrer manuelt", systemImage: "square.and.pencil") {
+                    scannedBarcode = nil
+                    showManualProduct = true
+                }
+            }
+            .disabled(isLoading)
+            .opacity(isLoading ? 0.55 : 1)
         }
     }
 
@@ -1332,17 +1376,45 @@ struct CameraView: View {
         guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
         openURL(settingsURL)
     }
+
+    private func openSearch() {
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            onSearch()
+        }
+    }
     
-    private func handleBarcodeDetected(_ barcode: String) {
+    private func handleBarcodeDetected(_ scannedCode: ScannedBarcode) {
+        guard !isLoading else { return }
+
+        let barcode: String
+        do {
+            barcode = try productViewModel.lookupBarcode(from: scannedCode)
+        } catch {
+            presentScanHelp(
+                title: "Denne koden inneholder ikke et gyldig produktnummer",
+                hints: ["Prøv en annen kode på pakken", "Du kan også søke eller registrere produktet manuelt"]
+            )
+            return
+        }
+
         guard scannedBarcode != barcode else { return }
         
         scannedBarcode = barcode
         isLoading = true
 
+        UIAccessibility.post(
+            notification: .announcement,
+            argument: "Kode funnet. Henter produkt."
+        )
+
         HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
         SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: preferencesViewModel.soundFeedbackEnabled)
         
-        if let cached = productViewModel.cachedProduct(barcode: barcode) {
+        if let cached = productViewModel.cachedProduct(
+            barcode: barcode,
+            ownerUserId: authViewModel.currentUser?.id
+        ) {
             scannedProduct = cached
             isLoading = false
             showProductDetail = true
@@ -1366,14 +1438,6 @@ struct CameraView: View {
                     showProductDetail = true
                 }
                 await saveScannedProduct(product)
-                Task {
-                    if let upgraded = await productViewModel.upgradeNutritionIfPossible(for: product) {
-                        await MainActor.run {
-                            scannedProduct = upgraded
-                        }
-                        await saveScannedProduct(upgraded)
-                    }
-                }
             } catch let apiError as APIService.APIError {
                 await MainActor.run {
                     isLoading = false
@@ -1713,10 +1777,154 @@ extension Date {
     }
 }
 
+private struct ScannerFocusOverlay: View {
+    let isLoading: Bool
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.28)
+                .mask {
+                    Rectangle()
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .frame(width: 300, height: 180)
+                                .offset(y: -42)
+                                .blendMode(.destinationOut)
+                        }
+                        .compositingGroup()
+                }
+
+            VStack(spacing: 32) {
+                ScannerCornerFrame()
+                    .stroke(
+                        isLoading ? AppColors.success : Color.white,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                    )
+                    .frame(width: 300, height: 180)
+                    .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+
+                if isLoading {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Henter produkt …")
+                            .font(AppTypography.bodyEmphasis)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.black.opacity(0.68), in: Capsule())
+                    .accessibilityElement(children: .combine)
+                } else {
+                    VStack(spacing: 4) {
+                        Text("Plasser koden i rammen")
+                            .font(AppTypography.bodyEmphasis)
+                        Text("Strekkode eller Data Matrix")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(Color.white.opacity(0.82))
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
+            .foregroundStyle(Color.white)
+            .offset(y: -12)
+        }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ScannerCornerFrame: Shape {
+    func path(in rect: CGRect) -> Path {
+        let cornerLength: CGFloat = 34
+        let radius: CGFloat = 24
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + radius, y: rect.minY),
+            control: CGPoint(x: rect.minX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + cornerLength, y: rect.minY))
+
+        path.move(to: CGPoint(x: rect.maxX - cornerLength, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+
+        path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - radius, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - cornerLength, y: rect.maxY))
+
+        path.move(to: CGPoint(x: rect.minX + cornerLength, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX, y: rect.maxY - radius),
+            control: CGPoint(x: rect.minX, y: rect.maxY)
+        )
+
+        return path
+    }
+}
+
+private struct ScannerOverlayButton: View {
+    let systemImage: String
+    let accessibilityLabel: String
+    var isSelected = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .frame(width: 44, height: 44)
+                .background(
+                    isSelected ? AppColors.action.opacity(0.9) : Color.black.opacity(0.58),
+                    in: Circle()
+                )
+                .overlay(Circle().stroke(Color.white.opacity(0.24), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+private struct ScannerActionButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(AppTypography.bodyEmphasis)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .padding(.horizontal, 10)
+                .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - BarcodeScannerView Wrapper
 
 struct BarcodeScannerView: UIViewControllerRepresentable {
-    let onBarcodeDetected: (String) -> Void
+    let onBarcodeDetected: (ScannedBarcode) -> Void
     let onError: (String) -> Void
     let onCameraUnavailable: () -> Void
     let onTorchAvailabilityChanged: (Bool) -> Void
@@ -1741,7 +1949,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
 }
 
 class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
-    var onBarcodeDetected: ((String) -> Void)?
+    var onBarcodeDetected: ((ScannedBarcode) -> Void)?
     var onError: ((String) -> Void)?
     var onCameraUnavailable: (() -> Void)?
     var onTorchAvailabilityChanged: ((Bool) -> Void)?
@@ -1822,14 +2030,18 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         if captureSession.canAddOutput(metadataOutput) {
             captureSession.addOutput(metadataOutput)
             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [
+            let requestedTypes: [AVMetadataObject.ObjectType] = [
                 .ean8,
                 .ean13,
                 .upce,
                 .code128,
                 .code39,
-                .code93
+                .code93,
+                .dataMatrix
             ]
+            metadataOutput.metadataObjectTypes = requestedTypes.filter {
+                metadataOutput.availableMetadataObjectTypes.contains($0)
+            }
         } else {
             reportCameraUnavailable()
             return
@@ -1911,10 +2123,24 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
                     if lastScannedCode != stringValue || now.timeIntervalSince(lastScanTime) > 1.0 {
                         lastScannedCode = stringValue
                         lastScanTime = now
-                        onBarcodeDetected?(stringValue)
+                        guard let symbology = symbology(for: readableObject.type) else { continue }
+                        onBarcodeDetected?(ScannedBarcode(rawValue: stringValue, symbology: symbology))
                     }
                 }
             }
+        }
+    }
+
+    private func symbology(for type: AVMetadataObject.ObjectType) -> ScannedBarcode.Symbology? {
+        switch type {
+        case .ean8: return .ean8
+        case .ean13: return .ean13
+        case .upce: return .upce
+        case .code128: return .code128
+        case .code39: return .code39
+        case .code93: return .code93
+        case .dataMatrix: return .gs1DataMatrix
+        default: return nil
         }
     }
 }

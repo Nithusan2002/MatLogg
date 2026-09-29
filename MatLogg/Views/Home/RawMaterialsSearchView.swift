@@ -203,7 +203,10 @@ struct RawMaterialsSearchView: View {
         }
         searchState = .loading
         do {
-            let outcome = try await productViewModel.searchFoodsWithStatus(query: trimmed)
+            let outcome = try await productViewModel.searchFoodsWithStatus(
+                query: trimmed,
+                ownerUserId: authViewModel.currentUser?.id
+            )
             guard !Task.isCancelled,
                   query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             searchResults = outcome.items
@@ -246,7 +249,7 @@ struct RawMaterialsSearchView: View {
     
     private func rawRow(item: MatvaretabellenProduct) -> some View {
         Button(action: {
-            let product = toProduct(item: item)
+            let product = productViewModel.makeRawFoodProduct(item)
             Task {
                 guard let userId = authViewModel.currentUser?.id else { return }
                 if await productViewModel.saveScannedProduct(product, userId: userId) {
@@ -332,28 +335,4 @@ struct RawMaterialsSearchView: View {
         return "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
     }
     
-    private func toProduct(item: MatvaretabellenProduct) -> Product {
-        Product(
-            name: item.name,
-            brand: item.brand,
-            category: item.category,
-            barcodeEan: nil,
-            source: "matvaretabellen",
-            kind: .genericFood,
-            caloriesPer100g: Float(item.caloriesPer100g),
-            proteinGPer100g: item.proteinGPer100g,
-            carbsGPer100g: item.carbsGPer100g,
-            fatGPer100g: item.fatGPer100g,
-            sugarGPer100g: item.sugarGPer100g,
-            fiberGPer100g: item.fiberGPer100g,
-            sodiumMgPer100g: item.sodiumMgPer100g,
-            imageUrl: nil,
-            standardPortions: nil,
-            nutritionSource: .matvaretabellen,
-            imageSource: .none,
-            verificationStatus: .verified,
-            confidenceScore: nil,
-            isVerified: true
-        )
-    }
 }

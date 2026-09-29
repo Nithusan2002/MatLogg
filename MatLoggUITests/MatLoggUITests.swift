@@ -27,7 +27,11 @@ final class MatLoggUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.staticTexts["MatLogg"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Logg inn"].exists)
+        let localContinue = app.buttons["welcome-continue-local"]
+        XCTAssertTrue(localContinue.exists)
+        XCTAssertTrue(localContinue.isHittable, "Primærhandlingen skal være synlig uten scrolling på standard iPhone.")
+        XCTAssertTrue(app.buttons["welcome-login"].isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["welcome-privacy"].isHittable)
         XCTAssertFalse(app.buttons["Logg inn med Apple"].exists)
     }
 

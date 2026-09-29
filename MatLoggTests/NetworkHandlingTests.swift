@@ -39,65 +39,6 @@ struct NetworkHandlingTests {
         }
     }
 
-    @Test func matvaretabellenRetriesFiveHundredAndThenSucceeds() async throws {
-        var callCount = 0
-        NetworkURLProtocolStub.handler = { request in
-            callCount += 1
-            let url = try #require(request.url)
-            if callCount == 1 {
-                return (
-                    try #require(HTTPURLResponse(url: url, statusCode: 500, httpVersion: nil, headerFields: nil)),
-                    Data()
-                )
-            }
-            return (
-                try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)),
-                Data(#"[{"id":"1","name":"Banan","energy_kcal_100g":89}]"#.utf8)
-            )
-        }
-        defer { NetworkURLProtocolStub.handler = nil }
-
-        let service = MatvaretabellenService(
-            session: makeSession(),
-            retryLimit: 1,
-            sleep: { _ in }
-        )
-
-        let products = try await service.searchProducts(query: "banan")
-
-        #expect(products.first?.name == "Banan")
-        #expect(callCount == 2)
-    }
-
-    @Test func matvaretabellenPreservesRateLimitRetryAfter() async throws {
-        NetworkURLProtocolStub.handler = { request in
-            let url = try #require(request.url)
-            return (
-                try #require(HTTPURLResponse(
-                    url: url,
-                    statusCode: 429,
-                    httpVersion: nil,
-                    headerFields: ["Retry-After": "45"]
-                )),
-                Data()
-            )
-        }
-        defer { NetworkURLProtocolStub.handler = nil }
-
-        let service = MatvaretabellenService(session: makeSession(), retryLimit: 0)
-
-        do {
-            _ = try await service.searchProducts(query: "banan")
-            Issue.record("Rate limiting skulle ha blitt returnert som feil")
-        } catch let error as APIService.APIError {
-            guard case .rateLimited(let seconds) = error else {
-                Issue.record("Forventet rateLimited, fikk \(error)")
-                return
-            }
-            #expect(seconds == 45)
-        }
-    }
-
     private func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [NetworkURLProtocolStub.self]

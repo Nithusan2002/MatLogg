@@ -32,6 +32,15 @@ final class HealthProfileViewModel: ObservableObject {
         currentGoal = goal
     }
 
+    func acceptOnboardingCompletion(goal: Goal?, personalDetails: PersonalDetails?) {
+        if let goal {
+            currentGoal = goal
+        }
+        if let personalDetails {
+            self.personalDetails = personalDetails
+        }
+    }
+
     func loadGoal(userId: UUID) async {
         activeUserId = userId
         personalDetails = personalDetailsStore.load(userId: userId)

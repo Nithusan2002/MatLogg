@@ -377,9 +377,11 @@ CREATE INDEX idx_sync_events_user_synced ON sync_events(user_id, is_synced);
 - − for store avvik i energi per 100g, helt ulik kategori
 
 **Terskler:**
-- `>= 0.85` → auto‑link (bruk Matvaretabellen næring + OFF bilde)
-- `0.60–0.85` → suggested match (moderering eller A/B)
-- `< 0.60` → behold OFF og merk unverified
+- Automatisk kobling er deaktivert i MVP. Navnelikhet alene er ikke nok til å
+  erstatte næringsinnhold på et strekkodeprodukt med en generisk råvare.
+- `>= 0.60` kan lagres som et internt forslag for senere, eksplisitt
+  brukerbekreftelse, men endrer ikke produktets næringsgrunnlag.
+- Uten eksplisitt bekreftelse beholdes Open Food Facts-data og kilde.
 
 **Cache / latency:**
 - Lokal cache: `ean -> productSnapshot`
@@ -679,14 +681,14 @@ Eviction: LRU (least recently used)
 ### **Product Database Caching (Matvaretabellen)**
 
 ```
-Seeded on first app launch:
-• ~500 common Norwegian products (CSV import)
-• Stored in SQLite with source="matvaretabellen"
-• Never deleted, always available offline
+Bundled with the app:
+• Normalized snapshot of 2 118 official Norwegian foods
+• Stable identity from source="matvaretabellen" + Matvaretabellen food ID
+• Searchable without network; optional missing nutrients remain null
 
 Updates:
-• Periodic fetch from Matvaretabellen API (monthly)
-• Merge with local DB (update existing, insert new)
+• Snapshot is reviewed and regenerated with an app release, normally annually
+• Existing logs retain their stored nutrition snapshot
 ```
 
 ---

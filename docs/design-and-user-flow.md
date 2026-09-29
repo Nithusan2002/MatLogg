@@ -151,12 +151,20 @@ måltider](saved-meals.md).
 ```text
 Åpne appen
   → fortsett på denne iPhonen, eller logg inn med Apple/e-post
-  → se kort forklaring av mål, databruk og personvern
-  → angi eller hopp over valgfrie person- og vektopplysninger
-  → velg veiledende energi- og makromål
-  → velg trygghets-/visningspreferanser
+  → se kort forklaring av lokal lagring, valgfrie opplysninger og avgrensning
+  → velg standardvisning, skjulte kalorier eller Trygg modus
+  → velg kun loggføring, eller sett opp et valgfritt mål
+  → oppgi eller hopp over beregningsgrunnlag; appen gjetter aldri manglende data
+  → kontroller eventuelt estimert energi- og makromål
+  → se personvernvalg og en oppsummering
   → Hjem
 ```
+
+Velkomstskjermen skal vise budskap, trygghetspunkter og primærhandling uten
+scrolling på en vanlig iPhone i standard tekststørrelse. Innholdet ligger fortsatt
+i en scrollbar beholder som tilgjengelighetsfallback for små skjermer, liggende
+retning og store tekststørrelser. «Start uten mål» og visningsvalg som skjuler mål
+skal ikke opprette et skjult kalorimål i bakgrunnen.
 
 Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
 velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller

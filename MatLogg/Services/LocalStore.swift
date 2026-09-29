@@ -8,7 +8,7 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 4
+    static let latestSchemaVersion = 5
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -76,7 +76,8 @@ final class LocalStore {
                 favorites: countLocked(table: "favorites", ownerId: ownerId),
                 scans: countLocked(table: "scans", ownerId: ownerId),
                 weights: countLocked(table: "weights", ownerId: ownerId),
-                savedMeals: countLocked(table: "saved_meals", ownerId: ownerId)
+                savedMeals: countLocked(table: "saved_meals", ownerId: ownerId),
+                products: countLocked(table: "products", ownerColumn: "ownerUserId", ownerId: ownerId)
             )
         }
     }
@@ -93,6 +94,7 @@ final class LocalStore {
                     try updateOwnerLocked(table: table, column: "userId", from: localOwnerId, to: accountOwnerId)
                 }
                 try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
+                try updateOwnerLocked(table: "products", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -109,6 +111,7 @@ final class LocalStore {
                     try deleteOwnerRowsLocked(table: table, column: "userId", ownerId: ownerId)
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
+                try deleteOwnerRowsLocked(table: "products", column: "ownerUserId", ownerId: ownerId)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -351,7 +354,7 @@ final class LocalStore {
         let data = try encoder.encode(product)
         let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
         try performAtomicWrite(ownerUserId: ownerUserId, type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
-            try saveProductLocked(product, data: data)
+            try saveProductLocked(product, data: data, ownerUserId: ownerUserId, storageKind: "user")
         }
     }
 
@@ -360,17 +363,19 @@ final class LocalStore {
     func cacheCatalogProduct(_ product: Product) throws {
         let data = try encoder.encode(product)
         try queue.sync {
-            try saveProductLocked(product, data: data)
+            try saveProductLocked(product, data: data, ownerUserId: nil, storageKind: "catalog")
         }
     }
 
-    private func saveProductLocked(_ product: Product, data: Data) throws {
+    private func saveProductLocked(_ product: Product, data: Data, ownerUserId: UUID?, storageKind: String) throws {
         let sql = """
-        INSERT INTO products(id, barcode, json)
-        VALUES(?, ?, ?)
+        INSERT INTO products(id, barcode, json, ownerUserId, storageKind)
+        VALUES(?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             barcode = excluded.barcode,
-            json = excluded.json;
+            json = excluded.json,
+            ownerUserId = excluded.ownerUserId,
+            storageKind = excluded.storageKind;
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
@@ -378,6 +383,12 @@ final class LocalStore {
         sqlite3_bind_text(stmt, 1, product.id.uuidString, -1, SQLITE_TRANSIENT)
         sqlite3_bind_text(stmt, 2, product.barcodeEan ?? "", -1, SQLITE_TRANSIENT)
         bindBlob(stmt, index: 3, data: data)
+        if let ownerUserId {
+            sqlite3_bind_text(stmt, 4, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+        } else {
+            sqlite3_bind_null(stmt, 4)
+        }
+        sqlite3_bind_text(stmt, 5, storageKind, -1, SQLITE_TRANSIENT)
         try requireDone(sqlite3_step(stmt))
     }
     
@@ -423,12 +434,20 @@ final class LocalStore {
         }
     }
     
-    func getProductByBarcode(_ barcode: String) -> Product? {
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product? {
         queue.sync {
-            let sql = "SELECT json FROM products WHERE barcode = ? LIMIT 1;"
+            let sql = """
+            SELECT json FROM products
+            WHERE barcode = ?
+              AND (storageKind = 'catalog' OR ownerUserId = ?)
+            ORDER BY CASE WHEN ownerUserId = ? THEN 0 ELSE 1 END
+            LIMIT 1;
+            """
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_text(stmt, 1, barcode, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, ownerUserId?.uuidString ?? "", -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 3, ownerUserId?.uuidString ?? "", -1, SQLITE_TRANSIENT)
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0) {
@@ -1057,6 +1076,8 @@ final class LocalStore {
                         try migrateToVersion3Locked()
                     case 4:
                         try migrateToVersion4Locked()
+                    case 5:
+                        try migrateToVersion5Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -1192,6 +1213,35 @@ final class LocalStore {
           AND COALESCE(status, 'pending') != 'acked';
         """)
         try execute("CREATE INDEX IF NOT EXISTS sync_queue_owner_status_created_idx ON sync_queue(ownerUserId, status, createdAt);")
+    }
+
+    private func migrateToVersion5Locked() throws {
+        let columns = columnNamesLocked(table: "products")
+        if !columns.contains("ownerUserId") {
+            try execute("ALTER TABLE products ADD COLUMN ownerUserId TEXT;")
+        }
+        if !columns.contains("storageKind") {
+            try execute("ALTER TABLE products ADD COLUMN storageKind TEXT NOT NULL DEFAULT 'catalog';")
+        }
+        try execute("""
+        UPDATE products
+        SET storageKind = 'user',
+            ownerUserId = (
+                SELECT ownerUserId FROM sync_queue
+                WHERE type = 'product.upsert'
+                  AND entityId = products.id
+                  AND ownerUserId IS NOT NULL
+                ORDER BY createdAt DESC
+                LIMIT 1
+            )
+        WHERE EXISTS (
+            SELECT 1 FROM sync_queue
+            WHERE type = 'product.upsert'
+              AND entityId = products.id
+              AND ownerUserId IS NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS products_owner_barcode_idx ON products(ownerUserId, barcode);")
     }
     
     private func databaseFileURL() -> URL {
@@ -1363,8 +1413,14 @@ final class LocalStore {
 
     private func countLocked(table: String, ownerId: UUID) -> Int {
         precondition(["logs", "goals", "favorites", "scans", "weights", "saved_meals"].contains(table))
+        return countLocked(table: table, ownerColumn: "userId", ownerId: ownerId)
+    }
+
+    private func countLocked(table: String, ownerColumn: String, ownerId: UUID) -> Int {
+        precondition(["logs", "goals", "favorites", "scans", "weights", "saved_meals", "products"].contains(table))
+        precondition(ownerColumn == "userId" || ownerColumn == "ownerUserId")
         var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table) WHERE userId = ?;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table) WHERE \(ownerColumn) = ?;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
         defer { sqlite3_finalize(stmt) }
         sqlite3_bind_text(stmt, 1, ownerId.uuidString, -1, SQLITE_TRANSIENT)
         guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
@@ -1372,7 +1428,7 @@ final class LocalStore {
     }
 
     private func updateOwnerLocked(table: String, column: String, from: UUID, to: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?
@@ -1385,7 +1441,7 @@ final class LocalStore {
     }
 
     private func deleteOwnerRowsLocked(table: String, column: String, ownerId: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?

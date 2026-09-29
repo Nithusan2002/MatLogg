@@ -782,9 +782,10 @@ struct LocalDataSummary: Equatable {
     let scans: Int
     let weights: Int
     let savedMeals: Int
+    let products: Int
 
-    static let empty = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0)
+    static let empty = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
 
-    var totalCount: Int { logs + goals + favorites + scans + weights + savedMeals }
+    var totalCount: Int { logs + goals + favorites + scans + weights + savedMeals + products }
     var hasData: Bool { totalCount > 0 }
 }

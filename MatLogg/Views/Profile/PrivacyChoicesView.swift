@@ -67,7 +67,7 @@ struct PrivacyChoicesContentView: View {
                     .foregroundColor(AppColors.textSecondary)
                 
                 VStack(alignment: .leading, spacing: 10) {
-                    PrivacyBullet(text: "Vi lagrer dataene dine for å vise loggen din på tvers av enheter.")
+                    PrivacyBullet(text: "Data lagres først på enheten. Eventuell synk krever konto og et eget valg.")
                     PrivacyBullet(text: "Kamera brukes bare når du skanner strekkoder.")
                     PrivacyBullet(text: "Du kan laste ned eller slette dataene dine i Profil.")
                     PrivacyBullet(text: "Valgfrie rapporter kan hjelpe oss å gjøre appen mer stabil.")

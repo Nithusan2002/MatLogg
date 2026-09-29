@@ -17,5 +17,6 @@ faktiske produksjonskonfigurasjonen før innsending.
 - Data brukes ikke til sporing eller tredjepartsannonsering og selges ikke.
 
 Supabase er databehandler for konto, autentisering, database, Edge Functions,
-backup og opplastingssynk. Open Food Facts og Matvaretabellen mottar aktivt
-innsendt søketekst eller strekkode som beskrevet i personvernerklæringen.
+backup og opplastingssynk. Open Food Facts mottar aktivt innsendt søketekst
+eller strekkode som beskrevet i personvernerklæringen. Matvaretabellen-søk skjer
+lokalt i katalogen som følger med appen.

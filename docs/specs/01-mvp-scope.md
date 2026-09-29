@@ -17,7 +17,7 @@
 | **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
 | **Onboarding** | P0 | Måltype (weght loss/maintain/gain), kalorimål, makromål, valgfri vektlogg |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
-| **Strekkode-skanning** | P0 | EAN-skann → produktoppslag → produktkort → logging |
+| **Strekkode-skanning** | P0 | EAN- eller GS1 Data Matrix-skann → GTIN-oppslag → produktkort → logging |
 | **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser, mengdevelger (prefill: 100g), "Legg til"-knapp |
 | **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid og valgt dato, inkludert fremtidig dato |
 | **Kompakt loggbekreftelse** | P0 | Etter logging: vare, mengde og måltid + «Angre», uten å blokkere videre logging |

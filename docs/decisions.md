@@ -452,3 +452,61 @@ automatisk til e-postkonto ved lik adresse.
 
 **Konsekvens:** Synk v1 er fortsatt bare opplasting og markedsføres ikke som
 backup, gjenoppretting eller flerenhetssynk. Produksjonssynk forblir deaktivert.
+
+## 2026-09-28 – Kostnadsfri, lokal råvarekatalog
+
+**Beslutning:** Appen leveres med en normalisert snapshot av Matvaretabellen og
+søker denne lokalt. Open Food Facts beholdes som kostnadsfri kilde for eksplisitt
+navnesøk etter merkevarer og strekkodeoppslag. Snapshotet oppdateres med en ny
+appversjon, normalt årlig. Automatisk fuzzy kobling skal ikke erstatte næring på
+et strekkodeprodukt med data fra en generisk råvare.
+
+**Begrunnelse:** Dette gir norsk råvaresøk uten nettilgang, ingen løpende
+API-kostnad og mindre deling av søketekst. Det unngår også at navnelikhet blir
+presentert som verifisert næringsdata.
+
+**Konsekvens:** Matvaretabellen-snapshot og ekstern katalogcache er lokal
+katalogtilstand og oppretter ikke synkhendelser. Brukeropprettede produkter får
+egen lokal eierbinding og følger claim/sletting fra auth-grunnlaget i forrige
+commit. SQLite-skjemaet økes til v5; wire-format og synkkontrakt er uendret.
+
+## 2026-09-29 – GS1 Data Matrix brukes bare som produktidentifikator
+
+**Beslutning:** Skanneren støtter GS1 Data Matrix i tillegg til endimensjonale
+strekkoder. Klienten trekker bare ut, validerer og normaliserer GTIN fra
+Application Identifier 01 før eksisterende lokal cache og Open Food Facts-oppslag.
+
+**Begrunnelse:** Ferskvarer kan merke produktet med GS1 Data Matrix i stedet for
+synlig EAN, men MatLogg trenger bare produktidentiteten for ernæringsoppslag.
+
+**Konsekvens:** Pakkedato, holdbarhetsdato, lotnummer og andre sporbarhetsdata
+lagres eller sendes ikke. Endringen krever ingen databasemigrasjon, backend- eller
+synkkontraktsendring.
+
+## 2026-09-29 – Oda MCP utsettes som mulig fremtidig integrasjon
+
+**Beslutning:** Oda MCP implementeres ikke i nåværende scope. Matvaretabellen og
+Open Food Facts forblir gjeldende produkt- og næringskilder.
+
+**Begrunnelse:** Oda kan senere være nyttig for eksplisitt import av konkrete
+varer fra handlekurv eller ordrehistorikk, men skal ikke brukes som primær
+næringsdatabase uten avklart gjenbruksrett, stabilitet, GTIN-dekning, caching og
+personvernkonsekvenser.
+
+**Konsekvens:** Ingen kode, datamodell, personverntekst eller brukerflyt endres
+nå. En eventuell senere vurdering skal starte som en valgfri, brukerinitiert
+integrasjon og bevare kilde, måleenhet, næringsgrunnlag og loggsnapshot.
+
+## 2026-09-29 – Onboarding starter med trygghet og eksplisitte visningsvalg
+
+**Beslutning:** Velkomsten komprimeres slik at kjernebudskap og handlinger er
+synlige uten scrolling på en vanlig iPhone, med scrolling som fallback for liten
+plass og stor tekst. Onboarding lar brukeren velge visning før mål og tilbyr en
+egen vei for kun loggføring.
+
+**Begrunnelse:** Lokal bruk og lav terskel er appens kjerneverdi. Kalorier, vekt
+og mål skal være eksplisitte valg, ikke forutsetninger for å komme i gang.
+
+**Konsekvens:** «Start uten mål», skjulte kalorier og Trygg modus oppretter ikke
+et skjult mål. Automatisk estimat krever komplett, støttet grunnlag; ellers kan
+brukeren supplere opplysninger, angi et eget mål eller fortsette uten mål.

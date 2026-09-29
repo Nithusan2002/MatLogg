@@ -386,8 +386,46 @@ struct MatLoggTests {
 
         try store.cacheCatalogProduct(product)
 
-        #expect(store.getProductByBarcode(barcode)?.id == product.id)
+        #expect(store.getProductByBarcode(barcode, ownerUserId: nil)?.id == product.id)
         #expect(store.pendingSyncCount() == 0)
+    }
+
+    @Test func userProductsAreOwnerScopedClaimedAndDeletedWithProfileData() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggOwnedProduct-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("owned-product.sqlite"))
+        let localOwner = UUID()
+        let accountOwner = UUID()
+        let unrelatedOwner = UUID()
+        let barcode = "7099999999999"
+        let product = Product(
+            name: "Min vare",
+            barcodeEan: barcode,
+            source: "user",
+            caloriesPer100g: 123,
+            proteinGPer100g: 4,
+            carbsGPer100g: 20,
+            fatGPer100g: 3
+        )
+
+        try store.saveProduct(product, ownerUserId: localOwner)
+
+        #expect(store.getProductByBarcode(barcode, ownerUserId: localOwner)?.id == product.id)
+        #expect(store.getProductByBarcode(barcode, ownerUserId: unrelatedOwner) == nil)
+        #expect(store.localDataSummary(ownerId: localOwner).products == 1)
+
+        try store.claimLocalData(from: localOwner, to: accountOwner)
+
+        #expect(store.getProductByBarcode(barcode, ownerUserId: localOwner) == nil)
+        #expect(store.getProductByBarcode(barcode, ownerUserId: accountOwner)?.id == product.id)
+        #expect(store.localDataSummary(ownerId: accountOwner).products == 1)
+
+        try store.deleteLocalData(ownerId: accountOwner)
+
+        #expect(store.getProductByBarcode(barcode, ownerUserId: accountOwner) == nil)
+        #expect(store.localDataSummary(ownerId: accountOwner).products == 0)
     }
 
     @Test func productBatchLookupReturnsOnlyRequestedProducts() throws {
@@ -470,6 +508,7 @@ struct MatLoggTests {
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
         let seedSQL = """
+        CREATE TABLE products(id TEXT PRIMARY KEY, barcode TEXT, json BLOB);
         CREATE TABLE sync_queue(
             eventId TEXT PRIMARY KEY, type TEXT, createdAt REAL, entityId TEXT,
             schemaVersion INTEGER NOT NULL DEFAULT 1, payload BLOB, status TEXT,
@@ -1112,7 +1151,7 @@ struct AuthViewModelTests {
         let account = makeUser()
         let store = AuthSessionStoreSpy()
         let manager = LocalProfileManagerSpy()
-        manager.summary = LocalDataSummary(logs: 2, goals: 1, favorites: 0, scans: 0, weights: 0, savedMeals: 0)
+        manager.summary = LocalDataSummary(logs: 2, goals: 1, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
         let viewModel = AuthViewModel(
             apiClient: AuthAPIClientSpy(user: account),
             sessionStore: store,

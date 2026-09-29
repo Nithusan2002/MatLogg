@@ -16,6 +16,7 @@ struct MatLoggApp: App {
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
     @StateObject private var dailyGoalsViewModel: DailyGoalsViewModel
+    @StateObject private var onboardingViewModel: OnboardingViewModel
     @StateObject private var authViewModel: AuthViewModel
     @StateObject private var preferencesViewModel: PreferencesViewModel
     @StateObject private var userDataExportService: UserDataExportService
@@ -57,6 +58,9 @@ struct MatLoggApp: App {
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
         _dailyGoalsViewModel = StateObject(wrappedValue: DailyGoalsViewModel(
             repository: databaseService, onSaved: healthProfile.acceptSavedGoal
+        ))
+        _onboardingViewModel = StateObject(wrappedValue: OnboardingViewModel(
+            goalRepository: databaseService
         ))
         _authViewModel = StateObject(wrappedValue: AuthViewModel(
             authRepository: authRepository,
@@ -183,6 +187,7 @@ struct MatLoggApp: App {
         .environmentObject(productViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)
+        .environmentObject(onboardingViewModel)
         .environmentObject(authViewModel)
         .environmentObject(preferencesViewModel)
         .environmentObject(userDataExportService)

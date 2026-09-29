@@ -109,8 +109,8 @@ class DatabaseService {
         store?.getProducts(ids) ?? [:]
     }
     
-    func getProductByBarcode(_ barcode: String) -> Product? {
-        store?.getProductByBarcode(barcode)
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product? {
+        store?.getProductByBarcode(barcode, ownerUserId: ownerUserId)
     }
     
     func saveMatchMapping(_ mapping: ProductMatchMapping) {

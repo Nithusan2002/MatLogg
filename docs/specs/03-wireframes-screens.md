@@ -145,9 +145,10 @@ Tilstandskrav for Home, hurtigvalg og søk:
 │                                                      │
 │                                                      │
 │                                                      │
-│        "Hold kamera mot strekkode"                  │
+│ "Hold kamera mot strekkode eller firkantet kode"  │
 │                                                      │
-│  [Søk manuelt]              [Historikk]            │
+│  [────────── Søk etter vare ──────────]             │
+│  [──────── Registrer manuelt ─────────]             │
 │                                                      │
 └─────────────────────────────────────────────────────┘
 ```
@@ -157,7 +158,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - **Kamera-feed:** Fullskjerm, auto-fokus
 - **Scan-zone:** Retangel indikator (sentrert, gult frame når scanning)
 - **Feedback:** Når strekkode detektert: grønt frame + haptic + lyd
-- **Bunn:** "Søk manuelt" (fallback søk) + "Historikk" (rask-adgang)
+- **Bunn:** "Søk etter vare" (fallback søk) + "Registrer manuelt"
 
 ---
 

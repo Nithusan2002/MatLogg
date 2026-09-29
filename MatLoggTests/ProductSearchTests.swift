@@ -5,6 +5,76 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProductSearchTests {
+    @Test func matvaretabellenParserUsesOfficialNutrientIdsAndDoesNotInventMissingMacros() throws {
+        let data = Data(#"""
+        {
+          "foods": [
+            {
+              "foodId": "06.178",
+              "foodName": "Adzukibønner, tørr",
+              "foodGroupId": "12",
+              "calories": { "quantity": 310 },
+              "constituents": [
+                { "nutrientId": "Protein", "quantity": 22.1 },
+                { "nutrientId": "Karbo", "quantity": 45.6 },
+                { "nutrientId": "Fett", "quantity": 1.4 },
+                { "nutrientId": "Fiber", "quantity": 12.7 },
+                { "nutrientId": "Mono+Di", "quantity": 2.1 },
+                { "nutrientId": "Na", "quantity": 4, "unit": "mg" }
+              ]
+            },
+            {
+              "foodId": "missing-fat",
+              "foodName": "Ufullstendig",
+              "calories": { "quantity": 20 },
+              "constituents": [
+                { "nutrientId": "Protein", "quantity": 1 },
+                { "nutrientId": "Karbo", "quantity": 2 }
+              ]
+            }
+          ]
+        }
+        """#.utf8)
+
+        let products = MatvaretabellenResponseParser.parse(data: data)
+        let product = try #require(products.first)
+
+        #expect(products.count == 1)
+        #expect(product.id == "06.178")
+        #expect(product.carbsGPer100g == 45.6)
+        #expect(product.fiberGPer100g == 12.7)
+        #expect(product.sodiumMgPer100g == 4)
+    }
+
+    @Test func bundledMatvaretabellenCatalogIsSearchedLocally() async throws {
+        let item = MatvaretabellenProduct(
+            id: "1",
+            name: "Havregryn",
+            brand: nil,
+            category: "Korn",
+            caloriesPer100g: 370,
+            proteinGPer100g: 13,
+            carbsGPer100g: 60,
+            fatGPer100g: 7,
+            sugarGPer100g: nil,
+            fiberGPer100g: 10,
+            sodiumMgPer100g: nil
+        )
+        let data = try JSONEncoder().encode([item])
+        let service = MatvaretabellenService(bundledData: { data })
+
+        let products = try await service.searchProducts(query: "havre")
+
+        #expect(products.map(\.id) == ["1"])
+    }
+
+    @Test func productionMatvaretabellenSnapshotLoadsFromAppBundle() async throws {
+        let products = try await MatvaretabellenService().fetchCommonFoods()
+
+        #expect(products.count >= 2_000)
+        #expect(products.contains { $0.id == "06.178" && $0.sodiumMgPer100g == 5 })
+    }
+
     @Test func freshBarcodeCacheDoesNotRevalidate() async {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let cached = makeCachedBarcodeProduct(name: "Fersk", fetchedAt: now.addingTimeInterval(-60))
@@ -66,7 +136,7 @@ struct ProductSearchTests {
         #expect(first == nil)
         #expect(second == nil)
         #expect(await barcodeService.callCount == 1)
-        #expect(repository.getProductByBarcode("1234567890123")?.name == "Behold meg")
+        #expect(repository.getProductByBarcode("1234567890123", ownerUserId: nil)?.name == "Behold meg")
         #expect(repository.cachedProducts.isEmpty)
     }
 
@@ -456,7 +526,6 @@ private extension ProductSearchTests {
             catalogService: ProductCatalogServiceStub(),
             barcodeService: barcodeService,
             nameSearchService: ProductNameSearchServiceStub(),
-            matchingService: MatchingService(),
             cachePolicy: .standard,
             now: { now }
         )
@@ -512,7 +581,7 @@ private final class ProductRepositorySpy: ProductRepository {
 
     func getProduct(_ id: UUID) -> Product? { product?.id == id ? product : nil }
 
-    func getProductByBarcode(_ barcode: String) -> Product? {
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product? {
         product?.barcodeEan == barcode ? product : nil
     }
 
