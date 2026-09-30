@@ -245,14 +245,15 @@ implementert og implementert.
   PostgreSQL i Docker. Dette er fortsatt ikke en staging- eller
   produksjonsverifisering, og produksjonssynk forblir deaktivert.
 
-### Daglige mål – verifisert 2026-09-29
+### Daglige mål – verifisert 2026-09-30
 
 - Appen bygger for iOS Simulator, og 19 målrettede tester i `DailyGoalsTests`
   og `OnboardingViewModelTests` består, inkludert dekoding av eldre mål-JSON.
 - UI-testen bekrefter at eldre Safe Mode-preferanser ikke lenger skjuler
-  målfeltene. Hele `DailyGoalsUITests` har fortsatt én feil fordi
-  forslags-testen ikke oppretter nødvendige persondetaljer før den forventer et
-  beregnet forslag; fire øvrige tester består.
+  målfeltene. `testSuggestionMustBeAppliedAndSavedExplicitly` bruker nå et
+  eksplisitt, minnebasert DEBUG-fixture med gyldige persondetaljer og består
+  isolert. Full suite-rekjøring ble blokkert før teststart av en urelatert,
+  pågående produktkatalog-endring som ikke kompilerer ennå.
 - Arkitekturkontroll: utkast, beregning og validering eies av ViewModels;
   avhengigheter settes sammen ved app-roten; eksisterende lokal mål/event-
   transaksjon gjenbrukes. Ingen nye arkitekturavvik eller synkkontraktsendringer.

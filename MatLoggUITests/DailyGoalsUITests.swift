@@ -81,7 +81,7 @@ final class DailyGoalsUITests: XCTestCase {
     @MainActor
     func testSuggestionMustBeAppliedAndSavedExplicitly() {
         let app = XCUIApplication()
-        app.launchArguments.append("--skip-auth")
+        app.launchArguments += ["--skip-auth", "--seed-goal-suggestion-fixture"]
         app.launch()
         openGoals(app)
         let original = app.textFields["daily-goals-calories"].value as! String

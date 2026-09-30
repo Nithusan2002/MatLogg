@@ -154,6 +154,21 @@ struct MatLoggApp: App {
             #if DEBUG
             if authViewModel.currentUser?.authProvider == "debug" {
                 healthProfileViewModel.useDevelopmentGoalIfMissing(userId: userId)
+                if shouldSeedGoalSuggestionFixture,
+                   let birthDate = Calendar(identifier: .gregorian).date(
+                    from: DateComponents(year: 1990, month: 1, day: 1)
+                   ) {
+                    healthProfileViewModel.acceptOnboardingCompletion(
+                        goal: nil,
+                        personalDetails: PersonalDetails(
+                            weightKg: 75,
+                            heightCm: 180,
+                            birthDate: birthDate,
+                            gender: .mann,
+                            activityLevel: .moderat
+                        )
+                    )
+                }
             }
             #endif
         } else {
@@ -197,6 +212,14 @@ struct MatLoggApp: App {
         return ProcessInfo.processInfo.arguments.contains("--skip-auth")
         #else
         return false
+        #endif
+    }
+
+    private var shouldSeedGoalSuggestionFixture: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--seed-goal-suggestion-fixture")
+        #else
+        false
         #endif
     }
 }
