@@ -131,7 +131,7 @@ final class LogViewModel: ObservableObject {
             ),
             amount: amountG
         ) else {
-            errorMessage = "Kunne ikke lagre logging: Mengde eller næringsgrunnlag er ugyldig"
+            errorMessage = "Kunne ikke lagre: Sjekk mengden og næringstallene."
             return false
         }
         let log = FoodLog(
@@ -203,7 +203,7 @@ final class LogViewModel: ObservableObject {
             from: log.amountG,
             to: amountG
         ) else {
-            errorMessage = "Kunne ikke oppdatere logging: Næringsgrunnlaget er ugyldig"
+            errorMessage = "Kunne ikke lagre endringene: Sjekk næringstallene."
             return false
         }
         let updated = FoodLog(

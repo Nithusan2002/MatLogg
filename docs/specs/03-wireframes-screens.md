@@ -27,21 +27,27 @@
 ### Profil
 
 Profil bruker den samme varme, kortbaserte retningen som Hjem. Øverst vises
-navn, initialer og antall måltidstyper logget i dag. Tre oversiktskort viser
-reelle, lokale verdier for dagens måltider, favoritter og ventende synk; appen
-skal ikke vise konstruerte streaks eller prestasjonstall.
+navn, initialer og en eksplisitt inngang til Personlige detaljer.
 
-«Dagens mål» viser lagrede kalori- og makromål når brukeren har opprettet dem.
-Hurtigmenyen gir tilgang til mål, favoritter og innstillinger. Konto,
-personvern, eksport, preferanser og synk beholdes samlet under Innstillinger.
+«Daglige mål» viser lagrede kalori- og makromål, med «Endre mål». Uten mål
+forklares at mål er valgfrie, med «Sett opp mål». Separate tallkort og dupliserte
+målsnarveier er fjernet. Menyen gir tilgang til favoritter og innstillinger.
+En kort tekst forklarer lokal lagring uten å presentere synkhendelser som
+antall lagrede matvarer.
+
+Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
+og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
+og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
+feltvalidering og lukker først etter vellykket lagring. Vekt til beregning
+holdes tydelig atskilt fra vekthistorikken.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt
-trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
+trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger «Dagens matinntak» og fire alltid synlige måltidskort i
+profil. Deretter følger dagsstatus uten egen overskrift eller gjentatt dato, og fire alltid synlige måltidskort i
 rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
 skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.

@@ -173,7 +173,7 @@ final class GoalSuggestionViewModel: ObservableObject {
         if let age, !GoalCalculator.supportedAgeRange.contains(age) {
             return "Automatiske forslag er bare tilgjengelige for voksne. Du kan fortsatt angi egne mål."
         }
-        return "Et personlig forslag krever gyldig vekt, høyde, fødselsdato og valg av kvinne- eller mannvarianten i beregningsformelen. Du kan fortsatt angi egne mål."
+        return "For å få et forslag må du oppgi vekt, høyde, fødselsdato og velge Kvinne eller Mann under Kjønn. Du kan også sette målene selv."
     }
 
     var suggestion: GoalSuggestion? {

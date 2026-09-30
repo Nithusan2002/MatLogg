@@ -2,12 +2,22 @@ import Foundation
 import Combine
 
 @MainActor
-final class UserDataExportService: ObservableObject {
+final class UserDataExportService: UserDataExporting {
+    private let healthRepository: any HealthProfileRepository
+    private let productRepository: any ProductRepository
+    private let personalDetailsStore: any PersonalDetailsStore
     private let logRepository: any FoodLogRepository
     private let waterRepository: any WaterRepository
     private let savedMealRepository: any SavedMealRepository
 
-    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository) {
+    func removeExport(at url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository, healthRepository: any HealthProfileRepository, productRepository: any ProductRepository, personalDetailsStore: any PersonalDetailsStore) {
+        self.healthRepository = healthRepository
+        self.productRepository = productRepository
+        self.personalDetailsStore = personalDetailsStore
         self.waterRepository = waterRepository
         self.logRepository = logRepository
         self.savedMealRepository = savedMealRepository
@@ -19,7 +29,27 @@ final class UserDataExportService: ObservableObject {
         let water: [WaterGlass]
         do { water = try await waterRepository.getWaterGlasses(userId: user.id) }
         catch { return nil }
+        let goal = await healthRepository.latestGoal(userId: user.id)
+        let weights = await healthRepository.getWeightEntries(userId: user.id)
+        let favorites = await productRepository.getFavorites(userId: user.id, kind: nil)
+        let details = personalDetailsStore.load(userId: user.id)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let goalJSON: Any
+        let weightsJSON: Any
+        let favoritesJSON: Any
+        let detailsJSON: Any
+        do {
+            goalJSON = try JSONSerialization.jsonObject(with: encoder.encode(goal), options: [.fragmentsAllowed])
+            weightsJSON = try JSONSerialization.jsonObject(with: encoder.encode(weights))
+            favoritesJSON = try JSONSerialization.jsonObject(with: encoder.encode(favorites))
+            detailsJSON = try JSONSerialization.jsonObject(with: encoder.encode(details))
+        } catch { return nil }
         let payload: [String: Any] = [
+            "daily_goal": goalJSON,
+            "weight_entries": weightsJSON,
+            "favorites": favoritesJSON,
+            "personal_details": detailsJSON,
             "user_id": user.id.uuidString,
             "email": user.email,
             "exported_at": ISO8601DateFormatter().string(from: Date()),
@@ -67,7 +97,7 @@ final class UserDataExportService: ObservableObject {
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]) else {
             return nil
         }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export.json")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export-\(UUID().uuidString).json")
         do {
             try data.write(to: url, options: .atomic)
             return url

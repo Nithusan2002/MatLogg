@@ -36,7 +36,7 @@ struct SaveMealFromLogsView: View {
                 } header: {
                     Text("Innhold")
                 } footer: {
-                    Text("Mengder og næringsgrunnlag lagres slik de er registrert nå. Tidligere logger endres ikke.")
+                    Text("Mengder og næringstall lagres slik de er nå. Tidligere registreringer endres ikke.")
                 }
                 if let error = viewModel.errorMessage {
                     Section { Text(error).foregroundStyle(AppColors.ink) }

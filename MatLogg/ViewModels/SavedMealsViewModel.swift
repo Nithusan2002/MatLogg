@@ -75,7 +75,7 @@ final class SavedMealsViewModel: ObservableObject {
         var items: [SavedMealItem] = []
         for (index, log) in logs.sorted(by: { $0.loggedTime < $1.loggedTime }).enumerated() {
             guard valid(log: log), let product = foodLogRepository.getProduct(log.productId) else {
-                errorMessage = "En av matvarene mangler lokalt produktgrunnlag og kan ikke lagres i måltidet."
+                errorMessage = "Vi mangler opplysninger om en av matvarene og kan ikke lagre måltidet."
                 return false
             }
             items.append(SavedMealItem(
@@ -198,7 +198,7 @@ final class SavedMealsViewModel: ObservableObject {
                 from: item.amountG,
                 to: amount
             ), nutrition.calories <= Float(Int32.max) else {
-                errorMessage = "Næringsgrunnlaget kunne ikke beregnes."
+                errorMessage = "Kunne ikke beregne næringsinnholdet."
                 return false
             }
             logs.append(FoodLog(
