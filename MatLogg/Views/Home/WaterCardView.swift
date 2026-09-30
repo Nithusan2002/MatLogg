@@ -17,16 +17,6 @@ struct WaterCardView: View {
                 if viewModel.isLoaded {
                     WaterCupGrid(count: viewModel.glasses.count, reduceMotion: reduceMotion)
                 }
-                if viewModel.canUndo {
-                    HStack {
-                        Text("Ett glass lagt til")
-                            .font(AppTypography.captionEmphasis)
-                        Spacer()
-                        Button("Angre") { Task { await viewModel.remove(undo: true) } }
-                            .frame(minHeight: 44)
-                            .disabled(viewModel.isBusy)
-                    }
-                }
                 if let message = viewModel.errorMessage {
                     Text(message).font(AppTypography.captionEmphasis)
                     if !viewModel.isLoaded {
