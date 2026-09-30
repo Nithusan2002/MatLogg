@@ -91,6 +91,15 @@ Elementer i samme gruppe står tettere enn separate grupper. Unngå nestede kort
 og stablet padding. Nye spacing-tokens bør samles i kode når skalaen brukes på
 tvers av flere komponenter; featureviews skal ikke etablere parallelle skalaer.
 
+På Hjem brukes 16 pt mellom innholdsgrupper og 12 pt mellom måltidskortets
+overskrift og innhold og mellom matvarer. Tomtekst har innholdsstyrt høyde,
+uten ekstra minimumshøyde. Måltidskort beholder 16 pt padding, mens
+produktsirkler er 44 pt. Tekst og trykkflater komprimeres ikke.
+Fylte måltidskort viser matvarenavn og mengder for opptil tre varer og én
+samlet næringsrad for hele måltidet: kcal, protein, karbohydrater og fett.
+Totalen inkluderer varer bak «+ flere», summeres før avrunding og kan bryte
+over flere linjer. Detaljer per vare vises når måltidet åpnes.
+
 ### Klarering for bunnnavigasjon
 
 Alle `ScrollView`, `List` og `Form` som vises inne i appens vedvarende
@@ -155,6 +164,11 @@ konsekvensen er vesentlig.
 Kort brukes når innhold trenger en reell grense, for eksempel dagsstatus,
 måltidsoppsummering eller personvernvalg. Ikke legg hvert tekstavsnitt i et kort,
 og unngå kort inni kort.
+
+Dagsstatus på Hjem samler kalorier og de tre makroradene i én lys
+`CardContainer`. Kaloritallet bruker skalerbar `hero`-typografi, blått er en
+liten dekorativ aksent, og en diskret skillelinje skiller kalorier fra makroer.
+Kalorier og makroer beholder sine etiketter, verdier og mål.
 
 ### Input
 

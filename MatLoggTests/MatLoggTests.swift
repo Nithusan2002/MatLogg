@@ -572,6 +572,47 @@ struct MatLoggTests {
         #expect(migrated.getSavedMeals(userId: UUID()).isEmpty)
     }
 
+    @Test func schemaVersionSixMigratesAndReopensWithoutDeletingDrafts() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MatLoggSchemaSix-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("test.sqlite")
+        var store: LocalStore? = try LocalStore(databaseURL: url)
+        store = nil
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP TABLE product_drafts; DROP TABLE catalog_submissions; PRAGMA user_version = 5;", nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        store = try LocalStore(databaseURL: url)
+        #expect(store?.schemaVersion() == 6)
+        store = nil
+        let owner = UUID()
+        let otherOwner = UUID()
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        let seed = "INSERT INTO product_drafts VALUES ('one', '\(owner.uuidString)', 1, X'7B7D'); INSERT INTO product_drafts VALUES ('two', '\(otherOwner.uuidString)', 1, X'7B7D');"
+        try #require(sqlite3_exec(db, seed, nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+
+        store = try LocalStore(databaseURL: url)
+        #expect(store?.schemaVersion() == 6)
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        func draftCount() throws -> Int {
+            var statement: OpaquePointer?
+            try #require(sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM product_drafts;", -1, &statement, nil) == SQLITE_OK)
+            defer { sqlite3_finalize(statement) }
+            try #require(sqlite3_step(statement) == SQLITE_ROW)
+            return Int(sqlite3_column_int(statement, 0))
+        }
+        #expect(try draftCount() == 2)
+        try store?.deleteLocalData(ownerId: owner)
+        #expect(try draftCount() == 1)
+        try store?.resetAllData()
+        #expect(try draftCount() == 0)
+    }
+
     @Test func newerSchemaReturnsControlledErrorInsteadOfOpeningStore() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MatLoggFutureSchema-\(UUID().uuidString)", isDirectory: true)

@@ -271,7 +271,7 @@ struct HomeTabView: View {
 
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
                     homeHeader
 
                     DayNavigationBar(selection: selectedDateBinding)
@@ -649,10 +649,10 @@ struct MealOverviewCard: View {
     var onAdjustReuse: (MealReuseSuggestion) -> Void = { _ in }
     var onDismissReuse: () -> Void = {}
 
-    private var totalCalories: Int { NutritionDisplay.wholeCalories(NutritionCalculator.totals(for: logs).calories) }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let totals = NutritionCalculator.totals(for: logs)
+
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Text(String(meal.title.prefix(1)))
                     .font(AppTypography.captionEmphasis)
@@ -667,7 +667,7 @@ struct MealOverviewCard: View {
                     Text("+ Legg til")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.action)
-                        .frame(minHeight: 44)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
             }
@@ -684,39 +684,23 @@ struct MealOverviewCard: View {
                 Text("\(meal.title) · ikke logget ennå")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
                         HStack(alignment: .top, spacing: 12) {
                             Text(String(productName(log.productId).prefix(1)).uppercased())
                                 .font(AppTypography.bodyEmphasis)
                                 .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 54, height: 54)
+                                .frame(width: 44, height: 44)
                                 .background(AppColors.mutedSurface, in: Circle())
                             VStack(alignment: .leading, spacing: 5) {
-                                HStack(alignment: .firstTextBaseline) {
-                                    Text(productName(log.productId))
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    Text("\(NutritionDisplay.wholeCalories(log.calories))")
-                                        .font(AppTypography.title)
-                                        .foregroundColor(AppColors.deepInk)
-                                }
+                                Text(productName(log.productId))
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.deepInk)
                                 Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
-                                HStack(spacing: 6) {
-                                    macroTag("P \(NutritionDisplay.wholeGrams(log.proteinG)) g", color: AppColors.macroProteinTint)
-                                    macroTag("K \(NutritionDisplay.wholeGrams(log.carbsG)) g", color: AppColors.macroCarbTint)
-                                    macroTag("F \(NutritionDisplay.wholeGrams(log.fatG)) g", color: AppColors.macroFatTint)
-                                }
-                                Text(log.loggedTime.formatted(date: .omitted, time: .shortened))
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
                     }
@@ -726,6 +710,17 @@ struct MealOverviewCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+
+                Rectangle()
+                    .fill(AppColors.separator)
+                    .frame(height: 1)
+                    .accessibilityHidden(true)
+
+                Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal · P \(NutritionDisplay.wholeGrams(totals.protein)) g · K \(NutritionDisplay.wholeGrams(totals.carbs)) g · F \(NutritionDisplay.wholeGrams(totals.fat)) g")
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.deepInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
             }
         }
         .padding(16)
@@ -745,14 +740,6 @@ struct MealOverviewCard: View {
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
     }
 
-    private func macroTag(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(AppTypography.captionEmphasis)
-            .foregroundColor(AppColors.deepInk)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.14), in: Capsule())
-    }
 }
 
 struct StatusCardView: View {
@@ -786,43 +773,53 @@ struct StatusCardView: View {
                     .minimumScaleFactor(0.75)
             }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("KALORIER SPIST")
-                    .font(AppTypography.captionEmphasis)
-                Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                    .font(AppTypography.display)
-                Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                    .font(AppTypography.bodyEmphasis)
-            }
-            .foregroundColor(AppColors.deepInk)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(AppColors.calorieBlue)
+                                .frame(width: 8, height: 8)
+                                .accessibilityHidden(true)
+                            Text("KALORIER SPIST")
+                                .font(AppTypography.captionEmphasis)
+                        }
+                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
+                            .font(AppTypography.hero)
+                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                            .font(AppTypography.bodyEmphasis)
+                    }
+                    .foregroundColor(AppColors.deepInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
 
-            VStack(spacing: 12) {
-                ProgressRow(
-                    label: "Proteiner",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
-                    progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
-                    tint: AppColors.macroProteinTint
-                )
-                ProgressRow(
-                    label: "Karbohydrater",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
-                    progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
-                    tint: AppColors.macroCarbTint
-                )
-                ProgressRow(
-                    label: "Fett",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
-                    progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
-                    tint: AppColors.macroFatTint
-                )
+                    Rectangle()
+                        .fill(AppColors.separator)
+                        .frame(height: 1)
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: 12) {
+                        ProgressRow(
+                            label: "Proteiner",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
+                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
+                            tint: AppColors.macroProteinTint
+                        )
+                        ProgressRow(
+                            label: "Karbohydrater",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
+                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
+                            tint: AppColors.macroCarbTint
+                        )
+                        ProgressRow(
+                            label: "Fett",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
+                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
+                            tint: AppColors.macroFatTint
+                        )
+                    }
+                }
             }
-            .padding(16)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
         }
     }
 

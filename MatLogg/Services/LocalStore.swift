@@ -8,7 +8,7 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 5
+    static let latestSchemaVersion = 6
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -34,6 +34,11 @@ final class LocalStore {
             try openDatabase()
             try migrateDatabase()
         } catch {
+            if case LocalStoreError.unsupportedSchema(let version) = error {
+                Self.logger.error("LocalStore startup failed: Databaseskjema \(version, privacy: .public) er nyere enn appen støtter (\(Self.latestSchemaVersion, privacy: .public)).")
+            } else {
+                Self.logger.error("LocalStore startup failed: Den lokale databasen kunne ikke åpnes.")
+            }
             if let db {
                 sqlite3_close(db)
                 self.db = nil
@@ -57,7 +62,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["product_drafts", "catalog_submissions", "favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -112,6 +117,9 @@ final class LocalStore {
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
                 try deleteOwnerRowsLocked(table: "products", column: "ownerUserId", ownerId: ownerId)
+                for table in ["product_drafts", "catalog_submissions"] {
+                    try deleteOwnerRowsLocked(table: table, column: "ownerUserId", ownerId: ownerId)
+                }
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -1078,6 +1086,8 @@ final class LocalStore {
                         try migrateToVersion4Locked()
                     case 5:
                         try migrateToVersion5Locked()
+                    case 6:
+                        try migrateToVersion6Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -1244,6 +1254,29 @@ final class LocalStore {
         try execute("CREATE INDEX IF NOT EXISTS products_owner_barcode_idx ON products(ownerUserId, barcode);")
     }
     
+    private func migrateToVersion6Locked() throws {
+        try execute("""
+        CREATE TABLE IF NOT EXISTS product_drafts(
+            id TEXT PRIMARY KEY,
+            ownerUserId TEXT NOT NULL,
+            updatedAt REAL NOT NULL,
+            json BLOB NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS product_drafts_owner_updated_idx ON product_drafts(ownerUserId, updatedAt DESC);")
+        try execute("""
+        CREATE TABLE IF NOT EXISTS catalog_submissions(
+            id TEXT PRIMARY KEY,
+            ownerUserId TEXT NOT NULL,
+            productId TEXT NOT NULL,
+            status TEXT NOT NULL,
+            createdAt REAL NOT NULL,
+            json BLOB NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS catalog_submissions_owner_created_idx ON catalog_submissions(ownerUserId, createdAt DESC);")
+    }
+
     private func databaseFileURL() -> URL {
         if let configuredDatabaseURL {
             return configuredDatabaseURL
@@ -1441,7 +1474,7 @@ final class LocalStore {
     }
 
     private func deleteOwnerRowsLocked(table: String, column: String, ownerId: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products", "product_drafts", "catalog_submissions"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?

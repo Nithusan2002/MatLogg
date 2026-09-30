@@ -38,6 +38,7 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
+- Lokalt skjema v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.

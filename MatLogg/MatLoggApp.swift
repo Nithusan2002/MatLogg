@@ -23,6 +23,7 @@ struct MatLoggApp: App {
     @StateObject private var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
     private let databaseStartupFailed: Bool
+    private let databaseStartupDetail: String?
 
     init() {
         let databaseService = DatabaseService()
@@ -43,6 +44,12 @@ struct MatLoggApp: App {
             syncEnabled: { FeatureFlags.backendSyncEnabled }
         )
         databaseStartupFailed = !databaseService.isAvailable
+        if let error = databaseService.startupError,
+           case LocalStoreError.unsupportedSchema(let version) = error {
+            databaseStartupDetail = "Databasen har versjon \(version). Denne appen støtter versjon \(LocalStore.latestSchemaVersion). Bruk en appversjon som støtter databasen."
+        } else {
+            databaseStartupDetail = nil
+        }
         _appState = StateObject(wrappedValue: AppState(
             databaseService: databaseService,
             syncEngine: syncEngine
@@ -87,7 +94,11 @@ struct MatLoggApp: App {
             ContentUnavailableView {
                 Label("Kan ikke åpne MatLogg", systemImage: "externaldrive.badge.xmark")
             } description: {
-                Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. Avslutt appen og prøv igjen.")
+                if let databaseStartupDetail {
+                    Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. \(databaseStartupDetail)")
+                } else {
+                    Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. Avslutt appen og prøv igjen.")
+                }
             }
         } else {
             operationalContent
