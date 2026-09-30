@@ -41,7 +41,7 @@ trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger «Dagens matinntak» og fire alltid synlige måltidskort i
+profil. Deretter følger dagsstatus uten egen overskrift eller gjentatt dato, og fire alltid synlige måltidskort i
 rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
 skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.

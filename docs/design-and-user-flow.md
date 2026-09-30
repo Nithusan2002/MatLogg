@@ -49,7 +49,7 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 Prioritet:
 
 1. dato og kontekst
-2. valgfri dagsstatus
+2. valgfri dagsstatus uten egen overskrift eller gjentatt dato
 3. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
 4. kontekstuelle legg-til-handlinger og personlige hurtigvalg
 5. status for lokalt lagrede endringer som venter på synk

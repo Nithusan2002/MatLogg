@@ -306,8 +306,7 @@ struct HomeTabView: View {
                         } else if let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
                             StatusCardView(
                                 summary: summary,
-                                goal: goal,
-                                dayLabel: intakeTitle
+                                goal: goal
                             )
                         } else {
                             CardContainer {
@@ -503,13 +502,6 @@ struct HomeTabView: View {
 
     private var selectedDate: Date {
         appState.logSelectedDate
-    }
-
-    private var intakeTitle: String {
-        if Calendar.current.isDateInToday(selectedDate) { return "Dagens matinntak" }
-        if Calendar.current.isDateInYesterday(selectedDate) { return "Gårsdagens matinntak" }
-        if Calendar.current.isDateInTomorrow(selectedDate) { return "Matinntak i morgen" }
-        return "Matinntak \(shortDateLabel)"
     }
 
     private var mealsTitle: String {
@@ -748,7 +740,6 @@ struct MealOverviewCard: View {
 struct StatusCardView: View {
     let summary: DailySummary
     let goal: Goal
-    let dayLabel: String
 
     private var calorieBalance: CalorieBalance? {
         GoalCalculator.calorieBalance(dailyGoal: goal.dailyCalories, consumed: summary.totalCalories)
@@ -764,18 +755,6 @@ struct StatusCardView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(dayLabel)
-                    .font(AppTypography.title)
-                    .foregroundColor(AppColors.deepInk)
-                Spacer()
-                Text(statusDateLabel)
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-
             CardContainer {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 5) {
@@ -826,12 +805,6 @@ struct StatusCardView: View {
         }
     }
 
-    private var statusDateLabel: String {
-        summary.date.formatted(
-            .dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "nb_NO"))
-        ).uppercased()
-    }
-    
     private func progressValue(current: Double, target: Double) -> Double {
         guard target > 0 else { return 0 }
         return current / target
