@@ -164,6 +164,26 @@ class DatabaseService {
     func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? {
         store?.getMatvaretabellenCache(maxAgeDays: maxAgeDays)
     }
+
+    func searchOwnedProducts(query: String, ownerUserId: UUID) -> [Product] {
+        store?.searchOwnedProducts(query: query, ownerUserId: ownerUserId) ?? []
+    }
+
+    func saveDraft(_ draft: ProductDraft) async throws {
+        try requireStore().saveProductDraft(draft)
+    }
+
+    func drafts(ownerUserId: UUID) async -> [ProductDraft] {
+        store?.productDrafts(ownerUserId: ownerUserId) ?? []
+    }
+
+    func deleteDraft(_ id: UUID, ownerUserId: UUID) async throws {
+        try requireStore().deleteProductDraft(id, ownerUserId: ownerUserId)
+    }
+
+    func completeDraft(_ draft: ProductDraft, product: Product, submission: CatalogSubmission?) async throws {
+        try requireStore().completeProductDraft(draft, product: product, submission: submission)
+    }
     
     func pendingSyncCount() async -> Int {
         store?.pendingSyncCount() ?? 0

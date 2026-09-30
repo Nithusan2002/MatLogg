@@ -47,6 +47,16 @@ struct QuickLogSheet: View {
 
                 mealPicker
 
+                Button(action: onManualAdd) {
+                    Label("Opprett egen matvare", systemImage: "plus.circle")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.action)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Åpner skjema for en ny matvare")
+
                 savedMealsSection
 
                 if loadState == .loading {
@@ -79,10 +89,6 @@ struct QuickLogSheet: View {
                                 .font(AppTypography.body)
                                 .foregroundColor(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
-                            Button("Legg til manuelt", action: onManualAdd)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 28)

@@ -29,13 +29,19 @@ struct MatLoggApp: App {
         let localAuthStore = AuthService()
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
+        let nutritionAIService: any NutritionLabelAIService
+        let sharedCatalogService: any SharedProductCatalogService
         if let configuration = try? SupabaseConfiguration.load() {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
+            nutritionAIService = supabaseService
+            sharedCatalogService = supabaseService
         } else {
             authRepository = UnavailableAccountAuthRepository()
             syncAPIClient = UnavailableSyncAPIClient()
+            nutritionAIService = UnavailableNutritionLabelAIService()
+            sharedCatalogService = UnavailableSharedProductCatalogService()
         }
         let syncEngine = SyncEngine(
             databaseService: databaseService,
@@ -53,7 +59,15 @@ struct MatLoggApp: App {
             savedMealRepository: databaseService,
             foodLogRepository: databaseService
         ))
-        _productViewModel = StateObject(wrappedValue: ProductViewModel(repository: databaseService))
+        let productAPIService = APIService()
+        _productViewModel = StateObject(wrappedValue: ProductViewModel(
+            repository: databaseService,
+            catalogService: MatvaretabellenService(),
+            barcodeService: productAPIService,
+            nameSearchService: productAPIService,
+            nutritionAIService: nutritionAIService,
+            sharedCatalogService: sharedCatalogService
+        ))
         let healthProfile = HealthProfileViewModel(repository: databaseService)
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
         _dailyGoalsViewModel = StateObject(wrappedValue: DailyGoalsViewModel(

@@ -425,7 +425,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Debug-Info.plist";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes bare til å skanne strekkoder på matvarer. Ingen bilder lagres.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta bilder av næringstabeller og produkter. Valgte bilder lagres privat til du sletter utkastet eller behandlingen er ferdig.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til MatLogg-backend på lokalnettet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -464,7 +464,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Release-Info.plist";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes bare til å skanne strekkoder på matvarer. Ingen bilder lagres.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta bilder av næringstabeller og produkter. Valgte bilder lagres privat til du sletter utkastet eller behandlingen er ferdig.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

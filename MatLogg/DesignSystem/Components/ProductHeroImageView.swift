@@ -30,6 +30,8 @@ struct ProductHeroImageView: View {
             Group {
                 if let image {
                     heroView(with: Image(uiImage: image), width: width)
+                } else if let url, url.isFileURL, let localImage = UIImage(contentsOfFile: url.path) {
+                    heroView(with: Image(uiImage: localImage), width: width)
                 } else if let url {
                     AsyncImage(url: url) { phase in
                         switch phase {

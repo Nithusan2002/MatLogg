@@ -85,6 +85,11 @@ struct ProductDetailView: View {
                             .minimumScaleFactor(0.8)
                             .padding(.horizontal, 24)
 
+                        Label(provenanceLabel, systemImage: "person.text.rectangle")
+                            .font(AppTypography.captionEmphasis)
+                            .foregroundColor(AppColors.textSecondary)
+                            .accessibilityLabel("Datakilde: \(provenanceLabel)")
+
                         if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
                            let sourceURL = URL(string: "https://world.openfoodfacts.org") {
                             Link(destination: sourceURL) {
@@ -304,6 +309,15 @@ struct ProductDetailView: View {
         }
     }
 
+    private var provenanceLabel: String {
+        switch product.source {
+        case "shared": return "Felleskatalog · Ikke verifisert"
+        case "matvaretabellen": return "Matvaretabellen"
+        case "openfoodfacts": return "Open Food Facts"
+        default: return "Brukeroppgitt"
+        }
+    }
+
     private let amountRange: ClosedRange<Double> = 0...5000
     private let summaryColumns = [
         GridItem(.flexible(), spacing: 8),
@@ -460,7 +474,15 @@ struct ImagePreviewView: View {
                 Spacer()
                 
                 if let imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
+                    if url.isFileURL, let localImage = UIImage(contentsOfFile: url.path) {
+                        Image(uiImage: localImage)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(16)
+                            .scaleEffect(scale)
+                            .gesture(imageMagnificationGesture)
+                    } else {
+                        AsyncImage(url: url) { phase in
                         switch phase {
                         case .empty:
                             ProgressView()
@@ -470,17 +492,7 @@ struct ImagePreviewView: View {
                                 .scaledToFit()
                                 .padding(16)
                                 .scaleEffect(scale)
-                                .gesture(
-                                    MagnificationGesture()
-                                        .onChanged { value in
-                                            let delta = value / lastScale
-                                            lastScale = value
-                                            scale = min(max(scale * delta, 1.0), 3.0)
-                                        }
-                                        .onEnded { _ in
-                                            lastScale = 1.0
-                                        }
-                                )
+                                .gesture(imageMagnificationGesture)
                         case .failure:
                             Text("Bilde ikke tilgjengelig")
                                 .font(AppTypography.body)
@@ -488,6 +500,7 @@ struct ImagePreviewView: View {
                         @unknown default:
                             EmptyView()
                         }
+                    }
                     }
                 } else {
                     Text("Bilde ikke tilgjengelig")
@@ -498,6 +511,18 @@ struct ImagePreviewView: View {
                 Spacer()
             }
         }
+    }
+
+    private var imageMagnificationGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                let delta = value / lastScale
+                lastScale = value
+                scale = min(max(scale * delta, 1.0), 3.0)
+            }
+            .onEnded { _ in
+                lastScale = 1.0
+            }
     }
 }
 

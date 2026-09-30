@@ -7,6 +7,7 @@ struct HomeView: View {
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject var productViewModel: ProductViewModel
     @State private var showScanCamera = false
     @State private var showManualAdd = false
     @State private var showRawMaterials = false
@@ -16,6 +17,7 @@ struct HomeView: View {
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
     @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
+    @State private var createdProduct: Product?
     
     var body: some View {
         TabView(selection: tabSelection) {
@@ -117,11 +119,19 @@ struct HomeView: View {
             )
         }
         .fullScreenCover(isPresented: $showManualAdd) {
-            ManualAddView(onOpenRawMaterials: {
-                showManualAdd = false
-                showRawMaterials = true
-            })
-            .environmentObject(appState)
+            if let userId = authViewModel.currentUser?.id,
+               let repository = productViewModel.productCreationRepository() {
+                ManualProductView(
+                    ownerUserId: userId,
+                    barcode: nil,
+                    repository: repository,
+                    aiService: productViewModel.productCreationAIService()
+                ) { product in
+                    createdProduct = product
+                }
+            } else {
+                ContentUnavailableView("Kan ikke opprette produkt", systemImage: "externaldrive.badge.xmark")
+            }
         }
         .fullScreenCover(isPresented: $showRawMaterials) {
             RawMaterialsSearchView { payload in
@@ -169,6 +179,12 @@ struct HomeView: View {
             .presentationDetents([.fraction(0.66), .large])
             .presentationDragIndicator(.hidden)
             .presentationCornerRadius(36)
+        }
+        .sheet(item: $createdProduct) { product in
+            ProductDetailView(product: product, appState: appState) { payload in
+                receiptPayload = payload
+                Task { await loadTodaysSummary() }
+            }
         }
     }
 
@@ -1132,22 +1148,22 @@ struct CameraView: View {
                 showProductDetail = true
             }
         }) {
-            ManualProductView(
-                barcode: scannedBarcode,
-                saveProduct: { product in
-                    guard let userId = authViewModel.currentUser?.id else {
-                        throw DatabaseServiceError.unavailable
-                    }
-                    try await productViewModel.saveManualProduct(product, ownerUserId: userId)
-                }
-            ) { product in
-                scannedProduct = product
-                if let userId = authViewModel.currentUser?.id {
+            if let userId = authViewModel.currentUser?.id,
+               let repository = productViewModel.productCreationRepository() {
+                ManualProductView(
+                    ownerUserId: userId,
+                    barcode: scannedBarcode,
+                    repository: repository,
+                    aiService: productViewModel.productCreationAIService()
+                ) { product in
+                    scannedProduct = product
                     Task {
                         await productViewModel.recordScan(productId: product.id, userId: userId)
                         await appState.refreshSyncStatus()
                     }
                 }
+            } else {
+                ContentUnavailableView("Kan ikke opprette produkt", systemImage: "externaldrive.badge.xmark")
             }
         }
         .alert("Produktet kan ikke brukes ennå", isPresented: $showProductNotFound) {
@@ -1545,69 +1561,6 @@ struct CameraView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             if scanHelpTitle == title {
                 showScanHelp = false
-            }
-        }
-    }
-}
-
-struct ManualAddView: View {
-    @Environment(\.dismiss) var dismiss
-    let onOpenRawMaterials: (() -> Void)?
-    @State private var productName = ""
-    @State private var calories = ""
-    @State private var protein = ""
-    @State private var carbs = ""
-    @State private var fat = ""
-    
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Råvarer") {
-                    Button(action: {
-                        dismiss()
-                        onOpenRawMaterials?()
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "leaf")
-                            Text("Søk / Råvarer")
-                        }
-                    }
-                    Text("Bruk Matvaretabellen for rask logging uten strekkode.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .listRowBackground(AppColors.surface)
-                
-                Section("Produktdetaljer") {
-                    TextField("Produktnavn", text: $productName)
-                    TextField("Kalorier (per 100g)", text: $calories)
-                        .keyboardType(.numberPad)
-                    TextField("Protein (g per 100g)", text: $protein)
-                        .keyboardType(.decimalPad)
-                    TextField("Karbohydrater (g per 100g)", text: $carbs)
-                        .keyboardType(.decimalPad)
-                    TextField("Fett (g per 100g)", text: $fat)
-                        .keyboardType(.decimalPad)
-                }
-                .listRowBackground(AppColors.surface)
-            }
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background.ignoresSafeArea())
-            .tint(AppColors.action)
-            .navigationTitle("Legg til produkt")
-            .scrollDismissesKeyboard(.interactively)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Avbryt") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Legg til") { dismiss() }
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.action)
-                }
             }
         }
     }

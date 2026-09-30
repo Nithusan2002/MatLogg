@@ -122,8 +122,10 @@ struct Product: Codable, Identifiable {
     let proteinGPer100g: Float
     let carbsGPer100g: Float
     let fatGPer100g: Float
+    let saturatedFatGPer100g: Float?
     let sugarGPer100g: Float?
     let fiberGPer100g: Float?
+    let saltGPer100g: Float?
     let sodiumMgPer100g: Int?
     
     let imageUrl: String?
@@ -158,8 +160,10 @@ struct Product: Codable, Identifiable {
         proteinGPer100g: Float,
         carbsGPer100g: Float,
         fatGPer100g: Float,
+        saturatedFatGPer100g: Float? = nil,
         sugarGPer100g: Float? = nil,
         fiberGPer100g: Float? = nil,
+        saltGPer100g: Float? = nil,
         sodiumMgPer100g: Int? = nil,
         imageUrl: String? = nil,
         standardPortions: [StandardPortion]? = nil,
@@ -189,8 +193,10 @@ struct Product: Codable, Identifiable {
         self.proteinGPer100g = proteinGPer100g
         self.carbsGPer100g = carbsGPer100g
         self.fatGPer100g = fatGPer100g
+        self.saturatedFatGPer100g = saturatedFatGPer100g
         self.sugarGPer100g = sugarGPer100g
         self.fiberGPer100g = fiberGPer100g
+        self.saltGPer100g = saltGPer100g
         self.sodiumMgPer100g = sodiumMgPer100g
         self.imageUrl = imageUrl
         self.standardPortions = standardPortions
@@ -244,7 +250,7 @@ struct Product: Codable, Identifiable {
     }
 }
 
-enum NutritionBasis: String, Codable {
+nonisolated enum NutritionBasis: String, Codable, Equatable, CaseIterable, Sendable {
     case per100g
     case per100ml
 
@@ -347,7 +353,7 @@ enum VerificationStatus: String, Codable {
     case suggestedMatch
 }
 
-enum ProductKind: String, Codable {
+enum ProductKind: String, Codable, Equatable {
     case packaged
     case genericFood
 }

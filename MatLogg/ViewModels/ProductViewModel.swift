@@ -77,6 +77,8 @@ final class ProductViewModel: ObservableObject {
     private let catalogService: any ProductCatalogService
     private let barcodeService: any BarcodeProductService
     private let nameSearchService: any ProductNameSearchService
+    private let nutritionAIService: any NutritionLabelAIService
+    private let sharedCatalogService: any SharedProductCatalogService
     private let cachePolicy: BarcodeProductCachePolicy
     private let now: () -> Date
     private var barcodeRefreshTasks: [String: Task<Product?, Never>] = [:]
@@ -97,6 +99,8 @@ final class ProductViewModel: ObservableObject {
             catalogService: MatvaretabellenService(),
             barcodeService: apiService,
             nameSearchService: apiService,
+            nutritionAIService: UnavailableNutritionLabelAIService(),
+            sharedCatalogService: UnavailableSharedProductCatalogService(),
             cachePolicy: .standard
         )
     }
@@ -106,6 +110,8 @@ final class ProductViewModel: ObservableObject {
         catalogService: any ProductCatalogService,
         barcodeService: any BarcodeProductService,
         nameSearchService: any ProductNameSearchService,
+        nutritionAIService: any NutritionLabelAIService = UnavailableNutritionLabelAIService(),
+        sharedCatalogService: any SharedProductCatalogService = UnavailableSharedProductCatalogService(),
         cachePolicy: BarcodeProductCachePolicy = .standard,
         now: @escaping () -> Date = Date.init
     ) {
@@ -113,6 +119,8 @@ final class ProductViewModel: ObservableObject {
         self.catalogService = catalogService
         self.barcodeService = barcodeService
         self.nameSearchService = nameSearchService
+        self.nutritionAIService = nutritionAIService
+        self.sharedCatalogService = sharedCatalogService
         self.cachePolicy = cachePolicy
         self.now = now
     }
@@ -128,6 +136,12 @@ final class ProductViewModel: ObservableObject {
     func saveManualProduct(_ product: Product, ownerUserId: UUID) async throws {
         try await repository.saveProduct(product, ownerUserId: ownerUserId)
     }
+
+    func productCreationRepository() -> (any ProductCreationRepository)? {
+        repository as? any ProductCreationRepository
+    }
+
+    func productCreationAIService() -> any NutritionLabelAIService { nutritionAIService }
 
     func cachedProduct(barcode: String, ownerUserId: UUID?) -> Product? {
         repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
@@ -268,9 +282,22 @@ final class ProductViewModel: ObservableObject {
             return FoodSearchOutcome(items: [], source: .localCache)
         }
 
-        var products: [Product] = []
+        var products: [Product] = ownerUserId.map {
+            repository.searchOwnedProducts(query: trimmed, ownerUserId: $0)
+        } ?? []
         var usedRemoteSource = false
         var firstError: Error?
+
+        if FeatureFlags.sharedCatalogReadEnabled {
+            do {
+                let sharedProducts = try await sharedCatalogService.searchSharedCatalog(query: trimmed)
+                for product in sharedProducts { try? await repository.cacheCatalogProduct(product) }
+                products.append(contentsOf: sharedProducts)
+                usedRemoteSource = true
+            } catch {
+                firstError = error
+            }
+        }
 
         if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             let cachedMatches = cached

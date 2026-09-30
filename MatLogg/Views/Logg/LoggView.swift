@@ -6,6 +6,7 @@ struct LoggView: View {
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject var productViewModel: ProductViewModel
     @State private var selectedDate: Date = Date()
     @State private var searchText = ""
     @State private var mealFilter: String?
@@ -19,6 +20,7 @@ struct LoggView: View {
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
+    @State private var createdProduct: Product?
 
     init(initialDate: Date = Date(), initialMealFilter: String? = nil) {
         _selectedDate = State(initialValue: initialDate)
@@ -98,11 +100,25 @@ struct LoggView: View {
                     }
                         .environmentObject(appState)
                 case .manual:
-                    ManualAddView(onOpenRawMaterials: {
-                        activeSheet = nil
-                        activeSheet = .raw
-                    })
-                    .environmentObject(appState)
+                    if let userId = authViewModel.currentUser?.id,
+                       let repository = productViewModel.productCreationRepository() {
+                        ManualProductView(
+                            ownerUserId: userId,
+                            barcode: nil,
+                            repository: repository,
+                            aiService: productViewModel.productCreationAIService()
+                        ) { product in
+                            createdProduct = product
+                        }
+                    } else {
+                        ContentUnavailableView("Kan ikke opprette produkt", systemImage: "externaldrive.badge.xmark")
+                    }
+                }
+            }
+            .sheet(item: $createdProduct) { product in
+                ProductDetailView(product: product, appState: appState) { payload in
+                    receiptPayload = payload
+                    Task { await loadSelectedSummary() }
                 }
             }
             .fullScreenCover(isPresented: $showScanCamera) {

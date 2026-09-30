@@ -8,7 +8,7 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 5
+    static let latestSchemaVersion = 6
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -57,7 +57,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "catalog_submissions", "product_drafts", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -95,6 +95,8 @@ final class LocalStore {
                 }
                 try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
                 try updateOwnerLocked(table: "products", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
+                try updateOwnerLocked(table: "product_drafts", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
+                try updateOwnerLocked(table: "catalog_submissions", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -112,6 +114,8 @@ final class LocalStore {
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
                 try deleteOwnerRowsLocked(table: "products", column: "ownerUserId", ownerId: ownerId)
+                try deleteOwnerRowsLocked(table: "product_drafts", column: "ownerUserId", ownerId: ownerId)
+                try deleteOwnerRowsLocked(table: "catalog_submissions", column: "ownerUserId", ownerId: ownerId)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -355,6 +359,112 @@ final class LocalStore {
         let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
         try performAtomicWrite(ownerUserId: ownerUserId, type: .productUpsert, entityId: product.id.uuidString, payload: payload) {
             try saveProductLocked(product, data: data, ownerUserId: ownerUserId, storageKind: "user")
+        }
+    }
+
+    func saveProductDraft(_ draft: ProductDraft) throws {
+        let data = try encoder.encode(draft)
+        try queue.sync {
+            let sql = """
+            INSERT INTO product_drafts(id, ownerUserId, updatedAt, json)
+            VALUES(?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET ownerUserId = excluded.ownerUserId,
+                updatedAt = excluded.updatedAt, json = excluded.json;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, draft.id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, draft.ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 3, draft.updatedAt.timeIntervalSince1970)
+            bindBlob(stmt, index: 4, data: data)
+            try requireDone(sqlite3_step(stmt))
+        }
+    }
+
+    func productDrafts(ownerUserId: UUID) -> [ProductDraft] {
+        queue.sync {
+            let sql = "SELECT json FROM product_drafts WHERE ownerUserId = ? ORDER BY updatedAt DESC;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            var drafts: [ProductDraft] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let data = readBlob(stmt, index: 0),
+                      let draft = decode(ProductDraft.self, from: data, entity: "product_draft") else { continue }
+                drafts.append(draft)
+            }
+            return drafts
+        }
+    }
+
+    func deleteProductDraft(_ id: UUID, ownerUserId: UUID) throws {
+        try queue.sync {
+            let sql = "DELETE FROM product_drafts WHERE id = ? AND ownerUserId = ?;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            try requireDone(sqlite3_step(stmt))
+        }
+    }
+
+    /// The completed user product, its sync event and an optional contribution job
+    /// are one local transaction. Image bytes remain outside the sync payload.
+    func completeProductDraft(_ draft: ProductDraft, product: Product, submission: CatalogSubmission?) throws {
+        let productData = try encoder.encode(product)
+        let payload = try syncEncoder.encode(ProductSyncPayload(product: product))
+        let submissionData = try submission.map(encoder.encode)
+        try performTransaction {
+            try saveProductLocked(product, data: productData, ownerUserId: draft.ownerUserId, storageKind: "user")
+            try enqueueSyncEventLocked(ownerUserId: draft.ownerUserId, type: .productUpsert, entityId: product.id.uuidString, payload: payload)
+            if let submission, let submissionData {
+                let sql = """
+                INSERT OR IGNORE INTO catalog_submissions(id, ownerUserId, productId, status, createdAt, json)
+                VALUES(?, ?, ?, ?, ?, ?);
+                """
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, submission.id.uuidString, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 2, submission.ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, submission.productId.uuidString, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 4, submission.status.rawValue, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_double(stmt, 5, submission.createdAt.timeIntervalSince1970)
+                bindBlob(stmt, index: 6, data: submissionData)
+                try requireDone(sqlite3_step(stmt))
+            }
+            let deleteSQL = "DELETE FROM product_drafts WHERE id = ? AND ownerUserId = ?;"
+            var deleteStmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, deleteSQL, -1, &deleteStmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(deleteStmt) }
+            sqlite3_bind_text(deleteStmt, 1, draft.id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(deleteStmt, 2, draft.ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            try requireDone(sqlite3_step(deleteStmt))
+        }
+    }
+
+    func searchOwnedProducts(query: String, ownerUserId: UUID) -> [Product] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        guard !normalizedQuery.isEmpty else { return [] }
+        return queue.sync {
+            let sql = "SELECT json FROM products WHERE ownerUserId = ? AND storageKind = 'user';"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+            var products: [Product] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let data = readBlob(stmt, index: 0),
+                      let product = decode(Product.self, from: data, entity: "product") else { continue }
+                let haystack = [product.name, product.brand ?? "", product.barcodeEan ?? ""]
+                    .joined(separator: " ")
+                    .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+                if haystack.contains(normalizedQuery) { products.append(product) }
+            }
+            return products.sorted { $0.createdAt > $1.createdAt }
         }
     }
 
@@ -1078,6 +1188,8 @@ final class LocalStore {
                         try migrateToVersion4Locked()
                     case 5:
                         try migrateToVersion5Locked()
+                    case 6:
+                        try migrateToVersion6Locked()
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -1242,6 +1354,29 @@ final class LocalStore {
         );
         """)
         try execute("CREATE INDEX IF NOT EXISTS products_owner_barcode_idx ON products(ownerUserId, barcode);")
+    }
+
+    private func migrateToVersion6Locked() throws {
+        try execute("""
+        CREATE TABLE IF NOT EXISTS product_drafts(
+            id TEXT PRIMARY KEY,
+            ownerUserId TEXT NOT NULL,
+            updatedAt REAL NOT NULL,
+            json BLOB NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS product_drafts_owner_updated_idx ON product_drafts(ownerUserId, updatedAt DESC);")
+        try execute("""
+        CREATE TABLE IF NOT EXISTS catalog_submissions(
+            id TEXT PRIMARY KEY,
+            ownerUserId TEXT NOT NULL,
+            productId TEXT NOT NULL,
+            status TEXT NOT NULL,
+            createdAt REAL NOT NULL,
+            json BLOB NOT NULL
+        );
+        """)
+        try execute("CREATE INDEX IF NOT EXISTS catalog_submissions_owner_created_idx ON catalog_submissions(ownerUserId, createdAt DESC);")
     }
     
     private func databaseFileURL() -> URL {
@@ -1558,13 +1693,25 @@ private struct ProductSyncPayload: Codable {
         name = product.name
         brand = product.brand
         barcode = product.barcodeEan
-        nutrientsPer100g = [
+        var nutrients = [
             "kcal": Double(product.caloriesPer100g),
             "protein": Double(product.proteinGPer100g),
             "carbs": Double(product.carbsGPer100g),
             "fat": Double(product.fatGPer100g)
         ]
-        imageUrl = product.imageUrl
+        if let value = product.saturatedFatGPer100g { nutrients["saturatedFat"] = Double(value) }
+        if let value = product.sugarGPer100g { nutrients["sugars"] = Double(value) }
+        if let value = product.fiberGPer100g { nutrients["fiber"] = Double(value) }
+        if let value = product.saltGPer100g { nutrients["salt"] = Double(value) }
+        if let value = product.sodiumMgPer100g { nutrients["sodiumMg"] = Double(value) }
+        nutrientsPer100g = nutrients
+        if let rawImageURL = product.imageUrl,
+           let url = URL(string: rawImageURL),
+           url.scheme == "https" || url.scheme == "http" {
+            imageUrl = rawImageURL
+        } else {
+            imageUrl = nil
+        }
         source = product.source
     }
 }

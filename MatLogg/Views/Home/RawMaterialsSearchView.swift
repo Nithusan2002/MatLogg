@@ -24,6 +24,7 @@ struct RawMaterialsSearchView: View {
     @State private var searchState: SearchState = .idle
     @State private var selectedProduct: Product?
     @State private var showScanCamera = false
+    @State private var showManualProduct = false
     let onLogComplete: (ReceiptPayload) -> Void
 
     init(onLogComplete: @escaping (ReceiptPayload) -> Void) {
@@ -116,12 +117,19 @@ struct RawMaterialsSearchView: View {
                                     Button("Skann strekkode") {
                                         showScanCamera = true
                                     }
+                                    Button("Opprett egen matvare") { showManualProduct = true }
                                 }
                             }
                             .listRowBackground(AppColors.surface)
                         case .empty:
                             Section {
-                                ContentUnavailableView.search(text: query)
+                                ContentUnavailableView {
+                                    Label("Ingen treff", systemImage: "magnifyingglass")
+                                } description: {
+                                    Text("Du kan opprette varen selv og bruke den med en gang.")
+                                } actions: {
+                                    Button("Opprett egen matvare") { showManualProduct = true }
+                                }
                             }
                             .listRowBackground(AppColors.surface)
                         case .cachedResults, .results:
@@ -182,6 +190,21 @@ struct RawMaterialsSearchView: View {
             }
             .fullScreenCover(isPresented: $showScanCamera) {
                 CameraView(onLogComplete: { _ in })
+            }
+            .fullScreenCover(isPresented: $showManualProduct) {
+                if let userId = authViewModel.currentUser?.id,
+                   let repository = productViewModel.productCreationRepository() {
+                    ManualProductView(
+                        ownerUserId: userId,
+                        barcode: nil,
+                        repository: repository,
+                        aiService: productViewModel.productCreationAIService()
+                    ) { product in
+                        selectedProduct = product
+                    }
+                } else {
+                    ContentUnavailableView("Kan ikke opprette produkt", systemImage: "externaldrive.badge.xmark")
+                }
             }
         }
     }
