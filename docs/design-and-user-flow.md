@@ -142,6 +142,19 @@ Profil samler:
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
 
+Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
+Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Tom fødselsdato
+bevares som tom, ugyldige tall avvises ved feltet, og lagringsfeil beholder
+utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
+Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
+kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
+
+Eksport under Innstillinger inneholder matlogg, vann, lagrede måltider,
+gjeldende daglige mål, vekthistorikk, personlige detaljer og favoritter for
+aktiv profileier. Den viser fremdrift og feil og beskrives som JSON-eksport
+av disse datasettene, ikke som en gjenopprettbar sikkerhetskopi eller komplett
+kontoeksport. Kontohandlinger og slettemekanismene endres ikke i denne flyten.
+
 Destruktive handlinger skal forklare hva som slettes lokalt, hva som skjer på
 serveren og eventuell retensjonsperiode før brukeren bekrefter.
 

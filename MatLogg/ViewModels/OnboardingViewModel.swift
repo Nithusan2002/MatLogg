@@ -227,7 +227,7 @@ final class OnboardingViewModel: ObservableObject {
         switch step {
         case .introduction: return "Sett opp min oversikt"
         case .intent, .goalSetup: return "Fortsett"
-        case .personalDetails: return "Se estimert startpunkt"
+        case .personalDetails: return "Se forslag til kalorimål"
         case .result: return "Bruk dette målet"
         case .macros: return "Se min oppsummering"
         case .privacy: return "Fortsett"
@@ -290,7 +290,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     var macroSummary: String {
-        guard shouldCreateGoal else { return "Ingen makromål" }
+        guard shouldCreateGoal else { return "Ingen mål for næringsstoffer" }
         if macroPreset == .custom {
             return "Protein \(proteinText) g · Karbohydrater \(carbsText) g · Fett \(fatText) g"
         }

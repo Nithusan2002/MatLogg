@@ -2,22 +2,21 @@ import SwiftUI
 
 struct ProfileFavoritesView: View {
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var productViewModel: ProductViewModel
+    @EnvironmentObject private var viewModel: ProfileFavoritesViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
 
-    @State private var products: [Product] = []
     @State private var selectedProduct: Product?
-    @State private var isLoading = true
+    @Environment(\.matLoggTabBarScrollMargin) private var bottomMargin
 
     var body: some View {
         Group {
-            if isLoading {
+            if viewModel.isLoading {
                 ProgressView("Henter favoritter …")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("favorites-loading")
-            } else if products.isEmpty {
+            } else if viewModel.products.isEmpty {
                 ContentUnavailableView {
                     Label("Ingen favoritter ennå", systemImage: "heart")
                 } description: {
@@ -28,11 +27,12 @@ struct ProfileFavoritesView: View {
                     }
                     .foregroundColor(AppColors.action)
                 }
+                .safeAreaPadding(.bottom, bottomMargin)
                 .accessibilityIdentifier("favorites-empty-state")
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(products) { product in
+                        ForEach(viewModel.products) { product in
                             Button {
                                 selectedProduct = product
                             } label: {
@@ -49,9 +49,10 @@ struct ProfileFavoritesView: View {
             }
         }
         .background(AppColors.background.ignoresSafeArea())
+        .toolbar(.visible, for: .navigationBar)
         .navigationTitle("Favoritter")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await loadFavorites() }
+        .task(id: authViewModel.currentUser?.id) { await loadFavorites() }
         .sheet(item: $selectedProduct, onDismiss: {
             Task { await loadFavorites() }
         }) { product in
@@ -96,12 +97,6 @@ struct ProfileFavoritesView: View {
     }
 
     private func loadFavorites() async {
-        guard let userId = authViewModel.currentUser?.id else {
-            products = []
-            isLoading = false
-            return
-        }
-        products = await productViewModel.favoriteProducts(userId: userId)
-        isLoading = false
+        await viewModel.load(userId: authViewModel.currentUser?.id)
     }
 }

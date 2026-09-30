@@ -119,7 +119,7 @@ struct MatLoggOnboardingFlowView: View {
                 body: "Kalorier og næringsverdier gir oversikt, mens mål og personlige opplysninger er valgfrie."
             )
             VStack(spacing: 12) {
-                TrustCard(title: "Lagres først lokalt", message: "Du kan bruke matloggen uten konto eller nett.", systemImage: "iphone")
+                TrustCard(title: "Lagres på denne iPhonen", message: "Du kan bruke matloggen uten konto eller nett.", systemImage: "iphone")
                 TrustCard(title: "Valgfrie opplysninger", message: "Du bestemmer selv hva du vil legge inn.", systemImage: "slider.horizontal.3")
                 TrustCard(title: "Ingen medisinske råd", message: "Dette er en logg og oversikt, ikke behandling.", systemImage: "heart")
             }
@@ -152,7 +152,7 @@ struct MatLoggOnboardingFlowView: View {
             stepTitle(
                 eyebrow: "VALGFRITT UTGANGSPUNKT",
                 title: "Tempo og aktivitet",
-                body: "Valgene påvirker bare et valgfritt estimert startpunkt."
+                body: "Vi bruker valgene dine til å foreslå et kalorimål."
             )
             optionSection(title: "Ønsket tempo") {
                 ForEach(GoalPace.allCases, id: \.self) { pace in
@@ -183,17 +183,17 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 18) {
             stepTitle(
                 eyebrow: "VALGFRITT",
-                title: "Vil du ha et estimert startpunkt?",
+                title: "Vil du ha et forslag til kalorimål?",
                 body: "Opplysningene lagres på profilen din og brukes bare til målberegningen."
             )
             InputCard(label: "Vekt", unit: "kg", text: $onboardingViewModel.weightText, keyboard: .decimalPad)
             InputCard(label: "Høyde", unit: "cm", text: $onboardingViewModel.heightText, keyboard: .decimalPad)
             InputCard(label: "Alder", unit: "år", text: $onboardingViewModel.ageText, keyboard: .numberPad)
             VStack(alignment: .leading, spacing: 8) {
-                Text("Formelgrunnlag")
+                Text("Kjønn")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.ink)
-                Picker("Formelgrunnlag", selection: $onboardingViewModel.gender) {
+                Picker("Kjønn", selection: $onboardingViewModel.gender) {
                     ForEach(GenderOption.allCases, id: \.self) { option in
                         Text(option.label).tag(option)
                     }
@@ -201,7 +201,7 @@ struct MatLoggOnboardingFlowView: View {
                 .pickerStyle(.menu)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
-            Text("Voksenformelen har egne kvinne- og mannvarianter. Ved Annet eller Ønsker ikke å oppgi gjetter MatLogg ikke en personlig verdi.")
+            Text("Vi bruker kjønn når vi beregner et forslag til kalorimål. Velger du Annet eller Ønsker ikke å oppgi, kan du sette målet selv.")
                 .font(AppTypography.caption)
                 .foregroundColor(AppColors.textSecondary)
         }
@@ -229,9 +229,9 @@ struct MatLoggOnboardingFlowView: View {
                 }
             } else {
                 stepTitle(
-                    eyebrow: "ESTIMERT STARTPUNKT",
+                    eyebrow: "FORSLAG TIL KALORIMÅL",
                     title: "Ca. \(onboardingViewModel.calorieTarget ?? 0) kcal per dag",
-                    body: "Et veiledende estimat basert på opplysningene og valgene dine. Det er ikke en medisinsk anbefaling."
+                    body: "Et forslag basert på det du har oppgitt, ikke en medisinsk anbefaling."
                 )
                 HStack(spacing: 8) {
                     adjustmentButton(-100)
@@ -242,7 +242,7 @@ struct MatLoggOnboardingFlowView: View {
                 InputCard(label: "Juster selv", unit: "kcal per dag", text: $onboardingViewModel.calorieTargetText, keyboard: .numberPad)
             }
             if onboardingViewModel.attemptedResult && !onboardingViewModel.hasValidCalorieTarget {
-                validationText("Skriv et heltall mellom 1200 og 4500 kcal. Dette er produktgrenser, ikke en medisinsk anbefaling.")
+                validationText("Skriv et heltall mellom 1200 og 4500 kcal. Dette er grenser i appen, ikke en medisinsk anbefaling.")
             }
         }
     }
@@ -251,8 +251,8 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             stepTitle(
                 eyebrow: "NÆRINGSOVERSIKT",
-                title: "Velg nivå på næringsoversikten",
-                body: "Profilene er generelle fordelinger for voksne, ikke individuelle ernæringsråd."
+                title: "Velg fordeling av næringsstoffer",
+                body: "Velg hvordan målet fordeles mellom protein, karbohydrater og fett. Dette er generelle forslag for voksne, ikke personlige ernæringsråd."
             )
             VStack(spacing: 12) {
                 ForEach(MacroPreset.allCases, id: \.self) { preset in

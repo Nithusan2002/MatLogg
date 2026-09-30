@@ -534,3 +534,18 @@ dette dokumentet. Eldre lokale preferansenøkler ignoreres, og eldre mål-JSON m
 Vann logges som én separat registrering per glass på Hjem, med valgt dato og
 profileier. Ingen antatt ml-mengde eller helsemål. Egen ViewModel/repository og
 atomisk SQLite/synkkø; additive v1-typer på Supabase. Produksjonssynk forblir av.
+
+## 2026-09-30 – Profil, personopplysninger og lokal eksport
+
+Profil prioriterer personlige detaljer, ett redigerbart målkort og innganger
+til favoritter/innstillinger. Dupliserte tallkort fjernes. Personopplysninger
+redigeres som et eksplisitt utkast; fødselsdato krever valg og bekreftelse,
+og lagringsfeil beholder utkastet. Vekt til beregning endrer ikke vekthistorikk
+eller eksisterende mål.
+
+Lokal JSON-eksport utvides med gjeldende mål, vekthistorikk, personlige detaljer
+og favoritter. UI oppgir de eksporterte datasettene og lover ikke komplett
+kontoeksport eller gjenoppretting. Eksport fra en tidligere profil forkastes
+ved profilbytte, og midlertidige eksportfiler ryddes etter deling.
+Rapporteringsvalg vises som utilgjengelige så lenge SDK-integrasjon mangler.
+Auth, slettemekanismer, databaseskjema og synkkontrakt endres ikke.

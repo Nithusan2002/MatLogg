@@ -1723,7 +1723,9 @@ private struct SearchShortcut: View {
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
         .environmentObject(WaterViewModel(repository: database))
-        .environmentObject(UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database))
+        .environmentObject(ProfileExportViewModel(exporter: UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database, healthRepository: database, productRepository: database, personalDetailsStore: UserDefaultsPersonalDetailsStore())))
+        .environmentObject(PersonalDetailsViewModel(store: UserDefaultsPersonalDetailsStore()))
+        .environmentObject(ProfileFavoritesViewModel(repository: database))
 }
 
 extension Date {

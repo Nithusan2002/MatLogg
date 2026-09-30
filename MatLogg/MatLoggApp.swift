@@ -16,11 +16,13 @@ struct MatLoggApp: App {
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
+    @StateObject private var profileFavoritesViewModel: ProfileFavoritesViewModel
+    @StateObject private var personalDetailsViewModel: PersonalDetailsViewModel
     @StateObject private var dailyGoalsViewModel: DailyGoalsViewModel
     @StateObject private var onboardingViewModel: OnboardingViewModel
     @StateObject private var authViewModel: AuthViewModel
     @StateObject private var preferencesViewModel: PreferencesViewModel
-    @StateObject private var userDataExportService: UserDataExportService
+    @StateObject private var profileExportViewModel: ProfileExportViewModel
     @StateObject private var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
     private let databaseStartupFailed: Bool
@@ -63,8 +65,12 @@ struct MatLoggApp: App {
             foodLogRepository: databaseService
         ))
         _productViewModel = StateObject(wrappedValue: ProductViewModel(repository: databaseService))
+        _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
         let healthProfile = HealthProfileViewModel(repository: databaseService)
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
+        _personalDetailsViewModel = StateObject(wrappedValue: PersonalDetailsViewModel(
+            store: UserDefaultsPersonalDetailsStore(), onSaved: healthProfile.acceptSavedPersonalDetails
+        ))
         _dailyGoalsViewModel = StateObject(wrappedValue: DailyGoalsViewModel(
             repository: databaseService, onSaved: healthProfile.acceptSavedGoal
         ))
@@ -77,11 +83,14 @@ struct MatLoggApp: App {
             localProfileManager: databaseService
         ))
         _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel())
-        _userDataExportService = StateObject(wrappedValue: UserDataExportService(
+        _profileExportViewModel = StateObject(wrappedValue: ProfileExportViewModel(exporter: UserDataExportService(
             logRepository: databaseService,
             savedMealRepository: databaseService,
-            waterRepository: databaseService
-        ))
+            waterRepository: databaseService,
+            healthRepository: databaseService,
+            productRepository: databaseService,
+            personalDetailsStore: UserDefaultsPersonalDetailsStore()
+        )))
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
     
@@ -114,6 +123,8 @@ struct MatLoggApp: App {
                 Task { await appState.refreshSyncStatus() }
             }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
+                profileExportViewModel.reset()
+                personalDetailsViewModel.begin(details: .empty, userId: nil)
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
@@ -202,10 +213,12 @@ struct MatLoggApp: App {
         .environmentObject(productViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)
+        .environmentObject(personalDetailsViewModel)
+        .environmentObject(profileFavoritesViewModel)
         .environmentObject(onboardingViewModel)
         .environmentObject(authViewModel)
         .environmentObject(preferencesViewModel)
-        .environmentObject(userDataExportService)
+        .environmentObject(profileExportViewModel)
     }
 
     private var skipAuthForDev: Bool {

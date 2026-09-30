@@ -28,6 +28,10 @@ final class HealthProfileViewModel: ObservableObject {
         self.personalDetails = .empty
     }
 
+    func acceptSavedPersonalDetails(_ details: PersonalDetails) {
+        personalDetails = details
+    }
+
     func acceptSavedGoal(_ goal: Goal) {
         currentGoal = goal
     }

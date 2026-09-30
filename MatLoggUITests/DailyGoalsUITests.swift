@@ -8,7 +8,7 @@ final class DailyGoalsUITests: XCTestCase {
         let profile = app.buttons.matching(NSPredicate(format: "label == 'Profil' AND identifier != 'person.crop.circle'")).firstMatch
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
         profile.tap()
-        let goals = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Daglige mål'")).firstMatch
+        let goals = app.buttons["profile-edit-goals"]
         for _ in 0..<8 {
             if goals.isHittable { break }
             app.swipeUp()
