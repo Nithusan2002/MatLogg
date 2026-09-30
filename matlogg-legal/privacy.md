@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 28. september 2026
+Sist oppdatert: 30. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -30,6 +30,15 @@ Produktdata
   - Nar du skanner, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
   - Ravaredelen fra Matvaretabellen folger med appen og sokes lokalt pa enheten. Nar du aktivt sender inn et navnesok etter merkevarer, sendes soketeksten til Open Food Facts. Sok sendes ikke for hvert tastetrykk.
   - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter kan lagres og synkroniseres separat nar synk er aktivert.
+  - Du kan opprette egne matvarer og lagre ufullstendige utkast lokalt. Næringsgrunnlag (per 100 g eller per 100 ml), råverdier og datakilde bevares uten at manglende verdier gjettes.
+
+Bilder, etikettavlesning og felleskatalog (valgfrie pilotfunksjoner)
+  - Hvis du selv velger det, kan du ta eller velge et bilde av næringstabellen. Bildet rettes opp, komprimeres og lagres uten EXIF- eller posisjonsmetadata.
+  - Tekstgjenkjenning skjer først lokalt på enheten. Når AI-avlesning er aktivert og du har en konto, lastes etikettbildet til privat, midlertidig lagring hos Supabase og behandles gjennom en MatLogg-styrt Edge Function hos OpenAI. OCR-tekst og bilde brukes bare til å foreslå strukturerte næringsverdier. Forslaget må kontrolleres og kan redigeres; manglende verdier skal ikke gjettes.
+  - OpenAI-kallet bruker `store: false`. Før pilot skal MatLogg konfigurere tilgjengelig EØS-behandling og databehandleravtale. OpenAI kan beholde begrensede sikkerhetslogger i samsvar med leverandørens gjeldende vilkår; pilot skal ikke aktiveres før dette er kontrollert og kommunisert.
+  - Etikettbildet publiseres aldri. Det slettes senest 30 dager etter at bidraget er avgjort. Ubehandlede bidrag og tilhørende midlertidige bilder utløper etter 90 dager.
+  - Et forsidebilde er valgfritt for en privat vare. Hvis du uttrykkelig velger å bidra til felleskatalogen, kreves forsidebilde, merke, komplette obligatoriske næringsverdier og samtykke til deling. Forsidebildet beholdes bare hvis produktet publiseres; ellers slettes det etter avgjørelse.
+  - Bidrag publiseres som «Felleskatalog · Ikke verifisert» eller sendes til kontroll. De blir aldri automatisk merket som verifisert. Hjemmelagde og personlige produkter forblir private.
 
 Deling
   - Hvis du deler et produkt, genererer vi en delingslenke (token) som gjor at mottaker kan se en forhandsvisning og importere produktet i appen.
@@ -59,6 +68,7 @@ MatLogg er “offline-first”, som betyr at data normalt lagres lokalt pa enhet
 
 Vi kan dele begrensede data med:
   - Supabase som databehandler for konto, autentisering, database, Edge Functions, backup og opplastingssynk. Prosjektene skal ligge i en valgt EØS-region.
+  - OpenAI som underleverandor for valgfri AI-avlesning av næringstabeller når pilotfunksjonen er aktiv og du starter den. MatLogg sender et midlertidig bilde, lokal OCR-tekst og språk, men ikke navn, e-post, matlogg eller mål.
   - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer eller skanner. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
@@ -73,7 +83,8 @@ Du kan velge a dele:
 Disse er valgfritt og kan slas av/pa nar som helst i Profil → Personvern & valg.
 
 8. Kamera og andre tillatelser
-  - Kamera brukes kun nar du selv starter skanning. iOS spor om tillatelse forste gang du skanner.
+  - Kamera brukes kun nar du selv starter strekkodeskanning, dokumentkamera for næringstabell eller produktfotografering. iOS spor om tillatelse forste gang kameraet brukes.
+  - Bilder du velger fra bildebiblioteket behandles etter de samme reglene. MatLogg bruker iOS sin bildevelger og ber ikke om generell tilgang til hele biblioteket.
 
 9. Hvor lenge lagrer vi data?
 

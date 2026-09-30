@@ -528,3 +528,33 @@ nøytralt og ikke-dømmende.
 dette dokumentet. Eldre lokale preferansenøkler ignoreres, og eldre mål-JSON med
 `safeModeEnabled` skal fortsatt kunne leses. Lokal databasestruktur,
 `goal.set`-payload, synkkontrakt og backend endres ikke.
+
+## 2026-09-30 – Egen matvare er local-first; AI og felleskatalog rulles ut separat
+
+**Beslutning:** Manuell produktoppretting samles i én MVVM-flyt med private,
+lokale utkast og eksplisitt grunnlag per 100 g eller 100 ml. Ferdig produkt og
+`product.upsert` lagres atomisk. AI-avlesning, kataloglesing, bidrag og
+autopublisering har separate flagg som starter avslått; `backendSyncEnabled`
+forblir også avslått. Server-AI går gjennom en MatLogg-eid Supabase Edge
+Function, bruker OpenAI Responses API med strengt schema og `store: false`, og
+returnerer bare redigerbare forslag med feltvis bevis og sikkerhet.
+
+**Datakvalitet og publisering:** Privat er standard. Bidrag krever konto og
+eksplisitt samtykke. Autopublisering kan bare gi `public_unverified`, krever
+komplett emballert produkt, begge bilder, bekreftede AI-felt og ingen
+duplikat-/valideringsflagg. Eksisterende GTIN blir et korrigeringsforslag;
+strekkodeløse produkter stoppes ved eksakt, trigram- eller bildehash-treff.
+`verified` krever moderatorhandling som logges.
+
+**Personvern og drift:** Etikettbilder ligger i privat, midlertidig lagring,
+publiseres aldri og slettes senest 30 dager etter avgjørelse; ubehandlede
+bidrag utløper etter 90 dager. Forsidebilder beholdes bare for publiserte
+produkter. Ingen bilder, OCR-tekst, næringsinnhold, tokens eller signerte URL-er
+skal logges. Konto, kvoter, filgrenser, rate limit og global kill-switch er
+obligatoriske. AI-pilot og autopublisering er no-go til juridisk kontroll,
+50-etiketters evaluering og releaseportene er dokumentert grønne.
+
+**Kompatibilitet:** Synkkontrakt v1 endres ikke, og bilder legges aldri i
+synkhendelser. Supabase er teknisk sannhetskilde for den nye katalogen; legacy
+NestJS utvides ikke under cutover. Beslutningen bevarer fjerningen av Trygg
+modus: tilgjengelige kalorier og makroer vises alltid.

@@ -57,6 +57,26 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testQuickLogAlwaysOffersManualProductCreation() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
+        app.launch()
+
+        let logButton = app.buttons["Loggfør mat"]
+        XCTAssertTrue(logButton.waitForExistence(timeout: 3))
+        logButton.tap()
+
+        let createButton = app.buttons["Opprett egen matvare"]
+        XCTAssertTrue(createButton.waitForExistence(timeout: 2))
+        createButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Opprett egen matvare"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.textFields["Produktnavn"].exists)
+        XCTAssertTrue(app.staticTexts["Les næringstabell"].exists)
+        XCTAssertTrue(app.buttons["Lagre og fortsett"].exists)
+    }
+
+    @MainActor
     func testHomeCanNavigateAcrossPastAndFutureDates() throws {
         let app = XCUIApplication()
         app.launchArguments.append("--skip-auth")

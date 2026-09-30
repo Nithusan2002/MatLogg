@@ -82,6 +82,8 @@ MVP-en prioriterer:
 - lokal lagring og versjonert synkkø
 - mål og valgfri vektregistrering
 - synlig datakilde når brukeren ønsker det
+- private egne matvarer og ufullstendige lokale utkast; valgfri AI-avlesning og
+  felleskatalog rulles ut bak separate, avslåtte feature flags
 - eksport og sletting av brukerdata
 
 Detaljert scope og prioritet finnes i
@@ -100,6 +102,8 @@ Følgende skal ikke innføres uten en ny produktbeslutning:
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og
   integrasjonstestene er grønne
+- AI-pilot eller automatisk publisering før personvernkontroll, bildebevaring,
+  kostnadsgrenser og 50-etiketters kvalitetsport er dokumentert grønne
 
 ## Tidlige suksessindikatorer
 

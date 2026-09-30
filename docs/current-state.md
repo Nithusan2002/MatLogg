@@ -1,6 +1,6 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert: 2026-09-28.
+Sist kontrollert: 2026-09-30.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
@@ -77,6 +77,11 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
 - Brukeropprettede produkter har lokal eierbinding, følger med ved bekreftet
   kobling av lokal profil til konto og slettes sammen med eierens lokale data.
   Ekstern katalogcache er fortsatt felles, lokal cache og synkroniseres ikke.
+- Egen matvare har én MVVM-flyt fra Loggfør, søk/nulltreff og ukjent strekkode.
+  Flyten støtter merke, strekkode, per 100 g/ml, obligatoriske makroer,
+  valgfrie næringsfelt, private ufullstendige utkast, dokumentkamera, lokal OCR,
+  metadata-rensede bilder og videre logging via produktdetaljen. Egne ferdige
+  produkter søkes lokalt og prioriteres ved samme strekkode.
 - Favoritter, nylig brukte produkter og skannehistorikk.
 - Persondetaljer, målberegning og valgfri vektregistrering.
 - Personlige målforslag er avgrenset til voksne med komplett, støttet
@@ -147,11 +152,16 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   bruker. Brukerbytte/utlogging kansellerer planlagte retries. Eldre ikke-ferdige
   hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
+- `nutritionLabelAIEnabled`, `sharedCatalogReadEnabled`,
+  `catalogContributionsEnabled` og `catalogAutoPublishEnabled` er `false`.
+  Supabase-skjema, private opplastinger, OpenAI-adapter, katalogoppslag,
+  bidragsvalidering, rapportering og moderering finnes i kode, men er ikke
+  deployet eller godkjent for pilot. OpenAI-nøkkel og modell er kun
+  serverkonfigurasjon; standardmodellen er `gpt-6-luna`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--debug-auth`.
 - Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
   Google-innlogging er senere scope. Apple krever konfigurert
   `APPLE_CLIENT_ID` og aktivert Sign in with Apple-capability før distribusjon.
-- Manuell opprettelse av ukjente produkter finnes fra skanneflyten.
 - Backend dekker ikke alle endepunktene i `specs/06-api-endpoints.md`.
   API-spesifikasjonen er derfor et målbilde med mindre kode viser noe annet.
 
@@ -252,13 +262,27 @@ implementert og implementert.
 - UI-testen bekrefter at eldre Safe Mode-preferanser ikke lenger skjuler
   målfeltene. `testSuggestionMustBeAppliedAndSavedExplicitly` bruker nå et
   eksplisitt, minnebasert DEBUG-fixture med gyldige persondetaljer og består
-  isolert. Full suite-rekjøring ble blokkert før teststart av en urelatert,
-  pågående produktkatalog-endring som ikke kompilerer ennå.
+  isolert. Produktkatalog-endringen som tidligere blokkerte full suite bygger
+  nå; hele testpakken er fortsatt ikke kjørt på nytt.
 - Arkitekturkontroll: utkast, beregning og validering eies av ViewModels;
   avhengigheter settes sammen ved app-roten; eksisterende lokal mål/event-
   transaksjon gjenbrukes. Ingen nye arkitekturavvik eller synkkontraktsendringer.
 - Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.
   Dette er funksjonsverifisering, ikke en produksjonsgodkjenning.
+
+### Egen matvare og produktkatalog – kontrollert 2026-09-30
+
+- Appen bygger for generisk iOS Simulator. Seks målrettede domenetester for
+  desimalkomma, g/ml, validering, delvis AI-resultat, atomisk lagring og
+  salt/natrium består. UI-testen for den permanente inngangen fra Loggfør og
+  åpning av opprettingsflyten består.
+- De nye Edge Function-kildene består Deno-typekontroll og formatteringskontroll;
+  åtte Deno-tester, inkludert eksisterende synkkontrakttester, består.
+- Lokal Supabase/PostgreSQL var ikke tilgjengelig under kontrollen. Migrasjonen,
+  pgTAP/RLS-testene og funksjonenes integrasjon mot Storage/Auth er derfor ikke
+  kjørt. AI-evalueringssettet med 50 etiketter er heller ikke gjennomført.
+- Manuell, privat produktoppretting kan vurderes separat. AI, kataloglesing,
+  bidrag og autopublisering er fortsatt no-go og avslått med feature flags.
 
 ### Tryggere målforslag – verifisert 2026-09-23
 

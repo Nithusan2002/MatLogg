@@ -240,16 +240,24 @@ Innstillinger og søk/manuell registrering som reelle alternativer.
 ### Ukjent produkt
 
 ```text
-Ingen treff på strekkode
-  → forklar at produktet ikke ble funnet
-  → skann igjen, søk eller opprett manuelt
-  → oppgi navn og dokumenterte næringsverdier
-  → vis kilde som brukeroppgitt
-  → lagre lokalt og fortsett til mengde
+Velg «Opprett egen matvare» eller få nulltreff/ukjent strekkode
+  → behold dato, måltid og eventuell strekkode
+  → oppgi navn, merke og per 100 g / 100 ml
+  → ta bilde av næringstabell eller skriv manuelt
+  → kontroller og korriger alle foreslåtte verdier
+  → legg eventuelt til forsidebilde
+  → velg privat (standard) eller eksplisitt bidrag til felleskatalog
+  → lagre produkt og synkhendelse atomisk lokalt
+  → vis kilde som «Brukeroppgitt»
+  → fortsett til mengde og logging
 ```
 
 Manglende verdier skal ikke fylles med antakelser. Skjemaet skal skille mellom
-påkrevd og valgfritt innhold og forklare feil ved feltet.
+påkrevd og valgfritt innhold og forklare feil ved feltet. Ufullstendige private
+utkast kan lagres, men kan ikke logges eller publiseres. AI er en valgfri,
+redigerbar assistent; et forslag er aldri en bekreftet eller medisinsk verdi.
+Etikettbilder er private. Felleskatalogen viser publiserte bidrag som
+«Felleskatalog · Ikke verifisert» frem til moderator godkjenner dem.
 
 ### Offline og synk
 

@@ -72,6 +72,29 @@ eller rask vekst i avviste synkhendelser. Angi én ansvarlig mottaker under pilo
    migrasjon.
 10. Personvern-/App Store-tekst samsvarer med databruk og leverandører.
 
+## Ekstra port for AI og felles produktkatalog
+
+Disse funksjonene har egne server- og klientflagg og kan rulles ut uavhengig.
+De skal aktiveres i rekkefølgen manuell flyt, intern AI-pilot, kataloglesing,
+bidrag til kontrollkø og til slutt eventuell autopublisering.
+
+- OpenAI-nøkkel og `OPENAI_NUTRITION_MODEL` ligger bare i Supabase secrets;
+  standardmodell er `gpt-6-luna`, og global nødstopp er testet.
+- Databehandleravtale, tilgjengelig EØS-behandling, faktisk retensjon og
+  personvern-/App Store-tekst er kontrollert før første eksterne AI-pilot.
+- Private opplastinger avviser fremmed `assetId`, feil MIME og filer over 5 MB.
+  Signerte URL-er, bilder, OCR-tekst og næringspayload finnes ikke i logger.
+- Daglig AI-kvote, offentlig katalog-rate-limit og kostnadsalarm er testet.
+- Etikettbilder slettes senest 30 dager etter avgjørelse; ubehandlede bidrag
+  utløper etter 90 dager. Forsidebilder beholdes bare for publiserte produkter.
+- Minst 50 norske/engelske etiketter dekker g/ml, kJ/kcal, porsjonskolonner,
+  desimalkomma, salt/natrium, rotasjon og refleks. Autopublisering er no-go med
+  mindre grunnlaget er korrekt i hele autopubliseringssettet, synlige tall
+  matcher etikettens presisjon, manglende data aldri gjettes og tvetydighet
+  stopper i kontrollkø.
+- RLS/pgTAP, auth, idempotens, GTIN, eksakt/fuzzy/bildehash-duplikat,
+  rapportering og moderatorlogg er grønne i staging.
+
 ## Pilot og nødstopp
 
 Start med intern TestFlight, deretter 20–50 inviterte brukere. Følg feilrate,

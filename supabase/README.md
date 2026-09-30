@@ -47,6 +47,26 @@ opprettes og roteres i Supabase secret storage, aldri i repoet.
 Kjør `ops/configure-purge-cron.sql` etter at cron-secret er lagt i Vault.
 Konfigurer backup/PITR, varsling og en dokumentert restore-øvelse per miljø.
 
+## AI-avlesning og produktkatalog
+
+Alle fire app-/serverflagg starter avslått: `nutrition_label_ai_enabled`,
+`shared_catalog_read_enabled`, `catalog_contributions_enabled` og
+`catalog_auto_publish_enabled`. Aktiver dem separat i staging og i denne
+rekkefølgen. Mobilklientens tilsvarende `FeatureFlags` må også aktiveres i et
+kontrollert pilotbygg.
+
+AI-funksjonen krever disse Edge Function-hemmelighetene, aldri xcconfig:
+
+- `OPENAI_API_KEY`
+- `OPENAI_NUTRITION_MODEL` (valgfri, standard `gpt-6-luna`)
+- `NUTRITION_AI_KILL_SWITCH` (`true` stopper nye AI-kall umiddelbart)
+
+`product-submissions` er privat og midlertidig. `catalog-product-images` er
+offentlig og inneholder bare forsider for publiserte katalogvarer.
+`purge-product-images` bruker samme `PURGE_CRON_SECRET` som kontosletting og
+skal planlegges med `ops/configure-purge-cron.sql`. Ikke aktiver AI-pilot før
+personvernport, EØS-oppsett, kvoter og evalueringssett er godkjent.
+
 ## Kill switch og cutover
 
 Synk er av etter migrering. Slå den på først etter godkjent fysisk iPhone- og
