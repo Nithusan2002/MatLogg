@@ -329,3 +329,11 @@ En ny eller endret flyt er ikke ferdig før:
 - synlige næringsverdier og tilgjengelighetstekst samsvarer
 - varige nye mønstre eller tokens er dokumentert i designsystemet
 - implementert status og relevante detaljspesifikasjoner er oppdatert
+
+### Sletting av enkeltvarer i matloggen
+
+Enkeltvarer slettes uten bekreftelsesdialog. En kompakt melding over bunnmenyen
+tilbyr «Angre» i fire sekunder (åtte med VoiceOver). Flere raske slettinger
+samles og kan gjenopprettes atomisk med samme mengde, enhet, næringsgrunnlag
+og tidspunkter. Gjenoppretting bruker nye logg-ID-er for å tåle forsinkede
+slettehendelser. Bekreftelser for større slettinger beholdes.

@@ -554,4 +554,4 @@ TabView (Root)
 | Historikk-panel | Sheet (70% height) | ✕ eller back gesture |
 | "Ikke funnet" | Alert / Sheet | "Ja" / "Nei" |
 | Favoritt-share | Action sheet (iOS) | Valg eller Avbryt |
-| Slette-konfirmasjon | Alert dialog | OK / Avbryt |
+| Slett enkeltvare | Kompakt melding med Angre | 4s (8s VoiceOver), dra ned eller Angre |

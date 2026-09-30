@@ -756,6 +756,105 @@ struct MatLoggTests {
 
 @MainActor
 struct LogViewModelTests {
+    @Test func deletionFailureDoesNotOfferUndoAndLeavingDuringDeleteDoesNotReviveReceipt() async {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let log = makeLog(userId: owner, productId: UUID(), date: Date())
+        repository.deleteError = NSError(domain: "test", code: 1)
+        #expect(!(await vm.deleteWithUndo(log, userId: owner)))
+        #expect(vm.deletionReceiptID == nil)
+        #expect(vm.errorMessage != nil)
+        repository.deleteError = nil
+        repository.deleteDelayNanoseconds = 30_000_000
+        let deletion = Task { await vm.deleteWithUndo(log, userId: owner) }
+        while !vm.isDeletingOrRestoring { await Task.yield() }
+        #expect(!(await vm.undoDeletion(userId: owner)))
+        vm.dismissDeletionReceipt()
+        #expect(await deletion.value)
+        #expect(vm.deletionReceiptID == nil)
+        #expect(vm.deletedLogCount == 0)
+    }
+
+    @Test func deletionUndoPreservesSnapshotsAndGroupsRapidDeletes() async throws {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let log = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj",
+                          amountG: 123.45, amountUnit: .milliliters, loggedDate: Date(),
+                          calories: 67.89, proteinG: 1.23, carbsG: 4.56, fatG: 7.89)
+        let other = makeLog(userId: owner, productId: UUID(), date: Date())
+        #expect(await vm.deleteWithUndo(log, userId: owner))
+        #expect(await vm.deleteWithUndo(other, userId: owner))
+        #expect(!(await vm.deleteWithUndo(log, userId: owner)))
+        #expect(vm.deletedLogCount == 2)
+        #expect(await vm.undoDeletion(userId: owner))
+        let restored = try #require(repository.savedLogs.first)
+        #expect(restored.id != log.id)
+        #expect(restored.productId == log.productId)
+        #expect(restored.amountG == log.amountG)
+        #expect(restored.amountUnit == log.amountUnit)
+        #expect(restored.loggedDate == log.loggedDate)
+        #expect(restored.loggedTime == log.loggedTime)
+        #expect(restored.createdAt == log.createdAt)
+        #expect(restored.calories == log.calories)
+        #expect(restored.proteinG == log.proteinG)
+        #expect(restored.carbsG == log.carbsG)
+        #expect(restored.fatG == log.fatG)
+        #expect(!restored.isSynced)
+        #expect(repository.savedLogs.count == 2)
+        #expect(vm.deletionReceiptID == nil)
+        #expect(!(await vm.undoDeletion(userId: owner)))
+    }
+
+    @Test func deletionUndoRetainsReceiptOnFailureAndRejectsOtherOwner() async {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let log = makeLog(userId: owner, productId: UUID(), date: Date())
+        #expect(!(await vm.deleteWithUndo(log, userId: UUID())))
+        #expect(repository.deletedIds.isEmpty)
+        #expect(await vm.deleteWithUndo(log, userId: owner))
+        #expect(!(await vm.undoDeletion(userId: UUID())))
+        #expect(repository.savedLogs.isEmpty)
+        repository.saveError = NSError(domain: "test", code: 1)
+        #expect(!(await vm.undoDeletion(userId: owner)))
+        #expect(vm.deletionReceiptID != nil)
+        #expect(vm.deletedLogCount == 1)
+        repository.saveError = nil
+        #expect(await vm.undoDeletion(userId: owner))
+        #expect(repository.savedLogs.count == 1)
+        #expect(await vm.deleteWithUndo(log, userId: owner))
+        vm.dismissDeletionReceipt()
+        #expect(!(await vm.undoDeletion(userId: owner)))
+    }
+
+    @Test func deleteAndRestorePersistSeparateOwnedSyncEventsOffline() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("undo.sqlite")
+        let store = try LocalStore(databaseURL: url)
+        let owner = UUID()
+        let original = makeLog(userId: owner, productId: UUID(), date: Date())
+        try store.saveLog(original)
+        try store.deleteLog(original.id)
+        #expect(store.getAllLogs(userId: owner).isEmpty)
+        let restored = FoodLog(userId: owner, productId: original.productId, mealType: original.mealType,
+                               amountG: original.amountG, amountUnit: original.resolvedAmountUnit,
+                               loggedDate: original.loggedDate, loggedTime: original.loggedTime,
+                               calories: original.calories, proteinG: original.proteinG,
+                               carbsG: original.carbsG, fatG: original.fatG, createdAt: original.createdAt)
+        try store.saveLogs([restored])
+        let reopened = try LocalStore(databaseURL: url)
+        #expect(reopened.getAllLogs(userId: owner).map(\.id) == [restored.id])
+        let events = reopened.fetchPendingEvents(ownerUserId: owner, limit: 10)
+        #expect(events.map(\.type) == ["log.upsert", "log.delete", "log.upsert"])
+        #expect(events.last?.entityId == restored.id.uuidString)
+        #expect(Set(events.map(\.eventId)).count == 3)
+        #expect(events.allSatisfy { $0.ownerUserId == owner && $0.schemaVersion == 1 })
+    }
+
     @Test func loadingSummaryPublishesBatchResolvedProductNames() async {
         let repository = FoodLogRepositorySpy()
         let viewModel = LogViewModel(repository: repository)
@@ -990,6 +1089,8 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     var deletedIds: [UUID] = []
     var logs: [FoodLog] = []
     var products: [UUID: Product] = [:]
+    var deleteError: Error?
+    var deleteDelayNanoseconds: UInt64 = 0
     var saveError: Error?
     var summaryDelayNanoseconds: ((Date) -> UInt64)?
 
@@ -1008,6 +1109,8 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     }
 
     func deleteLog(_ id: UUID) async throws {
+        if deleteDelayNanoseconds > 0 { try await Task.sleep(nanoseconds: deleteDelayNanoseconds) }
+        if let deleteError { throw deleteError }
         deletedIds.append(id)
     }
 

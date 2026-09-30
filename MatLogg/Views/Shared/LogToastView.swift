@@ -2,10 +2,25 @@ import SwiftUI
 import UIKit
 
 struct LogToastView: View {
-    let payload: ReceiptPayload
+    private let receiptID: UUID
+    private let title: String
     let isUndoing: Bool
     let onUndo: () -> Void
     let onDismiss: () -> Void
+
+    init(payload: ReceiptPayload, isUndoing: Bool, onUndo: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+        self.init(id: payload.id,
+                  title: "\(payload.amountG.formatted(.number.precision(.fractionLength(0...1)))) \(payload.amountUnit.rawValue) \(payload.product.name) lagt til \(LogSummaryService.title(for: payload.mealType))",
+                  isUndoing: isUndoing, onUndo: onUndo, onDismiss: onDismiss)
+    }
+
+    init(id: UUID, title: String, isUndoing: Bool, onUndo: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+        self.receiptID = id
+        self.title = title
+        self.isUndoing = isUndoing
+        self.onUndo = onUndo
+        self.onDismiss = onDismiss
+    }
 
     @State private var dragOffset: CGFloat = 0
 
@@ -17,7 +32,7 @@ struct LogToastView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("\(formatAmount(payload.amountG)) \(payload.amountUnit.rawValue) \(payload.product.name) lagt til \(mealTitle)")
+                Text(title)
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -54,10 +69,11 @@ struct LogToastView: View {
         .accessibilityAction(named: "Lukk bekreftelse") {
             onDismiss()
         }
-        .onChange(of: payload.id) {
+        .onChange(of: receiptID) {
             dragOffset = 0
         }
-        .task(id: payload.id) {
+        .task(id: "\(receiptID)-\(isUndoing)") {
+            guard !isUndoing else { return }
             try? await Task.sleep(for: .seconds(UIAccessibility.isVoiceOverRunning ? 8 : 4))
             guard !Task.isCancelled else { return }
             onDismiss()
@@ -98,16 +114,6 @@ struct LogToastView: View {
         }
     }
     
-    private var mealTitle: String {
-        LogSummaryService.title(for: payload.mealType)
-    }
-    
-    private func formatAmount(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
-        }
-        return String(format: "%.1f", value)
-    }
 }
 
 extension AnyTransition {
