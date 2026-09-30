@@ -1,6 +1,6 @@
 import Foundation
 
-class DatabaseService {
+class DatabaseService: WaterRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
     let startupError: Error?
@@ -26,6 +26,18 @@ class DatabaseService {
     }
 
     var isAvailable: Bool { store != nil }
+
+    func getWaterGlasses(userId: UUID) async throws -> [WaterGlass] {
+        try requireStore().getWaterGlasses(userId: userId)
+    }
+
+    func saveWaterGlass(_ glass: WaterGlass) async throws {
+        try requireStore().saveWaterGlass(glass)
+    }
+
+    func deleteWaterGlass(_ id: UUID, userId: UUID) async throws {
+        try requireStore().deleteWaterGlass(id, userId: userId)
+    }
 
     private func requireStore() throws -> LocalStore {
         guard let store else {

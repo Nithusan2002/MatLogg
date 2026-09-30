@@ -65,6 +65,28 @@ Når målstatus er skjult eller mangler, skal matlogging fortsatt være like syn
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
 
+### Vann på Hjem
+
+Et kompakt vannkort ligger etter valgfri dagsstatus og før måltidene. «Ett
+glass» lagrer én registrering direkte for valgt dato, også uten nett og konto.
+Kortet viser dagens antall, «Ett glass lagt til» med «Angre», og tilbyr «Fjern
+ett glass» ved trykk på antallet. En synlig minusknapp ved siden av plussknappen
+fjerner siste glass med ett trykk uten dialog. Den er deaktivert ved null,
+under lasting og mens en lagring pågår. Ingen antatt ml-mengde, mål eller påminnelser.
+Ny dag viser null uten å slette historikken. Feil viser retry uten å øke telleren.
+Vannkortet bruker et tydelig antall under en liten overskrift, to like store, runde
+ikonknapper for pluss og minus. Pluss har en dempet blå bakgrunn; minus en
+nøytral bakgrunn. Begge har 44 × 44 punkters trykkflate og tydelig VoiceOver-tekst. Kopper har nøytralt omriss
+og blått gradert vann når de er fylt. Vannkortet viser ti tomme kopper fra start, fordelt på to rader med fem.
+Én kopp fylles med blått vann per registrert glass. Etter ti legges flere fylte
+kopper til, fem per rad. Angre/korrigering tømmer siste kopp; ekstra kopper
+fjernes når antallet faller. Ti er en startlayout, ikke et anbefalt dagsmål;
+ingen «av ti», prosent eller målfeiring vises. Fyll og teller animeres kort.
+«Reduser bevegelse» gir umiddelbar oppdatering. VoiceOver leser antallet én
+gang og hopper over dekorasjonen.
+Store tekststørrelser flytter knappen til neste rad. Vann følger aktiv profileier,
+og inngår i eksport, kontooverføring og sletting.
+
 ### Søk
 
 Søk samler oppdagelse og gjenbruk:

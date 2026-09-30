@@ -83,6 +83,8 @@ const payloadSchemas: Record<string, z.ZodType> = {
   "favorite.add": favoritePayload,
   "favorite.remove": favoritePayload,
   "weight.add": weightPayload,
+  "water.upsert": z.object({ id: uuid, date: isoDate, createdAt: isoDate }),
+  "water.delete": idPayload,
   "weight.upsert": weightPayload,
   "weight.delete": idPayload,
   "product.upsert": productPayload,

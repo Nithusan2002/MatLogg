@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 28. september 2026
+Sist oppdatert: 30. september 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -19,6 +19,7 @@ Konto og innlogging
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen
+  - Vannregistreringer: ett glass per registrering, med dato, tidspunkt og profileier. Ingen antatt mengde i ml.
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
   - Lagrede maltider du oppretter for gjenbruk, inkludert navn, matvarer,
     mengder og lagret naeringsgrunnlag/kilde.

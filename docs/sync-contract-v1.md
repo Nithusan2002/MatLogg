@@ -26,7 +26,7 @@ må være kanonisk, polstret base64, og `entityId` må være UUID eller `null`.
 
 Canonical typer er `log.upsert`, `log.delete`, `goal.set`, `favorite.add`,
 `favorite.remove`, `weight.upsert`, `weight.delete`, `product.upsert`,
-`saved_meal.upsert` og `saved_meal.delete`.
+`saved_meal.upsert`, `saved_meal.delete`, `water.upsert` og `water.delete`.
 Backend godtar midlertidig de eldre aliasene `log.create`, `log.update` og
 `weight.add` for bakoverkompatibilitet.
 
@@ -78,3 +78,10 @@ Kontrakten er fortsatt en opplastingskontrakt. Nedlasting og konfliktløsning
 mellom flere enheter er ikke implementert. Gjeldende produktadferd, betydningen
 av en tom enhetskø og krav før toveis synk beskrives i
 [offline-adferd og synkstatus](offline-behavior.md).
+
+`water.upsert` (additiv v1-type) inneholder `id`, `date` og `createdAt` som
+UUID / ISO-8601. Hver rad er ett glass, uten estimert volum. `water.delete`
+inneholder `id`. Eier hentes fra tokenet, og inbox og glass skrives atomisk.
+Servermigrasjon og Edge Function må oppdateres før klienten sender vannevents.
+Eldre servere avviser den nye typen; aktiver derfor ikke synk før utrulling og
+kontrakt-/integrasjonstester er godkjent. Opplasting gir ingen toveis synk.

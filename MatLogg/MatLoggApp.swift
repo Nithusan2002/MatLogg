@@ -12,6 +12,7 @@ struct MatLoggApp: App {
     @StateObject private var appState: AppState
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
+    @StateObject private var waterViewModel: WaterViewModel
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
@@ -54,6 +55,7 @@ struct MatLoggApp: App {
             databaseService: databaseService,
             syncEngine: syncEngine
         ))
+        _waterViewModel = StateObject(wrappedValue: WaterViewModel(repository: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
         _savedMealsViewModel = StateObject(wrappedValue: SavedMealsViewModel(
@@ -77,7 +79,8 @@ struct MatLoggApp: App {
         _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel())
         _userDataExportService = StateObject(wrappedValue: UserDataExportService(
             logRepository: databaseService,
-            savedMealRepository: databaseService
+            savedMealRepository: databaseService,
+            waterRepository: databaseService
         ))
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
@@ -107,6 +110,9 @@ struct MatLoggApp: App {
 
     private var operationalContent: some View {
         configuredContent
+            .onChange(of: waterViewModel.mutationRevision) { _, _ in
+                Task { await appState.refreshSyncStatus() }
+            }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
@@ -192,6 +198,7 @@ struct MatLoggApp: App {
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)
         .environmentObject(savedMealsViewModel)
+        .environmentObject(waterViewModel)
         .environmentObject(productViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)

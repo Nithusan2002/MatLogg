@@ -77,3 +77,14 @@ Deno.test("sync rejects an unknown event type", () => {
   assertEquals(result.success, false);
   if (!result.success) assertEquals(result.code, "UNSUPPORTED_TYPE");
 });
+
+Deno.test("water events preserve one glass with explicit dates", () => {
+  const envelope = {
+    eventId: id, type: "water.upsert", createdAt: "2026-09-30T10:00:00Z",
+    entityId: id, schemaVersion: 1,
+    payload: btoa(JSON.stringify({ id, date: "2026-09-30T10:00:00Z", createdAt: "2026-09-30T10:00:00Z" })),
+  };
+  assertEquals(validateEvent(envelope).success, true);
+  assertEquals(validateEvent({ ...envelope, payload: btoa(JSON.stringify({ id, date: "invalid" })) }).success, false);
+  assertEquals(validateEvent({ ...envelope, type: "water.delete", payload: btoa(JSON.stringify({ id })) }).success, true);
+});

@@ -4,9 +4,11 @@ import Combine
 @MainActor
 final class UserDataExportService: ObservableObject {
     private let logRepository: any FoodLogRepository
+    private let waterRepository: any WaterRepository
     private let savedMealRepository: any SavedMealRepository
 
-    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository) {
+    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository) {
+        self.waterRepository = waterRepository
         self.logRepository = logRepository
         self.savedMealRepository = savedMealRepository
     }
@@ -14,10 +16,14 @@ final class UserDataExportService: ObservableObject {
     func export(for user: User) async -> URL? {
         let logs = await logRepository.getAllLogs(userId: user.id)
         let savedMeals = await savedMealRepository.getSavedMeals(userId: user.id)
+        let water: [WaterGlass]
+        do { water = try await waterRepository.getWaterGlasses(userId: user.id) }
+        catch { return nil }
         let payload: [String: Any] = [
             "user_id": user.id.uuidString,
             "email": user.email,
             "exported_at": ISO8601DateFormatter().string(from: Date()),
+            "water_glasses": water.map { ["id": $0.id.uuidString, "date": ISO8601DateFormatter().string(from: $0.date), "created_at": ISO8601DateFormatter().string(from: $0.createdAt)] },
             "logs": logs.map { log in
                 [
                     "product_id": log.productId.uuidString,

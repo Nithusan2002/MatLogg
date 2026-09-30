@@ -8,7 +8,7 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 6
+    static let latestSchemaVersion = 7
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -62,7 +62,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["product_drafts", "catalog_submissions", "favorites", "scans", "logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -81,6 +81,7 @@ final class LocalStore {
                 favorites: countLocked(table: "favorites", ownerId: ownerId),
                 scans: countLocked(table: "scans", ownerId: ownerId),
                 weights: countLocked(table: "weights", ownerId: ownerId),
+                waterGlasses: countLocked(table: "water_logs", ownerId: ownerId),
                 savedMeals: countLocked(table: "saved_meals", ownerId: ownerId),
                 products: countLocked(table: "products", ownerColumn: "ownerUserId", ownerId: ownerId)
             )
@@ -92,10 +93,10 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["goals", "logs", "weights", "saved_meals"] {
+                for table in ["goals", "logs", "weights", "water_logs", "saved_meals"] {
                     try rewriteUserIdInJSONLocked(table: table, from: localOwnerId, to: accountOwnerId)
                 }
-                for table in ["goals", "logs", "favorites", "scans", "weights", "saved_meals"] {
+                for table in ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals"] {
                     try updateOwnerLocked(table: table, column: "userId", from: localOwnerId, to: accountOwnerId)
                 }
                 try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
@@ -112,7 +113,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["favorites", "scans", "logs", "saved_meals", "goals", "weights"] {
+                for table in ["favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights"] {
                     try deleteOwnerRowsLocked(table: table, column: "userId", ownerId: ownerId)
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
@@ -295,6 +296,55 @@ final class LocalStore {
             totalFat: totals.fat,
             logs: logs
         )
+    }
+
+    // MARK: - Water
+
+    func saveWaterGlass(_ glass: WaterGlass) throws {
+        let data = try encoder.encode(glass)
+        let payload = try syncEncoder.encode(glass)
+        try performAtomicWrite(ownerUserId: glass.userId, type: .waterUpsert, entityId: glass.id.uuidString, payload: payload) {
+            var stmt: OpaquePointer?
+            let sql = "INSERT INTO water_logs(id, userId, json) VALUES(?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json WHERE water_logs.userId = excluded.userId;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, glass.id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, glass.userId.uuidString, -1, SQLITE_TRANSIENT)
+            bindBlob(stmt, index: 3, data: data)
+            try requireDone(sqlite3_step(stmt))
+            guard sqlite3_changes(db) == 1 else { throw LocalStoreError.invalidStoredData("Vannregistreringen tilhører en annen bruker") }
+        }
+    }
+
+    func deleteWaterGlass(_ id: UUID, userId: UUID) throws {
+        let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+        try performAtomicWrite(ownerUserId: userId, type: .waterDelete, entityId: id.uuidString, payload: payload) {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "DELETE FROM water_logs WHERE id = ? AND userId = ?;", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, userId.uuidString, -1, SQLITE_TRANSIENT)
+            try requireDone(sqlite3_step(stmt))
+            guard sqlite3_changes(db) == 1 else { throw LocalStoreError.invalidStoredData("Vannregistreringen finnes ikke for denne brukeren") }
+        }
+    }
+
+    func getWaterGlasses(userId: UUID) throws -> [WaterGlass] {
+        try queue.sync {
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "SELECT json FROM water_logs WHERE userId = ?;", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
+            var results: [WaterGlass] = []
+            var result = sqlite3_step(stmt)
+            while result == SQLITE_ROW {
+                guard let data = readBlob(stmt, index: 0) else { throw LocalStoreError.invalidStoredData("Ugyldig vannregistrering") }
+                results.append(try decoder.decode(WaterGlass.self, from: data))
+                result = sqlite3_step(stmt)
+            }
+            guard result == SQLITE_DONE else { throw databaseError() }
+            return results.sorted { $0.createdAt < $1.createdAt }
+        }
     }
 
     // MARK: - Saved Meals
@@ -1088,6 +1138,9 @@ final class LocalStore {
                         try migrateToVersion5Locked()
                     case 6:
                         try migrateToVersion6Locked()
+                    case 7:
+                        try execute("CREATE TABLE water_logs(id TEXT PRIMARY KEY, userId TEXT NOT NULL, json BLOB NOT NULL);")
+                        try execute("CREATE INDEX water_logs_owner_idx ON water_logs(userId);")
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -1445,12 +1498,12 @@ final class LocalStore {
     }
 
     private func countLocked(table: String, ownerId: UUID) -> Int {
-        precondition(["logs", "goals", "favorites", "scans", "weights", "saved_meals"].contains(table))
+        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals"].contains(table))
         return countLocked(table: table, ownerColumn: "userId", ownerId: ownerId)
     }
 
     private func countLocked(table: String, ownerColumn: String, ownerId: UUID) -> Int {
-        precondition(["logs", "goals", "favorites", "scans", "weights", "saved_meals", "products"].contains(table))
+        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals", "products"].contains(table))
         precondition(ownerColumn == "userId" || ownerColumn == "ownerUserId")
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table) WHERE \(ownerColumn) = ?;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
@@ -1461,7 +1514,7 @@ final class LocalStore {
     }
 
     private func updateOwnerLocked(table: String, column: String, from: UUID, to: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?
@@ -1474,7 +1527,7 @@ final class LocalStore {
     }
 
     private func deleteOwnerRowsLocked(table: String, column: String, ownerId: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "saved_meals", "sync_queue", "products", "product_drafts", "catalog_submissions"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products", "product_drafts", "catalog_submissions"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?
@@ -1486,7 +1539,7 @@ final class LocalStore {
     }
 
     private func rewriteUserIdInJSONLocked(table: String, from: UUID, to: UUID) throws {
-        precondition(["goals", "logs", "weights", "saved_meals"].contains(table))
+        precondition(["goals", "logs", "weights", "water_logs", "saved_meals"].contains(table))
         var select: OpaquePointer?
         let selectSQL = "SELECT id, json FROM \(table) WHERE userId = ?;"
         guard sqlite3_prepare_v2(db, selectSQL, -1, &select, nil) == SQLITE_OK else { throw databaseError() }
@@ -1673,6 +1726,8 @@ private enum SyncEventType: String {
     case favoriteRemove = "favorite.remove"
     case weightUpsert = "weight.upsert"
     case weightDelete = "weight.delete"
+    case waterUpsert = "water.upsert"
+    case waterDelete = "water.delete"
     case savedMealUpsert = "saved_meal.upsert"
     case savedMealDelete = "saved_meal.delete"
 }

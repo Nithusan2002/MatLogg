@@ -1,0 +1,18 @@
+begin;
+select plan(7);
+insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at) values('00000000-0000-0000-0000-000000000000','10000000-0000-4000-8000-000000000001','authenticated','authenticated','water0@example.test','',now(),now(),now());
+insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at) values('00000000-0000-0000-0000-000000000000','20000000-0000-4000-8000-000000000002','authenticated','authenticated','water1@example.test','',now(),now(),now());
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select is(public.apply_sync_event_v1('30000000-0000-4000-8000-000000000003','40000000-0000-4000-8000-000000000004','water.upsert',now(),'50000000-0000-4000-8000-000000000005',1,'{"id": "50000000-0000-4000-8000-000000000005", "date": "2026-09-30T10:00:00Z", "createdAt": "2026-09-30T10:00:00Z"}')->>'status','acked','water stores and acknowledges');
+select is(public.apply_sync_event_v1('30000000-0000-4000-8000-000000000003','40000000-0000-4000-8000-000000000004','water.upsert',now(),'50000000-0000-4000-8000-000000000005',1,'{"id": "50000000-0000-4000-8000-000000000005", "date": "2026-09-30T10:00:00Z", "createdAt": "2026-09-30T10:00:00Z"}')->>'status','acked','water stores and acknowledges');
+select is((select count(*)::integer from public.water_logs),1,'retry does not duplicate');
+select set_config('request.jwt.claim.sub','20000000-0000-4000-8000-000000000002',true);
+select is((select count(*)::integer from public.water_logs),0,'RLS hides water from other owner');
+select is(public.apply_sync_event_v1('30000000-0000-4000-8000-000000000003','60000000-0000-4000-8000-000000000006','water.delete',now(),'50000000-0000-4000-8000-000000000005',1,'{"id": "50000000-0000-4000-8000-000000000005"}')->>'code','FORBIDDEN','other owner cannot delete');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
+select is(public.apply_sync_event_v1('30000000-0000-4000-8000-000000000003','70000000-0000-4000-8000-000000000007','water.delete',now(),'50000000-0000-4000-8000-000000000005',1,'{"id": "50000000-0000-4000-8000-000000000005"}')->>'status','acked','owner can delete');
+select is((select count(*)::integer from public.water_logs),0,'glass removed');
+select * from finish();
+rollback;

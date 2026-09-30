@@ -528,3 +528,9 @@ nøytralt og ikke-dømmende.
 dette dokumentet. Eldre lokale preferansenøkler ignoreres, og eldre mål-JSON med
 `safeModeEnabled` skal fortsatt kunne leses. Lokal databasestruktur,
 `goal.set`-payload, synkkontrakt og backend endres ikke.
+
+## 2026-09-30 – Vann per glass
+
+Vann logges som én separat registrering per glass på Hjem, med valgt dato og
+profileier. Ingen antatt ml-mengde eller helsemål. Egen ViewModel/repository og
+atomisk SQLite/synkkø; additive v1-typer på Supabase. Produksjonssynk forblir av.

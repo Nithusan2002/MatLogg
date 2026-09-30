@@ -259,6 +259,7 @@ struct HomeTabView: View {
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    @EnvironmentObject var waterViewModel: WaterViewModel
     @State private var selectedSummary: DailySummary?
     @State private var productNames: [UUID: String] = [:]
     @State private var quickProducts: [Product] = []
@@ -322,6 +323,8 @@ struct HomeTabView: View {
                             }
                         }
                     }
+
+                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -1746,7 +1749,8 @@ private struct SearchShortcut: View {
         .environmentObject(HealthProfileViewModel(repository: database))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
-        .environmentObject(UserDataExportService(logRepository: database, savedMealRepository: database))
+        .environmentObject(WaterViewModel(repository: database))
+        .environmentObject(UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database))
 }
 
 extension Date {

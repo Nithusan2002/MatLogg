@@ -281,3 +281,11 @@ implementert og implementert.
   datoavhengig overskrift. Lokal kjøring ble avbrutt før resultat på brukerens
   ønske; scenariet gjenstår derfor å verifisere.
 - Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.
+
+## Vannlogging (2026-09-30)
+
+Implementert lokalt: kompakt vannkort på Hjem, ett trykk per glass, valgt dato,
+angre/korrigering, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
+glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
+og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
+Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.

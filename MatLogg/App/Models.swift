@@ -778,11 +778,20 @@ struct LocalDataSummary: Equatable {
     let favorites: Int
     let scans: Int
     let weights: Int
+    var waterGlasses: Int = 0
     let savedMeals: Int
     let products: Int
 
     static let empty = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
 
-    var totalCount: Int { logs + goals + favorites + scans + weights + savedMeals + products }
+    var totalCount: Int { logs + goals + favorites + scans + weights + waterGlasses + savedMeals + products }
     var hasData: Bool { totalCount > 0 }
+}
+
+/// One user-recorded glass; no assumed volume or nutrition values.
+struct WaterGlass: Codable, Equatable, Identifiable {
+    var id = UUID()
+    var userId: UUID
+    var date: Date
+    var createdAt = Date()
 }
