@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Phone, HomeScreen, TabBar, Macro } from "./components/Phone";
+import { AppScreenshot } from "./components/AppScreenshot";
 import { DemoSection } from "./components/DemoApp";
 
 
@@ -120,7 +120,7 @@ export default function App() {
               <a href="#slik" className="btn-ghost">Se hvordan det fungerer</a>
             </div>
           </div>
-          <Phone><HomeScreen /></Phone>
+          <AppScreenshot screen="home" label="Hjem – matlogg for valgt dag" priority />
         </section>
 
         <ul className="mx-auto grid max-w-6xl gap-px overflow-hidden px-5 sm:grid-cols-3">
@@ -133,41 +133,19 @@ export default function App() {
 
         <section id="funksjoner" className="mx-auto max-w-6xl px-5">
           <Feature eyebrow="Favoritter" title="Favorittene dine, klare igjen" visual={
-            <div className="mx-auto max-w-sm space-y-3 rounded-3xl border bg-card p-5 shadow-soft">
-              <p className="text-xs text-muted-foreground">Lagrede måltider · illustrasjon</p>
-              {["Vanlig frokost", "Matpakke", "Kveldsmat"].map((m, i) => (
-                <div key={m} className="flex items-center justify-between rounded-2xl bg-cream p-4">
-                  <span className="font-medium">{m}</span><span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">{["Bruk igjen", "Bruk igjen", "Bruk igjen"][i]}</span>
-                </div>
-              ))}
-            </div>
+            <AppScreenshot screen="meals" label="Hjem – registrerte måltider" />
           }>
             <p>Lagre måltidene du spiser ofte, kontroller mengdene og loggfør dem på nytt.</p>
             <p>Nylig brukte matvarer ligger klare øverst, så hverdagen går raskere.</p>
           </Feature>
           <Feature flip eyebrow="Oversikt" title="Oversikt på dine premisser" visual={
-            <div className="mx-auto max-w-sm rounded-3xl border bg-card p-6 shadow-soft">
-              <p className="text-xs text-muted-foreground">Uke · demodata</p>
-              <div className="mt-4 flex h-32 items-end gap-2" aria-hidden>
-                {[60, 75, 52, 80, 68, 90, 70].map((h, i) => <div key={i} className="flex-1 rounded-t-lg bg-accent/70" style={{ height: `${h}%` }} />)}
-              </div>
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <Macro label="Protein" g={70} color="bg-protein" pct={60} />
-                <Macro label="Karb." g={180} color="bg-carb" pct={55} />
-                <Macro label="Fett" g={55} color="bg-fat" pct={45} />
-              </div>
-            </div>
+            <AppScreenshot screen="overview" label="Oversikt – historikk og næringsoversikt" />
           }>
             <p>Se dagens energi og makronæringsstoffer, og følg oversikten gjennom uken.</p>
             <p>Mål er valgfrie. Ingen røde tall, ingen «bra» eller «dårlig» mat – bare tydelig oversikt.</p>
           </Feature>
           <Feature eyebrow="Lokalt" title="På iPhonen. Også uten nett." visual={
-            <div className="mx-auto max-w-[260px]"><Phone label="Illustrativ appvisning"><div className="px-4 pt-6">
-              <span className="rounded-full bg-accent-soft px-3 py-1 text-[10px] font-semibold text-accent">Frakoblet</span>
-              <p className="mt-4 text-sm font-semibold">Lagrede matvarer</p>
-              {["Havregryn", "Lettmelk", "Grovbrød"].map((x) => <div key={x} className="mt-2 rounded-xl border bg-card p-3 text-sm">{x}</div>)}
-              <TabBar />
-            </div></Phone></div>
+            <AppScreenshot screen="search" label="Søk – matvarer og favoritter" />
           }>
             <p>Loggen og lagrede matvarer ligger på iPhonen din, så logging av det du allerede har fungerer uten nett.</p>
             <p>Oppslag av nye produkter kan kreve internett. Synkronisering mellom enheter og sikkerhetskopi er ikke en del av MVP-en.</p>
