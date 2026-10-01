@@ -10,6 +10,63 @@ final class LogViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var mutationRevision = 0
 
+    @Published private(set) var deletionReceiptID: UUID?
+    @Published private(set) var deletedLogCount = 0
+    @Published private(set) var isDeletingOrRestoring = false
+    private var deletedLogs: [FoodLog] = []
+    private var deletionContextRevision = 0
+
+    func dismissDeletionReceipt() {
+        deletionContextRevision += 1
+        deletedLogs = []
+        deletedLogCount = 0
+        deletionReceiptID = nil
+    }
+
+    @discardableResult
+    func deleteWithUndo(_ log: FoodLog, userId: UUID) async -> Bool {
+        guard !isDeletingOrRestoring else { return false }
+        guard !deletedLogs.contains(where: { $0.id == log.id }) else { return false }
+        let contextRevision = deletionContextRevision
+        isDeletingOrRestoring = true
+        defer { isDeletingOrRestoring = false }
+        guard await deleteLog(log, userId: userId) else { return false }
+        guard contextRevision == deletionContextRevision else { return true }
+        if deletedLogs.first?.userId != userId { deletedLogs = [] }
+        deletedLogs.append(log)
+        deletedLogCount = deletedLogs.count
+        deletionReceiptID = UUID()
+        return true
+    }
+
+    @discardableResult
+    func undoDeletion(userId: UUID) async -> Bool {
+        guard !isDeletingOrRestoring, !deletedLogs.isEmpty else { return false }
+        guard deletedLogs.allSatisfy({ $0.userId == userId }) else {
+            errorMessage = "Kunne ikke angre sletting: Loggen tilhører en annen bruker"
+            return false
+        }
+        let contextRevision = deletionContextRevision
+        isDeletingOrRestoring = true
+        // Fresh IDs prevent a delayed delete retry from deleting restored entries.
+        let restored = deletedLogs.map { log in
+            FoodLog(userId: log.userId, productId: log.productId, mealType: log.mealType,
+                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit,
+                    loggedDate: log.loggedDate, loggedTime: log.loggedTime,
+                    calories: log.calories, proteinG: log.proteinG,
+                    carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
+        }
+        let success = await persist(errorPrefix: "Kunne ikke angre sletting") {
+            try await repository.saveLogs(restored)
+        }
+        isDeletingOrRestoring = false
+        if contextRevision == deletionContextRevision {
+            if success { dismissDeletionReceipt() }
+            else { deletionReceiptID = UUID() }
+        }
+        return success
+    }
+
     private let repository: any FoodLogRepository
     private var activeSummaryRequestID = UUID()
 
@@ -23,6 +80,20 @@ final class LogViewModel: ObservableObject {
 
     func fetchSummary(userId: UUID, date: Date) async -> DailySummary {
         await repository.getSummary(userId: userId, date: date)
+    }
+
+    @Published private(set) var mealProductImageURLs: [UUID: URL] = [:]
+    private var imageProductsRequestID = UUID()
+
+    func loadMealProductImages(for logs: [FoodLog]) async {
+        let requestID = UUID()
+        imageProductsRequestID = requestID
+        mealProductImageURLs = [:]
+        let products = await repository.getProducts(Set(logs.map(\.productId)))
+        guard imageProductsRequestID == requestID else { return }
+        mealProductImageURLs = products.compactMapValues { product in
+            product.imageUrl.flatMap(URL.init(string:))
+        }
     }
 
     func productNames(for logs: [FoodLog]) async -> [UUID: String] {
@@ -74,7 +145,7 @@ final class LogViewModel: ObservableObject {
             ),
             amount: amountG
         ) else {
-            errorMessage = "Kunne ikke lagre logging: Mengde eller næringsgrunnlag er ugyldig"
+            errorMessage = "Kunne ikke lagre: Sjekk mengden og næringstallene."
             return false
         }
         let log = FoodLog(
@@ -146,7 +217,7 @@ final class LogViewModel: ObservableObject {
             from: log.amountG,
             to: amountG
         ) else {
-            errorMessage = "Kunne ikke oppdatere logging: Næringsgrunnlaget er ugyldig"
+            errorMessage = "Kunne ikke lagre endringene: Sjekk næringstallene."
             return false
         }
         let updated = FoodLog(

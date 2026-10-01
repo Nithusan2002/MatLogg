@@ -7,6 +7,7 @@ struct LoggView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
+    @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @State private var selectedDate: Date = Date()
     @State private var searchText = ""
     @State private var mealFilter: String?
@@ -15,8 +16,6 @@ struct LoggView: View {
     @State private var showScanCamera = false
     @State private var activeSheet: AddSheet?
     @State private var editingLog: FoodLog?
-    @State private var showDeleteConfirm = false
-    @State private var logPendingDelete: FoodLog?
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
@@ -46,7 +45,17 @@ struct LoggView: View {
             logList
         }
             .overlay(alignment: .bottom) {
-                if let payload = receiptPayload {
+                if let id = logViewModel.deletionReceiptID {
+                    LogToastView(
+                        id: id,
+                        title: logViewModel.deletedLogCount == 1 ? "Varen er slettet" : "\(logViewModel.deletedLogCount) varer er slettet",
+                        isUndoing: logViewModel.isDeletingOrRestoring,
+                        onUndo: { performDeletionUndo() },
+                        onDismiss: { logViewModel.dismissDeletionReceipt() }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, tabBarScrollMargin)
+                } else if let payload = receiptPayload {
                     LogToastView(
                         payload: payload,
                         isUndoing: isUndoingReceipt,
@@ -54,7 +63,7 @@ struct LoggView: View {
                         onDismiss: { dismissReceipt() }
                     )
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, tabBarScrollMargin)
                     .transition(.logToast)
                 }
             }
@@ -149,22 +158,10 @@ struct LoggView: View {
             .sheet(item: $savedMealSource) { source in
                 SaveMealFromLogsView(source: source)
             }
-            .alert("Slett logging?", isPresented: $showDeleteConfirm) {
-                Button("Slett", role: .destructive) {
-                    if let log = logPendingDelete {
-                        Task {
-                            guard let userId = authViewModel.currentUser?.id else { return }
-                            if await logViewModel.deleteLog(log, userId: userId) {
-                                await appState.refreshSyncStatus()
-                            } else {
-                                appState.errorMessage = logViewModel.errorMessage
-                            }
-                            await loadSelectedSummary()
-                        }
-                    }
-                }
-                Button("Avbryt", role: .cancel) {}
+            .onChange(of: authViewModel.currentUser?.id) { _, _ in
+                logViewModel.dismissDeletionReceipt()
             }
+            .onDisappear { logViewModel.dismissDeletionReceipt() }
             .onAppear {
                 if let meal = appState.logSelectedMeal, mealFilter == nil {
                     mealFilter = meal
@@ -289,8 +286,7 @@ struct LoggView: View {
                                 editingLog = log
                             },
                             onDelete: {
-                                logPendingDelete = log
-                                showDeleteConfirm = true
+                                deleteLog(log)
                             }
                         )
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -370,6 +366,31 @@ struct LoggView: View {
         baseList.searchable(text: $searchText, prompt: hasLogs ? "Søk i dagens logg" : "Søk i logg")
     }
     
+    private func deleteLog(_ log: FoodLog) {
+        Task {
+            guard let userId = authViewModel.currentUser?.id else { return }
+            if await logViewModel.deleteWithUndo(log, userId: userId) {
+                dismissReceipt()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
+            }
+            await loadSelectedSummary()
+        }
+    }
+
+    private func performDeletionUndo() {
+        Task {
+            guard let userId = authViewModel.currentUser?.id else { return }
+            if await logViewModel.undoDeletion(userId: userId) {
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
+            }
+            await loadSelectedSummary()
+        }
+    }
+
     private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
         let logs = logViewModel.selectedSummary?.logs ?? []
         return LogSummaryService.groupedLogs(

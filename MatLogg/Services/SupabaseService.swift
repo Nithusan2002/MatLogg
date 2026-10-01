@@ -235,12 +235,19 @@ final class SupabaseService: AccountAuthRepository, SyncAPIClient, NutritionLabe
     }
 
     nonisolated private static func mapUser(_ user: Supabase.User) -> User {
+        let fullName = user.userMetadata["full_name"]?.stringValue
+            ?? user.userMetadata["name"]?.stringValue ?? ""
+        let nameParts = fullName.split(whereSeparator: { $0.isWhitespace })
         let provider = user.identities?.contains(where: { $0.provider == "apple" }) == true ? "apple" : "email"
         return User(
             id: user.id,
             email: user.email ?? "",
-            firstName: "",
-            lastName: "",
+            firstName: user.userMetadata["given_name"]?.stringValue
+                ?? user.userMetadata["first_name"]?.stringValue
+                ?? nameParts.first.map(String.init) ?? "",
+            lastName: user.userMetadata["family_name"]?.stringValue
+                ?? user.userMetadata["last_name"]?.stringValue
+                ?? nameParts.dropFirst().joined(separator: " "),
             authProvider: provider,
             createdAt: user.createdAt
         )

@@ -2,12 +2,11 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var logViewModel: LogViewModel
-    @EnvironmentObject private var productViewModel: ProductViewModel
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
-    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
-    @State private var favoriteCount = 0
+
+    @EnvironmentObject private var demoMode: DemoMode
+    @State private var confirmDemoReset = false
 
     var body: some View {
         NavigationStack {
@@ -15,9 +14,12 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     Text("Profil").font(AppTypography.hero).foregroundColor(AppColors.deepInk)
                     profileHeader
-                    overviewCards
                     dailyGoalCard
                     shortcutCard
+                    storageSummary
+                    #if DEBUG
+                    demoControls
+                    #endif
                     Label("Nappe · norsk matdagbok", systemImage: "flame.fill")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.textSecondary)
@@ -29,9 +31,32 @@ struct ProfileView: View {
             }
             .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
             .toolbar(.hidden, for: .navigationBar)
-            .task(id: authViewModel.currentUser?.id) { await refreshProfileSummary() }
+            .task { await appState.refreshSyncStatus() }
         }
+    }
+
+    private var demoControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Demomodus", isOn: Binding(get: { demoMode.isDemo }, set: { enabled in
+                Task { await demoMode.selectDemo(enabled) }
+            }))
+            .accessibilityIdentifier("profile-demo-mode")
+            Text("Fiktive data i separat lokal lagring. Dine vanlige data beholdes.")
+                .font(AppTypography.captionEmphasis)
+                .foregroundStyle(AppColors.textSecondary)
+            if demoMode.isDemo {
+                Button("Tilbakestill demodata") { confirmDemoReset = true }
+            }
+            if demoMode.isLoading { ProgressView("Klargjør demodata …") }
+        }
+        .padding(20)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+        .disabled(demoMode.isLoading)
+        .confirmationDialog("Tilbakestille demodata?", isPresented: $confirmDemoReset, titleVisibility: .visible) {
+            Button("Tilbakestill", role: .destructive) { Task { await demoMode.selectDemo(true, reset: true) } }
+        } message: { Text("Endringer i demoen fjernes. Vanlige data beholdes.") }
     }
 
     private var profileHeader: some View {
@@ -42,14 +67,14 @@ struct ProfileView: View {
                 Text(profileInitials)
                     .font(.system(.title, design: .rounded, weight: .bold))
                     .foregroundColor(AppColors.background)
-                    .frame(width: 76, height: 76)
+                    .frame(width: 56, height: 56)
                     .background(AppColors.deepInk, in: Circle())
                 VStack(alignment: .leading, spacing: 4) {
                     Text(profileName)
                         .font(AppTypography.title)
                         .foregroundColor(AppColors.deepInk)
                         .lineLimit(2)
-                    Text(todayLogLabel)
+                    Text("Personlige detaljer")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -60,122 +85,75 @@ struct ProfileView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .profileCardShadow()
+            .matLoggCardSurface()
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile-personal-details")
         .accessibilityHint("Åpner personlige detaljer")
-    }
-
-    private var overviewCards: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) { overviewCardContents }
-            VStack(spacing: 10) { overviewCardContents }
-        }
-    }
-
-    @ViewBuilder private var overviewCardContents: some View {
-        ProfileMetricCard(title: "MÅLTIDER I DAG", value: "\(mealCount)", tint: AppColors.brand, foreground: AppColors.onVibrant)
-        ProfileMetricCard(title: "FAVORITTER", value: "\(favoriteCount)", tint: AppColors.accent, foreground: AppColors.onVibrant)
-        ProfileMetricCard(
-            title: appState.isSyncAvailable ? "IKKE SYNKRONISERT" : "LAGRET LOKALT",
-            value: "\(appState.unsyncedSyncCount)",
-            tint: AppColors.success,
-            foreground: AppColors.onVibrant
-        )
     }
 
     private var dailyGoalCard: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Dagens mål").font(AppTypography.title).foregroundColor(AppColors.deepInk)
+            Text("Daglige mål").font(AppTypography.title).foregroundColor(AppColors.deepInk)
             if let goal = healthProfileViewModel.currentGoal {
                 GoalValueRow(label: "Kalorier", value: "\(goal.dailyCalories) kcal")
-                GoalValueRow(label: "Protein", value: "\(Int(goal.proteinTargetG)) g")
-                GoalValueRow(label: "Karbohydrater", value: "\(Int(goal.carbsTargetG)) g")
-                GoalValueRow(label: "Fett", value: "\(Int(goal.fatTargetG)) g")
+                GoalValueRow(label: "Protein", value: "\(goal.proteinTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
+                GoalValueRow(label: "Karbohydrater", value: "\(goal.carbsTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
+                GoalValueRow(label: "Fett", value: "\(goal.fatTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
             } else {
-                Text("Du har ikke satt opp daglige mål ennå.")
+                Text("Du kan logge mat uten mål.")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
             }
+            NavigationLink { DailyGoalsView() } label: {
+                Label(healthProfileViewModel.currentGoal == nil ? "Sett opp mål" : "Endre mål", systemImage: "pencil")
+                    .font(AppTypography.bodyEmphasis)
+                    .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("profile-edit-goals")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .profileCardShadow()
+        .matLoggCardSurface()
         .accessibilityElement(children: .contain)
     }
 
     private var shortcutCard: some View {
         VStack(spacing: 0) {
-            NavigationLink {
-                DailyGoalsView()
-            } label: {
-                ProfileMenuRow(icon: "target", title: "Daglige mål", value: goalSummary)
-            }
-            Divider().overlay(AppColors.separator)
             NavigationLink { ProfileFavoritesView() } label: {
-                ProfileMenuRow(icon: "heart", title: "Favoritter", value: "\(favoriteCount) \(favoriteCount == 1 ? "matvare" : "matvarer")")
+                ProfileMenuRow(icon: "heart", title: "Favoritter", value: nil)
             }
             Divider().overlay(AppColors.separator)
             NavigationLink { ProfileSettingsView() } label: {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger", value: nil)
             }
         }
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .profileCardShadow()
+        .matLoggCardSurface()
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile-shortcuts")
     }
 
     private var profileName: String {
+        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !localName.isEmpty { return localName }
         if authViewModel.isLocalMode { return "På denne iPhonen" }
         let name = authViewModel.currentUser?.fullName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? "MatLogg-bruker" : name
     }
 
     private var profileInitials: String {
-        guard let user = authViewModel.currentUser, !user.isLocalProfile else { return "ML" }
-        let initials = String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
+        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name = localName.isEmpty ? (authViewModel.currentUser?.fullName ?? "") : localName
+        let parts = name.split(whereSeparator: { $0.isWhitespace })
+        let initials = parts.prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
         return initials.isEmpty ? "ML" : initials
     }
 
-    private var mealCount: Int { Set(logViewModel.todaysSummary.logs.map(\.mealType)).count }
-
-    private var todayLogLabel: String {
-        if mealCount == 0 { return "Ingen måltider logget i dag" }
-        return "\(mealCount) \(mealCount == 1 ? "måltid" : "måltider") logget i dag"
-    }
-
-    private var goalSummary: String? {
-        guard let goal = healthProfileViewModel.currentGoal else { return "Ikke satt" }
-        return "\(goal.dailyCalories) kcal"
-    }
-
-    private func refreshProfileSummary() async {
-        guard let userId = authViewModel.currentUser?.id else { favoriteCount = 0; return }
-        await logViewModel.loadTodaysSummary(userId: userId)
-        favoriteCount = await productViewModel.favoriteProducts(userId: userId).count
-        await appState.refreshSyncStatus()
-    }
-}
-
-private struct ProfileMetricCard: View {
-    let title: String
-    let value: String
-    let tint: Color
-    let foreground: Color
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(AppTypography.captionEmphasis).lineLimit(2)
-            Text(value).font(.system(.title, design: .rounded, weight: .heavy))
-        }
-        .foregroundColor(foreground)
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 116, alignment: .leading)
-        .background(tint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .profileCardShadow()
-        .accessibilityElement(children: .combine)
+    private var storageSummary: some View {
+        Label(appState.isSyncAvailable ? "Endringer lagres først på denne iPhonen" : "Data lagres på denne iPhonen", systemImage: "externaldrive")
+            .font(AppTypography.caption)
+            .foregroundStyle(AppColors.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -206,7 +184,7 @@ private struct ProfileMenuRow: View {
             Text(title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.deepInk)
             Spacer(minLength: 8)
             if let value {
-                Text(value).font(AppTypography.body).foregroundColor(AppColors.textSecondary).lineLimit(1)
+                Text(value).font(AppTypography.body).foregroundColor(AppColors.textSecondary)
             }
             Image(systemName: "chevron.right").font(.body.weight(.semibold)).foregroundColor(AppColors.textSecondary)
         }
@@ -217,35 +195,34 @@ private struct ProfileMenuRow: View {
 }
 
 private struct ProfileSettingsView: View {
+    @EnvironmentObject private var demoMode: DemoMode
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
-    @EnvironmentObject private var userDataExportService: UserDataExportService
+    @EnvironmentObject private var exportViewModel: ProfileExportViewModel
     @State private var showDeleteConfirm = false
     @State private var showRemoveLocalConfirm = false
-    @State private var showShareSheet = false
-    @State private var exportURL: URL?
 
     var body: some View {
         Form {
             Section("Profil og personvern") {
                 NavigationLink("Personlige detaljer") { PersonalDetailsView() }
-                NavigationLink("Personvern & valg") { PrivacyChoicesView() }
+                NavigationLink("Personvern og valg") { PrivacyChoicesView() }
             }
             .listRowBackground(AppColors.surface)
-            Section("Preferanser") {
+            Section("Visning og tilbakemelding") {
                 Toggle("Vis målstatus på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
-                Toggle("Haptisk tilbakemelding", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
+                Toggle("Vibrasjon ved trykk", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
                 Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
-                Toggle("Vis datakilde", isOn: $preferencesViewModel.showNutritionSource)
-                LabeledContent("Enheter", value: "Gram")
+                Toggle("Vis hvor næringstallene kommer fra", isOn: $preferencesViewModel.showNutritionSource)
+                LabeledContent("Matmengder", value: "Gram og milliliter")
             }
             .listRowBackground(AppColors.surface)
-            Section("Data og synk") {
+            Section("Data og lagring") {
                 LabeledContent("Status", value: syncStatusText)
                 if appState.quarantinedSyncCount > 0 {
                     Label(
-                        "\(appState.quarantinedSyncCount) eldre endring(er) er beholdt lokalt, men kan ikke synkroniseres fordi eier ikke kan bekreftes.",
+                        "\(appState.quarantinedSyncCount) eldre endring(er) er lagret på denne iPhonen. De kan ikke lastes opp fordi vi ikke kan bekrefte hvilken konto de tilhører.",
                         systemImage: "lock.trianglebadge.exclamationmark"
                     )
                     .font(AppTypography.caption)
@@ -297,17 +274,26 @@ private struct ProfileSettingsView: View {
 
                 Text(syncExplanationText)
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                Button("Last ned data") {
-                    Task {
-                        guard let user = authViewModel.currentUser else { return }
-                        exportURL = await userDataExportService.export(for: user)
-                        showShareSheet = exportURL != nil
-                    }
+                Button(exportViewModel.isExporting ? "Klargjør eksport …" : "Last ned data") {
+                    Task { await exportViewModel.export(user: authViewModel.currentUser) }
+                }
+                .disabled(exportViewModel.isExporting)
+                if let error = exportViewModel.errorMessage {
+                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
+                }
+                Text("Last ned en fil med loggen, målene og opplysningene dine.")
+                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                DisclosureGroup("Hva følger med?") {
+                    Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
             .listRowBackground(AppColors.surface)
             Section("Konto") {
-                if authViewModel.isLocalMode {
+                if demoMode.isDemo {
+                    LabeledContent("Status", value: "Demomodus – fiktiv lokal profil")
+                } else if authViewModel.isLocalMode {
                     LabeledContent("Status", value: "På denne iPhonen")
                     Text("Konto er valgfritt. Dataene dine er lagret på denne enheten. Synk mellom enheter er ikke tilgjengelig ennå.")
                         .font(AppTypography.caption)
@@ -332,6 +318,7 @@ private struct ProfileSettingsView: View {
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
+        .toolbar(.visible, for: .navigationBar)
         .navigationTitle("Innstillinger")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Slett konto?", isPresented: $showDeleteConfirm) {
@@ -356,9 +343,11 @@ private struct ProfileSettingsView: View {
             }
             Button("Avbryt", role: .cancel) {}
         } message: {
-            Text("Dataene fjernes bare fra denne iPhonen. Gjenoppretting fra server er ikke tilgjengelig ennå.")
+            Text("Dataene fjernes bare fra denne iPhonen. Du kan ikke hente dem tilbake fra kontoen din ennå.")
         }
-        .sheet(isPresented: $showShareSheet) { if let exportURL { ShareSheet(activityItems: [exportURL]) } }
+        .sheet(item: $exportViewModel.document, onDismiss: { exportViewModel.clearDocument() }) { document in
+            ShareSheet(activityItems: [document.url])
+        }
     }
 
     private var authProviderLabel: String {
@@ -382,7 +371,7 @@ private struct ProfileSettingsView: View {
 
     private var syncExplanationText: String {
         if !appState.isSyncAvailable {
-            return "Du kan logge uten nett. Backend-synk er ikke tilgjengelig, så endringene blir på denne enheten."
+            return "Du kan logge uten nett. Endringene lagres bare på denne iPhonen. Opplasting er ikke tilgjengelig ennå."
         }
         if appState.networkAvailability == .offline {
             return "Du er offline. Endringene er lagret på enheten; synk forsøkes neste gang appen er aktiv med nett."
@@ -403,9 +392,6 @@ private struct ProfileSettingsView: View {
     }
 }
 
-private extension View {
-    func profileCardShadow() -> some View { shadow(color: Color.black.opacity(0.07), radius: 0, x: 0, y: 7) }
-}
 
 struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]

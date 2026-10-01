@@ -109,6 +109,20 @@ struct ProductCreationTests {
         #expect(nutrients["sodiumMg"] == nil)
     }
 
+    @Test func claimedDraftPreservesNewOwnerWhenCompleted() throws {
+        let store = try LocalStore(databaseURL: URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("draft-claim-\(UUID()).sqlite"))
+        let oldOwner = UUID()
+        let newOwner = UUID()
+        let draft = ProductDraft(ownerUserId: oldOwner)
+        try store.saveProductDraft(draft)
+        try store.claimLocalData(from: oldOwner, to: newOwner)
+        #expect(store.productDrafts(ownerUserId: oldOwner).isEmpty)
+        let claimed = try #require(store.productDrafts(ownerUserId: newOwner).first)
+        #expect(claimed.ownerUserId == newOwner)
+        try store.deleteLocalData(ownerId: newOwner)
+        #expect(store.productDrafts(ownerUserId: newOwner).isEmpty)
+    }
+
     @Test func saltIsPreservedWithoutGuessingSodium() async throws {
         let repository = ProductCreationRepositorySpy()
         let viewModel = makeViewModel(owner: UUID(), repository: repository)

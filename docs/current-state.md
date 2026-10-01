@@ -38,6 +38,7 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
+- Lokalt skjema v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
@@ -305,3 +306,45 @@ implementert og implementert.
   datoavhengig overskrift. Lokal kjøring ble avbrutt før resultat på brukerens
   ønske; scenariet gjenstår derfor å verifisere.
 - Ikke verifisert på fysisk enhet eller med manuell VoiceOver-opplesning.
+
+## Vannlogging (2026-09-30)
+
+Implementert lokalt: kompakt vannkort på Hjem, ett trykk per glass, valgt dato,
+angre/korrigering, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
+glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
+og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
+Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.
+
+## Demomodus for presentasjon (2026-09-30)
+
+DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
+Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
+serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
+favoritter og fire lagrede måltider med næringsdata fra medfølgende Matvaretabellen.
+Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
+bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
+profilen ikke har registreringer fra før.
+
+Verifisert på iOS 26.5-simulator: 15 målrettede Swift-tester (demo og profil) og
+én UI-test for bytte begge veier og gjenoppretting av demomodus etter omstart.
+Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifisert.
+
+### Produktgrenen oppdatert mot main – kontrollert 2026-10-01
+
+- Ny søkeflyt bruker samme private produktoppretting og kan hente felleskatalog
+  gjennom repository. Lokale forsidebilder støttes i søkelisten med avgrenset
+  filtilgang. SQLite v7 og vannlogging beholdes; utkastets JSON-eier følger
+  atomisk eierskapsoverføring.
+- Fire katalog-/AI-flagg er fortsatt av som standard og i Release. DEBUG kan
+  aktivere dem eksplisitt med launch-argumenter; serverflagg kreves også.
+- Separat lokal Supabase/PostgreSQL 17 har kjørt alle migrasjonene. 52 pgTAP-
+  kontroller består og database-lint er uten feil. Ni Deno-tester og typekontroll
+  av alle sju katalogfunksjoner består.
+- AI happy path/evalueringssett gjenstår uten OpenAI-nøkkel. Katalogbidrag har
+  lokal kø og serverendepunkt, men mangler klient som sender køen. Full
+  bidrag-/autopubliseringsflyt fra iOS er derfor fortsatt uverifisert og uferdig.
+- Arkitektur: IO injiseres ved app-roten, søk går via repository, privat lagring
+  og synkhendelse er atomiske, demo er isolert, produksjonssynk er fortsatt av.
+- iOS: siste kjøring består med 21 tester for produktutkast/eierskap, søk og
+  vannlogging. Fem bildetester og to UI-tester for Loggfør/oppretting og
+  søk/produktåpning bestod i foregående kjøring av integrasjonen.

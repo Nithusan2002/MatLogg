@@ -27,21 +27,29 @@
 ### Profil
 
 Profil bruker den samme varme, kortbaserte retningen som Hjem. Øverst vises
-navn, initialer og antall måltidstyper logget i dag. Tre oversiktskort viser
-reelle, lokale verdier for dagens måltider, favoritter og ventende synk; appen
-skal ikke vise konstruerte streaks eller prestasjonstall.
+navn, initialer og en eksplisitt inngang til Personlige detaljer. Navn er valgfritt
+og redigeres med Avbryt/Lagre i Personlige detaljer. Det lagres per profil på
+enheten og vises foran eventuelt kontonavn; det synkroniseres ikke.
 
-«Dagens mål» viser lagrede kalori- og makromål når brukeren har opprettet dem.
-Hurtigmenyen gir tilgang til mål, favoritter og innstillinger. Konto,
-personvern, eksport, preferanser og synk beholdes samlet under Innstillinger.
+«Daglige mål» viser lagrede kalori- og makromål, med «Endre mål». Uten mål
+forklares at mål er valgfrie, med «Sett opp mål». Separate tallkort og dupliserte
+målsnarveier er fjernet. Menyen gir tilgang til favoritter og innstillinger.
+En kort tekst forklarer lokal lagring uten å presentere synkhendelser som
+antall lagrede matvarer.
+
+Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
+og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
+og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
+feltvalidering og lukker først etter vellykket lagring. Vekt til beregning
+holdes tydelig atskilt fra vekthistorikken.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt
-trykkflate. Ved store tekststørrelser stables oversiktskortene vertikalt.
+trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger «Dagens matinntak» og fire alltid synlige måltidskort i
+profil. Deretter følger dagsstatus uten egen overskrift eller gjentatt dato, og fire alltid synlige måltidskort i
 rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
 skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
@@ -55,7 +63,8 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting.
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
-- Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder søket og tilbyr «Prøv igjen» og strekkodeskanning.
+- Søk-fanen har direkte søk, favoritter og nylig loggede varer. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
+- Måltidsoversikten viser 44 pt produktbilder fra produktets lagrede bilde-URL, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon; måltidenes fargede bokstavmarkører beholdes.
 - Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
 - Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.
@@ -554,4 +563,13 @@ TabView (Root)
 | Historikk-panel | Sheet (70% height) | ✕ eller back gesture |
 | "Ikke funnet" | Alert / Sheet | "Ja" / "Nei" |
 | Favoritt-share | Action sheet (iOS) | Valg eller Avbryt |
-| Slette-konfirmasjon | Alert dialog | OK / Avbryt |
+| Slett enkeltvare | Kompakt melding med Angre | 4s (8s VoiceOver), dra ned eller Angre |
+
+## Demokontroller i utviklingsversjonen
+
+DEBUG-versjonen har demokontroller bare i Profil, uten en vedvarende demorad
+over skjermene. Profil har «Demomodus» og
+«Tilbakestill demodata». Tilbakestilling bekreftes med en forklaring om at
+endringer i demoen fjernes og vanlige data beholdes. Under klargjøring vises
+fremdrift og interaksjoner deaktiveres; feil beholder tidligere appkontekst.
+Bytte til vanlig modus bevarer eksisterende registreringer og kontosesjon.

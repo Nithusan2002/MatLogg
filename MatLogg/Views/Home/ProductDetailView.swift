@@ -63,6 +63,7 @@ struct ProductDetailView: View {
                             .foregroundColor(isFavorite ? AppColors.action : AppColors.textSecondary)
                             .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
                 }
                 .padding()
                 
@@ -536,9 +537,9 @@ struct ProductSourceInfoView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     infoRow(title: "Næringskilde", value: sourceLabel(product.nutritionSource))
                     infoRow(title: "Bildekilde", value: sourceLabel(product.imageSource))
-                    infoRow(title: "Verifisering", value: verificationLabel(product.verificationStatus))
+                    infoRow(title: "Kontroll av næringstall", value: verificationLabel(product.verificationStatus))
                     if let confidenceScore = product.confidenceScore {
-                        infoRow(title: "Match-score", value: String(format: "%.2f", confidenceScore))
+                        infoRow(title: "Likhet med matvaren", value: String(format: "%.2f", confidenceScore))
                     }
                     if let sourceUpdatedAt = product.sourceUpdatedAt {
                         infoRow(
@@ -547,7 +548,7 @@ struct ProductSourceInfoView: View {
                         )
                     }
 
-                    Text("Kilder vises for å være transparente uten å skape skam. Data kan være oppdatert eller uverifisert.")
+                    Text("Her ser du hvor opplysningene kommer fra. Næringstallene kan inneholde feil eller være utdaterte.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                         .padding(.top, 8)
@@ -626,11 +627,11 @@ struct ProductSourceInfoView: View {
     private func verificationLabel(_ status: VerificationStatus) -> String {
         switch status {
         case .verified:
-            return "Verifisert"
+            return "Kontrollert"
         case .unverified:
-            return "Uverifisert"
+            return "Ikke kontrollert"
         case .suggestedMatch:
-            return "Foreslått match"
+            return "Foreslått treff"
         }
     }
 }

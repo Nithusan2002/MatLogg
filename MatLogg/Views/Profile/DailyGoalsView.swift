@@ -9,6 +9,8 @@ struct DailyGoalsView: View {
     @FocusState private var focusedField: DailyGoalsViewModel.Field?
     @State private var initialized = false
     @State private var showSuggestion = false
+    @State private var editDetailsAfterSuggestion = false
+    @State private var showDetails = false
 
     var body: some View {
         ScrollView {
@@ -76,10 +78,19 @@ struct DailyGoalsView: View {
             viewModel.begin(goal: healthProfile.currentGoal, userId: auth.currentUser?.id)
             initialized = true
         }
-        .sheet(isPresented: $showSuggestion) {
-            GoalSuggestionView(goal: healthProfile.currentGoal, details: healthProfile.personalDetails) {
+        .sheet(isPresented: $showSuggestion, onDismiss: {
+            if editDetailsAfterSuggestion {
+                editDetailsAfterSuggestion = false
+                showDetails = true
+            }
+        }) {
+            GoalSuggestionView(goal: healthProfile.currentGoal, details: healthProfile.personalDetails,
+                               onEditDetails: { editDetailsAfterSuggestion = true }) {
                 viewModel.apply($0)
             }
+        }
+        .sheet(isPresented: $showDetails) {
+            NavigationStack { PersonalDetailsView() }
         }
         .alert("Målene er lagret på enheten", isPresented: Binding(
             get: { viewModel.didSave },
@@ -114,10 +125,12 @@ struct DailyGoalsView: View {
 private struct GoalSuggestionView: View {
     @StateObject private var viewModel: GoalSuggestionViewModel
     @Environment(\.dismiss) private var dismiss
+    let onEditDetails: () -> Void
     let onApply: (GoalSuggestion) -> Void
 
-    init(goal: Goal?, details: PersonalDetails, onApply: @escaping (GoalSuggestion) -> Void) {
+    init(goal: Goal?, details: PersonalDetails, onEditDetails: @escaping () -> Void, onApply: @escaping (GoalSuggestion) -> Void) {
         _viewModel = StateObject(wrappedValue: GoalSuggestionViewModel(goal: goal, details: details))
+        self.onEditDetails = onEditDetails
         self.onApply = onApply
     }
 
@@ -126,7 +139,7 @@ private struct GoalSuggestionView: View {
             Form {
                 if viewModel.showingResult, let suggestion = viewModel.suggestion {
                     Section("Veiledende forslag") {
-                        LabeledContent("Estimert startpunkt", value: "ca. \(suggestion.calories) kcal/dag")
+                        LabeledContent("Forslag til kalorimål", value: "ca. \(suggestion.calories) kcal/dag")
                         LabeledContent("Protein", value: "\(suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
                         LabeledContent("Karbohydrater", value: "\(suggestion.macros.carbsG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
                         LabeledContent("Fett", value: "\(suggestion.macros.fatG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
@@ -142,7 +155,7 @@ private struct GoalSuggestionView: View {
                         .accessibilityIdentifier("daily-goals-apply-suggestion")
                         Button("Tilbake") { viewModel.showingResult = false }
                     } footer: {
-                        Text("Forslaget fylles inn i utkastet. Trykk Lagre endringer på neste skjerm for å lagre.")
+                        Text("Forslaget fylles inn i feltene. Trykk Lagre endringer for å lagre.")
                     }
                     .listRowBackground(AppColors.surface)
                 } else {
@@ -158,7 +171,7 @@ private struct GoalSuggestionView: View {
                         Picker("Aktivitetsnivå", selection: $viewModel.activity) {
                             ForEach(ActivityLevel.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
-                        Picker("Makrofordeling", selection: $viewModel.preset) {
+                        Picker("Fordeling av næringsstoffer", selection: $viewModel.preset) {
                             ForEach([MacroPreset.balanced, .proteinFocus, .carbFocus], id: \.self) { Text($0.label).tag($0) }
                         }
                     }
@@ -166,6 +179,12 @@ private struct GoalSuggestionView: View {
                     Section {
                         Button("Se forslag") { viewModel.showingResult = true }
                             .disabled(!viewModel.usesPersonalDetails)
+                        if !viewModel.usesPersonalDetails {
+                            Button("Oppdater personlige detaljer") {
+                                onEditDetails()
+                                dismiss()
+                            }
+                        }
                     } footer: {
                         Text(viewModel.usesPersonalDetails
                              ? "Bruker opplysningene i Personlige detaljer. Ingen mål eller personopplysninger endres før du lagrer på målskjermen. Ikke tilpasset graviditet, amming eller medisinske ernæringsbehov."

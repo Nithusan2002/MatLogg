@@ -120,7 +120,7 @@ Acceptance Criteria:
 □ Eksempel: "Brød (50g) → 120 kcal"
 □ Fargekode måltid-headers: Frokost=blå, Lunsj=grønn, Middag=rød, Snacks=gul
 □ Tapp innslag → detaljer + slett-knapp
-□ Swipe for å slette (iOS standard)
+□ Swipe for å slette uten dialog; kompakt melding med Angre gjenoppretter slettede varer samlet
 ```
 
 ---

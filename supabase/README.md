@@ -67,6 +67,42 @@ offentlig og inneholder bare forsider for publiserte katalogvarer.
 skal planlegges med `ops/configure-purge-cron.sql`. Ikke aktiver AI-pilot før
 personvernport, EØS-oppsett, kvoter og evalueringssett er godkjent.
 
+## Lokal testing av produktgrenen
+
+DEBUG-bygg kan aktivere én funksjon om gangen med launch-argumentene
+`--enable-nutrition-label-ai`, `--enable-shared-catalog`,
+`--enable-catalog-contributions` og `--enable-catalog-auto-publish`.
+Release ignorerer disse argumentene. Serverflaggene må også aktiveres i det
+lokale testmiljøet. Demo bruker ingen AI-/katalogbackend.
+
+Ved kontroll 2026-10-01 kjører et separat PostgreSQL 17-miljø med prosjekt-ID
+`matlogg-catalog-test` fra `/tmp/matlogg-catalog-local-test`. API er på
+`http://127.0.0.1:55321`, Studio på `http://127.0.0.1:55323`. DEBUG-konfigurasjonen
+peker lokalt; tidligere lokal konfigurasjon er sikkerhetskopiert til
+`/tmp/matlogg-catalog-original-debug.xcconfig.local`. Bruk en lokal testkonto;
+`--skip-auth` gir ingen servertoken til AI/opplasting.
+
+Start funksjonene igjen ved behov:
+
+```sh
+node_modules/.bin/supabase functions serve --workdir /tmp/matlogg-catalog-local-test
+```
+
+Legg AI-konfigurasjon i en ignorert lokal env-fil og bruk `--env-file` ved
+oppstart av funksjonene. Nøkkelen skal bare være i funksjonsmiljøet.
+Aktiver ønsket flagg i dette lokale miljøets Studio, for eksempel:
+
+```sql
+update public.app_config set value = 'true'::jsonb, updated_at = now()
+where key = 'shared_catalog_read_enabled';
+```
+
+AI happy path krever OpenAI-nøkkel og separat evaluering. Katalogbidrag lagres
+atomisk i lokal kø, men klientens opplasting/innsending av denne køen er ennå
+ikke implementert. Bidrag/autopublisering kan derfor ikke testes ende til ende
+fra iOS. Rapportering og moderering finnes som serverendepunkter, uten full
+klientflyt. Flaggene er av som standard.
+
 ## Kill switch og cutover
 
 Synk er av etter migrering. Slå den på først etter godkjent fysisk iPhone- og

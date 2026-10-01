@@ -49,7 +49,7 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 Prioritet:
 
 1. dato og kontekst
-2. valgfri dagsstatus
+2. valgfri dagsstatus uten egen overskrift eller gjentatt dato
 3. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
 4. kontekstuelle legg-til-handlinger og personlige hurtigvalg
 5. status for lokalt lagrede endringer som venter på synk
@@ -65,23 +65,52 @@ Når målstatus er skjult eller mangler, skal matlogging fortsatt være like syn
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
 
+### Vann på Hjem
+
+Et kompakt vannkort ligger etter valgfri dagsstatus og før måltidene. «Ett
+glass» lagrer én registrering direkte for valgt dato, også uten nett og konto.
+Kortet viser dagens antall uten kvitteringstekst eller angreknapp, og tilbyr
+«Fjern ett glass» ved trykk på antallet. En synlig minusknapp ved siden av plussknappen
+fjerner siste glass med ett trykk uten dialog. Den er deaktivert ved null,
+under lasting og mens en lagring pågår. Ingen antatt ml-mengde, mål eller påminnelser.
+Ny dag viser null uten å slette historikken. Feil viser retry uten å øke telleren.
+Vannkortet bruker et tydelig antall under en liten overskrift, to like store, runde
+ikonknapper for pluss og minus. Pluss har en dempet blå bakgrunn; minus en
+nøytral bakgrunn. Begge har 44 × 44 punkters trykkflate og tydelig VoiceOver-tekst. Kopper har nøytralt omriss
+og blått gradert vann når de er fylt. Vannkortet viser ti tomme kopper fra start, fordelt på to rader med fem.
+Én kopp fylles med blått vann per registrert glass. Etter ti legges flere fylte
+kopper til, fem per rad. Minusknappen tømmer siste kopp; ekstra kopper
+fjernes når antallet faller. Ti er en startlayout, ikke et anbefalt dagsmål;
+ingen «av ti», prosent eller målfeiring vises. Fyll og teller animeres kort.
+«Reduser bevegelse» gir umiddelbar oppdatering. VoiceOver leser antallet én
+gang og hopper over dekorasjonen.
+Store tekststørrelser flytter knappen til neste rad. Vann følger aktiv profileier,
+og inngår i eksport, kontooverføring og sletting.
+
 ### Søk
 
-Søk samler oppdagelse og gjenbruk:
+Søk-fanen har et direkte søkefelt og én separat, tekstmerket inngang til
+strekkodeskanning. Tastaturet åpnes først når feltet aktiveres. Bunnmenyen skjules
+mens søkefeltet redigeres, slik at den ikke dekker treff over tastaturet, og vises
+igjen når redigeringen avsluttes. Søk fra Loggfør
+bruker samme skjerminnhold i en egen presentasjon med fokusert søkefelt.
 
-- råvaresøk
-- produktoppslag
-- favoritter
-- nylig brukte eller skannede produkter
-- inngang til strekkodeskanning
+Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
+utvalg råvarer. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
+nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
+og når skjermen vises igjen.
 
-Resultater skal vise navn og relevant kilde-/enhetskontekst. Ingen treff,
-nettverksfeil og ingen tidligere produkter er tre forskjellige tilstander.
-Navnesøk kombinerer Matvaretabellen for råvarer med Open Food Facts for
-pakkevarer og merkevarer. Eksternt navnesøk starter først når brukeren trykker
-«Søk» eller sender inn søket fra tastaturet; det skal ikke kjøres for hvert
-tastetrykk. Når eksternt søk ikke er tilgjengelig, beholdes eventuelle lokale
-råvaretreff og merkes som lagrede treff.
+Navnesøk kombinerer den lokale Matvaretabellen-katalogen og tilgjengelige lagrede
+produkter med Open Food Facts for pakkevarer og merkevarer. Lokale treff vises
+mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller innsending
+fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
+Private produkter fra andre profiler er ikke søkbare.
+
+Resultater viser navn, eventuelt merke og bilde, samt kilde-/enhetskontekst.
+Innledende lasting, lesefeil, ingen tidligere produkter, ingen lokale treff og
+ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søket.
+Skanning og fungerende manuell produktregistrering er tilgjengelige alternativer.
+Manuell registrering lagrer et brukeroppgitt produkt før mengdevalg og logging.
 
 ### Loggfør
 
@@ -119,6 +148,24 @@ Profil samler:
 - personvernvalg og valgfrie samtykker
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
+
+Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
+Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
+gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
+samles i «Grunnlag for målforslag», med en felles «Hvorfor spør vi?»-forklaring.
+Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
+Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
+foran eventuelt navn fra kontoen. Tom fødselsdato
+bevares som tom, ugyldige tall avvises ved feltet, og lagringsfeil beholder
+utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
+Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
+kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
+
+Eksport under Innstillinger inneholder matlogg, vann, lagrede måltider,
+gjeldende daglige mål, vekthistorikk, personlige detaljer og favoritter for
+aktiv profileier. Den viser fremdrift og feil og beskrives som JSON-eksport
+av disse datasettene, ikke som en gjenopprettbar sikkerhetskopi eller komplett
+kontoeksport. Kontohandlinger og slettemekanismene endres ikke i denne flyten.
 
 Destruktive handlinger skal forklare hva som slettes lokalt, hva som skjer på
 serveren og eventuell retensjonsperiode før brukeren bekrefter.
@@ -337,3 +384,11 @@ En ny eller endret flyt er ikke ferdig før:
 - synlige næringsverdier og tilgjengelighetstekst samsvarer
 - varige nye mønstre eller tokens er dokumentert i designsystemet
 - implementert status og relevante detaljspesifikasjoner er oppdatert
+
+### Sletting av enkeltvarer i matloggen
+
+Enkeltvarer slettes uten bekreftelsesdialog. En kompakt melding over bunnmenyen
+tilbyr «Angre» i fire sekunder (åtte med VoiceOver). Flere raske slettinger
+samles og kan gjenopprettes atomisk med samme mengde, enhet, næringsgrunnlag
+og tidspunkter. Gjenoppretting bruker nye logg-ID-er for å tåle forsinkede
+slettehendelser. Bekreftelser for større slettinger beholdes.

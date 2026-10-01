@@ -7,7 +7,7 @@ faktiske produksjonskonfigurasjonen før innsending.
 
 - Kontaktinformasjon: e-post ved kontoopprettelse; knyttet til brukeridentitet;
   brukes til appfunksjonalitet og autentisering.
-- Brukerinnhold: matlogger, mål, favoritter, lagrede måltider og frivillig vekt;
+- Brukerinnhold: matlogger, vannregistreringer, mål, favoritter, lagrede måltider og frivillig vekt;
   knyttet til brukeridentitet når konto/synk brukes; brukes til appfunksjonalitet.
 - Brukerinnhold/bilder: valgfrie bilder av næringstabell og produktforside.
   Etikettbilder er private og midlertidige; forsidebilder blir offentlige bare

@@ -181,16 +181,20 @@ Interaksjon: Swipe left på logg-innslag
 Reveal: [Slett] knapp (rød bakgrunn)
 
 Tap [Slett]:
-Alert dialog:
-  Title: "Slette 'Brød (150g)'?"
-  Message: "Dette kan ikkje angres."
-  Buttons: [Avbryt] [Slett] (red)
-
-Slett-handling:
-• Lokal DB: sletter umiddelbar
-• Event-kø: enqueuer "delete" event
-• UI: fader ut (0.3s), re-render logg
-• Toast: "✓ Slettet"
+• Ingen bekreftelsesdialog for enkeltvarer.
+• Lokal sletting og log.delete-hendelse skrives atomisk.
+• Vis «Varen er slettet · Angre» over bunnmenyen i 4 sekunder
+  (8 sekunder med VoiceOver), med minst 44 × 44 pt trykkflate.
+• Flere slettinger mens meldingen er aktiv samles: «N varer er slettet».
+  Ny sletting starter visningstiden på nytt. Angre gjenoppretter alle samlet.
+• Angre bevarer mengde, enhet, produktreferanse, næringssnapshot og tidspunkter.
+  Gjenopprettede innslag får nye ID-er og atomiske log.upsert-hendelser,
+  slik at en forsinket log.delete ikke kan slette de gjenopprettede innslagene.
+• Under Angre deaktiveres knappen og automatisk lukking pauses.
+  Ved lagringsfeil beholdes meldingen for nytt forsøk og feilen vises.
+• Lukking, navigasjon bort eller brukerbytte avslutter angremuligheten.
+  Angre lagres ikke mellom appstarter.
+• Bekreftelser for større slettinger beholdes.
 ```
 
 ### **Slette historikk-element**

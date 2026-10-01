@@ -18,7 +18,8 @@ struct PrivacyChoicesView: View {
         }
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
-        .navigationTitle("Personvern & valg")
+        .toolbar(.visible, for: .navigationBar)
+        .navigationTitle("Personvern og valg")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             preferencesViewModel.hasSeenPrivacyChoices = true
@@ -53,7 +54,7 @@ struct PrivacyChoicesContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Personvern & valg")
+                Text("Personvern og valg")
                     .font(AppTypography.title)
                     .foregroundColor(AppColors.ink)
                 Text("Du bestemmer. Du kan endre dette når som helst.")
@@ -67,10 +68,10 @@ struct PrivacyChoicesContentView: View {
                     .foregroundColor(AppColors.textSecondary)
                 
                 VStack(alignment: .leading, spacing: 10) {
-                    PrivacyBullet(text: "Data lagres først på enheten. Eventuell synk krever konto og et eget valg.")
+                    PrivacyBullet(text: "Data lagres først på enheten. Konto er valgfritt. Synk og gjenoppretting avhenger av hvilke funksjoner som er tilgjengelige.")
                     PrivacyBullet(text: "Kamera brukes bare når du skanner strekkoder.")
-                    PrivacyBullet(text: "Du kan laste ned eller slette dataene dine i Profil.")
-                    PrivacyBullet(text: "Valgfrie rapporter kan hjelpe oss å gjøre appen mer stabil.")
+                    PrivacyBullet(text: "Du kan eksportere data under Profil → Innstillinger. Bruker du konto, finner du også kontosletting der.")
+                    PrivacyBullet(text: "Du velger selv om du vil oppgi vekt, høyde og fødselsdato.")
                 }
             }
             .padding(16)
@@ -138,7 +139,9 @@ struct PrivacyChoicesContentView: View {
             
             VStack(alignment: .leading, spacing: 12) {
                 Toggle("Del anonym bruksstatistikk", isOn: $preferencesViewModel.analyticsEnabled)
+                    .disabled(true)
                 Toggle("Del anonyme krasjrapporter", isOn: $preferencesViewModel.crashReportsEnabled)
+                    .disabled(true)
             }
             .padding(16)
             .background(AppColors.surface)
@@ -148,7 +151,7 @@ struct PrivacyChoicesContentView: View {
                     .stroke(AppColors.separator, lineWidth: 1)
             )
             
-            Text("Dette er valgfritt. Du kan skru av/på senere.")
+            Text("Deling av bruksstatistikk og krasjrapporter er ikke tilgjengelig i denne versjonen.")
                 .font(AppTypography.caption)
                 .foregroundColor(AppColors.textSecondary)
         }

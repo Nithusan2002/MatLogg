@@ -1,147 +1,161 @@
 import SwiftUI
 
 struct PersonalDetailsView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
-    @Environment(\.dismiss) var dismiss
-    
-    @State private var weightText = ""
-    @State private var heightText = ""
-    @State private var birthDate = Date()
-    @State private var gender: GenderOption = .ikkeOppgi
-    @State private var activity: ActivityLevel = .ikkeOppgi
+    @EnvironmentObject private var healthProfile: HealthProfileViewModel
+    @EnvironmentObject private var auth: AuthViewModel
+    @EnvironmentObject private var viewModel: PersonalDetailsViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var initialized = false
     @State private var showActivitySheet = false
     @State private var showActivityHelp = false
-    
+    @State private var showBirthDate = false
+    @State private var birthDateDraft = Date()
+    @FocusState private var focusedField: String?
+
     var body: some View {
         Form {
             Section {
-                Text("Alt er valgfritt. Målet er å gi deg bedre oversikt, ikke press.")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
+                TextField("Navn (valgfritt)", text: $viewModel.displayName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                    .focused($focusedField, equals: "name")
+                    .accessibilityIdentifier("personal-details-name")
+            } header: {
+                Text("Profil")
             }
             .listRowBackground(AppColors.surface)
-            
-            Section("Om deg") {
-                HStack {
-                    Text("Nåværende vekt")
-                    Spacer()
-                    TextField("0", text: $weightText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                    Text("kg")
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
-                HStack {
-                    Text("Høyde")
-                    Spacer()
-                    TextField("0", text: $heightText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                    Text("cm")
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
-                DatePicker("Fødselsdato", selection: $birthDate, displayedComponents: .date)
-                
-                Picker("Kjønn", selection: $gender) {
-                    ForEach(GenderOption.allCases, id: \.self) { option in
-                        Text(option.label).tag(option)
+
+            Section {
+                if let date = viewModel.birthDate {
+                    LabeledContent("Fødselsdato") {
+                        Button(date.formatted(date: .abbreviated, time: .omitted)) {
+                            birthDateDraft = date
+                            showBirthDate = true
+                        }
+                    }
+                    Button("Fjern fødselsdato") { viewModel.birthDate = nil }
+                } else {
+                    Button("Oppgi fødselsdato (valgfritt)") {
+                        birthDateDraft = Date()
+                        showBirthDate = true
                     }
                 }
-                
-                Button(action: { showActivitySheet = true }) {
-                    HStack {
-                        Text("Aktivitetsnivå")
-                        Spacer()
-                        Text(activity.label)
-                            .foregroundColor(AppColors.textSecondary)
-                        Image(systemName: "chevron.right")
-                            .foregroundColor(AppColors.textSecondary)
+                fieldError("birthDate")
+                Picker("Kjønn", selection: $viewModel.gender) {
+                    ForEach(GenderOption.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
+                numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
+                Button { showActivitySheet = true } label: {
+                    LabeledContent("Aktivitetsnivå") {
+                        HStack {
+                            Text(viewModel.activity.label)
+                            Image(systemName: "chevron.right")
+                        }
                     }
                 }
+                DisclosureGroup("Hvorfor spør vi?") {
+                    Text("Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes til å beregne et veiledende forslag til kalorimål. Vekten legges ikke til i vekthistorikken. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv.")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            } header: {
+                Text("Grunnlag for målforslag")
+            } footer: {
+                Text("Du kan også sette mål selv uten å fylle inn disse opplysningene.")
             }
             .listRowBackground(AppColors.surface)
+
+            if let error = viewModel.errorMessage {
+                Section {
+                    Text(error).foregroundStyle(AppColors.ink)
+                        .accessibilityIdentifier("personal-details-error")
+                }
+                .listRowBackground(AppColors.surface)
+            }
         }
         .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
         .navigationTitle("Personlige detaljer")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Lagre") {
-                    save()
-                    dismiss()
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Label("Avbryt", systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
                 }
-                .foregroundColor(AppColors.action)
+                .accessibilityHint("Går tilbake uten å lagre endringer")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Lagre") {
+                    focusedField = nil
+                    if viewModel.save() { dismiss() }
+                }
+                .accessibilityIdentifier("personal-details-save")
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Ferdig") { hideKeyboard() }
-                    .foregroundColor(AppColors.action)
+                Button("Ferdig") { focusedField = nil }
             }
         }
         .onAppear {
-            load()
+            guard !initialized else { return }
+            viewModel.begin(details: healthProfile.personalDetails, userId: auth.currentUser?.id)
+            initialized = true
         }
-        .sheet(isPresented: $showActivitySheet) {
-            ActivityLevelSheet(
-                selected: $activity,
-                onShowHelp: { showActivityHelp = true }
-            )
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showActivitySheet, onDismiss: {
+            if showActivityHelp { showActivityHelp = false; showHelp = true }
+        }) {
+            ActivityLevelSheet(selected: $viewModel.activity, onShowHelp: { showActivityHelp = true })
         }
-        .sheet(isPresented: $showActivityHelp) {
-            ActivityLevelHelpSheet()
-        }
-    }
-    
-    private func load() {
-        let details = healthProfileViewModel.personalDetails
-        if let weight = details.weightKg {
-            weightText = formatNumber(weight)
-        }
-        if let height = details.heightCm {
-            heightText = formatNumber(height)
-        }
-        if let date = details.birthDate {
-            birthDate = date
-        }
-        if let gender = details.gender {
-            self.gender = gender
-        }
-        if let activity = details.activityLevel {
-            self.activity = activity
-        }
-    }
-    
-    private func save() {
-        let details = PersonalDetails(
-            weightKg: parseNumber(weightText),
-            heightCm: parseNumber(heightText),
-            birthDate: birthDate,
-            gender: gender == .ikkeOppgi ? nil : gender,
-            activityLevel: activity == .ikkeOppgi ? nil : activity
-        )
-        if !healthProfileViewModel.savePersonalDetails(details) {
-            appState.errorMessage = healthProfileViewModel.errorMessage
+        .sheet(isPresented: $showHelp) { ActivityLevelHelpSheet() }
+        .sheet(isPresented: $showBirthDate) {
+            NavigationStack {
+                Form {
+                    DatePicker("Velg fødselsdato", selection: $birthDateDraft, in: ...Date(), displayedComponents: .date)
+                        .datePickerStyle(.wheel)
+                }
+                .navigationTitle("Fødselsdato")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Avbryt") { showBirthDate = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Bruk dato") {
+                            viewModel.birthDate = birthDateDraft
+                            showBirthDate = false
+                        }
+                    }
+                }
+            }
         }
     }
-    
-    private func parseNumber(_ text: String) -> Double? {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
-    }
-    
-    private func formatNumber(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
+
+    @State private var showHelp = false
+
+    private func numberField(_ title: String, unit: String, key: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(title) (\(unit))").font(AppTypography.bodyEmphasis)
+            TextField("Valgfritt", text: text)
+                .keyboardType(.decimalPad)
+                .focused($focusedField, equals: key)
+                .frame(minHeight: 44)
+                .accessibilityLabel("\(title), \(unit)")
+                .accessibilityIdentifier("personal-details-\(key)")
+            fieldError(key)
         }
-        return String(format: "%.1f", value)
+    }
+
+    @ViewBuilder private func fieldError(_ key: String) -> some View {
+        if let error = viewModel.errors[key] {
+            Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
+        }
     }
 }
 
@@ -154,6 +168,7 @@ struct ActivityLevelSheet: View {
     
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Aktivitetsnivå")
@@ -214,6 +229,7 @@ struct ActivityLevelSheet: View {
                 Spacer()
             }
             .padding(16)
+            }
             .background(AppColors.background.ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -259,7 +275,7 @@ struct ActivityLevelHelpSheet: View {
                             .foregroundColor(AppColors.ink)
                         Text("• Hvis du ofte blir litt sliten bare av hverdagen → Høyt eller Veldig høyt.")
                         Text("• Hvis hverdagen er ganske rolig og mest stillesitting → Lavt.")
-                        Text("• Hvis du er “midt i mellom” → Moderat (trygg standard).")
+                        Text("• Hvis du er “midt i mellom” → Moderat.")
                     }
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)

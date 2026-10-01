@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var isUndoingSavedMeal = false
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
+    @State private var isTabEditing = false
     @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
     @State private var createdProduct: Product?
     
@@ -36,7 +37,10 @@ struct HomeView: View {
             
             SearchHubView(
                 onScan: { showScanCamera = true },
-                onRawSearch: { showRawMaterials = true }
+                onLogComplete: { payload in
+                    receiptPayload = payload
+                    Task { await loadTodaysSummary() }
+                }
             )
                 .tabItem {
                     Label("Søk", systemImage: "magnifyingglass")
@@ -65,17 +69,20 @@ struct HomeView: View {
                 .tag(AppTab.profile)
                 .matLoggSystemTabBarHidden()
         }
-        .environment(\.matLoggTabBarScrollMargin, tabBarScrollMargin)
+        .onPreferenceChange(MatLoggTabBarEditingKey.self) { isTabEditing = $0 }
+        .environment(\.matLoggTabBarScrollMargin, isTabEditing ? 0 : tabBarScrollMargin)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            MatLoggTabBar(selection: tabSelection)
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    tabBarScrollMargin = max(
-                        MatLoggTabBar.defaultScrollContentBottomMargin,
-                        height + MatLoggTabBar.scrollContentSpacing
-                    )
-                }
+            if !isTabEditing {
+                MatLoggTabBar(selection: tabSelection)
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        tabBarScrollMargin = max(
+                            MatLoggTabBar.defaultScrollContentBottomMargin,
+                            height + MatLoggTabBar.scrollContentSpacing
+                        )
+                    }
+            }
         }
         .environmentObject(appState)
         .overlay(alignment: .bottom) {
@@ -275,6 +282,7 @@ struct HomeTabView: View {
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    @EnvironmentObject var waterViewModel: WaterViewModel
     @State private var selectedSummary: DailySummary?
     @State private var productNames: [UUID: String] = [:]
     @State private var quickProducts: [Product] = []
@@ -287,7 +295,7 @@ struct HomeTabView: View {
 
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 16) {
                     homeHeader
 
                     DayNavigationBar(selection: selectedDateBinding)
@@ -321,8 +329,7 @@ struct HomeTabView: View {
                         } else if let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
                             StatusCardView(
                                 summary: summary,
-                                goal: goal,
-                                dayLabel: intakeTitle
+                                goal: goal
                             )
                         } else {
                             CardContainer {
@@ -338,6 +345,8 @@ struct HomeTabView: View {
                             }
                         }
                     }
+
+                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -379,6 +388,7 @@ struct HomeTabView: View {
                             meal: meal,
                             logs: logsByMeal[meal.key] ?? [],
                             productName: { productNames[$0] ?? "Ukjent produkt" },
+                            productImageURL: { logViewModel.mealProductImageURLs[$0] },
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
                                 appState.selectedMealType = meal.key
@@ -497,6 +507,7 @@ struct HomeTabView: View {
         selectedSummary = summary
         productNames = names
         isSummaryLoading = false
+        await logViewModel.loadMealProductImages(for: summary.logs)
     }
 
     private var loggedMealCount: Int {
@@ -516,13 +527,6 @@ struct HomeTabView: View {
 
     private var selectedDate: Date {
         appState.logSelectedDate
-    }
-
-    private var intakeTitle: String {
-        if Calendar.current.isDateInToday(selectedDate) { return "Dagens matinntak" }
-        if Calendar.current.isDateInYesterday(selectedDate) { return "Gårsdagens matinntak" }
-        if Calendar.current.isDateInTomorrow(selectedDate) { return "Matinntak i morgen" }
-        return "Matinntak \(shortDateLabel)"
     }
 
     private var mealsTitle: String {
@@ -657,6 +661,7 @@ struct MealOverviewCard: View {
     let meal: MealPresentation
     let logs: [FoodLog]
     let productName: (UUID) -> String
+    var productImageURL: (UUID) -> URL? = { _ in nil }
     let onOpen: () -> Void
     let onAdd: () -> Void
     var reuseSuggestion: MealReuseSuggestion? = nil
@@ -665,10 +670,10 @@ struct MealOverviewCard: View {
     var onAdjustReuse: (MealReuseSuggestion) -> Void = { _ in }
     var onDismissReuse: () -> Void = {}
 
-    private var totalCalories: Int { NutritionDisplay.wholeCalories(NutritionCalculator.totals(for: logs).calories) }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let totals = NutritionCalculator.totals(for: logs)
+
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Text(String(meal.title.prefix(1)))
                     .font(AppTypography.captionEmphasis)
@@ -683,7 +688,7 @@ struct MealOverviewCard: View {
                     Text("+ Legg til")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.action)
-                        .frame(minHeight: 44)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
             }
@@ -700,39 +705,19 @@ struct MealOverviewCard: View {
                 Text("\(meal.title) · ikke logget ennå")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
                         HStack(alignment: .top, spacing: 12) {
-                            Text(String(productName(log.productId).prefix(1)).uppercased())
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 54, height: 54)
-                                .background(AppColors.mutedSurface, in: Circle())
+                            ProductThumbnailView(url: productImageURL(log.productId), size: 44)
                             VStack(alignment: .leading, spacing: 5) {
-                                HStack(alignment: .firstTextBaseline) {
-                                    Text(productName(log.productId))
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                        .lineLimit(1)
-                                    Spacer()
-                                    Text("\(NutritionDisplay.wholeCalories(log.calories))")
-                                        .font(AppTypography.title)
-                                        .foregroundColor(AppColors.deepInk)
-                                }
+                                Text(productName(log.productId))
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.deepInk)
                                 Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
-                                HStack(spacing: 6) {
-                                    macroTag("P \(NutritionDisplay.wholeGrams(log.proteinG)) g", color: AppColors.macroProteinTint)
-                                    macroTag("K \(NutritionDisplay.wholeGrams(log.carbsG)) g", color: AppColors.macroCarbTint)
-                                    macroTag("F \(NutritionDisplay.wholeGrams(log.fatG)) g", color: AppColors.macroFatTint)
-                                }
-                                Text(log.loggedTime.formatted(date: .omitted, time: .shortened))
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .trailing)
                             }
                         }
                     }
@@ -742,17 +727,27 @@ struct MealOverviewCard: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+
+                Rectangle()
+                    .fill(AppColors.separator)
+                    .frame(height: 1)
+                    .accessibilityHidden(true)
+
+                Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal · P \(NutritionDisplay.wholeGrams(totals.protein)) g · K \(NutritionDisplay.wholeGrams(totals.carbs)) g · F \(NutritionDisplay.wholeGrams(totals.fat)) g")
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.deepInk)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
             }
         }
         .padding(16)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .matLoggCardSurface(shadowEnabled: !logs.isEmpty, borderEnabled: false)
         .overlay {
             if logs.isEmpty {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(AppColors.controlBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
             }
         }
-        .shadow(color: logs.isEmpty ? .clear : AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
@@ -761,20 +756,11 @@ struct MealOverviewCard: View {
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
     }
 
-    private func macroTag(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(AppTypography.captionEmphasis)
-            .foregroundColor(AppColors.deepInk)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(color.opacity(0.14), in: Capsule())
-    }
 }
 
 struct StatusCardView: View {
     let summary: DailySummary
     let goal: Goal
-    let dayLabel: String
 
     private var calorieBalance: CalorieBalance? {
         GoalCalculator.calorieBalance(dailyGoal: goal.dailyCalories, consumed: summary.totalCalories)
@@ -790,64 +776,56 @@ struct StatusCardView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(dayLabel)
-                    .font(AppTypography.title)
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(AppColors.calorieBlue)
+                                .frame(width: 8, height: 8)
+                                .accessibilityHidden(true)
+                            Text("KALORIER SPIST")
+                                .font(AppTypography.captionEmphasis)
+                        }
+                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
+                            .font(AppTypography.hero)
+                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                            .font(AppTypography.bodyEmphasis)
+                    }
                     .foregroundColor(AppColors.deepInk)
-                Spacer()
-                Text(statusDateLabel)
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("KALORIER SPIST")
-                    .font(AppTypography.captionEmphasis)
-                Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                    .font(AppTypography.display)
-                Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                    .font(AppTypography.bodyEmphasis)
-            }
-            .foregroundColor(AppColors.deepInk)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(20)
-            .background(AppColors.calorieBlue, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: AppColors.deepInk.opacity(0.12), radius: 0, y: 4)
+                    Rectangle()
+                        .fill(AppColors.separator)
+                        .frame(height: 1)
+                        .accessibilityHidden(true)
 
-            VStack(spacing: 12) {
-                ProgressRow(
-                    label: "Proteiner",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
-                    progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
-                    tint: AppColors.macroProteinTint
-                )
-                ProgressRow(
-                    label: "Karbohydrater",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
-                    progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
-                    tint: AppColors.macroCarbTint
-                )
-                ProgressRow(
-                    label: "Fett",
-                    valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
-                    progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
-                    tint: AppColors.macroFatTint
-                )
+                    VStack(spacing: 12) {
+                        ProgressRow(
+                            label: "Proteiner",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
+                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
+                            tint: AppColors.macroProteinTint
+                        )
+                        ProgressRow(
+                            label: "Karbohydrater",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
+                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
+                            tint: AppColors.macroCarbTint
+                        )
+                        ProgressRow(
+                            label: "Fett",
+                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
+                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
+                            tint: AppColors.macroFatTint
+                        )
+                    }
+                }
             }
-            .padding(16)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
         }
     }
 
-    private var statusDateLabel: String {
-        summary.date.formatted(
-            .dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "nb_NO"))
-        ).uppercased()
-    }
-    
     private func progressValue(current: Double, target: Double) -> Double {
         guard target > 0 else { return 0 }
         return current / target
@@ -1579,115 +1557,15 @@ struct FavoritesTabView: View {
 }
 
 struct SearchHubView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var productViewModel: ProductViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
     let onScan: () -> Void
-    let onRawSearch: () -> Void
-    @State private var recentScans: [ScanHistory] = []
-    @State private var productsByID: [UUID: Product] = [:]
+    let onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Finn maten din")
-                            .font(AppTypography.hero)
-                            .foregroundColor(AppColors.ink)
-                        Text("Søk, skann eller bruk noe du har logget før.")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-
-                    QuickSearchBar(onSearch: onRawSearch, onScan: onScan)
-
-                    Text("Snarveier")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-
-                    HStack(spacing: 12) {
-                        SearchShortcut(title: "Råvarer", icon: "leaf.fill", tint: AppColors.success, action: onRawSearch)
-                        SearchShortcut(title: "Skann", icon: "barcode.viewfinder", tint: AppColors.accent, action: onScan)
-                    }
-
-                    Text("Nylig brukt")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-
-                    if recentScans.isEmpty {
-                        CardContainer {
-                            Label("Ingen nylige produkter ennå", systemImage: "clock")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                        }
-                    } else {
-                        ForEach(recentScans.prefix(6)) { scan in
-                            HStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .foregroundColor(AppColors.deepInk)
-                                    .frame(width: 44, height: 44)
-                                    .background(AppColors.info.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                                VStack(alignment: .leading) {
-                                    Text(productsByID[scan.productId]?.name ?? "Ukjent produkt")
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.ink)
-                                    Text(scan.scannedAt.timeAgoDisplay())
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
-                        }
-                    }
-
-                    Text("Favoritter")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-                    CardContainer {
-                        Label("Favoritter du lagrer vises her", systemImage: "star")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-            }
-            .matLoggTabBarScrollClearance()
-            .background(AppColors.background.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
-            .task {
-                if let userId = authViewModel.currentUser?.id {
-                    let scans = await productViewModel.recentScans(userId: userId, limit: 6)
-                    recentScans = scans
-                    productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
-                }
-            }
+            FoodSearchView(isTab: true, onScan: onScan, onLogComplete: onLogComplete)
+                .navigationTitle("Søk")
+                .navigationBarTitleDisplayMode(.inline)
         }
-    }
-}
-
-private struct SearchShortcut: View {
-    let title: String
-    let icon: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: icon).font(.title2).foregroundColor(AppColors.ink)
-                Text(title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)
-            }
-            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
-            .padding(14)
-            .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 18))
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -1699,10 +1577,16 @@ private struct SearchShortcut: View {
         .environmentObject(MealReuseViewModel(repository: database))
         .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database))
         .environmentObject(ProductViewModel(repository: database))
+        .environment(\.foodSearchRepository, DefaultFoodSearchRepository(
+            products: database, catalog: MatvaretabellenService(), remote: APIService()
+        ))
         .environmentObject(HealthProfileViewModel(repository: database))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
-        .environmentObject(UserDataExportService(logRepository: database, savedMealRepository: database))
+        .environmentObject(WaterViewModel(repository: database))
+        .environmentObject(ProfileExportViewModel(exporter: UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database, healthRepository: database, productRepository: database, personalDetailsStore: UserDefaultsPersonalDetailsStore())))
+        .environmentObject(PersonalDetailsViewModel(store: UserDefaultsPersonalDetailsStore()))
+        .environmentObject(ProfileFavoritesViewModel(repository: database))
 }
 
 extension Date {
@@ -1718,6 +1602,9 @@ extension Date {
 private struct ScannerFocusOverlay: View {
     let isLoading: Bool
 
+    private let focusSize = CGSize(width: 300, height: 180)
+    private let focusOffset: CGFloat = -42
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.28)
@@ -1725,49 +1612,51 @@ private struct ScannerFocusOverlay: View {
                     Rectangle()
                         .overlay {
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .frame(width: 300, height: 180)
-                                .offset(y: -42)
+                                .frame(width: focusSize.width, height: focusSize.height)
+                                .offset(y: focusOffset)
                                 .blendMode(.destinationOut)
                         }
                         .compositingGroup()
                 }
 
-            VStack(spacing: 32) {
-                ScannerCornerFrame()
-                    .stroke(
-                        isLoading ? AppColors.success : Color.white,
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
-                    )
-                    .frame(width: 300, height: 180)
-                    .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
-
-                if isLoading {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .tint(.white)
-                        Text("Henter produkt …")
-                            .font(AppTypography.bodyEmphasis)
+            ScannerCornerFrame()
+                .stroke(
+                    isLoading ? AppColors.success : Color.white,
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                )
+                .frame(width: focusSize.width, height: focusSize.height)
+                .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+                .overlay(alignment: .top) {
+                    Group {
+                        if isLoading {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                    .tint(.white)
+                                Text("Henter produkt …")
+                                    .font(AppTypography.bodyEmphasis)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.black.opacity(0.68), in: Capsule())
+                            .accessibilityElement(children: .combine)
+                        } else {
+                            VStack(spacing: 4) {
+                                Text("Plasser koden i rammen")
+                                    .font(AppTypography.bodyEmphasis)
+                                Text("Strekkode eller Data Matrix")
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(Color.white.opacity(0.82))
+                            }
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.black.opacity(0.68), in: Capsule())
-                    .accessibilityElement(children: .combine)
-                } else {
-                    VStack(spacing: 4) {
-                        Text("Plasser koden i rammen")
-                            .font(AppTypography.bodyEmphasis)
-                        Text("Strekkode eller Data Matrix")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(Color.white.opacity(0.82))
-                    }
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(Color.white)
+                    .offset(y: focusSize.height + 32)
                 }
-            }
-            .foregroundStyle(Color.white)
-            .offset(y: -12)
+                .offset(y: focusOffset)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)

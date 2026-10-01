@@ -558,3 +558,49 @@ obligatoriske. AI-pilot og autopublisering er no-go til juridisk kontroll,
 synkhendelser. Supabase er teknisk sannhetskilde for den nye katalogen; legacy
 NestJS utvides ikke under cutover. Beslutningen bevarer fjerningen av Trygg
 modus: tilgjengelige kalorier og makroer vises alltid.
+## 2026-09-30 – Vann per glass
+
+Vann logges som én separat registrering per glass på Hjem, med valgt dato og
+profileier. Ingen antatt ml-mengde eller helsemål. Egen ViewModel/repository og
+atomisk SQLite/synkkø; additive v1-typer på Supabase. Produksjonssynk forblir av.
+
+## 2026-09-30 – Profil, personopplysninger og lokal eksport
+
+Profil prioriterer personlige detaljer, ett redigerbart målkort og innganger
+til favoritter/innstillinger. Dupliserte tallkort fjernes. Personopplysninger
+redigeres som et eksplisitt utkast; fødselsdato krever valg og bekreftelse,
+og lagringsfeil beholder utkastet. Vekt til beregning endrer ikke vekthistorikk
+eller eksisterende mål.
+
+Lokal JSON-eksport utvides med gjeldende mål, vekthistorikk, personlige detaljer
+og favoritter. UI oppgir de eksporterte datasettene og lover ikke komplett
+kontoeksport eller gjenoppretting. Eksport fra en tidligere profil forkastes
+ved profilbytte, og midlertidige eksportfiler ryddes etter deling.
+Rapporteringsvalg vises som utilgjengelige så lenge SDK-integrasjon mangler.
+Auth, slettemekanismer, databaseskjema og synkkontrakt endres ikke.
+
+## 2026-09-30 – Direkte søk og reelt gjenbruk
+
+Søk-fanen viser direkte søk, favoritter og nylig loggede varer. Dupliserte
+råvare-/skannesnarveier fjernes. Lokale katalog- og profileide produkter søkes
+mens brukeren skriver; Open Food Facts hentes bare ved eksplisitt søkehandling.
+Lokale treff beholdes under nettlasting og nettfeil. Manuell fallback bruker
+eksisterende produktregistrering og fortsetter til mengdevalg.
+
+Hver søkepresentasjon eier en feature-ViewModel med injisert repository. Gamle
+svar forkastes ved nytt søk og profilbytte. Lokal databasestruktur, synkkontrakt
+og produksjonsflagg endres ikke. Se [implementeringsplanen](search-implementation-plan.md).
+
+## 2026-09-30 – Isolert demomodus i utviklingsversjonen
+
+Demo bruker egen SQLite-fil (`MatLoggDemo/demo-v1.sqlite`), egen UserDefaults-suite
+og lokal profil uten kontoinnlogging eller serversynk. Vanlig lagring og
+kontosesjon beholdes ved modusbytte. App-roten bytter hele feature-konteksten,
+inkludert ViewModels og navigasjon. Demo er et presentasjonsverktøy tilgjengelig
+via DEBUG-kontroller, ikke en ny produksjonsflyt.
+
+Datasettet bruker den medfølgende Matvaretabellen med bevart kilde og enhet,
+fiktive mat-/vannlogger og vektdata over 56 dager, favoritter og lagrede måltider.
+Opprettelse skjer i en midlertidig database som publiseres først når alt lykkes.
+Tilbakestilling erstatter bare demoens database og profilinnstillinger etter
+bekreftelse; lokal demoidentitet beholdes. Hendelseskontrakten er uendret.

@@ -132,3 +132,9 @@
 - ✅ <0.5% crash-rate i TestFlight
 - ✅ All offline-funksjonalitet virker
 - ✅ Haptics/lyd-feedback virker på iOS 17+
+
+## Tillegg 2026-09-30: vannlogging
+
+Hjem tilbyr ett trykk per glass, daglig antall, angre og fjerning av ett glass.
+Registrering følger valgt dato og lagres lokalt med atomisk synkhendelse. Ingen
+antatt glassvolum, drikkemål, påminnelser eller helseintegrasjon.
