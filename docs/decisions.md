@@ -588,3 +588,5 @@ bilder på andre enheter er utenfor scope. Originalfoto lagres ikke i biblioteke
 ## 2026-10-01 – Selvstendig landingsside fra Lovable-prototypen
 
 `matlogg-web/` beholder det godkjente prototypeuttrykket som en separat React-/Vite-side med statisk bygg. Kildekomponenter og stilark er hentet fra Lovable; siden har ingen Lovable-runtime, analyse, database eller ekstern datainnsamling. Illustrative appvisninger merkes eksplisitt som illustrasjoner, og demoen har kun midlertidig state. Betapåmelding og juridiske lenker er plassholdere frem til egen publiseringsgodkjenning. Dette endrer ikke iOS-, backend- eller synkscope.
+
+Publisert som tydelig merket prototype på `https://nithusan.no/MatLogg/` etter brukerens godkjenning 2026-10-01. GitHub Pages-workflowen bygger kun `matlogg-web/`; HTTPS er aktivert. Siden beholder `noindex` til endelig lansering.
