@@ -579,6 +579,8 @@ private final class ProductRepositorySpy: ProductRepository {
         cachedProducts.append(product)
     }
 
+    func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product] { product.map { [$0] } ?? [] }
+
     func getProduct(_ id: UUID) -> Product? { product?.id == id ? product : nil }
 
     func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product? {

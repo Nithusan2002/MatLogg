@@ -7,8 +7,7 @@
 
 import SwiftUI
 
-@main
-struct MatLoggApp: App {
+struct MatLoggContent: View {
     @StateObject private var appState: AppState
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
@@ -25,15 +24,21 @@ struct MatLoggApp: App {
     @StateObject private var profileExportViewModel: ProfileExportViewModel
     @StateObject private var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
+    private let foodSearchRepository: any FoodSearchRepository
     private let databaseStartupFailed: Bool
     private let databaseStartupDetail: String?
 
-    init() {
-        let databaseService = DatabaseService()
-        let localAuthStore = AuthService()
+    private let isDemo: Bool
+
+    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false) {
+        self.isDemo = isDemo
+        foodSearchRepository = DefaultFoodSearchRepository(
+            products: databaseService, catalog: MatvaretabellenService(), remote: APIService()
+        )
+        let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
-        if let configuration = try? SupabaseConfiguration.load() {
+        if !isDemo, let configuration = try? SupabaseConfiguration.load() {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
@@ -44,7 +49,7 @@ struct MatLoggApp: App {
         let syncEngine = SyncEngine(
             databaseService: databaseService,
             apiService: syncAPIClient,
-            syncEnabled: { FeatureFlags.backendSyncEnabled }
+            syncEnabled: { !isDemo && FeatureFlags.backendSyncEnabled }
         )
         databaseStartupFailed = !databaseService.isAvailable
         if let error = databaseService.startupError,
@@ -66,39 +71,35 @@ struct MatLoggApp: App {
         ))
         _productViewModel = StateObject(wrappedValue: ProductViewModel(repository: databaseService))
         _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
-        let healthProfile = HealthProfileViewModel(repository: databaseService)
+        let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
         _personalDetailsViewModel = StateObject(wrappedValue: PersonalDetailsViewModel(
-            store: UserDefaultsPersonalDetailsStore(), onSaved: healthProfile.acceptSavedPersonalDetails
+            store: UserDefaultsPersonalDetailsStore(defaults: defaults), onSaved: healthProfile.acceptSavedPersonalDetails
         ))
         _dailyGoalsViewModel = StateObject(wrappedValue: DailyGoalsViewModel(
             repository: databaseService, onSaved: healthProfile.acceptSavedGoal
         ))
         _onboardingViewModel = StateObject(wrappedValue: OnboardingViewModel(
-            goalRepository: databaseService
+            goalRepository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults)
         ))
         _authViewModel = StateObject(wrappedValue: AuthViewModel(
             authRepository: authRepository,
             localStore: localAuthStore,
             localProfileManager: databaseService
         ))
-        _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel())
+        _preferencesViewModel = StateObject(wrappedValue: PreferencesViewModel(defaults: defaults))
         _profileExportViewModel = StateObject(wrappedValue: ProfileExportViewModel(exporter: UserDataExportService(
             logRepository: databaseService,
             savedMealRepository: databaseService,
             waterRepository: databaseService,
             healthRepository: databaseService,
             productRepository: databaseService,
-            personalDetailsStore: UserDefaultsPersonalDetailsStore()
+            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults)
         )))
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
     
-    var body: some Scene {
-        WindowGroup {
-            rootContent
-        }
-    }
+    var body: some View { rootContent }
 
     @ViewBuilder
     private var rootContent: some View {
@@ -122,6 +123,7 @@ struct MatLoggApp: App {
             .onChange(of: waterViewModel.mutationRevision) { _, _ in
                 Task { await appState.refreshSyncStatus() }
             }
+            .onDisappear { appState.updateAuthenticatedUser(nil) }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
                 profileExportViewModel.reset()
                 personalDetailsViewModel.begin(details: .empty, userId: nil)
@@ -144,7 +146,9 @@ struct MatLoggApp: App {
                 )
             }
             .onAppear {
-                if skipAuthForDev {
+                if isDemo {
+                    authViewModel.continueLocally()
+                } else if skipAuthForDev {
                     authViewModel.enableDebugSession()
                 }
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
@@ -152,7 +156,7 @@ struct MatLoggApp: App {
                 Task { await appState.triggerSync(reason: .appLaunch) }
             }
             .task {
-                guard !skipAuthForDev else { return }
+                guard !isDemo && !skipAuthForDev else { return }
                 await authViewModel.restoreSession()
             }
             .onChange(of: scenePhase) { _, phase in
@@ -189,9 +193,11 @@ struct MatLoggApp: App {
         }
     }
 
+    private let productImageRepository = CachedProductImageRepository()
+
     private var configuredContent: some View {
         Group {
-            if skipAuthForDev {
+            if isDemo || skipAuthForDev {
                 HomeView()
             } else if authViewModel.isRestoringSession {
                 ProgressView("Åpner MatLogg …")
@@ -211,6 +217,8 @@ struct MatLoggApp: App {
         .environmentObject(savedMealsViewModel)
         .environmentObject(waterViewModel)
         .environmentObject(productViewModel)
+        .environment(\.productImageRepository, productImageRepository)
+        .environment(\.foodSearchRepository, foodSearchRepository)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)
         .environmentObject(personalDetailsViewModel)

@@ -15,6 +15,7 @@ struct HomeView: View {
     @State private var isUndoingSavedMeal = false
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
+    @State private var isTabEditing = false
     @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
     
     var body: some View {
@@ -34,7 +35,10 @@ struct HomeView: View {
             
             SearchHubView(
                 onScan: { showScanCamera = true },
-                onRawSearch: { showRawMaterials = true }
+                onLogComplete: { payload in
+                    receiptPayload = payload
+                    Task { await loadTodaysSummary() }
+                }
             )
                 .tabItem {
                     Label("Søk", systemImage: "magnifyingglass")
@@ -63,17 +67,20 @@ struct HomeView: View {
                 .tag(AppTab.profile)
                 .matLoggSystemTabBarHidden()
         }
-        .environment(\.matLoggTabBarScrollMargin, tabBarScrollMargin)
+        .onPreferenceChange(MatLoggTabBarEditingKey.self) { isTabEditing = $0 }
+        .environment(\.matLoggTabBarScrollMargin, isTabEditing ? 0 : tabBarScrollMargin)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            MatLoggTabBar(selection: tabSelection)
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    tabBarScrollMargin = max(
-                        MatLoggTabBar.defaultScrollContentBottomMargin,
-                        height + MatLoggTabBar.scrollContentSpacing
-                    )
-                }
+            if !isTabEditing {
+                MatLoggTabBar(selection: tabSelection)
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        tabBarScrollMargin = max(
+                            MatLoggTabBar.defaultScrollContentBottomMargin,
+                            height + MatLoggTabBar.scrollContentSpacing
+                        )
+                    }
+            }
         }
         .environmentObject(appState)
         .overlay(alignment: .bottom) {
@@ -365,6 +372,7 @@ struct HomeTabView: View {
                             meal: meal,
                             logs: logsByMeal[meal.key] ?? [],
                             productName: { productNames[$0] ?? "Ukjent produkt" },
+                            productImageURL: { logViewModel.mealProductImageURLs[$0] },
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
                                 appState.selectedMealType = meal.key
@@ -483,6 +491,7 @@ struct HomeTabView: View {
         selectedSummary = summary
         productNames = names
         isSummaryLoading = false
+        await logViewModel.loadMealProductImages(for: summary.logs)
     }
 
     private var loggedMealCount: Int {
@@ -636,6 +645,7 @@ struct MealOverviewCard: View {
     let meal: MealPresentation
     let logs: [FoodLog]
     let productName: (UUID) -> String
+    var productImageURL: (UUID) -> URL? = { _ in nil }
     let onOpen: () -> Void
     let onAdd: () -> Void
     var reuseSuggestion: MealReuseSuggestion? = nil
@@ -684,11 +694,7 @@ struct MealOverviewCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
                         HStack(alignment: .top, spacing: 12) {
-                            Text(String(productName(log.productId).prefix(1)).uppercased())
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 44, height: 44)
-                                .background(AppColors.mutedSurface, in: Circle())
+                            ProductThumbnailView(url: productImageURL(log.productId), size: 44)
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(productName(log.productId))
                                     .font(AppTypography.bodyEmphasis)
@@ -719,14 +725,13 @@ struct MealOverviewCard: View {
             }
         }
         .padding(16)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .matLoggCardSurface(shadowEnabled: !logs.isEmpty, borderEnabled: false)
         .overlay {
             if logs.isEmpty {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(AppColors.controlBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
             }
         }
-        .shadow(color: logs.isEmpty ? .clear : AppColors.deepInk.opacity(0.06), radius: 0, y: 4)
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
@@ -1599,115 +1604,15 @@ struct FavoritesTabView: View {
 }
 
 struct SearchHubView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var productViewModel: ProductViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
     let onScan: () -> Void
-    let onRawSearch: () -> Void
-    @State private var recentScans: [ScanHistory] = []
-    @State private var productsByID: [UUID: Product] = [:]
+    let onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Finn maten din")
-                            .font(AppTypography.hero)
-                            .foregroundColor(AppColors.ink)
-                        Text("Søk, skann eller bruk noe du har logget før.")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-
-                    QuickSearchBar(onSearch: onRawSearch, onScan: onScan)
-
-                    Text("Snarveier")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-
-                    HStack(spacing: 12) {
-                        SearchShortcut(title: "Råvarer", icon: "leaf.fill", tint: AppColors.success, action: onRawSearch)
-                        SearchShortcut(title: "Skann", icon: "barcode.viewfinder", tint: AppColors.accent, action: onScan)
-                    }
-
-                    Text("Nylig brukt")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-
-                    if recentScans.isEmpty {
-                        CardContainer {
-                            Label("Ingen nylige produkter ennå", systemImage: "clock")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                        }
-                    } else {
-                        ForEach(recentScans.prefix(6)) { scan in
-                            HStack(spacing: 12) {
-                                Image(systemName: "clock.arrow.circlepath")
-                                    .foregroundColor(AppColors.deepInk)
-                                    .frame(width: 44, height: 44)
-                                    .background(AppColors.info.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                                VStack(alignment: .leading) {
-                                    Text(productsByID[scan.productId]?.name ?? "Ukjent produkt")
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.ink)
-                                    Text(scan.scannedAt.timeAgoDisplay())
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
-                        }
-                    }
-
-                    Text("Favoritter")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.ink)
-                    CardContainer {
-                        Label("Favoritter du lagrer vises her", systemImage: "star")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-            }
-            .matLoggTabBarScrollClearance()
-            .background(AppColors.background.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
-            .task {
-                if let userId = authViewModel.currentUser?.id {
-                    let scans = await productViewModel.recentScans(userId: userId, limit: 6)
-                    recentScans = scans
-                    productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
-                }
-            }
+            FoodSearchView(isTab: true, onScan: onScan, onLogComplete: onLogComplete)
+                .navigationTitle("Søk")
+                .navigationBarTitleDisplayMode(.inline)
         }
-    }
-}
-
-private struct SearchShortcut: View {
-    let title: String
-    let icon: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 12) {
-                Image(systemName: icon).font(.title2).foregroundColor(AppColors.ink)
-                Text(title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)
-            }
-            .frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
-            .padding(14)
-            .background(tint.opacity(0.18), in: RoundedRectangle(cornerRadius: 18))
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -1719,6 +1624,9 @@ private struct SearchShortcut: View {
         .environmentObject(MealReuseViewModel(repository: database))
         .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database))
         .environmentObject(ProductViewModel(repository: database))
+        .environment(\.foodSearchRepository, DefaultFoodSearchRepository(
+            products: database, catalog: MatvaretabellenService(), remote: APIService()
+        ))
         .environmentObject(HealthProfileViewModel(repository: database))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())

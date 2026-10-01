@@ -54,13 +54,7 @@ struct LogToastView: View {
             .disabled(isUndoing)
         }
         .padding(14)
-        .background(AppColors.surface)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.separator, lineWidth: 1)
-        )
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.08), radius: 12, x: 0, y: 6)
+        .matLoggCardSurface(cornerRadius: 16)
         .contentShape(Rectangle())
         .offset(y: dragOffset)
         .opacity(1 - min(dragOffset / 180, 0.55))

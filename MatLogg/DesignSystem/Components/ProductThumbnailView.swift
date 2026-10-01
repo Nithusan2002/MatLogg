@@ -1,26 +1,19 @@
 import SwiftUI
 
 struct ProductThumbnailView: View {
+    @Environment(\.productImageRepository) private var repository
+    @StateObject private var viewModel = ProductThumbnailViewModel()
     let url: URL?
     var placeholderSystemImage: String = "fork.knife"
     var size: CGFloat = 52
 
     var body: some View {
         Group {
-            if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding(4)
-                    case .empty, .failure:
-                        placeholder
-                    @unknown default:
-                        placeholder
-                    }
-                }
+            if let image = viewModel.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(4)
             } else {
                 placeholder
             }
@@ -33,6 +26,7 @@ struct ProductThumbnailView: View {
                 .stroke(AppColors.separator.opacity(0.8), lineWidth: 1)
         }
         .accessibilityHidden(true)
+        .task(id: url) { await viewModel.load(url: url, repository: repository) }
     }
 
     private var placeholder: some View {

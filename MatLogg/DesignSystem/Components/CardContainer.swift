@@ -2,20 +2,51 @@ import SwiftUI
 
 struct CardContainer<Content: View>: View {
     let content: Content
-    
+
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
-    
+
     var body: some View {
         content
             .padding(16)
-            .background(AppColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.04), radius: 12, x: 0, y: 4)
+            .matLoggCardSurface()
+    }
+}
+
+private struct MatLoggCardSurface: ViewModifier {
+    let fill: Color
+    let cornerRadius: CGFloat
+    let shadowEnabled: Bool
+    let borderEnabled: Bool
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        content
+            .clipShape(shape)
+            .background {
+                // Shadow only the surface, never text or controls in the card.
+                shape.fill(fill)
+                    .shadow(color: shadowEnabled ? AppColors.deepInk.opacity(0.06) : .clear,
+                            radius: 12, x: 0, y: 4)
+            }
+            .overlay {
+                if borderEnabled {
+                    shape.stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
+                        .allowsHitTesting(false)
+                }
+            }
+    }
+}
+
+extension View {
+    func matLoggCardSurface(
+        fill: Color = AppColors.surface,
+        cornerRadius: CGFloat = 18,
+        shadowEnabled: Bool = true,
+        borderEnabled: Bool = true
+    ) -> some View {
+        modifier(MatLoggCardSurface(fill: fill, cornerRadius: cornerRadius,
+                                   shadowEnabled: shadowEnabled, borderEnabled: borderEnabled))
     }
 }

@@ -4,6 +4,7 @@ class DatabaseService: WaterRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
     let startupError: Error?
+    private var defaults: UserDefaults = .standard
 
     convenience init() {
         self.init(storeResult: LocalStore.sharedResult)
@@ -20,7 +21,8 @@ class DatabaseService: WaterRepository {
         }
     }
 
-    init(store: LocalStore) {
+    init(store: LocalStore, defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         self.store = store
         startupError = nil
     }
@@ -161,6 +163,10 @@ class DatabaseService: WaterRepository {
         store?.getWeightEntries(userId: userId) ?? []
     }
     
+    func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product] {
+        try requireStore().getSearchableProducts(ownerUserId: ownerUserId)
+    }
+
     func getFavorites(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
         store?.getFavorites(userId: userId, kind: kind) ?? []
     }
@@ -219,7 +225,7 @@ class DatabaseService: WaterRepository {
 
     func resetAllLocalData() async throws {
         try requireStore().resetAllData()
-        UserDefaults.standard.removeObject(forKey: "personalDetails")
+        defaults.removeObject(forKey: "personalDetails")
     }
 
     func localDataSummary(ownerId: UUID) async -> LocalDataSummary {
@@ -228,7 +234,6 @@ class DatabaseService: WaterRepository {
 
     func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
         try requireStore().claimLocalData(from: localOwnerId, to: accountOwnerId)
-        let defaults = UserDefaults.standard
         let oldKey = "personalDetails.\(localOwnerId.uuidString)"
         let newKey = "personalDetails.\(accountOwnerId.uuidString)"
         if defaults.object(forKey: newKey) == nil, let details = defaults.data(forKey: oldKey) {
@@ -239,7 +244,7 @@ class DatabaseService: WaterRepository {
 
     func deleteLocalData(ownerId: UUID) async throws {
         try requireStore().deleteLocalData(ownerId: ownerId)
-        UserDefaults.standard.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
+        defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
     }
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {

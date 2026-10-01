@@ -15,15 +15,17 @@ struct PersonalDetailsView: View {
     var body: some View {
         Form {
             Section {
-                Text("Du velger selv hva du vil fylle inn.")
-                    .font(AppTypography.body)
-                    .foregroundStyle(AppColors.textSecondary)
+                TextField("Navn (valgfritt)", text: $viewModel.displayName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                    .focused($focusedField, equals: "name")
+                    .accessibilityIdentifier("personal-details-name")
+            } header: {
+                Text("Profil")
             }
             .listRowBackground(AppColors.surface)
 
             Section {
-                numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
-                numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
                 if let date = viewModel.birthDate {
                     LabeledContent("Fødselsdato") {
                         Button(date.formatted(date: .abbreviated, time: .omitted)) {
@@ -42,11 +44,8 @@ struct PersonalDetailsView: View {
                 Picker("Kjønn", selection: $viewModel.gender) {
                     ForEach(GenderOption.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
-                DisclosureGroup("Hvorfor spør vi?") {
-                    Text("Vi bruker kjønn når vi beregner et forslag til kalorimål. Velger du Annet eller Ønsker ikke å oppgi, kan du sette målet selv.")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
+                numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
+                numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
                 Button { showActivitySheet = true } label: {
                     LabeledContent("Aktivitetsnivå") {
                         HStack {
@@ -55,23 +54,25 @@ struct PersonalDetailsView: View {
                         }
                     }
                 }
+                DisclosureGroup("Hvorfor spør vi?") {
+                    Text("Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes til å beregne et veiledende forslag til kalorimål. Vekten legges ikke til i vekthistorikken. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv.")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             } header: {
-                Text("Om deg")
+                Text("Grunnlag for målforslag")
             } footer: {
-                Text("Vekten brukes til målforslag. Den legges ikke til i vekthistorikken.")
+                Text("Du kan også sette mål selv uten å fylle inn disse opplysningene.")
             }
             .listRowBackground(AppColors.surface)
 
-            Section {
-                if let error = viewModel.errorMessage {
+            if let error = viewModel.errorMessage {
+                Section {
                     Text(error).foregroundStyle(AppColors.ink)
                         .accessibilityIdentifier("personal-details-error")
                 }
-                Text("Lagres på denne enheten. Målene dine endres ikke.")
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
+                .listRowBackground(AppColors.surface)
             }
-            .listRowBackground(AppColors.surface)
         }
         .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()
@@ -83,10 +84,14 @@ struct PersonalDetailsView: View {
         .navigationBarBackButtonHidden(true)
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Avbryt") { dismiss() }
+            ToolbarItem(placement: .topBarLeading) {
+                Button { dismiss() } label: {
+                    Label("Avbryt", systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
+                }
+                .accessibilityHint("Går tilbake uten å lagre endringer")
             }
-            ToolbarItem(placement: .confirmationAction) {
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Lagre") {
                     focusedField = nil
                     if viewModel.save() { dismiss() }

@@ -170,6 +170,12 @@ Dagsstatus på Hjem samler kalorier og de tre makroradene i én lys
 liten dekorativ aksent, og en diskret skillelinje skiller kalorier fra makroer.
 Kalorier og makroer beholder sine etiketter, verdier og mål.
 
+Kortskygger legges bare på bakgrunnsformen, aldri på containeren med tekst,
+ikoner eller kontroller. Bruk `CardContainer` for ordinære kort og
+`matLoggCardSurface()` for flater med egen padding eller farge. Modifieren
+samler radius, kant og myk skygge; ikke kopier skyggeverdier til featureviews.
+Bilder og skannerrammer kan ha egne, tilsiktede skygger.
+
 ### Input
 
 Et felt har synlig etikett, enhet og valideringsmelding nær feltet. Feil skal
@@ -248,5 +254,8 @@ På iOS 26 og nyere bruker den egendefinerte bunnmenyen systemets Liquid Glass
 som en avrundet, flytende navigasjonsflate. Eldre systemversjoner beholder den
 varme, ugjennomsiktige `surface`-flaten. Loggfør-knappen forblir en tydelig,
 korallfarget primærhandling i begge variantene.
-Etiketter bruker skalerbar caption-typografi og kan bryte over flere linjer;
-menyen vokser i høyden ved større tekst. Alle knapper har minst 44 pt trykkflate.
+Etiketter bruker skalerbar caption-typografi opptil ordinær Dynamic Type XXXL.
+Den kompakte femknappsmenyen begrenser videre skalering slik at etikettene
+forblir lesbare i skjermbredden også når innholdet bruker tilgjengelighetsstørrelser.
+Alle knapper har minst 44 pt trykkflate og fullstendige VoiceOver-navn.
+Søk skjuler menyen mens søkefeltet redigeres.

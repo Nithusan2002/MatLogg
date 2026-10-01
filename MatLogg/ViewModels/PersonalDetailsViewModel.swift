@@ -3,6 +3,7 @@ import Combine
 
 @MainActor
 final class PersonalDetailsViewModel: ObservableObject {
+    @Published var displayName = ""
     @Published var weight = ""
     @Published var height = ""
     @Published var birthDate: Date?
@@ -22,6 +23,7 @@ final class PersonalDetailsViewModel: ObservableObject {
 
     func begin(details: PersonalDetails, userId: UUID?) {
         self.userId = userId
+        displayName = details.displayName ?? ""
         weight = details.weightKg.map { String($0).replacingOccurrences(of: ".", with: ",") } ?? ""
         height = details.heightCm.map { String($0).replacingOccurrences(of: ".", with: ",") } ?? ""
         birthDate = details.birthDate
@@ -45,7 +47,8 @@ final class PersonalDetailsViewModel: ObservableObject {
             errorMessage = "Åpne skjermen på nytt når en profil er aktiv."
             return false
         }
-        let details = PersonalDetails(weightKg: weightKg, heightCm: heightCm,
+        let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let details = PersonalDetails(displayName: name.isEmpty ? nil : name, weightKg: weightKg, heightCm: heightCm,
                                       birthDate: birthDate,
                                       gender: gender == .ikkeOppgi ? nil : gender,
                                       activityLevel: activity == .ikkeOppgi ? nil : activity)

@@ -9,6 +9,8 @@ struct ProgressTabView: View {
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     @State private var summaries: [DailySummary] = []
     @State private var metrics = ProgressMetrics(summaries: [])
     @State private var isLoading = true
@@ -85,7 +87,10 @@ struct ProgressTabView: View {
     }
 
     private var calorieHighlights: some View {
-        HStack(spacing: 12) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
             highlightCard(
                 eyebrow: "I DAG",
                 value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
@@ -106,8 +111,7 @@ struct ProgressTabView: View {
             Text(eyebrow)
                 .font(AppTypography.captionEmphasis)
                 .foregroundColor(AppColors.deepInk.opacity(0.72))
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
             Text(value)
                 .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                 .foregroundColor(AppColors.deepInk)
@@ -118,8 +122,7 @@ struct ProgressTabView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
         .padding(18)
-        .background(fill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 6)
+        .matLoggCardSurface(fill: fill)
         .accessibilityElement(children: .combine)
     }
 
@@ -179,20 +182,16 @@ struct ProgressTabView: View {
     }
 
     private func dashboardCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(title)
-                .font(AppTypography.title)
-                .foregroundColor(AppColors.deepInk)
-                .accessibilityAddTraits(.isHeader)
-            content()
+        CardContainer {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(title)
+                    .font(AppTypography.title)
+                    .foregroundColor(AppColors.deepInk)
+                    .accessibilityAddTraits(.isHeader)
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(16)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-        )
-        .shadow(color: AppColors.deepInk.opacity(0.06), radius: 0, y: 7)
     }
 
     private func reload() async {

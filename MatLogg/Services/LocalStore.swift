@@ -450,6 +450,32 @@ final class LocalStore {
         try requireDone(sqlite3_step(stmt))
     }
     
+    /// Shared catalog rows and only the active owner's private products.
+    func getSearchableProducts(ownerUserId: UUID?) throws -> [Product] {
+        try queue.sync {
+            let sql = "SELECT json FROM products WHERE storageKind = 'catalog' OR ownerUserId = ? ORDER BY CASE WHEN storageKind = 'user' THEN 0 ELSE 1 END;"
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw LocalStoreError.sqlite("Kunne ikke lese lagrede matvarer.")
+            }
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_text(statement, 1, ownerUserId?.uuidString ?? "", -1, SQLITE_TRANSIENT)
+            var result: [Product] = []
+            var status = sqlite3_step(statement)
+            while status == SQLITE_ROW {
+                if let data = readBlob(statement, index: 0),
+                   let product = decode(Product.self, from: data, entity: "product") {
+                    result.append(product)
+                }
+                status = sqlite3_step(statement)
+            }
+            guard status == SQLITE_DONE else {
+                throw LocalStoreError.sqlite("Kunne ikke lese lagrede matvarer.")
+            }
+            return result
+        }
+    }
+
     func getProduct(_ id: UUID) -> Product? {
         queue.sync {
             let sql = "SELECT json FROM products WHERE id = ? LIMIT 1;"

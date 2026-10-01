@@ -4,6 +4,29 @@ import Testing
 
 @MainActor
 struct ProfileTests {
+    @Test func optionalNameSurvivesReopeningAndIsScopedToItsOwner() throws {
+        let suite = "ProfileNameTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        let owner = UUID()
+        let vm = PersonalDetailsViewModel(store: store)
+        vm.begin(details: .empty, userId: owner)
+        vm.displayName = "  Test Navn  "
+        #expect(vm.save())
+        vm.begin(details: store.load(userId: owner), userId: owner)
+        #expect(vm.displayName == "Test Navn")
+        #expect(store.load(userId: UUID()).displayName == nil)
+        vm.displayName = "  "
+        #expect(vm.save())
+        #expect(store.load(userId: owner).displayName == nil)
+    }
+
+    @Test func oldDetailsDecodeWithoutAName() throws {
+        let details = try JSONDecoder().decode(PersonalDetails.self, from: Data("{}".utf8))
+        #expect(details.displayName == nil)
+    }
+
     @Test func emptyDetailsStayOptionalAndAreSavedForTheActiveOwner() {
         let store = ProfileDetailsStoreStub()
         let userId = UUID()
@@ -39,9 +62,11 @@ struct ProfileTests {
         var publications = 0
         let vm = PersonalDetailsViewModel(store: store) { _ in publications += 1 }
         vm.begin(details: .empty, userId: UUID())
+        vm.displayName = "Test Navn"
         vm.weight = "72,25"
         vm.height = "180"
         #expect(!vm.save())
+        #expect(vm.displayName == "Test Navn")
         #expect(vm.weight == "72,25")
         #expect(vm.errorMessage != nil)
         #expect(publications == 0)

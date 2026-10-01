@@ -27,7 +27,9 @@
 ### Profil
 
 Profil bruker den samme varme, kortbaserte retningen som Hjem. Øverst vises
-navn, initialer og en eksplisitt inngang til Personlige detaljer.
+navn, initialer og en eksplisitt inngang til Personlige detaljer. Navn er valgfritt
+og redigeres med Avbryt/Lagre i Personlige detaljer. Det lagres per profil på
+enheten og vises foran eventuelt kontonavn; det synkroniseres ikke.
 
 «Daglige mål» viser lagrede kalori- og makromål, med «Endre mål». Uten mål
 forklares at mål er valgfrie, med «Sett opp mål». Separate tallkort og dupliserte
@@ -61,7 +63,8 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting.
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
-- Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder søket og tilbyr «Prøv igjen» og strekkodeskanning.
+- Søk-fanen har direkte søk, favoritter og nylig loggede varer. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
+- Måltidsoversikten viser 44 pt produktbilder fra produktets lagrede bilde-URL, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon; måltidenes fargede bokstavmarkører beholdes.
 - Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
 - Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.
@@ -561,3 +564,12 @@ TabView (Root)
 | "Ikke funnet" | Alert / Sheet | "Ja" / "Nei" |
 | Favoritt-share | Action sheet (iOS) | Valg eller Avbryt |
 | Slett enkeltvare | Kompakt melding med Angre | 4s (8s VoiceOver), dra ned eller Angre |
+
+## Demokontroller i utviklingsversjonen
+
+DEBUG-versjonen har demokontroller bare i Profil, uten en vedvarende demorad
+over skjermene. Profil har «Demomodus» og
+«Tilbakestill demodata». Tilbakestilling bekreftes med en forklaring om at
+endringer i demoen fjernes og vanlige data beholdes. Under klargjøring vises
+fremdrift og interaksjoner deaktiveres; feil beholder tidligere appkontekst.
+Bytte til vanlig modus bevarer eksisterende registreringer og kontosesjon.
