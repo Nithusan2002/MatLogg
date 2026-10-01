@@ -43,8 +43,6 @@ struct MatLoggTests {
 
         #expect(metrics.averageCalories == 1_800)
         #expect(metrics.today?.date == secondDay)
-        #expect(metrics.calories(forMeal: "frokost") == 400)
-        #expect(metrics.calories(forMeal: "middag") == 0)
     }
 
     @Test @MainActor func mealPresentationContainsEverySupportedMealOnce() {

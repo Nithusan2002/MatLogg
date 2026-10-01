@@ -33,7 +33,6 @@ struct ProgressTabView: View {
                         calorieHighlights
                         weeklyCard
                         if let goal { macroCard(goal: goal) }
-                        mealDistributionCard
                     }
 
                     weightCard
@@ -73,7 +72,7 @@ struct ProgressTabView: View {
                 Label("Ingen måltider logget ennå", systemImage: "chart.bar")
                     .font(AppTypography.sectionTitle)
                     .foregroundColor(AppColors.deepInk)
-                Text("Når du logger mat, vises ukesoversikt og fordeling her.")
+                Text("Når du logger mat, vises ukesoversikten her.")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
                 Button("Gå til Hjem") { appState.selectedTab = .home }
@@ -170,24 +169,6 @@ struct ProgressTabView: View {
             ProgressRow(label: "Protein", valueText: macroValue(today?.totalProtein ?? 0, goal.proteinTargetG), progress: ratio(today?.totalProtein ?? 0, goal.proteinTargetG), tint: AppColors.macroProteinTint)
             ProgressRow(label: "Karbohydrater", valueText: macroValue(today?.totalCarbs ?? 0, goal.carbsTargetG), progress: ratio(today?.totalCarbs ?? 0, goal.carbsTargetG), tint: AppColors.macroCarbTint)
             ProgressRow(label: "Fett", valueText: macroValue(today?.totalFat ?? 0, goal.fatTargetG), progress: ratio(today?.totalFat ?? 0, goal.fatTargetG), tint: AppColors.macroFatTint)
-        }
-    }
-
-    private var mealDistributionCard: some View {
-        dashboardCard(title: "Fordeling per måltid") {
-            ForEach(MealPresentation.all) { meal in
-                let calories = metrics.calories(forMeal: meal.key)
-                HStack {
-                    Text(meal.title)
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.deepInk)
-                    Spacer()
-                    Text(calories > 0 ? "\(calories) kcal" : "ikke logget")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(calories > 0 ? AppColors.action : AppColors.textSecondary)
-                }
-                .accessibilityElement(children: .combine)
-            }
         }
     }
 
@@ -339,7 +320,6 @@ struct ProgressMetrics {
     let summaries: [DailySummary]
     let today: DailySummary?
     let averageCalories: Int
-    private let caloriesByMeal: [String: Float]
 
     init(summaries: [DailySummary]) {
         self.summaries = summaries
@@ -349,11 +329,5 @@ struct ProgressMetrics {
         } else {
             averageCalories = NutritionDisplay.wholeCalories(summaries.reduce(0) { $0 + $1.totalCalories } / Float(summaries.count))
         }
-        caloriesByMeal = Dictionary(grouping: summaries.last?.logs ?? [], by: \.mealType)
-            .mapValues { $0.reduce(0) { $0 + $1.calories } }
-    }
-
-    func calories(forMeal mealType: String) -> Int {
-        NutritionDisplay.wholeCalories(caloriesByMeal[mealType, default: 0])
     }
 }
