@@ -1,4 +1,4 @@
-type Screen = "home" | "meals" | "search" | "overview";
+type Screen = "home" | "meals" | "search" | "overview" | "flow-search" | "flow-amount" | "flow-log";
 
 export function AppScreenshot({ screen, label, priority = false }: {
   screen: Screen;

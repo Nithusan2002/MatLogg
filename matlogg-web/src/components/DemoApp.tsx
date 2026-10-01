@@ -1,124 +1,46 @@
 import { useState } from "react";
-import { Phone, TabBar } from "./Phone";
+import { AppScreenshot } from "./AppScreenshot";
 
-const PRODUCTS = [
-  { name: "Havregryn", src: "Råvare", kcal: 370 },
-  { name: "Lettmelk", src: "Råvare", kcal: 40 },
-  { name: "Grovbrød", src: "Produkt", kcal: 240 },
-  { name: "Egg, kokt", src: "Råvare", kcal: 150 },
-  { name: "Yoghurt naturell", src: "Produkt", kcal: 65 },
-  { name: "Banan", src: "Råvare", kcal: 90 },
-];
-type Tab = "Søk" | "Mengde" | "Logg";
-const STEPS: { t: Tab; title: string; text: string }[] = [
-  { t: "Søk", title: "Søk eller skann", text: "Finn en råvare eller skann strekkoden på en pakke." },
-  { t: "Mengde", title: "Velg mengde", text: "Juster gram eller porsjon. Tallene oppdateres med en gang." },
-  { t: "Logg", title: "Lagre i dagens måltid", text: "Velg måltid og loggfør. Angre om du ombestemmer deg." },
-];
+const STEPS = [
+  { tab: "Søk", screen: "flow-search", title: "Søk eller skann", text: "Finn matvaren du vil loggføre. Her søker vi etter havregryn.", label: "Søk – havregryn i appens matsøk" },
+  { tab: "Mengde", screen: "flow-amount", title: "Velg mengde", text: "Kontroller matvaren, mengden og måltidet før du legger den til.", label: "Mengde – produktvisning før logging" },
+  { tab: "Logg", screen: "flow-log", title: "Se maten i loggen", text: "Registreringen vises i måltidet på Hjem etter at den er lagret.", label: "Logg – måltidet etter registrering" },
+] as const;
 
 export function DemoSection() {
-  const [tab, setTab] = useState<Tab>("Søk");
-  const [q, setQ] = useState("");
-  const [sel, setSel] = useState({ name: "Havregryn", src: "Råvare", kcal: 370 });
-  const [grams, setGrams] = useState(60);
-  const [meal, setMeal] = useState("Frokost");
-  const [logged, setLogged] = useState(false);
-  const list = PRODUCTS.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
-  const kcal = Math.round((sel.kcal * grams) / 100);
-
+  const [selected, setSelected] = useState(0);
+  const step = STEPS[selected] ?? STEPS[0];
   return (
     <section id="slik" className="mx-auto max-w-6xl px-5 py-24">
       <div className="grid items-center gap-14 lg:grid-cols-2">
         <div>
           <p className="eyebrow">Slik fungerer det</p>
           <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">Fra matvare til matlogg</h2>
-          <p className="mt-4 max-w-md text-muted-foreground">Tre rolige steg. Prøv demoen – ingenting lagres, og ingenting sendes.</p>
+          <p className="mt-4 max-w-md text-muted-foreground">Se de tre stegene i appen. Bildene er tatt i MatLogg med fiktive demodata.</p>
           <ol className="mt-10 space-y-3">
-            {STEPS.map((s, i) => (
-              <li key={s.t}>
-                <button
-                  onClick={() => { setTab(s.t); setLogged(false); }}
-                  className={`flex w-full gap-4 rounded-2xl border p-5 text-left transition ${tab === s.t ? "border-primary/40 bg-card shadow-soft" : "border-transparent hover:bg-card/60"}`}
-                  aria-pressed={tab === s.t}
-                >
-                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold ${tab === s.t ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{i + 1}</span>
-                  <span><span className="block font-semibold">{s.title}</span><span className="text-sm text-muted-foreground">{s.text}</span></span>
+            {STEPS.map((item, index) => (
+              <li key={item.tab}>
+                <button onClick={() => setSelected(index)} aria-pressed={selected === index} aria-controls="flow-screenshot"
+                  className={`flex w-full gap-4 rounded-2xl border p-5 text-left transition ${selected === index ? "border-primary/40 bg-card shadow-soft" : "border-transparent hover:bg-card/60"}`}>
+                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold ${selected === index ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{index + 1}</span>
+                  <span><span className="block font-semibold">{item.title}</span><span className="text-sm text-muted-foreground">{item.text}</span></span>
                 </button>
               </li>
             ))}
           </ol>
         </div>
-
         <div>
-          <div role="group" aria-label="Demo-steg" className="mx-auto mb-6 flex w-fit rounded-full border bg-card p-1">
-            {(["Søk", "Mengde", "Logg"] as Tab[]).map((t) => (
-              <button key={t} aria-pressed={tab === t} onClick={() => { setTab(t); setLogged(false); }}
-                className={`min-h-11 rounded-full px-5 text-sm font-semibold ${tab === t ? "bg-foreground text-background" : "text-muted-foreground"}`}>{t}</button>
+          <div role="group" aria-label="Steg i matlogging" className="mx-auto mb-6 flex w-fit rounded-full border bg-card p-1">
+            {STEPS.map((item, index) => (
+              <button key={item.tab} aria-pressed={selected === index} aria-controls="flow-screenshot" onClick={() => setSelected(index)}
+                className={`min-h-11 rounded-full px-5 text-sm font-semibold ${selected === index ? "bg-foreground text-background" : "text-muted-foreground"}`}>{item.tab}</button>
             ))}
           </div>
-          <Phone label="Interaktiv demo">
-            <div className="px-4 pt-4" >
-              {tab === "Søk" && (
-                <>
-                  <h3 className="text-xl font-bold">Søk</h3>
-                  <label className="sr-only" htmlFor="demo-q">Søk etter demomatvare</label>
-                  <input id="demo-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Søk etter mat …"
-                    className="mt-3 h-11 w-full rounded-xl border bg-card px-3 text-sm" />
-                  <ul className="mt-3 space-y-2">
-                    {list.map((p) => (
-                      <li key={p.name}>
-                        <button onClick={() => { setSel(p); setTab("Mengde"); }} className="flex min-h-11 w-full items-center justify-between rounded-xl border bg-card px-3 py-2 text-left text-sm">
-                          <span><span className="font-medium">{p.name}</span><span className="block text-[10px] text-muted-foreground">{p.src} · demo</span></span>
-                          <span className="text-xs text-muted-foreground">{p.kcal} kcal/100 g</span>
-                        </button>
-                      </li>
-                    ))}
-                    {list.length === 0 && <li className="text-center text-xs text-muted-foreground">Ingen treff i demoen</li>}
-                  </ul>
-                </>
-              )}
-              {tab === "Mengde" && (
-                <>
-                  <h3 className="text-xl font-bold">{sel.name}</h3>
-                  <p className="text-[11px] text-muted-foreground">Demoverdier – ikke verifisert</p>
-                  <div className="mt-6 rounded-2xl border bg-card p-5 text-center">
-                    <p className="text-4xl font-bold">{grams} g</p>
-                    <p className="text-sm text-muted-foreground">{kcal} kcal</p>
-                    <div className="mt-4 flex justify-center gap-3">
-                      <button aria-label="Mindre mengde" onClick={() => setGrams((g) => Math.max(10, g - 10))} className="h-11 w-11 rounded-full border text-xl">−</button>
-                      <button aria-label="Større mengde" onClick={() => setGrams((g) => Math.min(500, g + 10))} className="h-11 w-11 rounded-full border text-xl">+</button>
-                    </div>
-                  </div>
-                  <button onClick={() => setTab("Logg")} className="btn-primary mt-5 w-full">Neste</button>
-                </>
-              )}
-              {tab === "Logg" && (
-                <>
-                  <h3 className="text-xl font-bold">Lagre i måltid</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{sel.name} · {grams} g · {kcal} kcal</p>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    {["Frokost", "Lunsj", "Middag", "Mellommåltid"].map((m) => (
-                      <button key={m} aria-pressed={meal === m} onClick={() => { setMeal(m); setLogged(false); }}
-                        className={`min-h-11 rounded-xl border text-sm ${meal === m ? "border-primary bg-primary-soft font-semibold" : "bg-card"}`}>{m}</button>
-                    ))}
-                  </div>
-                  {logged ? (
-                    <div className="mt-5 rounded-2xl border border-protein/40 bg-card p-4 text-sm">
-                      <p className="font-semibold">Lagt til i {meal.toLowerCase()} (demo)</p>
-                      <p className="text-xs text-muted-foreground">Kun i denne visningen – ingenting er lagret.</p>
-                      <button onClick={() => setLogged(false)} className="mt-2 min-h-11 font-semibold text-accent underline underline-offset-4">Angre</button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setLogged(true)} className="btn-primary mt-5 w-full">Loggfør</button>
-                  )}
-                </>
-              )}
-              <TabBar active={tab === "Søk" ? "Søk" : "Hjem"} />
-            </div>
-          </Phone>
+          <div id="flow-screenshot" aria-live="polite" aria-atomic="true">
+            <AppScreenshot screen={step.screen} label={step.label} />
+          </div>
         </div>
       </div>
     </section>
   );
 }
-

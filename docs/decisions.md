@@ -592,3 +592,5 @@ bilder på andre enheter er utenfor scope. Originalfoto lagres ikke i biblioteke
 Publisert som tydelig merket prototype på `https://nithusan.no/MatLogg/` etter brukerens godkjenning 2026-10-01. GitHub Pages-workflowen bygger kun `matlogg-web/`; HTTPS er aktivert. Siden beholder `noindex` til endelig lansering.
 
 Landingssidens statiske appvisninger ble 2026-10-01 erstattet med faktiske simulatorbilder av Hjem, måltider, Søk og Oversikt fra lokal utviklingsversjon med verifisert demomodus. Skjermbildene inneholder fiktive brukerdata. Den separate interaktive nettdemoen beholder illustrasjonsmerking.
+
+Søk/Mengde/Logg-delen ble samme dag endret til en bildeskifter med tre faktiske simulatorbilder fra én loggingflyt. Simulert søk, mengdeberegning og logging på nettsiden er fjernet; knappene velger kun bilde.

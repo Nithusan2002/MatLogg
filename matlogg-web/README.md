@@ -1,6 +1,6 @@
 # MatLogg landingsside
 
-Selvstendig kopi av MatLoggs Lovable-prototype. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-10-01 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Den klikkbare nettdemoen er en merket illustrasjon og bruker kun midlertidig state.
+Selvstendig kopi av MatLoggs Lovable-prototype. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-10-01 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Søk/Mengde/Logg-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
 
 Krever Node.js 22.12 eller nyere.
 
