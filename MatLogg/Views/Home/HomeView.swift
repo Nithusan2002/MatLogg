@@ -373,6 +373,7 @@ struct HomeTabView: View {
                             logs: logsByMeal[meal.key] ?? [],
                             productName: { productNames[$0] ?? "Ukjent produkt" },
                             productImageURL: { logViewModel.mealProductImageURLs[$0] },
+                            productImageData: { logViewModel.mealProductImageData[$0] },
                             onOpen: { selectedMealForLog = meal },
                             onAdd: {
                                 appState.selectedMealType = meal.key
@@ -646,6 +647,7 @@ struct MealOverviewCard: View {
     let logs: [FoodLog]
     let productName: (UUID) -> String
     var productImageURL: (UUID) -> URL? = { _ in nil }
+    var productImageData: (UUID) -> Data? = { _ in nil }
     let onOpen: () -> Void
     let onAdd: () -> Void
     var reuseSuggestion: MealReuseSuggestion? = nil
@@ -694,7 +696,7 @@ struct MealOverviewCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
                         HStack(alignment: .top, spacing: 12) {
-                            ProductThumbnailView(url: productImageURL(log.productId), size: 44)
+                            ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 44)
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(productName(log.productId))
                                     .font(AppTypography.bodyEmphasis)

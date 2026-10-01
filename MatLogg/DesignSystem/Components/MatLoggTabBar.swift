@@ -25,7 +25,7 @@ struct MatLoggTabBar: View {
                 )
                 .padding(.horizontal, 8)
                 .padding(.bottom, 4)
-                .offset(y: 8)
+                .offset(y: 14)
         } else {
             tabBarContent
                 .padding(.vertical, 8)

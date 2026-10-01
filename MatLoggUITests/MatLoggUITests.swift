@@ -108,11 +108,12 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.textFields["Produktnavn"].waitForExistence(timeout: 5))
         for (label, value) in [("Produktnavn", "Søktest " + UUID().uuidString.prefix(8)),
                                ("Energi", "100"), ("Protein", "2"), ("Karbohydrat", "10"), ("Fett", "4")] {
+            if !app.textFields[label].isHittable { app.swipeUp() }
             app.textFields[label].tap()
             app.textFields[label].typeText(value)
         }
         app.swipeUp()
-        let save = app.buttons["Lagre og fortsett"]
+        let save = app.buttons["Lagre og velg mengde"]
         if !save.isHittable { app.swipeUp() }
         XCTAssertTrue(save.isHittable)
         save.tap()

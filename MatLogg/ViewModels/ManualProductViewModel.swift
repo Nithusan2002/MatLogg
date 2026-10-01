@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+import UIKit
+import PhotosUI
+import SwiftUI
 
 @MainActor
 final class ManualProductViewModel: ObservableObject {
@@ -12,15 +15,69 @@ final class ManualProductViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var isSaving = false
 
+    @Published private(set) var productImage: UIImage?
+    @Published private(set) var isLoadingImage = false
+    @Published var showCamera = false
+    @Published var imageError: String?
+    private var imageRequestID = UUID()
+    private let cameraAuthorization: any CameraAuthorizationProviding
+
+    func openCamera() async {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            imageError = "Kamera er ikke tilgjengelig. Velg et bilde fra bildebiblioteket."
+            return
+        }
+        guard await cameraAuthorization.requestAccess() else {
+            imageError = "Gi MatLogg kameratilgang i Innstillinger, eller velg et bilde fra bildebiblioteket."
+            return
+        }
+        showCamera = true
+    }
+
+    func selectImage(_ image: UIImage?) {
+        imageRequestID = UUID()
+        isLoadingImage = false
+        imageError = nil
+        guard let image else { productImage = nil; return }
+        let maxSide: CGFloat = 512
+        let factor = min(1, maxSide / max(image.size.width, image.size.height))
+        let size = CGSize(width: max(1, image.size.width * factor), height: max(1, image.size.height * factor))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        // Redrawing removes original photo metadata and limits local storage size.
+        productImage = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+    }
+
+    func loadPhoto(_ item: PhotosPickerItem) async {
+        let requestID = UUID()
+        imageRequestID = requestID
+        isLoadingImage = true
+        imageError = nil
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
+            guard imageRequestID == requestID else { return }
+            selectImage(image)
+        } catch {
+            guard imageRequestID == requestID else { return }
+            isLoadingImage = false
+            imageError = "Kunne ikke åpne bildet. Prøv et annet bilde."
+        }
+    }
+
     private let barcode: String?
     private let saveProduct: (Product) async throws -> Void
 
-    init(barcode: String?, saveProduct: @escaping (Product) async throws -> Void) {
+    init(barcode: String?, cameraAuthorization: any CameraAuthorizationProviding = CameraAuthorizationService(), saveProduct: @escaping (Product) async throws -> Void) {
+        self.cameraAuthorization = cameraAuthorization
         self.barcode = barcode
         self.saveProduct = saveProduct
     }
 
     func save() async -> Product? {
+        guard !isLoadingImage else { return nil }
         errorMessage = nil
 
         guard let values = validatedValues() else { return nil }
@@ -34,8 +91,9 @@ final class ManualProductViewModel: ObservableObject {
             proteinGPer100g: values.protein,
             carbsGPer100g: values.carbs,
             fatGPer100g: values.fat,
+            localImageData: productImage?.jpegData(compressionQuality: 0.75),
             nutritionSource: .user,
-            imageSource: .none,
+            imageSource: productImage == nil ? .none : .user,
             verificationStatus: .unverified,
             isVerified: false
         )

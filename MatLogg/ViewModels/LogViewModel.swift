@@ -83,14 +83,17 @@ final class LogViewModel: ObservableObject {
     }
 
     @Published private(set) var mealProductImageURLs: [UUID: URL] = [:]
+    @Published private(set) var mealProductImageData: [UUID: Data] = [:]
     private var imageProductsRequestID = UUID()
 
     func loadMealProductImages(for logs: [FoodLog]) async {
         let requestID = UUID()
         imageProductsRequestID = requestID
         mealProductImageURLs = [:]
+        mealProductImageData = [:]
         let products = await repository.getProducts(Set(logs.map(\.productId)))
         guard imageProductsRequestID == requestID else { return }
+        mealProductImageData = products.compactMapValues(\.localImageData)
         mealProductImageURLs = products.compactMapValues { product in
             product.imageUrl.flatMap(URL.init(string:))
         }

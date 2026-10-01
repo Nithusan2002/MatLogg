@@ -575,3 +575,12 @@ fiktive mat-/vannlogger og vektdata over 56 dager, favoritter og lagrede måltid
 Opprettelse skjer i en midlertidig database som publiseres først når alt lykkes.
 Tilbakestilling erstatter bare demoens database og profilinnstillinger etter
 bekreftelse; lokal demoidentitet beholdes. Hendelseskontrakten er uendret.
+
+## 2026-10-01 – Valgfrie produktbilder lagres lokalt
+
+Manuelt registrerte produkter kan ha et kamera- eller bibliotekbilde. Bildet
+lagres som valgfri, komprimert JPEG i produktets lokale JSON (maks. 512 piksler
+på lengste side, uten original fotometadata). Dette gir atomisk lagring med
+produkt og synkhendelse, og følger eksisterende eierskap og sletting uten nye
+filer eller migrasjoner. Bildedata utelates fra synkpayload; bildeopplasting og
+bilder på andre enheter er utenfor scope. Originalfoto lagres ikke i biblioteket.

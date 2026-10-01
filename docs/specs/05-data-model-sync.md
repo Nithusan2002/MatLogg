@@ -717,3 +717,12 @@ Sync Event Retention:
 • Local: deleted after successful sync (after 1 month if never synced)
 • Backend: none (processed and discarded)
 ```
+
+### Lokale bilder ved manuell produktregistrering
+
+`Product.localImageData` er valgfri JPEG-data i produktets lokale JSON-rad.
+Bildet tegnes på nytt uten original fotometadata, med lengste side maksimalt
+512 piksler, og lagres atomisk sammen med produktet og synkhendelsen.
+Feltet er ikke med i `ProductSyncPayload`; ingen bildeopplasting eller
+synkkontraktsendring inngår. Eksisterende produkter uten feltet kan fortsatt
+leses. Sletting av produktets lokale rad fjerner også bildet.

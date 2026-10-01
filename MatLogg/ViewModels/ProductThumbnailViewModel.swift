@@ -6,10 +6,11 @@ final class ProductThumbnailViewModel: ObservableObject {
     @Published private(set) var image: UIImage?
     private var requestID = UUID()
 
-    func load(url: URL?, repository: (any ProductImageRepository)?) async {
+    func load(url: URL?, localData: Data? = nil, repository: (any ProductImageRepository)?) async {
         let id = UUID()
         requestID = id
         image = nil
+        if let localData { image = UIImage(data: localData); return }
         guard let url, let repository else { return }
         do {
             let data = try await repository.data(for: url)

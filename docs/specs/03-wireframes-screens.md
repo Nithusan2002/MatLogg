@@ -73,6 +73,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
 - Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
 - Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger i Loggfør-arket og Søk-fanen. De dupliseres ikke som en egen handlingsrad på Hjem. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Oversikt».
+- «Registrer manuelt» ligger som en sekundær knapp i full bredde rett under Søk og Skann strekkode, før listene, i alle søketilstander.
 - Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
 ```

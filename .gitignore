@@ -63,6 +63,7 @@ Config/Supabase-Release.xcconfig.local
 temp/
 git-xcode-recovery-backup/
 backend/node_modules/
+node_modules/
 backend/dist/
 supabase/.branches/
 supabase/.temp/

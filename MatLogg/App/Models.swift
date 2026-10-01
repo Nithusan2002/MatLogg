@@ -126,6 +126,7 @@ struct Product: Codable, Identifiable {
     let fiberGPer100g: Float?
     let sodiumMgPer100g: Int?
     
+    let localImageData: Data?
     let imageUrl: String?
     let standardPortions: [StandardPortion]?
     let servings: [ServingOption]?
@@ -161,6 +162,7 @@ struct Product: Codable, Identifiable {
         sugarGPer100g: Float? = nil,
         fiberGPer100g: Float? = nil,
         sodiumMgPer100g: Int? = nil,
+        localImageData: Data? = nil,
         imageUrl: String? = nil,
         standardPortions: [StandardPortion]? = nil,
         servings: [ServingOption]? = nil,
@@ -192,6 +194,7 @@ struct Product: Codable, Identifiable {
         self.sugarGPer100g = sugarGPer100g
         self.fiberGPer100g = fiberGPer100g
         self.sodiumMgPer100g = sodiumMgPer100g
+        self.localImageData = localImageData
         self.imageUrl = imageUrl
         self.standardPortions = standardPortions
         self.servings = servings

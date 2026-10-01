@@ -72,7 +72,7 @@ struct ProductDetailView: View {
                         // Product Hero
                         heroView
                             .onTapGesture {
-                                if product.imageUrl != nil {
+                                if product.imageUrl != nil || product.localImageData != nil {
                                     showImagePreview = true
                                 }
                             }
@@ -298,7 +298,7 @@ struct ProductDetailView: View {
             }
         }
         .sheet(isPresented: $showImagePreview) {
-            ImagePreviewView(imageUrl: product.imageUrl)
+            ImagePreviewView(imageUrl: product.imageUrl, localData: product.localImageData)
         }
         .sheet(isPresented: $showSourceInfo) {
             ProductSourceInfoView(product: product)
@@ -411,8 +411,12 @@ struct ProductDetailView: View {
         return String(format: "%.1f", value)
     }
 
-    private var heroView: some View {
-        ProductHeroImageView(url: imageUrl, height: 220, cornerRadius: 18)
+    @ViewBuilder private var heroView: some View {
+        if let data = product.localImageData, let image = UIImage(data: data) {
+            ProductHeroImageView(image: image, height: 220, cornerRadius: 18)
+        } else {
+            ProductHeroImageView(url: imageUrl, height: 220, cornerRadius: 18)
+        }
     }
     
     private var imageUrl: URL? {
@@ -440,6 +444,7 @@ struct ProductDetailView: View {
 
 struct ImagePreviewView: View {
     let imageUrl: String?
+    var localData: Data? = nil
     @Environment(\.dismiss) var dismiss
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
@@ -460,7 +465,9 @@ struct ImagePreviewView: View {
                 
                 Spacer()
                 
-                if let imageUrl, let url = URL(string: imageUrl) {
+                if let localData, let image = UIImage(data: localData) {
+                    Image(uiImage: image).resizable().scaledToFit().padding(16)
+                } else if let imageUrl, let url = URL(string: imageUrl) {
                     AsyncImage(url: url) { phase in
                         switch phase {
                         case .empty:

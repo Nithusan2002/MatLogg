@@ -1,8 +1,11 @@
 import SwiftUI
+import PhotosUI
 
 struct ManualProductView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: ManualProductViewModel
+
+    @State private var selectedPhoto: PhotosPickerItem?
 
     let barcode: String?
     let onSaved: (Product) -> Void
@@ -23,8 +26,8 @@ struct ManualProductView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    introduction
                     productFields
+                    nutritionFields
 
                     if let errorMessage = viewModel.errorMessage {
                         Label(errorMessage, systemImage: "exclamationmark.circle.fill")
@@ -34,7 +37,7 @@ struct ManualProductView: View {
                     }
 
                     PrimaryButton(
-                        title: viewModel.isSaving ? "Lagrer …" : "Lagre og fortsett",
+                        title: viewModel.isSaving ? "Lagrer …" : "Lagre og velg mengde",
                         systemImage: "arrow.right"
                     ) {
                         Task {
@@ -44,7 +47,7 @@ struct ManualProductView: View {
                             }
                         }
                     }
-                    .disabled(viewModel.isSaving)
+                    .disabled(viewModel.isSaving || viewModel.isLoadingImage)
                     .opacity(viewModel.isSaving ? 0.6 : 1)
 
                     Text("Verdiene lagres slik du oppgir dem og merkes som brukerregistrerte. Du kan kontrollere dem mot emballasjen.")
@@ -61,46 +64,96 @@ struct ManualProductView: View {
                     Button("Avbryt") { dismiss() }
                 }
             }
+            .fullScreenCover(isPresented: $viewModel.showCamera) {
+                ProductCameraPicker { image in
+                    if let image { viewModel.selectImage(image) }
+                    viewModel.showCamera = false
+                }
+                .ignoresSafeArea()
+                .background(Color.black.ignoresSafeArea())
+            }
+            .onChange(of: selectedPhoto) { _, item in
+                if let item { Task { await viewModel.loadPhoto(item) } }
+            }
             .scrollDismissesKeyboard(.interactively)
         }
     }
 
-    private var introduction: some View {
+    private var productFields: some View {
         CardContainer {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(
-                    barcode == nil ? "Registrer produkt manuelt" : "Produktet ble ikke funnet",
-                    systemImage: "barcode.viewfinder"
-                )
-                    .font(AppTypography.title)
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Om produktet")
+                    .font(AppTypography.sectionTitle)
                     .foregroundColor(AppColors.deepInk)
-                Text("Legg inn næringsverdiene per 100 g fra emballasjen.")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
                 if let barcode, !barcode.isEmpty {
                     Text("Strekkode: \(barcode)")
                         .font(.system(.caption, design: .monospaced).weight(.semibold))
                         .foregroundColor(AppColors.textSecondary)
                         .accessibilityLabel("Strekkode \(barcode)")
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var productFields: some View {
-        CardContainer {
-            VStack(spacing: 16) {
+                photoControls.disabled(viewModel.isSaving)
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
                 Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
                     .font(AppTypography.caption)
                     .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.brand : AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
-                field("Energi", text: $viewModel.calories, prompt: "kcal per 100 g", keyboard: .numberPad)
-                field("Protein", text: $viewModel.protein, prompt: "g per 100 g", keyboard: .decimalPad)
-                field("Karbohydrat", text: $viewModel.carbs, prompt: "g per 100 g", keyboard: .decimalPad)
-                field("Fett", text: $viewModel.fat, prompt: "g per 100 g", keyboard: .decimalPad)
+            }
+        }
+    }
+
+    private var photoControls: some View {
+        let libraryTitle = viewModel.productImage == nil ? "Velg fra bilder" : "Bytt bilde fra bibliotek"
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Produktbilde · valgfritt")
+                .font(AppTypography.bodyEmphasis)
+            if let image = viewModel.productImage {
+                ProductHeroImageView(image: image, height: 160)
+            }
+            Button {
+                Task { await viewModel.openCamera() }
+            } label: {
+                Label("Ta bilde", systemImage: "camera")
+                    .frame(minHeight: 44)
+            }
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                Label(libraryTitle, systemImage: "photo")
+                    .frame(minHeight: 44)
+            }
+            if viewModel.productImage != nil {
+                Button("Fjern bilde") {
+                    selectedPhoto = nil
+                    viewModel.selectImage(nil)
+                }
+                .frame(minHeight: 44)
+            }
+            if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
+            if let error = viewModel.imageError {
+                Text(error).font(AppTypography.caption).foregroundColor(AppColors.action)
+            }
+            Text("Bildet lagres kun på denne enheten sammen med produktet.")
+                .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+        }
+        .foregroundColor(AppColors.action)
+    }
+
+    private var nutritionFields: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Næringsinnhold")
+                        .font(AppTypography.sectionTitle)
+                        .foregroundColor(AppColors.deepInk)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Verdier per 100 g fra emballasjen.")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .numberPad)
+                field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)
+                field("Karbohydrat (g)", text: $viewModel.carbs, prompt: "For eksempel 40", keyboard: .decimalPad)
+                field("Fett (g)", text: $viewModel.fat, prompt: "For eksempel 6", keyboard: .decimalPad)
             }
         }
     }
@@ -115,6 +168,9 @@ struct ManualProductView: View {
             Text(title)
                 .font(AppTypography.bodyEmphasis)
                 .foregroundColor(AppColors.deepInk)
+            Text("Obligatorisk")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
             TextField(prompt, text: text)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(keyboard == .default ? .sentences : .never)
@@ -122,8 +178,32 @@ struct ManualProductView: View {
                 .padding(.horizontal, 14)
                 .frame(minHeight: 50)
                 .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .accessibilityLabel(title)
-                .accessibilityHint(prompt)
+                .accessibilityLabel("\(title), obligatorisk")
+                .accessibilityIdentifier(title.components(separatedBy: " (").first ?? title)
+                .accessibilityHint(keyboard == .default ? prompt : "Verdi per 100 gram. \(prompt)")
+        }
+    }
+}
+
+private struct ProductCameraPicker: UIViewControllerRepresentable {
+    let onComplete: (UIImage?) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onComplete: onComplete) }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.modalPresentationStyle = .fullScreen
+        picker.delegate = context.coordinator
+        return picker
+    }
+    func updateUIViewController(_ controller: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onComplete: (UIImage?) -> Void
+        init(onComplete: @escaping (UIImage?) -> Void) { self.onComplete = onComplete }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { onComplete(nil) }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            onComplete(info[.originalImage] as? UIImage)
         }
     }
 }

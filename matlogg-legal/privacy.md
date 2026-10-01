@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 30. september 2026
+Sist oppdatert: 1. oktober 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -74,7 +74,8 @@ Du kan velge a dele:
 Disse er valgfritt og kan slas av/pa nar som helst i Profil → Personvern & valg.
 
 8. Kamera og andre tillatelser
-  - Kamera brukes kun nar du selv starter skanning. iOS spor om tillatelse forste gang du skanner.
+  - Kamera brukes når du selv starter skanning eller velger «Ta bilde» ved manuell produktregistrering. iOS spør om kameratilgang før første bruk.
+  - Produktbilder er valgfrie. Du kan ta et bilde eller velge ett bilde gjennom iOS sin bildevelger uten å gi tilgang til hele bildebiblioteket. Bildet komprimeres uten original fotometadata og lagres med produktet i den lokale databasen. Det lastes ikke opp eller synkroniseres. Ved sletting av lokale profildata fjernes også de lagrede produktbildene.
 
 9. Hvor lenge lagrer vi data?
 

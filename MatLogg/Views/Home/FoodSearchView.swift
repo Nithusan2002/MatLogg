@@ -134,7 +134,21 @@ private struct FoodSearchContent: View {
                     VStack(spacing: 8) { searchButton; scanButton }
                 }
             }
+            manualRegistrationButton
         }
+    }
+
+    private var manualRegistrationButton: some View {
+        Button { searchFocused = false; showManualProduct = true } label: {
+            actionLabel("Registrer manuelt", symbol: "square.and.pencil")
+                .font(AppTypography.bodyEmphasis)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundColor(AppColors.action)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .accessibilityIdentifier("food-search-manual-registration")
     }
 
     private var searchButton: some View {
@@ -229,11 +243,6 @@ private struct FoodSearchContent: View {
             Section("Råvarer") { productRows(viewModel.suggestions) }
                 .listRowBackground(AppColors.surface)
         }
-        Section {
-            Button("Registrer manuelt") { searchFocused = false; showManualProduct = true }
-                .frame(minHeight: 44)
-        }
-        .listRowBackground(AppColors.surface)
     }
 
     @ViewBuilder
@@ -267,11 +276,6 @@ private struct FoodSearchContent: View {
             }
             .listRowBackground(AppColors.surface)
         }
-        Section {
-            Button("Registrer manuelt") { searchFocused = false; showManualProduct = true }
-                .frame(minHeight: 44)
-        }
-        .listRowBackground(AppColors.surface)
     }
 
     private func productRows(_ products: [Product]) -> some View {
@@ -310,7 +314,7 @@ private struct FoodSearchProductRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            ProductThumbnailView(url: product.imageUrl.flatMap(URL.init(string:)),
+            ProductThumbnailView(url: product.imageUrl.flatMap(URL.init(string:)), localData: product.localImageData,
                                  placeholderSystemImage: product.kind == .genericFood ? "fork.knife" : "shippingbox")
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)

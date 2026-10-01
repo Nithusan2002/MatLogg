@@ -95,6 +95,11 @@ mens søkefeltet redigeres, slik at den ikke dekker treff over tastaturet, og vi
 igjen når redigeringen avsluttes. Søk fra Loggfør
 bruker samme skjerminnhold i en egen presentasjon med fokusert søkefelt.
 
+«Registrer manuelt» vises som en sekundær knapp i full bredde rett under
+Søk og Skann strekkode, før favoritter eller søkeresultater. Knappen er
+tilgjengelig i alle søketilstander og bruker samme høyde og avrunding som
+handlingsknappene over.
+
 Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
 utvalg råvarer. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
 nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
@@ -111,6 +116,13 @@ Innledende lasting, lesefeil, ingen tidligere produkter, ingen lokale treff og
 ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søket.
 Skanning og fungerende manuell produktregistrering er tilgjengelige alternativer.
 Manuell registrering lagrer et brukeroppgitt produkt før mengdevalg og logging.
+Et valgfritt produktbilde kan tas med kamera eller velges fra bildebiblioteket
+i «Om produktet», med forhåndsvisning, bytte og fjerning før lagring. Bildet
+lagres kun lokalt; registrering fungerer uten bilde og ved avvist kameratilgang.
+Skjemaet grupperer feltene i «Om produktet» og «Næringsinnhold». Alle dagens
+felt er obligatoriske. Næringsverdiene oppgis per 100 g, med kcal eller g
+synlig i feltetiketten også etter inntasting. «Lagre og velg mengde» lagrer
+produktet lokalt før mengdevalget åpnes.
 
 ### Loggfør
 
