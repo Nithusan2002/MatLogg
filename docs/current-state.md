@@ -1,12 +1,16 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert: 2026-09-28.
+Sist kontrollert mot kode: 2026-10-01.
+
+Denne kontrollen omfatter kode og Git-historikk, ikke nye testkjøringer eller
+ekstern kontroll av staging/produksjon. Verifiseringsresultater nedenfor er
+historiske og gjelder datoen og omfanget som er oppgitt.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
 implementasjonen. Kode og versjonerte migrasjoner er teknisk sannhetskilde.
 
-Supabase-cutover er deployet til et eget staging-prosjekt i Stockholm-regionen:
+Ifølge tidligere dokumentert staging-verifisering er Supabase-cutover deployet til et eget staging-prosjekt i Stockholm-regionen:
 SQL-skjema/RLS, Edge Functions, e-postbekreftelse, 15-minutters JWT,
 30-dagers sletting og daglig purge-cron er konfigurert. Debug-konfigurasjonen
 peker lokalt til staging, og simulatorbygg samt autentisert kill-switch-test er
@@ -15,9 +19,13 @@ Apple-secret/provider, eget SMTP-oppsett, backup/restore, fysisk iPhone,
 TestFlight og separat produksjonsprosjekt gjenstår. NestJS/Prisma beholdes fram
 til disse portene og stabil pilot er godkjent.
 
-Midlertidig utviklingsoppsett: Debug-bygg åpner appen med en lokal debug-session.
-Launch-argumentet `--show-auth` viser den reelle velkomstflyten. Release-bygg
-lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
+App-roten bruker `SupabaseService` for konto og synk når konfigurasjon finnes.
+Uten konfigurasjon brukes eksplisitt utilgjengelige kontotjenester; lokal profil
+fungerer fortsatt. NestJS er ikke appens aktive synktransport.
+
+Debug bruker ordinær velkomst-/sesjonsflyt som standard. Launch-argumentet
+`--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Brukeren kan
+fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
 
 ## Implementert
 
@@ -38,7 +46,7 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
-- Lokalt skjema v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
+- Gjeldende lokalt skjema er v7, med vannlogging. Migrasjonen til v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
@@ -51,8 +59,8 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
-- Tall-skjerm med dagens energi, sju dagers oversikt, makroer mot mål,
-  måltidsfordeling og vektregistrering. Kalorier og tilgjengelige makroverdier
+- Oversikt med dagens energi, sju dagers oversikt, makroer mot mål
+  og vektregistrering. Måltidsfordelingskortet er fjernet. Kalorier og tilgjengelige makroverdier
   vises også når brukeren ikke har opprettet mål.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
@@ -109,7 +117,9 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
 - Hendelsesformatet er dokumentert i `sync-contract-v1.md`.
 - Synkmotoren kan sende batcher og behandle bekreftede og avviste hendelser.
 
-### Backend
+### Legacy-backend (NestJS/Prisma)
+
+Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
 
 - Synkkontrakt og Prisma-modeller for brukereide lagrede måltider og elementer,
   med atomisk upsert, idempotens og eierskapskontroll.
@@ -148,19 +158,19 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
   bruker. Brukerbytte/utlogging kansellerer planlagte retries. Eldre ikke-ferdige
   hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
-- Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--debug-auth`.
+- Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--skip-auth`.
 - Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
-  Google-innlogging er senere scope. Apple krever konfigurert
-  `APPLE_CLIENT_ID` og aktivert Sign in with Apple-capability før distribusjon.
+  Google-innlogging er senere scope. Apple krever konfigurert Supabase Apple-provider og aktivert
+  Sign in with Apple-capability før distribusjon.
 - Manuell opprettelse av ukjente produkter finnes fra skanneflyten.
 - Backend dekker ikke alle endepunktene i `specs/06-api-endpoints.md`.
   API-spesifikasjonen er derfor et målbilde med mindre kode viser noe annet.
 
 ## Ikke dokumentert som produksjonsklart
 
-- Faktisk staging-/produksjonsmiljø og leverandørspesifikk deploy. Generisk
-  utrullings-, staging- og rollback-port er dokumentert i
-  `docs/production-readiness.md`, men er ikke gjennomført i et eksternt miljø.
+- Separat produksjonsmiljø og fullført pilot-/releaseport. Staging er tidligere
+  dokumentert opprettet; dagens eksterne tilstand er ikke kontrollert her.
+  Se `docs/production-readiness.md`.
 - Faktisk overvåkning, alarmer og operativ mottaker. Krav og terskler er
   dokumentert, men ikke koblet til en leverandør.
 - Backup- og restore-prosedyre for PostgreSQL.
@@ -210,9 +220,10 @@ lar brukeren fortsette med en lokal profil eller velge Apple/e-postkonto.
 | App-sammensetting | `MatLogg/MatLoggApp.swift` |
 | Feature flags | `MatLogg/App/FeatureFlags.swift` |
 | Lokal lagring og skjema | `MatLogg/Services/LocalStore.swift` |
-| Klientsynk | `MatLogg/Services/SyncEngine.swift` og `APIService.swift` |
-| Synkformat | `docs/sync-contract-v1.md` og `backend/src/sync/` |
-| Backend-datamodell | `backend/prisma/schema.prisma` og `backend/prisma/migrations/` |
+| Klientsynk og konto | `MatLogg/Services/SyncEngine.swift` og `SupabaseService.swift` |
+| Synkformat | `docs/sync-contract-v1.md` og `supabase/functions/_shared/sync-contract.ts` |
+| Aktiv serverdatamodell/RLS/RPC | `supabase/migrations/` |
+| Legacy-datamodell | `backend/prisma/schema.prisma` og `backend/prisma/migrations/` |
 | Varige valg | `docs/decisions.md` |
 
 ## Nærmeste tekniske milepæl
@@ -285,7 +296,7 @@ implementert og implementert.
 ## Vannlogging (2026-09-30)
 
 Implementert lokalt: kompakt vannkort på Hjem, ett trykk per glass, valgt dato,
-angre/korrigering, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
+korrigering ved å fjerne siste glass, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
 glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
 og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
 Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.
@@ -303,3 +314,14 @@ profilen ikke har registreringer fra før.
 Verifisert på iOS 26.5-simulator: 15 målrettede Swift-tester (demo og profil) og
 én UI-test for bytte begge veier og gjenoppretting av demomodus etter omstart.
 Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifisert.
+
+## Søk og produktbilder (kontrollert mot kode 2026-10-01)
+
+Søkeopplevelsen er innlemmet i `main`: direkte søkefelt, lokale treff under
+inntasting, eksplisitt eksternt søk, favoritter, nylig brukt og manuell
+registrering. Se `design-and-user-flow.md` og `search-implementation-plan.md`.
+
+Manuell produktregistrering støtter valgfritt kamera-/bibliotekbilde.
+`Product.localImageData` lagres lokalt og inngår ikke i `ProductSyncPayload`.
+Eksisterende produktbilder bruker separat cache via `ProductImageRepository`.
+Dette er kodekontroll, ikke en ny funksjons- eller enhetstest.

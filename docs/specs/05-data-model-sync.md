@@ -1,6 +1,20 @@
 # MatLogg – Datamodell & Synkronisering
 
-## 5.1 Core Entities (Local SQLite)
+## Implementasjonsstatus (2026-10-01)
+
+Modellskissene nedenfor er historiske/målbilder og er ikke en direkte beskrivelse
+av dagens Swift- eller SQLite-skjema. Bruk `MatLogg/App/Models.swift`,
+`MatLogg/Services/LocalStore.swift` (skjema v7), `supabase/migrations/` og
+`synkkontrakt v1` som tekniske sannhetskilder. Synkkontrakten finnes i
+[docs/sync-contract-v1.md](../sync-contract-v1.md).
+
+Den lokale `User`-modellen lagrer ikke passordhash. Supabase Auth eier
+kontoautentisering. Produkter bevarer `nutritionBasis` (per 100 g eller 100 ml)
+og kilde; eldre data uten grunnlag tolkes som per 100 g. Feltnavn med `Per100g`
+er beholdt for kompatibilitet og betyr ikke at væsker konverteres til gram.
+Lokale produktbilder lagres som `localImageData`, ikke som `image_local_path`.
+
+## 5.1 Core Entities (historiske modellskisser)
 
 ### **Users**
 
@@ -54,7 +68,7 @@ struct Product {
     barcode_ean: String (indexed, unique per source)
     source: String ("matvaretabellen" | "openfoodfacts" | "user" | "shared")
     
-    // Nutrition per 100g (always)
+    // Historisk skisse: faktisk grunnlag er per 100 g eller 100 ml
     calories_per_100g: Int
     protein_g_per_100g: Float
     carbs_g_per_100g: Float

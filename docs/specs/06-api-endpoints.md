@@ -5,7 +5,8 @@
 **Supabase Functions URL:** `<SUPABASE_URL>/functions/v1`
 **Protocol:** REST + JSON  
 **Auth:** Bearer JWT (Authorization header)  
-**Versioning:** URL-based (`/v1`, `/v2`, etc.)
+**Ruting:** Supabase Auth via SDK; Edge Functions under `/functions/v1/<navn>`.
+`v1` her er Supabase-ruten, ikke en avtale om fremtidige MatLogg-API-versjoner.
 
 ### Implementasjonsstatus
 
@@ -14,6 +15,15 @@ registrering, e-postbekreftelse, innlogging, tokenrefresh og lokal utlogging.
 Edge Functions eier synk og kontosletting. De eldre REST-endepunktene nedenfor
 beskriver legacy-backenden eller målbilde og skal ikke bygges videre under
 cutover.
+
+### Aktiv klientintegrasjon (kontrollert mot kode 2026-10-01)
+
+- `SupabaseService.swift` bruker Supabase Auth for e-post, Apple og sesjoner.
+- `sync-events` mottar batcher etter [synkkontrakt v1](../sync-contract-v1.md).
+- `delete-account` håndterer autentisert kontosletting.
+- `purge-accounts` er en operativ funksjon for opprydding, ikke et klientendepunkt.
+- Klientens synkflagg er fortsatt avslått. Funksjonskode i repoet bekrefter ikke
+  dagens deploystatus eller produksjonsgodkjenning.
 
 ---
 

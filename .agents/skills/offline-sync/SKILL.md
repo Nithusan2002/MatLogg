@@ -5,7 +5,7 @@ description: Utform og endre MatLoggs lokale lagring, synkkø, event-format, ret
 
 # Offline-first og synk
 
-Les `docs/specs/05-data-model-sync.md`, `docs/specs/07-edge-cases.md`, `LocalStore.swift`, `SyncEngine.swift`, `APIService.swift` og backendens sync-modul.
+Les `docs/specs/05-data-model-sync.md`, `docs/specs/07-edge-cases.md`, `LocalStore.swift`, `SyncEngine.swift`, `SupabaseService.swift`, `docs/sync-contract-v1.md`, Supabase-funksjonen `sync-events` og berørte SQL/RPC-er. Les legacy-backendens sync-modul bare ved kompatibilitetsarbeid i `backend/`.
 
 Lokale brukerhandlinger skal lagres atomisk før nettverksforsøk. Hver hendelse skal ha stabil unik ID, eksplisitt type og schema-versjon. Retry må være trygg: backend skal deduplisere på event-ID, og klienten skal ikke miste en hendelse ved timeout eller prosessavbrudd.
 

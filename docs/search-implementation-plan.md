@@ -1,11 +1,18 @@
 # Implementeringsplan: Søk
 
-## Mål og scope
+## Status
+
+Søkearbeidet er innlemmet i `main` (merge `d4d0ab3`). Dokumentet bevarer
+implementeringsplan og akseptansekriterier som referanse; det er ikke en aktiv
+branchplan eller bekreftelse på nye testkjøringer. Gjeldende brukerflyt finnes i
+[design- og brukerflyt](design-and-user-flow.md).
+
+## Opprinnelig mål og scope
 
 Søk skal la brukeren finne, gjenbruke og loggføre en matvare med få steg.
 Dette fullfører eksisterende MVP: råvarer, merkevarer, favoritter, nylig brukt,
 skanning og manuell registrering. Ingen nye datakilder, filtre, serverendringer,
-migrasjoner eller analyseinnsamling. Branchen er `codex/search-experience`,
+migrasjoner eller analyseinnsamling. Arbeidet ble gjort på `codex/search-experience`,
 opprettet fra `main`.
 
 ## Implementering

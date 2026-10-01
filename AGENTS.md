@@ -2,7 +2,7 @@
 
 ## Prosjekt
 
-MatLogg er en norsk iOS-app for enkel matlogging, ernæringsoversikt og måloppfølging. Klienten er SwiftUI og local-first; backend er NestJS med Prisma/PostgreSQL og mottar idempotente synkhendelser.
+MatLogg er en norsk iOS-app for enkel matlogging, ernæringsoversikt og måloppfølging. Klienten er SwiftUI og local-first; aktiv serverplattform er Supabase Auth, Edge Functions og PostgreSQL/RLS. NestJS/Prisma beholdes som legacy under cutover.
 
 Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arkitektoniske endringer. Kode og migrasjoner er teknisk sannhetskilde når eldre spesifikasjoner avviker; dokumenter viktige avvik.
 
@@ -26,7 +26,7 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Behandle ernæringsverdier, målberegninger og brukerdata som sensitive. Ikke presenter estimater som medisinske råd eller dokumenterte fakta.
 - Bevar datakilde og måleenhet gjennom søk, matching, lagring og visning. Ikke gjett manglende næringsdata.
 - Legg aldri hemmeligheter, tokens, persondata eller ekte produksjonsdata i repoet.
-- Bruk Prisma-migrasjoner for skjemaendringer. Ikke rediger genererte filer i `backend/dist/`.
+- Bruk versjonerte SQL-migrasjoner i `supabase/migrations/` for den aktive serverplattformen. Legacy-skjemaet endres via Prisma-migrasjoner. Ikke rediger genererte filer i `backend/dist/`.
 - Bruk semantiske design-tokens og eksisterende komponenter fremfor lokale stilvarianter.
 - Alle `ScrollView`, `List` og `Form` som vises under den vedvarende bunnmenyen skal bruke `matLoggTabBarScrollClearance()`; ikke-scrollbare faneskjermer skal også holde bunntilknyttet innhold over menyen. Dette gjelder nye skjermer som pushes i en fanes `NavigationStack`, men ikke sheets, fullskjermsvisninger, innlogging eller onboarding.
 - Hold `AppState` som koordinering, ikke som permanent hjem for ny domenelogikk eller IO.
@@ -53,7 +53,8 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 | `MatLogg/Services/` | Lokal lagring, API, auth, synk, matching og enhetsintegrasjoner |
 | `MatLogg/Views/` | Feature-sorterte skjermer og delte views |
 | `MatLoggTests/`, `MatLoggUITests/` | Swift Testing og UI-tester |
-| `backend/src/` | NestJS-moduler for auth, helse, Prisma og synk |
+| `supabase/` | Aktiv serverplattform: Auth-integrasjon, Edge Functions, SQL-migrasjoner og RLS |
+| `backend/src/` | Legacy NestJS-moduler for auth, helse, Prisma og synk |
 | `backend/prisma/` | Databaseskjema og migrasjoner |
 | `docs/specs/` | Produkt-, UX-, data-, API- og roadmap-spesifikasjoner |
 | `docs/decisions.md` | Kort, kronologisk logg over varige tekniske og produktmessige valg |
@@ -69,7 +70,7 @@ Bruk relevante skills fra `.agents/skills/` for arbeidsområdet.
 | Visuell retning, brukerflyt, UX-tekst, skjermkritikk eller designsystem | `product-design` før implementering |
 | SwiftUI, navigasjon, state, tilgjengelighet eller iOS-tester | `ios-swiftui` |
 | Lokal lagring, event queue, konfliktregler eller synkformat | `offline-sync` |
-| NestJS, Prisma, auth, API-kontrakter eller databaseendringer | `backend-api` |
+| Supabase, Edge Functions, RLS, legacy NestJS/Prisma, auth, API-kontrakter eller databaseendringer | `backend-api` |
 | Ernæringsdata, måleenheter, målberegning, personvern eller helserelatert språk | `nutrition-privacy` |
 | Nye funksjoner, sikkerhetskritiske endringer, pilot eller release | `qa-release` etter relevante fag-skills |
 

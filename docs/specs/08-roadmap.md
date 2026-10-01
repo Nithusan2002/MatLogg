@@ -1,6 +1,23 @@
 # MatLogg – Roadmap: MVP → v1 → v2
 
-## 8.1 Release Timeline
+## Gjeldende ramme (2026-10-01)
+
+Prosjektet er fortsatt under MVP-utvikling; ingen ny lanseringsdato er avtalt.
+Faktisk implementasjon finnes i [gjeldende status](../current-state.md), og
+pilot-/produksjonskrav i [produksjonsberedskap](../production-readiness.md).
+Neste porter er server-/klientkompatibilitet inkludert vannmigrasjonen,
+Apple/SMTP, backup/restore, overvåkning, fysisk iPhone og TestFlight før
+synkaktivering og separat produksjonsutrulling.
+
+Resten av dokumentet er en historisk plan: 2025-datoer, uketall, bemanning,
+markedsføring, bruker-/vekstmål og branchdiagram er forslag, ikke vedtatte
+forpliktelser. Avkryssing viser opprinnelig scope, ikke verifisert ferdigstatus.
+Oversikt, makrovisning, vann og lagrede måltider finnes nå lokalt selv om eldre
+scope nedenfor avgrenser deler av dette. `main` er utviklingslinjen, ikke en
+produksjonsgodkjent v1.0. Arkitekturkrav og risikobasert QA gjelder også MVP;
+avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
+
+## 8.1 Historisk releaseforslag
 
 ```
 ┌──────────────────────────────────────────────────────────────┐

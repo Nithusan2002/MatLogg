@@ -2,7 +2,8 @@
 
 MatLogg er en norsk iOS-app for rask matlogging, ernæringsoversikt og
 måloppfølging. SwiftUI-klienten er local-first: brukerhandlinger lagres i
-SQLite før eventuell synk mot NestJS/PostgreSQL-backenden.
+SQLite før eventuell synk mot Supabase (Auth, Edge Functions og PostgreSQL).
+NestJS/Prisma-backenden beholdes som legacy under cutover.
 
 ## Status
 
@@ -14,8 +15,11 @@ Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
   Matvaretabellen.
 - En versjonert synkkø, retry/backoff og backend-mottak finnes, men
   `FeatureFlags.backendSyncEnabled` er avslått.
-- Backend tilbyr foreløpig health check, dev-login og mottak av synkhendelser.
-- Debug-build hopper over ordinær innlogging og bruker en utviklingssesjon.
+- Supabase er koblet til konto og synk når appkonfigurasjon finnes; uten den
+  fungerer lokal profil fortsatt, mens kontokall er utilgjengelige.
+- Vannlogging, lagrede måltider, lokale produktbilder og DEBUG-demomodus finnes.
+- Debug bruker ordinær innloggingsflyt som standard. `--skip-auth` aktiverer
+  en lokal utviklingssesjon.
 
 Se [gjeldende prosjektstatus](docs/current-state.md) for implementert, delvis
 implementert og planlagt funksjonalitet.
@@ -50,7 +54,8 @@ MatLogg/                 SwiftUI-app
   Views/                 Feature-sorterte skjermer
 MatLoggTests/            iOS-enhets- og integrasjonstester
 MatLoggUITests/          iOS UI-tester
-backend/                 NestJS, Prisma og PostgreSQL
+supabase/                Aktiv serverplattform: migrasjoner, RLS og Edge Functions
+backend/                 Legacy NestJS/Prisma under cutover
 docs/                    Produkt- og teknisk dokumentasjon
 matlogg-legal/           Juridiske tekster
 .agents/skills/          Prosjektspesifikke agentarbeidsflyter
@@ -66,20 +71,24 @@ Krav: en kompatibel versjon av Xcode og en installert iOS-simulator.
 2. Velg `MatLogg`-scheme og en simulator.
 3. Bygg og kjør appen.
 
-### Backend
+### Supabase
 
-Krav: Node.js, npm og Docker.
+Krav: Docker og Node.js. Fra repo-roten:
 
 ```bash
-cd backend
-docker compose up -d
-npm install
-npx prisma migrate dev
-npm run start:dev
+npm ci
+npm run supabase:start
+npm run supabase:reset
 ```
 
-Backend kjører som standard på `http://localhost:4000`. Se
-[backendens README](backend/README.md) for health check, Swagger og dev-login.
+Se [Supabase-oppsettet](supabase/README.md) for lokal appkonfigurasjon,
+verifisering, staging og kill switch. Synk er avslått som standard.
+
+### Legacy-backend
+
+NestJS er bevart for historikk og kompatibilitetskontroll, og er ikke appens
+aktive konto-/synkplattform. Se [legacy-backendens README](backend/README.md)
+ved arbeid i `backend/`.
 
 ## Testing
 
@@ -91,4 +100,6 @@ synk eller release.
 [Dokumentasjonsindeksen](docs/README.md) peker til MVP-scope, brukerflyter,
 datamodell, API-målbilde, roadmap, risikoer og tekniske sannhetskilder.
 
-Prosjektet er privat.
+Repoet er offentlig tilgjengelig med en proprietær
+[«All rights reserved»-lisens](LICENSE). Offentlig visning gir ikke tillatelse
+til gjenbruk; se lisensvilkårene.
