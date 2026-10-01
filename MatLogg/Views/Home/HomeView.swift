@@ -335,6 +335,8 @@ struct HomeTabView: View {
                         }
                     }
 
+                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate, compact: true)
+
                     PrimaryButton(title: "Loggfør mat", systemImage: "plus", action: onOpenQuickLog)
                         .accessibilityIdentifier("home-log-food")
 
@@ -396,7 +398,6 @@ struct HomeTabView: View {
 
                     quickLogSection
 
-                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate)
 
                 }
                 .padding(.horizontal, 16)
@@ -668,8 +669,9 @@ struct MealOverviewCard: View {
                     .frame(width: 34, height: 34)
                     .background(meal.tint.opacity(0.22), in: Circle())
                 Text(meal.title)
-                    .font(AppTypography.secondaryEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
+                    .font(AppTypography.sectionTitle)
+                    .foregroundColor(AppColors.deepInk)
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer()
                 Button(action: onAdd) {
                     Text("+ Legg til")
@@ -702,6 +704,7 @@ struct MealOverviewCard: View {
                                 Text(productName(log.productId))
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.deepInk)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
                                     .font(AppTypography.secondary)
                                     .foregroundColor(AppColors.textSecondary)
@@ -720,26 +723,49 @@ struct MealOverviewCard: View {
                     .frame(height: 1)
                     .accessibilityHidden(true)
 
-                Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal · P \(NutritionDisplay.wholeGrams(totals.protein)) g · K \(NutritionDisplay.wholeGrams(totals.carbs)) g · F \(NutritionDisplay.wholeGrams(totals.fat)) g")
-                    .font(AppTypography.secondaryEmphasis)
-                    .foregroundColor(AppColors.deepInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.deepInk)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
             }
         }
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(AppColors.separator)
-                .frame(height: 1)
-                .accessibilityHidden(true)
-        }
-        .contentShape(Rectangle())
+        .padding(16)
+        .matLoggCardSurface(cornerRadius: 24, borderEnabled: false)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
         }
         .accessibilityElement(children: .contain)
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
+    }
+
+    @ViewBuilder
+    private func mealMacros(protein: Float, carbs: Float, fat: Float) -> some View {
+        macroLabel("P", value: protein, tint: AppColors.macroProteinTint)
+        macroLabel("K", value: carbs, tint: AppColors.macroCarbTint)
+        macroLabel("F", value: fat, tint: AppColors.macroFatTint)
+    }
+
+    private func macroLabel(_ label: String, value: Float, tint: Color) -> some View {
+        Text("\(label) \(NutritionDisplay.wholeGrams(value)) g")
+            .font(AppTypography.captionEmphasis)
+            .foregroundColor(AppColors.deepInk)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.12), in: Capsule())
+            .fixedSize()
     }
 
 }

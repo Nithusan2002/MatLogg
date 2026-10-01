@@ -50,12 +50,12 @@ Prioritet:
 
 1. dato og kontekst, inkludert status for lokalt lagrede endringer
 2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
-3. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
-4. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
-5. personlige hurtigvalg og vannregistrering
+3. kompakt vannrad med valgt dato, antall glass og minus/pluss
+4. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
+5. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+6. personlige hurtigvalg
 
-Måltidene vises som kompakte seksjoner direkte på bakgrunnen, med diskrete
-skillelinjer fremfor separate kort. Næringsfeltet bruker dagens varme tema,
+Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
 sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
 Eksisterende visningsvalg for målstatus beholdes.

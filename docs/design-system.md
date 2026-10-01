@@ -95,8 +95,8 @@ tvers av flere komponenter; featureviews skal ikke etablere parallelle skalaer.
 
 På Hjem brukes 16 pt mellom innholdsgrupper og 12 pt mellom måltidskortets
 overskrift og innhold og mellom matvarer. Tomtekst har innholdsstyrt høyde,
-uten ekstra minimumshøyde. Måltidsseksjoner bruker 12 pt vertikal padding,
-ingen egen kortflate og en diskret skillelinje nederst. Produktbilder er 44 pt. Tekst og trykkflater komprimeres ikke.
+uten ekstra minimumshøyde. Måltidsseksjoner bruker 16 pt padding, lys `surface`-kortflate, 24 pt
+kontinuerlige hjørner og designsystemets diskrete skygge uten ytre kant. Produktbilder er 44 pt. Tekst og trykkflater komprimeres ikke.
 Fylte måltidsseksjoner viser matvarenavn og mengder for opptil tre varer og én
 samlet næringsrad for hele måltidet: kcal, protein, karbohydrater og fett.
 Totalen inkluderer varer bak «+ flere», summeres før avrunding og kan bryte
@@ -265,3 +265,17 @@ Den kompakte femknappsmenyen begrenser videre skalering slik at etikettene
 forblir lesbare i skjermbredden også når innholdet bruker tilgjengelighetsstørrelser.
 Alle knapper har minst 44 pt trykkflate og fullstendige VoiceOver-navn.
 Søk skjuler menyen mens søkefeltet redigeres.
+
+### Måltidsdetaljer på Hjem
+
+Måltidsnavn bruker sectionTitle; matnavn bruker bodyEmphasis og kan bryte over
+flere linjer. Mengde står som sekundær tekst ved produktbildet. Måltidets
+samlede kcal vises over tre diskrete makroetiketter med eksisterende makrofarger
+på 12 % tonet bakgrunn og deepInk-tekst. Etikettene stables når bredden ikke
+rekker. VoiceOver leser totalen med fulle næringsnavn. Ingen ekstra
+progresjonsstolper eller måltidskvote introduseres.
+
+Vann på Hjem vises som en kompakt rad mellom næringsfeltet og loggknappen.
+Raden viser valgt dag, antall glass og 44 pt minus-/plussknapper uten glassrutenett.
+Ved liten bredde eller stor tekst stables innholdet. Lasting, feil med retry og
+justering beholdes; raden vises også når målstatus er skjult.

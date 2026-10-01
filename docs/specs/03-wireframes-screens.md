@@ -50,8 +50,8 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 
 Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
 viser MatLogg, dato og profil. Etter eventuell lokal synkstatus følger «Dagen din, så langt.», et valgfritt
-samlet næringsfelt og «Loggfør mat». Deretter følger fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
-skillelinjer fremfor separate kortflater. Etter måltidene følger personlige hurtigvalg og vannregistrering.
+samlet næringsfelt, en kompakt vannrad og «Loggfør mat». Deretter følger fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
+lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Den sentrale «Loggfør»-knappen åpner bunnarket med eksisterende loggingvalg.
