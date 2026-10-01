@@ -77,7 +77,7 @@ function Feature({ eyebrow, title, children, visual, flip }: { eyebrow: string; 
 
 export default function App() {
   const [menu, setMenu] = useState(false);
-  const [dlg, setDlg] = useState<null | "beta" | "privacy" | "contact">(null);
+  const [dlg, setDlg] = useState<null | "beta" | "contact">(null);
   const close = () => setDlg(null);
   const links = [["#slik", "Slik fungerer det"], ["#funksjoner", "Funksjoner"], ["#faq", "Spørsmål"]];
 
@@ -164,7 +164,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Prototype</span></div>
           <div className="flex gap-2">
-            <button onClick={() => setDlg("privacy")} className="min-h-11 px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</button>
+            <a href="./personvern.html" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</a>
             <button onClick={() => setDlg("contact")} className="min-h-11 px-3 text-sm text-muted-foreground hover:text-foreground">Kontakt</button>
           </div>
         </div>
@@ -172,10 +172,6 @@ export default function App() {
 
       <Modal open={dlg === "beta"} onClose={close} title="Betapåmelding">
         <p>Dette er en prototype. Betapåmelding åpnes senere.</p>
-      </Modal>
-      <Modal open={dlg === "privacy"} onClose={close} title="Personvern">
-        <p>Denne siden er en prototype og samler ikke inn personopplysninger, bruker ikke analyse og lagrer ingenting.</p>
-        <p>Dette er en demonstrasjon av nettsiden. Personvernerklæring og kontaktinformasjon for lansering kobles inn før publisering.</p>
       </Modal>
       <Modal open={dlg === "contact"} onClose={close} title="Kontakt">
         <p>Kontaktinformasjon er ikke publisert ennå. Dette er en plassholder i prototypen.</p>
