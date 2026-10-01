@@ -51,31 +51,41 @@ client_id = "com.nithusan.MatLogg"
 secret = "env(SUPABASE_AUTH_EXTERNAL_APPLE_SECRET)"
 
 [functions.sync-events]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.delete-account]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.purge-accounts]
+import_map = "./functions/deno.json"
 verify_jwt = false
 
 [functions.create-product-upload]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.extract-nutrition-label]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.submit-catalog-product]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.catalog-lookup]
+import_map = "./functions/deno.json"
 verify_jwt = false
 
 [functions.report-catalog-product]
+import_map = "./functions/deno.json"
 verify_jwt = false
 
 [functions.moderate-catalog-submission]
+import_map = "./functions/deno.json"
 verify_jwt = true
 
 [functions.purge-product-images]
+import_map = "./functions/deno.json"
 verify_jwt = false

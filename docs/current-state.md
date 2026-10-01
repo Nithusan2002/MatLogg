@@ -348,3 +348,7 @@ Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifise
 - iOS: siste kjøring består med 21 tester for produktutkast/eierskap, søk og
   vannlogging. Fem bildetester og to UI-tester for Loggfør/oppretting og
   søk/produktåpning bestod i foregående kjøring av integrasjonen.
+- Lokale Edge Function-kall verifisert: katalog av gir 503 FEATURE_DISABLED,
+  katalog på gir 200 med produktliste, innlogget privat opplasting gir 201 og
+  uautorisert opplasting gir 401. Felles importkart er eksplisitt konfigurert
+  for alle funksjoner etter at runtime-kontroll avdekket manglende imports.

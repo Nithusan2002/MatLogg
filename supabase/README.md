@@ -78,7 +78,7 @@ lokale testmiljøet. Demo bruker ingen AI-/katalogbackend.
 Ved kontroll 2026-10-01 kjører et separat PostgreSQL 17-miljø med prosjekt-ID
 `matlogg-catalog-test` fra `/tmp/matlogg-catalog-local-test`. API er på
 `http://127.0.0.1:55321`, Studio på `http://127.0.0.1:55323`. DEBUG-konfigurasjonen
-peker lokalt; tidligere lokal konfigurasjon er sikkerhetskopiert til
+peker lokalt, og serverflagget for kataloglesing er aktivert her; tidligere lokal konfigurasjon er sikkerhetskopiert til
 `/tmp/matlogg-catalog-original-debug.xcconfig.local`. Bruk en lokal testkonto;
 `--skip-auth` gir ingen servertoken til AI/opplasting.
 
