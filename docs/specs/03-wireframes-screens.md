@@ -56,7 +56,7 @@ Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Den sentrale «Loggfør»-knappen åpner bunnarket med eksisterende loggingvalg.
 Måltidsseksjonene viser inntil tre innslag med produktbilde og mengde, samt en
-samlet næringsrad. Trykk på en fylt seksjon åpner dagsloggen for valgt dato;
+samlet næringsrad. Trykk på en fylt seksjon åpner valgt måltid for valgt dato;
 tomme seksjoner har en tydelig «Legg til»-handling. Gjenbruk og angre beholdes.
 
 Tilstandskrav for Home, hurtigvalg og søk:
@@ -578,3 +578,10 @@ over skjermene. Profil har «Demomodus» og
 endringer i demoen fjernes og vanlige data beholdes. Under klargjøring vises
 fremdrift og interaksjoner deaktiveres; feil beholder tidligere appkontekst.
 Bytte til vanlig modus bevarer eksisterende registreringer og kontosesjon.
+
+### Måltidsrom (gjeldende loggvisning)
+
+Dato → rullbar måltidsvelger → måltidsnavn og antall → produktbilder, matnavn
+og mengder → Legg til mat. Måltidets samlede næring vises rett under
+måltidsnavn og antall, før produktlisten. Hele dagen kan velges
+sekundært. Se design-and-user-flow.md for handlinger og tilstander.

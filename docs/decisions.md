@@ -629,3 +629,11 @@ plommefarger. Samlet næringsfelt og en eksplisitt loggknapp kommer før kompakt
 måltidsseksjoner. Makrotall og mål beholdes, mens progresjonsstolper fjernes
 fra Hjem. Dette erstatter dagens tidligere beslutning om måltidslogg først.
 Ingen nye datakrav eller endringer i målberegning, lagring eller synk.
+
+## 2026-10-01 – Måltidsrom erstatter primær dagslogg
+
+Hjem sender dato og måltid til loggskjermen. Ett måltid om gangen er primær
+visning; hele dagen er fortsatt tilgjengelig. Produktbilder, navn og mengder
+prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
+av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
+beholdes. Ingen endringer i lagring eller synkkontrakt.

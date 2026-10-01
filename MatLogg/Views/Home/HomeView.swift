@@ -406,8 +406,8 @@ struct HomeTabView: View {
             .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(item: $selectedMealForLog) { _ in
-                LoggView(initialDate: selectedDate)
+            .navigationDestination(item: $selectedMealForLog) { meal in
+                LoggView(initialDate: selectedDate, initialMeal: meal.key)
             }
         }
         .task(id: authViewModel.currentUser?.id) {
@@ -668,10 +668,16 @@ struct MealOverviewCard: View {
                     .foregroundColor(AppColors.deepInk)
                     .frame(width: 34, height: 34)
                     .background(meal.tint.opacity(0.22), in: Circle())
-                Text(meal.title)
-                    .font(AppTypography.sectionTitle)
-                    .foregroundColor(AppColors.deepInk)
-                    .fixedSize(horizontal: false, vertical: true)
+                Button(action: onOpen) {
+                    Text(meal.title)
+                        .font(AppTypography.sectionTitle)
+                        .foregroundColor(AppColors.deepInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Åpne \(meal.title)")
+                .accessibilityIdentifier("home-meal-open-\(meal.key)")
                 Spacer()
                 Button(action: onAdd) {
                     Text("+ Legg til")

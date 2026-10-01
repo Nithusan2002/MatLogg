@@ -62,6 +62,9 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
   Uleselige JSON-rader logges diagnostisk uten å bli slettet.
 - Logging med mengde og bevart enhet (`g`/`ml`), måltid, kalorier og
   makronæringsstoffer. Eldre data uten enhet tolkes som gram.
+- Måltidsrommet åpner valgt måltid og dato fra Hjem, med rullbar måltidsvelger,
+  produktbilder, redigering/flytting, sletting med angre og sekundær hel-dagsvisning.
+  Måltidstotaler inkluderer alle varer uavhengig av søk.
 - Dagsnavigasjon med piler og kalender på Hjem og i Logg. Valgt dato følger
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.

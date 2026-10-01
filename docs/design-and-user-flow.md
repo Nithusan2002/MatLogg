@@ -61,7 +61,7 @@ sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
 Eksisterende visningsvalg for målstatus beholdes.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidsseksjoner viser et begrenset sammendrag; trykk åpner dagsloggen med alle måltider for valgt dato.
+Måltidsseksjoner viser et begrenset sammendrag; trykk åpner valgt måltid for valgt dato.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
 måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
@@ -420,3 +420,15 @@ tilbyr «Angre» i fire sekunder (åtte med VoiceOver). Flere raske slettinger
 samles og kan gjenopprettes atomisk med samme mengde, enhet, næringsgrunnlag
 og tidspunkter. Gjenoppretting bruker nye logg-ID-er for å tåle forsinkede
 slettehendelser. Bekreftelser for større slettinger beholdes.
+
+## Måltidsrommet
+
+Hjem åpner riktig måltid og dato. Måltidsvelgeren viser Frokost, Lunsj, Middag
+og Kveldsmat; «Se hele dagen» tilbyr samlet liste. Datobytte beholder måltidet.
+Produktbilder, navn og mengde prioriteres; næring per vare er sekundært.
+Trykk eller VoiceOver-handlingen «Rediger» åpner eksisterende redigering; sveiping tilbyr flytting og
+sletting med angre. «Legg til mat» beholder valgt måltid og dato.
+Samlet næring vises rett under måltidsnavn og antall varer og summerer hele måltidet uavhengig av søk.
+Søk gjelder valgt måltid eller hele dagen. Lasting skilles fra tomt måltid og
+ingen søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
+«Kopier hele dagen fra i går» beholder eksisterende dagsscope.

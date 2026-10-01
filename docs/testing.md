@@ -222,3 +222,13 @@ delte forespørsler, `Retry-After`, separate feiltilstander, forkasting av gamle
 skanneresultater, endret måleenhet og beskyttelse av private varer/historiske
 loggverdier. API-tester bruker syntetiske svar, ikke live leverandørdata.
 Fysisk skanning, VoiceOver og faktisk varedekning kontrolleres før pilot.
+
+### Måltidsrommet
+
+Målrettet verifisering: `MatLoggTests/LogViewModelTests` dekker måltidstotaler,
+separate søketreff, datoer, redigering og sletting/angre.
+`MatLoggUITests/MatLoggUITests/testMealRoomOpensMealAndKeepsSelectionAcrossDates`
+dekker inngang fra Hjem, måltidsvalg og datobytte med stor tekst.
+`MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay`
+dekker registrering på tidligere dato og flytting til et annet måltid.
+Begge UI-testene lagrer skjermbilder i testresultatet.

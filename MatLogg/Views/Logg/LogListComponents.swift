@@ -4,6 +4,9 @@ struct LogRowView: View {
     let log: FoodLog
     let productName: String
     var compact: Bool = false
+    var mealRoom: Bool = false
+    var imageURL: URL? = nil
+    var imageData: Data? = nil
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
@@ -11,7 +14,7 @@ struct LogRowView: View {
     var body: some View {
         Group {
             if compact {
-                rowContent.padding(.horizontal, 16).padding(.vertical, 12)
+                rowContent.padding(.horizontal, 16).padding(.vertical, mealRoom ? 10 : 12)
             } else {
                 CardContainer { rowContent }
             }
@@ -24,6 +27,8 @@ struct LogRowView: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(mealRoom && onEdit != nil ? .isButton : [])
+        .accessibilityHint(mealRoom && onEdit != nil ? "Trykk for å redigere mengde eller flytte varen" : "")
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if let onDelete {
                 Button(role: .destructive) {
@@ -50,19 +55,36 @@ struct LogRowView: View {
             }
         }
     }
+    @ViewBuilder
     private var rowContent: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                productDescription
-                Spacer(minLength: 12)
-                calories
+        if mealRoom {
+            HStack(alignment: .top, spacing: 12) {
+                ProductThumbnailView(url: imageURL, localData: imageData, size: 44)
+                VStack(alignment: .leading, spacing: 4) {
+                    productDescription
+                    Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("\(NutritionDisplay.wholeCalories(log.calories)) kilokalorier, protein \(NutritionDisplay.wholeGrams(log.proteinG)) gram, karbohydrat \(NutritionDisplay.wholeGrams(log.carbsG)) gram, fett \(NutritionDisplay.wholeGrams(log.fatG)) gram")
+
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                productDescription
-                calories
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    productDescription
+                    Spacer(minLength: 12)
+                    calories
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    productDescription
+                    calories
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var productDescription: some View {

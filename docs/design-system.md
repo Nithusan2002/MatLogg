@@ -279,3 +279,13 @@ Vann på Hjem vises som en kompakt rad mellom næringsfeltet og loggknappen.
 Raden viser valgt dag, antall glass og 44 pt minus-/plussknapper uten glassrutenett.
 Ved liten bredde eller stor tekst stables innholdet. Lasting, feil med retry og
 justering beholdes; raden vises også når målstatus er skjult.
+
+### Måltidsrom
+
+Loggskjermen bruker eksisterende tema og en horisontal, rullbar MealChip-velger.
+Produktbilder er 44 pt; matnavn og mengde står over en sekundær næringslinje.
+Radene har 10 pt vertikal padding uten ekstra vertikale List-innrykk.
+Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;
+ingen separat Endre-knapp vises. Et kompakt warmSurface-
+felt rett under måltidsnavn og antall varer viser måltidets næring. Rader beholder systemets List-
+sveiping, skalerbar typografi og matLoggTabBarScrollClearance().
