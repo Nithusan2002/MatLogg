@@ -6,11 +6,7 @@ import { DemoSection } from "./components/DemoApp";
 function Logo() {
   return (
     <span className="flex items-center gap-2 font-bold">
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden>
-        <rect width="28" height="28" rx="8" className="fill-primary" />
-        <path d="M8 15a6 6 0 0 0 12 0Z" className="fill-primary-foreground" />
-        <circle cx="17" cy="10" r="2" className="fill-primary-foreground" />
-      </svg>
+      <img src="./matlogg-logo.png" alt="" width="40" height="40" className="h-10 w-10 rounded-xl" />
       MatLogg
     </span>
   );
