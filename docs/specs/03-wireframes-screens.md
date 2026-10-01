@@ -40,7 +40,10 @@ antall lagrede matvarer.
 Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
 og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
 og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
-feltvalidering og lukker først etter vellykket lagring. Vekt til beregning
+feltvalidering og lukker først etter vellykket lagring. Skjermen bruker to
+samlede kort, «Profil» og «Grunnlag for målforslag», med kompakte feltrader
+og vertikalt oppsett ved stor tekst. Fødselsdato velges eller fjernes i en
+datovelger med eksplisitt bekreftelse; hovedraden beholder samme etikett. Vekt til beregning
 holdes tydelig atskilt fra vekthistorikken.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt

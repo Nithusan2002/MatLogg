@@ -188,7 +188,12 @@ Profil samler:
 Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
 Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
 gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
-samles i «Grunnlag for målforslag», med en felles «Hvorfor spør vi?»-forklaring.
+samles i kortet «Grunnlag for målforslag», med en kort formålsforklaring før
+feltene og «Om opplysningene og målforslag» som utvidbar forklaring etter kortet.
+Feltene bruker kompakte rader med verdi til høyre; ved tilgjengelighetsstørrelser
+står verdien under feltnavnet. Fødselsdato har en fast rad med «Ikke oppgitt»
+som tomtilstand. Valg og fjerning gjøres som utkast i datovelgeren og bekreftes
+med «Bruk dato». Vektens skille fra vekthistorikken forklares under kortet.
 Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
 foran eventuelt navn fra kontoen. Tom fødselsdato

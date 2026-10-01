@@ -10,71 +10,108 @@ struct PersonalDetailsView: View {
     @State private var showActivityHelp = false
     @State private var showBirthDate = false
     @State private var birthDateDraft = Date()
+    @State private var removeBirthDate = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: String?
 
     var body: some View {
-        Form {
-            Section {
-                TextField("Navn (valgfritt)", text: $viewModel.displayName)
-                    .textContentType(.name)
-                    .textInputAutocapitalization(.words)
-                    .focused($focusedField, equals: "name")
-                    .accessibilityIdentifier("personal-details-name")
-            } header: {
-                Text("Profil")
-            }
-            .listRowBackground(AppColors.surface)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                Text("Disse opplysningene er valgfrie.")
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
 
-            Section {
-                if let date = viewModel.birthDate {
-                    LabeledContent("Fødselsdato") {
-                        Button(date.formatted(date: .abbreviated, time: .omitted)) {
-                            birthDateDraft = date
-                            showBirthDate = true
-                        }
-                    }
-                    Button("Fjern fødselsdato") { viewModel.birthDate = nil }
-                } else {
-                    Button("Oppgi fødselsdato (valgfritt)") {
-                        birthDateDraft = Date()
-                        showBirthDate = true
-                    }
-                }
-                fieldError("birthDate")
-                Picker("Kjønn", selection: $viewModel.gender) {
-                    ForEach(GenderOption.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
-                numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
-                Button { showActivitySheet = true } label: {
-                    LabeledContent("Aktivitetsnivå") {
-                        HStack {
-                            Text(viewModel.activity.label)
-                            Image(systemName: "chevron.right")
+                VStack(alignment: .leading, spacing: 12) {
+                    sectionTitle("Profil")
+                    CardContainer {
+                        detailRow("Navn") {
+                            TextField("Valgfritt", text: $viewModel.displayName)
+                                .textContentType(.name)
+                                .textInputAutocapitalization(.words)
+                                .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                                .focused($focusedField, equals: "name")
+                                .accessibilityLabel("Navn, valgfritt")
+                                .accessibilityIdentifier("personal-details-name")
                         }
                     }
                 }
-                DisclosureGroup("Hvorfor spør vi?") {
-                    Text("Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes til å beregne et veiledende forslag til kalorimål. Vekten legges ikke til i vekthistorikken. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv.")
-                        .font(AppTypography.caption)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        sectionTitle("Grunnlag for målforslag")
+                        Text("Brukes til et veiledende forslag til kalorimål.")
+                            .font(AppTypography.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    CardContainer {
+                        VStack(spacing: 0) {
+                            Button {
+                                focusedField = nil
+                                birthDateDraft = viewModel.birthDate ?? Date()
+                                removeBirthDate = false
+                                showBirthDate = true
+                            } label: {
+                                detailRow("Fødselsdato") {
+                                    selectionValue(viewModel.birthDate?.formatted(date: .abbreviated, time: .omitted) ?? "Ikke oppgitt")
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("personal-details-birth-date")
+                            fieldError("birthDate")
+                            Divider().overlay(AppColors.separator)
+                            Menu {
+                                Picker("Kjønn", selection: $viewModel.gender) {
+                                    ForEach(GenderOption.allCases, id: \.self) { Text($0.label).tag($0) }
+                                }
+                            } label: {
+                                detailRow("Kjønn") {
+                                    selectionValue(viewModel.gender.label)
+                                }
+                            }
+                            .accessibilityIdentifier("personal-details-gender")
+                            Divider().overlay(AppColors.separator)
+                            numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
+                            Divider().overlay(AppColors.separator)
+                            numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
+                            Divider().overlay(AppColors.separator)
+                            Button {
+                                focusedField = nil
+                                showActivitySheet = true
+                            } label: {
+                                detailRow("Aktivitetsnivå") {
+                                    selectionValue(viewModel.activity.label)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    Text("Vekten her legges ikke til i vekthistorikken.")
+                        .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }
-            } header: {
-                Text("Grunnlag for målforslag")
-            } footer: {
-                Text("Du kan også sette mål selv uten å fylle inn disse opplysningene.")
-            }
-            .listRowBackground(AppColors.surface)
 
-            if let error = viewModel.errorMessage {
-                Section {
-                    Text(error).foregroundStyle(AppColors.ink)
+                DisclosureGroup {
+                    Text("Du kan sette mål selv uten disse opplysningene. Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes bare som grunnlag for et veiledende målforslag. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv. Eksisterende mål endres ikke automatisk når du lagrer.")
+                        .font(AppTypography.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .padding(.top, 8)
+                } label: {
+                    Label("Om opplysningene og målforslag", systemImage: "info.circle")
+                        .font(AppTypography.secondaryEmphasis)
+                        .foregroundStyle(AppColors.ink)
+                }
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(AppTypography.body)
+                        .foregroundStyle(AppColors.ink)
                         .accessibilityIdentifier("personal-details-error")
                 }
-                .listRowBackground(AppColors.surface)
             }
+            .padding(16)
         }
-        .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .tint(AppColors.action)
@@ -119,6 +156,10 @@ struct PersonalDetailsView: View {
                 Form {
                     DatePicker("Velg fødselsdato", selection: $birthDateDraft, in: ...Date(), displayedComponents: .date)
                         .datePickerStyle(.wheel)
+                        .disabled(removeBirthDate)
+                    if viewModel.birthDate != nil {
+                        Toggle("Fjern fødselsdato", isOn: $removeBirthDate)
+                    }
                 }
                 .navigationTitle("Fødselsdato")
                 .navigationBarTitleDisplayMode(.inline)
@@ -128,7 +169,7 @@ struct PersonalDetailsView: View {
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Bruk dato") {
-                            viewModel.birthDate = birthDateDraft
+                            viewModel.birthDate = removeBirthDate ? nil : birthDateDraft
                             showBirthDate = false
                         }
                     }
@@ -139,15 +180,64 @@ struct PersonalDetailsView: View {
 
     @State private var showHelp = false
 
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(AppTypography.sectionTitle)
+            .foregroundStyle(AppColors.ink)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func detailRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(AppTypography.bodyEmphasis)
+                    content()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                HStack(spacing: 16) {
+                    Text(title).font(AppTypography.bodyEmphasis)
+                        .layoutPriority(1)
+                    Spacer(minLength: 8)
+                    content()
+                }
+            }
+        }
+        .foregroundStyle(AppColors.ink)
+        .frame(minHeight: 52)
+        .padding(.vertical, 4)
+    }
+
+    private func selectionValue(_ value: String) -> some View {
+        HStack(spacing: 8) {
+            Text(value)
+                .font(AppTypography.body)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+            Image(systemName: "chevron.right")
+                .font(AppTypography.captionEmphasis)
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityHidden(true)
+        }
+    }
+
     private func numberField(_ title: String, unit: String, key: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("\(title) (\(unit))").font(AppTypography.bodyEmphasis)
-            TextField("Valgfritt", text: text)
-                .keyboardType(.decimalPad)
-                .focused($focusedField, equals: key)
-                .frame(minHeight: 44)
-                .accessibilityLabel("\(title), \(unit)")
-                .accessibilityIdentifier("personal-details-\(key)")
+        VStack(alignment: .leading, spacing: 4) {
+            detailRow(title) {
+                HStack(spacing: 6) {
+                    TextField("Valgfritt", text: text)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
+                        .focused($focusedField, equals: key)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("\(title), \(unit), valgfritt")
+                        .accessibilityIdentifier("personal-details-\(key)")
+                    Text(unit)
+                        .font(AppTypography.body)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
             fieldError(key)
         }
     }
