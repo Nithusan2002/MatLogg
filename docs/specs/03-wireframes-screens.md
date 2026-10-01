@@ -43,7 +43,10 @@ og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
 feltvalidering og lukker først etter vellykket lagring. Skjermen bruker to
 samlede kort, «Profil» og «Grunnlag for målforslag», med kompakte feltrader
 og vertikalt oppsett ved stor tekst. Fødselsdato velges eller fjernes i en
-datovelger med eksplisitt bekreftelse; hovedraden beholder samme etikett. Vekt til beregning
+datovelger med eksplisitt bekreftelse; hovedraden beholder samme etikett.
+Vekt og høyde åpner et kort med horisontal tallskala, fast markør, direkte
+inntasting og «Bruk verdi». Avbryt beholder utkastet; «Fjern opplysningen»
+tømmer feltet. Valget lagres først med profilens «Lagre». Vekt til beregning
 holdes tydelig atskilt fra vekthistorikken.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt

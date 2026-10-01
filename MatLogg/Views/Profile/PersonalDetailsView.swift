@@ -8,6 +8,7 @@ struct PersonalDetailsView: View {
     @State private var initialized = false
     @State private var showActivitySheet = false
     @State private var showActivityHelp = false
+    @State private var showMeasurement: PersonalMeasurement?
     @State private var showBirthDate = false
     @State private var birthDateDraft = Date()
     @State private var removeBirthDate = false
@@ -71,9 +72,9 @@ struct PersonalDetailsView: View {
                             }
                             .accessibilityIdentifier("personal-details-gender")
                             Divider().overlay(AppColors.separator)
-                            numberField("Høyde", unit: "cm", key: "height", text: $viewModel.height)
+                            measurementRow(.height, text: $viewModel.height)
                             Divider().overlay(AppColors.separator)
-                            numberField("Vekt", unit: "kg", key: "weight", text: $viewModel.weight)
+                            measurementRow(.weight, text: $viewModel.weight)
                             Divider().overlay(AppColors.separator)
                             Button {
                                 focusedField = nil
@@ -151,6 +152,15 @@ struct PersonalDetailsView: View {
             ActivityLevelSheet(selected: $viewModel.activity, onShowHelp: { showActivityHelp = true })
         }
         .sheet(isPresented: $showHelp) { ActivityLevelHelpSheet() }
+        .sheet(item: $showMeasurement) { measurement in
+            MeasurementPickerSheet(
+                measurement: measurement,
+                initialText: measurement == .weight ? viewModel.weight : viewModel.height
+            ) { value in
+                if measurement == .weight { viewModel.weight = value }
+                else { viewModel.height = value }
+            }
+        }
         .sheet(isPresented: $showBirthDate) {
             NavigationStack {
                 Form {
@@ -207,6 +217,7 @@ struct PersonalDetailsView: View {
         .foregroundStyle(AppColors.ink)
         .frame(minHeight: 52)
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 
     private func selectionValue(_ value: String) -> some View {
@@ -222,23 +233,21 @@ struct PersonalDetailsView: View {
         }
     }
 
-    private func numberField(_ title: String, unit: String, key: String, text: Binding<String>) -> some View {
+    private func measurementRow(_ measurement: PersonalMeasurement, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            detailRow(title) {
-                HStack(spacing: 6) {
-                    TextField("Valgfritt", text: text)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
-                        .focused($focusedField, equals: key)
-                        .frame(minHeight: 44)
-                        .accessibilityLabel("\(title), \(unit), valgfritt")
-                        .accessibilityIdentifier("personal-details-\(key)")
-                    Text(unit)
-                        .font(AppTypography.body)
-                        .foregroundStyle(AppColors.textSecondary)
+            Button {
+                focusedField = nil
+                showMeasurement = measurement
+            } label: {
+                detailRow(measurement.title) {
+                    selectionValue(text.wrappedValue.isEmpty
+                                   ? "Ikke oppgitt"
+                                   : text.wrappedValue + " " + measurement.unit)
                 }
             }
-            fieldError(key)
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("personal-details-\(measurement.rawValue)")
+            fieldError(measurement.rawValue)
         }
     }
 

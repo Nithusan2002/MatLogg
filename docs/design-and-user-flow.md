@@ -194,6 +194,14 @@ Feltene bruker kompakte rader med verdi til høyre; ved tilgjengelighetsstørrel
 står verdien under feltnavnet. Fødselsdato har en fast rad med «Ikke oppgitt»
 som tomtilstand. Valg og fjerning gjøres som utkast i datovelgeren og bekreftes
 med «Bruk dato». Vektens skille fra vekthistorikken forklares under kortet.
+Vekt og høyde åpner et ark med skyvbar, horisontal linjal og fast midtmarkør.
+Skalaen bruker 0,1 kg (20–300 kg) og 1 cm (80–250 cm). Områdene gjelder bare
+linjalen; direkte inntasting bevarer alle gyldige positive verdier og eksisterende
+presisjon. Tomme felt starter velgeren på 70 kg eller 170 cm, uten å fylle inn
+profilen automatisk. «Bruk verdi» oppdaterer profilutkastet, «Fjern opplysningen»
+tømmer feltet, og Avbryt eller lukking forkaster arket. Profilens «Lagre» er
+fortsatt eneste lagringshandling. VoiceOver kan justere skalaen med sveip
+opp/ned; direkte inntasting er tilgjengelig ved alle tekststørrelser.
 Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
 foran eventuelt navn fra kontoen. Tom fødselsdato
