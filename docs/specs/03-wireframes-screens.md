@@ -48,15 +48,16 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 
 ### **SKJERM 1: Home (Main)**
 
-Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger dagsstatus uten egen overskrift eller gjentatt dato, og fire alltid synlige måltidskort i
-rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
-skanneknapper dupliseres ikke på Hjem.
+Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
+viser MatLogg, dato og profil. Etter eventuell lokal synkstatus følger «Dagen din, så langt.», et valgfritt
+samlet næringsfelt og «Loggfør mat». Deretter følger fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
+skillelinjer fremfor separate kortflater. Etter måltidene følger personlige hurtigvalg og vannregistrering.
+Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-En stor sentral «Loggfør»-knapp åpner et bunnark med søk, skanning, måltidsvalg
-og hurtigvalg fra favoritter og nylig brukte produkter.
-Kortene viser inntil tre innslag, mengde og kaloriverdi. Trykk åpner
-dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
+Den sentrale «Loggfør»-knappen åpner bunnarket med eksisterende loggingvalg.
+Måltidsseksjonene viser inntil tre innslag med produktbilde og mengde, samt en
+samlet næringsrad. Trykk på en fylt seksjon åpner dagsloggen for valgt dato;
+tomme seksjoner har en tydelig «Legg til»-handling. Gjenbruk og angre beholdes.
 
 Tilstandskrav for Home, hurtigvalg og søk:
 
@@ -220,6 +221,9 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - **Topp:** Back-knapp + favoritt-toggle (☆/★)
 - **Bilde:** Produktbilde (fra barcode DB eller placeholder)
 - **Info:** Produktnavn, merke, kategori, strekkode
+- **Katalogoppdatering:** OFF-produkter med OFF-næringsgrunnlag viser «Sist hentet» og «Hent oppdaterte produktdata». Handlingen viser lasting og resultat som tekst, og deaktiveres under oppdatering eller logging. Logging med eksisterende data fungerer under automatisk oppdatering. Egne varer får ikke denne handlingen.
+- **Feil ved skanning:** «Vi fant ikke produktet» og «Produktet mangler næringsdata» er separate meldinger med «Registrer manuelt». Tilkoblingsfeil tilbyr også «Prøv igjen»; ratebegrensning viser ventetid.
+- **Tilgjengelighet:** Oppdateringshandlingen bruker tekstmerket knapp, minst 44 pt touchflate og Dynamic Type. Tilstand formidles med tekst, ikke bare farge.
 - **Næring:** Per 100g (alltid basis)
 - **Porsjonsstørrelser:** Buttons, viser hvis tilgjengelig (Matvaretabellen)
 - **Mengde-velger:** Numerisk input + stepper (default 100g)

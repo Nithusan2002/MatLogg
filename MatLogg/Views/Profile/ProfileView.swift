@@ -20,11 +20,6 @@ struct ProfileView: View {
                     #if DEBUG
                     demoControls
                     #endif
-                    Label("Nappe · norsk matdagbok", systemImage: "flame.fill")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)

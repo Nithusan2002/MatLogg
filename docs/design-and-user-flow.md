@@ -48,14 +48,20 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 
 Prioritet:
 
-1. dato og kontekst
-2. valgfri dagsstatus uten egen overskrift eller gjentatt dato
-3. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
-4. kontekstuelle legg-til-handlinger og personlige hurtigvalg
-5. status for lokalt lagrede endringer som venter på synk
+1. dato og kontekst, inkludert status for lokalt lagrede endringer
+2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
+3. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
+4. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+5. personlige hurtigvalg og vannregistrering
+
+Måltidene vises som kompakte seksjoner direkte på bakgrunnen, med diskrete
+skillelinjer fremfor separate kort. Næringsfeltet bruker dagens varme tema,
+kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
+sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
+Eksisterende visningsvalg for målstatus beholdes.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidskort viser et begrenset sammendrag; trykk åpner den filtrerte dagsloggen.
+Måltidsseksjoner viser et begrenset sammendrag; trykk åpner dagsloggen med alle måltider for valgt dato.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
 måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
@@ -64,6 +70,24 @@ vises på Hjem fordi de gir en kortere flyt enn generisk søk.
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
+
+### Dagslogg
+
+Dagsloggen åpnes fra Hjem med alle måltider som standard, også ved trykk på
+et bestemt måltidskort. Måltidsfilter aktiveres kun eksplisitt av brukeren.
+Skjermen viser valgt dato, en kompakt dagsoppsummering og
+varer samlet i én flate per måltid. Varerader viser navn, mengde med lagret
+enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
+sletting med eksisterende angremulighet. Oppsummeringen er informasjon, ikke
+en skjult handling for å nullstille søk eller filter.
+
+Søk åpnes med en knapp i skjermhodet og gjelder valgt dag. Aktivt måltidsfilter
+vises med en eksplisitt handling for å vise alle måltider. Ingen søke- eller
+filtertreff skilles fra en tom dag, og tilbyr nullstilling uten å endre dato.
+Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
+«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen.
+«Kopier fra i går» ligger i dagsmenyen når handlingen er tilgjengelig.
+Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
 ### Vann på Hjem
 

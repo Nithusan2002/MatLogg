@@ -433,7 +433,8 @@ final class LocalStore {
             barcode = excluded.barcode,
             json = excluded.json,
             ownerUserId = excluded.ownerUserId,
-            storageKind = excluded.storageKind;
+            storageKind = excluded.storageKind
+        WHERE excluded.storageKind = 'user' OR products.storageKind = 'catalog';
         """
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
@@ -448,6 +449,9 @@ final class LocalStore {
         }
         sqlite3_bind_text(stmt, 5, storageKind, -1, SQLITE_TRANSIENT)
         try requireDone(sqlite3_step(stmt))
+        if storageKind == "catalog", sqlite3_changes(db) == 0 {
+            throw LocalStoreError.ownershipMismatch
+        }
     }
     
     /// Shared catalog rows and only the active owner's private products.

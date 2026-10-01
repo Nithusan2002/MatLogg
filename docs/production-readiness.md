@@ -71,6 +71,12 @@ eller rask vekst i avviste synkhendelser. Angi én ansvarlig mottaker under pilo
 9. Rollback til forrige image er demonstrert uten å rulle tilbake en destruktiv
    migrasjon.
 10. Personvern-/App Store-tekst samsvarer med databruk og leverandører.
+    Før helsedata lastes opp, er både GDPR artikkel 6-grunnlag og artikkel 9-unntak
+    avklart og dokumentert. Hvis uttrykkelig samtykke brukes, er samtykke før
+    opplasting og tilbaketrekking verifisert; lokal logging fungerer fortsatt.
+    Apparkivet inneholder PrivacyInfo.xcprivacy og korrekte begrunnelser for
+    required reason APIs. Kontroller også avhengighetenes manifester og samlet
+    privacy report. Open Food Facts sin lagring er avklart for App Privacy-skjemaet.
 
 ## Pilot og nødstopp
 
@@ -90,3 +96,24 @@ replayes ventende klienthendelser idempotent med opprinnelig `eventId`.
 
 Offentlig produksjon er **no-go** til staging-porten er utført med faktiske
 resultater. Å ha sjekklisten i repoet er ikke i seg selv godkjenning.
+
+## Fast kontroll av strekkodedekning
+
+Før pilot etableres et fast utvalg på 30–50 norske butikkvarer, fordelt på
+meieri, brød/korn, drikke, ferdigmat, pålegg, snacks og plantebaserte varer.
+Bruk faktisk strekkode fra pakken og kontroller næringsgrunnlag og enhet mot
+etiketten. Test med nett og et tomt katalogcachegrunnlag; ikke slett brukerdata
+for å gjøre kontrollen. Pilotansvarlig gjentar kontrollen hver måned og legger
+til 5 nye varer. Dette er en manuell rutine, ikke en planlagt bakgrunnsjobb.
+
+Før resultatene i [kontrollmalen](barcode-coverage.csv), én rad per vare og
+kontrolldato. Tillatte resultater: `komplett`, `ukjent`, `ufullstendig`,
+`teknisk_feil` og `avvik_mot_pakke`. Noter måleenhet og konkrete avvik. Malen
+inneholder ingen ferdig kontrollerte varer; første baseline må fylles fra
+faktiske pakker før pilot. Ikke før bruker-ID, skannhistorikk eller matinntak.
+
+Rapporter komplett-treffandel, antall ukjente/ufullstendige varer, tekniske feil
+og avvik separat. Tekniske feil testes på nytt før dekningen vurderes. Første
+baseline brukes til å avtale pilotens dekningsmål; vi lover ikke 95 % dekning
+uten måling. Ved gjentatte hull i vanlige norske varegrupper vurderes en ekstra
+leverandør som en egen produktbeslutning.

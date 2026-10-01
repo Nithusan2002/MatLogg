@@ -1,5 +1,8 @@
+import SwiftUI
 import Foundation
 import Combine
+import PhotosUI
+import UIKit
 
 struct SavedMealReceipt: Equatable {
     let mealName: String
@@ -19,6 +22,13 @@ final class SavedMealsViewModel: ObservableObject {
 
     private let savedMealRepository: any SavedMealRepository
     private let foodLogRepository: any FoodLogRepository
+    @Published private(set) var photoData: Data?
+    @Published private(set) var photoPreview: UIImage?
+    @Published private(set) var isLoadingPhoto = false
+    @Published private(set) var photoError: String?
+    private var photoRequestID = UUID()
+    private let photoRepository: any MealPhotoRepository
+
     private let calendar: Calendar
     private let now: () -> Date
     private var userId: UUID?
@@ -27,16 +37,53 @@ final class SavedMealsViewModel: ObservableObject {
     init(
         savedMealRepository: any SavedMealRepository,
         foodLogRepository: any FoodLogRepository,
+        photoRepository: any MealPhotoRepository,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
         self.savedMealRepository = savedMealRepository
         self.foodLogRepository = foodLogRepository
+        self.photoRepository = photoRepository
         self.calendar = calendar
         self.now = now
     }
 
+    func beginPhotoEditing(data: Data? = nil) {
+        photoRequestID = UUID()
+        photoData = data
+        photoPreview = data.flatMap(UIImage.init(data:))
+        isLoadingPhoto = false
+        photoError = nil
+    }
+
+    func loadPhoto(_ item: PhotosPickerItem) async {
+        await importPhoto {
+            try await self.photoRepository.loadPhoto { try await item.loadTransferable(type: Data.self) }
+        }
+    }
+
+    // Injectable operation also lets tests exercise overlapping selections and failures.
+    func importPhoto(_ operation: () async throws -> Data) async {
+        let requestID = UUID()
+        photoRequestID = requestID
+        isLoadingPhoto = true
+        photoError = nil
+        do {
+            let data = try await operation()
+            guard requestID == photoRequestID else { return }
+            guard let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
+            photoData = data
+            photoPreview = image
+            isLoadingPhoto = false
+        } catch {
+            guard requestID == photoRequestID else { return }
+            isLoadingPhoto = false
+            photoError = "Kunne ikke åpne bildet. Prøv et annet bilde."
+        }
+    }
+
     func reset() {
+        beginPhotoEditing()
         contextID = UUID()
         userId = nil
         meals = []
@@ -46,6 +93,7 @@ final class SavedMealsViewModel: ObservableObject {
 
     func load(userId: UUID) async {
         if self.userId != userId {
+            beginPhotoEditing()
             contextID = UUID()
             meals = []
             receipt = nil
@@ -60,7 +108,7 @@ final class SavedMealsViewModel: ObservableObject {
 
     @discardableResult
     func saveFromLogs(name: String, mealType: String, logs: [FoodLog], userId: UUID) async -> Bool {
-        guard !isSaving else { return false }
+        guard !isSaving, !isLoadingPhoto else { return false }
         let cleanName = normalizedName(name)
         guard let cleanName else {
             errorMessage = "Gi det lagrede måltidet et navn på opptil 80 tegn."
@@ -96,12 +144,14 @@ final class SavedMealsViewModel: ObservableObject {
             userId: userId,
             name: cleanName,
             suggestedMealType: mealType,
-            items: items
+            items: items,
+            localImageData: photoData
         ))
     }
 
     @discardableResult
     func update(_ meal: SavedMeal, name: String, amounts: [UUID: Float], removedItemIDs: Set<UUID>) async -> Bool {
+        guard !isSaving, !isLoadingPhoto else { return false }
         guard meal.userId == userId else {
             errorMessage = "Måltidet tilhører en annen bruker."
             return false
@@ -141,6 +191,7 @@ final class SavedMealsViewModel: ObservableObject {
         }
 
         var updated = meal
+        updated.localImageData = photoData
         updated.name = cleanName
         updated.items = updatedItems
         updated.updatedAt = now()

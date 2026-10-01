@@ -31,6 +31,13 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
 
 ### iOS
 
+- Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
+  30 dagers ferskhet og manuell oppdatering på produktkortet, med separate
+  skannefeil for ukjent produkt, ufullstendig næring og nettverksfeil. Private
+  produkter og historiske loggverdier beskyttes ved katalogoppdatering.
+  Fast dekningskontroll er beskrevet i produksjonsberedskap; første baseline
+  med norske butikkvarer er ennå ikke gjennomført.
+
 - Navngitte lagrede måltider kan opprettes fra en måltidsgruppe i Logg,
   redigeres/slettes, vises i Loggfør-arket og loggføres atomisk til valgt dato
   og måltidskategori med samlet angre. Se [scope](saved-meals.md).

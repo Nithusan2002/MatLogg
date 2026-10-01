@@ -3,30 +3,27 @@ import SwiftUI
 struct LogRowView: View {
     let log: FoodLog
     let productName: String
+    var compact: Bool = false
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
     
     var body: some View {
-        CardContainer {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(productName)
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.ink)
-                    
-                    Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
-                Spacer()
-                
-                Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal")
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.ink)
+        Group {
+            if compact {
+                rowContent.padding(.horizontal, 16).padding(.vertical, 12)
+            } else {
+                CardContainer { rowContent }
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onEdit?() }
+        .accessibilityActions {
+            if let onEdit {
+                Button("Rediger", action: onEdit)
+            }
+        }
+        .accessibilityElement(children: .combine)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if let onDelete {
                 Button(role: .destructive) {
@@ -52,6 +49,39 @@ struct LogRowView: View {
                 .tint(AppColors.brand)
             }
         }
+    }
+    private var rowContent: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                productDescription
+                Spacer(minLength: 12)
+                calories
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                productDescription
+                calories
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var productDescription: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(productName)
+                .font(AppTypography.bodyEmphasis)
+                .foregroundStyle(AppColors.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+        }
+    }
+
+    private var calories: some View {
+        Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal")
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.ink)
+            .fixedSize()
     }
 }
 

@@ -9,6 +9,8 @@ struct LoggView: View {
     @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @State private var selectedDate: Date = Date()
     @State private var searchText = ""
+    @State private var showSearch = false
+    @FocusState private var searchFocused: Bool
     @State private var mealFilter: String?
     @State private var showFilterSheet = false
     @State private var showAddActions = false
@@ -19,9 +21,8 @@ struct LoggView: View {
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
 
-    init(initialDate: Date = Date(), initialMealFilter: String? = nil) {
+    init(initialDate: Date = Date()) {
         _selectedDate = State(initialValue: initialDate)
-        _mealFilter = State(initialValue: initialMealFilter)
     }
     
     enum AddSheet: Identifiable {
@@ -66,18 +67,53 @@ struct LoggView: View {
                 }
             }
             .navigationTitle("Logg")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSearch.toggle()
+                        searchFocused = showSearch
+                        if !showSearch { searchText = "" }
+                    } label: {
+                        Image(systemName: showSearch ? "xmark" : "magnifyingglass")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .tint(AppColors.ink)
+                    .accessibilityLabel(showSearch ? "Lukk søk" : "Søk i denne dagen")
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showFilterSheet = true }) {
                         Image(systemName: "line.3.horizontal.decrease.circle")
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
+                    .tint(AppColors.ink)
+                    .accessibilityLabel("Filtrer loggen")
                     .disabled(!hasLogs)
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showAddActions = true }) {
-                        Image(systemName: "plus")
+                    Menu {
+                        Button("Gå til i dag", systemImage: "calendar") {
+                            selectedDate = Date()
+                        }
+                        if canCopyFromYesterday {
+                            Section {
+                                Button("Kopier fra i går", systemImage: "doc.on.doc") {
+                                    Task {
+                                        await copyLogsFromYesterday()
+                                        await loadSelectedSummary()
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
+                    .tint(AppColors.ink)
+                    .accessibilityLabel("Flere valg for dagen")
                 }
             }
             .confirmationDialog("Legg til", isPresented: $showAddActions) {
@@ -147,10 +183,6 @@ struct LoggView: View {
             }
             .onDisappear { logViewModel.dismissDeletionReceipt() }
             .onAppear {
-                if let meal = appState.logSelectedMeal, mealFilter == nil {
-                    mealFilter = meal
-                    appState.logSelectedMeal = nil
-                }
                 appState.logSelectedDate = selectedDate
                 Task { await loadSelectedSummary() }
             }
@@ -210,59 +242,54 @@ struct LoggView: View {
             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             .listRowSeparator(.hidden)
             
-            if hasLogs {
-                Section {
-                    Button(action: {
-                        mealFilter = nil
-                        searchText = ""
-                    }) {
-                        CardContainer {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text("Dagsoppsummering")
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                    Spacer()
-                                    Text("\(logViewModel.selectedSummary?.logs.count ?? 0) innslag")
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                }
-                                
-                                HStack(spacing: 12) {
-                                    Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
-                                    Text("P \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
-                                    Text("K \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
-                                    Text("F \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) g")
-                                }
+            Section {
+                if showSearch {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(AppColors.textSecondary)
+                        TextField("Søk i denne dagen", text: $searchText)
+                            .focused($searchFocused)
+                            .submitLabel(.search)
+                    }
+                    .padding(12)
+                    .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+                }
+                if let mealFilter {
+                    Button {
+                        self.mealFilter = nil
+                    } label: {
+                        Label("\(LogSummaryService.title(for: mealFilter)) · Vis alle", systemImage: "xmark.circle.fill")
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(minHeight: 44)
+                    }
+                    .tint(AppColors.action)
+                    .accessibilityLabel("Fjern måltidsfilter")
+                }
+                if hasLogs {
+                    ViewThatFits(in: .horizontal) {
+                        nutritionSummary
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
                                 .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.ink)
-                            }
+                            macroSummary
                         }
                     }
-                    .buttonStyle(.plain)
-                }
-                .listRowBackground(AppColors.background)
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-            }
-            
-            if canCopyFromYesterday {
-                Section {
-                    Button("Kopier fra i går") {
-                        Task {
-                            await copyLogsFromYesterday()
-                            await loadSelectedSummary()
-                        }
-                    }
-                    .foregroundColor(AppColors.brand)
+                    .foregroundStyle(AppColors.ink)
+                    .padding(.vertical, 8)
+                    .accessibilityElement(children: .combine)
                 }
             }
-            
+            .listRowBackground(AppColors.background)
+            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
+            .listRowSeparator(.hidden)
+
             ForEach(groups, id: \.mealType) { group in
                 Section {
                     ForEach(group.logs) { log in
                         LogRowView(
                             log: log,
                             productName: logViewModel.selectedProductNames[log.productId] ?? "Ukjent produkt",
+                            compact: true,
                             onEdit: {
                                 editingLog = log
                             },
@@ -273,15 +300,34 @@ struct LoggView: View {
                                 deleteLog(log)
                             }
                         )
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .listRowBackground(AppColors.background)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: log.id == group.logs.first?.id ? 18 : 0,
+                                bottomLeadingRadius: log.id == group.logs.last?.id ? 18 : 0,
+                                bottomTrailingRadius: log.id == group.logs.last?.id ? 18 : 0,
+                                topTrailingRadius: log.id == group.logs.first?.id ? 18 : 0
+                            )
+                            .fill(AppColors.surface)
+                            .padding(.horizontal, 16)
+                        )
+                        .listRowSeparator(log.id == group.logs.last?.id ? .hidden : .visible)
+                        .listRowSeparatorTint(AppColors.separator)
                     }
                 } header: {
                     HStack {
                         Text(LogSummaryService.title(for: group.mealType))
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.textSecondary)
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.ink)
                         Spacer()
+                        Button("Legg til") {
+                            appState.selectedMealType = group.mealType
+                            showAddActions = true
+                        }
+                        .font(AppTypography.captionEmphasis)
+                        .tint(AppColors.action)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("Legg til mat i \(LogSummaryService.title(for: group.mealType))")
                         Menu {
                             Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
                                 savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: group.logs)
@@ -300,15 +346,22 @@ struct LoggView: View {
                     Image(systemName: "tray")
                         .font(.system(size: 42))
                         .foregroundColor(AppColors.textSecondary)
-                    Text("Ingen logging denne dagen")
+                    Text(hasLogs ? "Ingen treff" : "Ingen logging denne dagen")
                         .font(AppTypography.title)
                         .foregroundColor(AppColors.ink)
-                    Text("Legg til for denne dagen eller gå til i dag.")
+                    Text(hasLogs ? "Prøv et annet søk eller vis alle måltider." : "Legg til for denne dagen eller gå til i dag.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                     
-                    Button(action: { showAddActions = true }) {
-                        Text("Legg til for denne dagen")
+                    Button(action: {
+                        if hasLogs {
+                            searchText = ""
+                            mealFilter = nil
+                        } else {
+                            showAddActions = true
+                        }
+                    }) {
+                        Text(hasLogs ? "Vis alle varer" : "Legg til for denne dagen")
                             .font(AppTypography.bodyEmphasis)
                             .foregroundColor(AppColors.onVibrant)
                             .frame(maxWidth: .infinity)
@@ -347,9 +400,35 @@ struct LoggView: View {
         .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()
         
-        baseList.searchable(text: $searchText, prompt: hasLogs ? "Søk i dagens logg" : "Søk i logg")
+        baseList
     }
     
+    private var nutritionSummary: some View {
+        HStack(spacing: 12) {
+            Text("\(NutritionDisplay.wholeCalories(logViewModel.selectedSummary?.totalCalories ?? 0)) kcal")
+                .font(AppTypography.bodyEmphasis)
+            macroSummary
+        }
+    }
+
+    private var macroSummary: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) { macroValues }
+            VStack(alignment: .leading, spacing: 4) { macroValues }
+        }
+        .font(AppTypography.caption)
+        .foregroundStyle(AppColors.textSecondary)
+    }
+
+    @ViewBuilder private var macroValues: some View {
+        Text("P \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) g")
+            .accessibilityLabel("Protein \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalProtein ?? 0)) gram")
+        Text("K \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) g")
+            .accessibilityLabel("Karbohydrat \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalCarbs ?? 0)) gram")
+        Text("F \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) g")
+            .accessibilityLabel("Fett \(NutritionDisplay.wholeGrams(logViewModel.selectedSummary?.totalFat ?? 0)) gram")
+    }
+
     private func deleteLog(_ log: FoodLog) {
         Task {
             guard let userId = authViewModel.currentUser?.id else { return }
@@ -433,7 +512,7 @@ struct LoggFilterSheet: View {
         Option(id: "frokost", label: "Frokost", value: "frokost"),
         Option(id: "lunsj", label: "Lunsj", value: "lunsj"),
         Option(id: "middag", label: "Middag", value: "middag"),
-        Option(id: "snacks", label: "Snacks", value: "snacks")
+        Option(id: "snacks", label: "Kveldsmat", value: "snacks")
     ]
     
     var body: some View {

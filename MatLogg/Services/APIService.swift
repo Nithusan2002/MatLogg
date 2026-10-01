@@ -299,18 +299,8 @@ class APIService {
         
         #if DEBUG
         if !rejected.isEmpty {
-            let rejectedSet = Set(rejected.map { $0.eventId })
-            for event in events where rejectedSet.contains(event.eventId) {
-                if let json = try? JSONSerialization.jsonObject(with: event.payload),
-                   let pretty = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted]),
-                   let text = String(data: pretty, encoding: .utf8) {
-                    print("Sync rejected \(event.eventId):\n\(text)")
-                } else if let text = String(data: event.payload, encoding: .utf8) {
-                    print("Sync rejected \(event.eventId):\n\(text)")
-                } else {
-                    print("Sync rejected \(event.eventId): payload \(event.payload.count) bytes")
-                }
-            }
+            // Keep diagnostics aggregate-only: payloads and identifiers are sensitive.
+            print("Sync rejected \(rejected.count) event(s)")
         }
         #endif
         
@@ -448,7 +438,7 @@ class APIService {
     }
 
     private func openFoodFactsData(from url: URL) async throws -> Data {
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         request.httpMethod = "GET"
         request.setValue(openFoodFactsUserAgent, forHTTPHeaderField: "User-Agent")
 

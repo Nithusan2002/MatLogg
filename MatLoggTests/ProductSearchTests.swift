@@ -140,6 +140,170 @@ struct ProductSearchTests {
         #expect(repository.cachedProducts.isEmpty)
     }
 
+    @Test func refreshStartsAtExactlyThirtyDaysAndRetryExpiresAtTwentyFourHours() async throws {
+        var now = Date(timeIntervalSince1970: 2_000_000_000)
+        let fetchedAt = now.addingTimeInterval(-30 * 24 * 60 * 60)
+        let cached = makeCachedBarcodeProduct(name: "Gammel", fetchedAt: fetchedAt)
+        let remote = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let repository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: cached),
+                                                       remote: remote, now: { now })
+        #expect(!BarcodeProductCachePolicy.standard.needsRevalidation(cached, now: now.addingTimeInterval(-1)))
+        #expect(BarcodeProductCachePolicy.standard.needsRevalidation(cached, now: now))
+        do { _ = try await repository.refresh(cached, manually: false) } catch {}
+        now = now.addingTimeInterval(24 * 60 * 60 - 1)
+        #expect(try await repository.refresh(cached, manually: false) == nil)
+        #expect(remote.callCount == 1)
+        now = now.addingTimeInterval(1)
+        do { _ = try await repository.refresh(cached, manually: false) } catch {}
+        #expect(remote.callCount == 2)
+    }
+
+    @Test func manualRefreshBypassesFreshnessAndSharesAutomaticRequest() async throws {
+        let now = Date()
+        let cached = makeCachedBarcodeProduct(name: "Fersk", fetchedAt: now)
+        let updated = makeCachedBarcodeProduct(name: "Ny", fetchedAt: now)
+        let remote = BarcodeServiceSpy(result: .success(updated), delayNanoseconds: 30_000_000)
+        let products = ProductRepositorySpy(product: cached)
+        let repository = DefaultBarcodeLookupRepository(products: products, remote: remote, now: { now })
+        let first = Task { try await repository.refresh(cached, manually: true) }
+        let second = Task { try await repository.fetch(barcode: "1234567890123") }
+        #expect(try await first.value?.name == "Ny")
+        #expect(try await second.value.name == "Ny")
+        #expect(remote.callCount == 1)
+        #expect(products.cachedProducts.count == 1)
+    }
+
+    @Test func manualRefreshCanRetryNetworkFailureButCannotBypassProviderLimit() async throws {
+        var now = Date()
+        let cached = makeCachedBarcodeProduct(name: "Behold", fetchedAt: nil)
+        let remote = BarcodeServiceSpy(result: .failure(APIService.APIError.rateLimited(retryAfterSeconds: 120)))
+        let repository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: cached),
+                                                       remote: remote, now: { now })
+        do { _ = try await repository.refresh(cached, manually: true) } catch {}
+        do { _ = try await repository.fetch(barcode: "different-barcode") } catch {
+            #expect(BarcodeLookupFailure.classify(error) == .rateLimited(120))
+        }
+        #expect(remote.callCount == 1)
+        now = now.addingTimeInterval(120)
+        do { _ = try await repository.refresh(cached, manually: true) } catch {}
+        #expect(remote.callCount == 2)
+
+        let offline = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let retryRepository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: cached), remote: offline)
+        do { _ = try await retryRepository.refresh(cached, manually: false) } catch {}
+        do { _ = try await retryRepository.refresh(cached, manually: true) } catch {}
+        #expect(offline.callCount == 2)
+    }
+
+    @Test func reopeningOldSnapshotUsesFreshStoredCatalogWithoutAnotherRequest() async throws {
+        let now = Date()
+        let stale = makeCachedBarcodeProduct(name: "Gammel", fetchedAt: nil)
+        let fresh = makeCachedBarcodeProduct(name: "Ny", fetchedAt: now)
+        let remote = BarcodeServiceSpy(result: .success(fresh))
+        let repository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: fresh), remote: remote, now: { now })
+        #expect(try await repository.refresh(stale, manually: false)?.name == "Ny")
+        #expect(remote.callCount == 0)
+    }
+
+    @Test func changedUnitDoesNotReinterpretAmountOnOpenProductCard() async {
+        let cached = makeCachedBarcodeProduct(name: "Gram", fetchedAt: nil)
+        let updated = Product(id: cached.id, name: "Milliliter", barcodeEan: cached.barcodeEan,
+                              source: "openfoodfacts", caloriesPer100g: 100, proteinGPer100g: 4,
+                              carbsGPer100g: 18, fatGPer100g: 3, nutritionSource: .openFoodFacts,
+                              nutritionBasis: .per100ml, fetchedAt: Date())
+        let products = ProductRepositorySpy(product: cached)
+        let repository = DefaultBarcodeLookupRepository(products: products, remote: BarcodeServiceSpy(result: .success(updated)))
+        let model = ProductDetailViewModel(product: cached, repository: repository)
+        await model.refresh(manually: true)
+        #expect(model.product.amountUnit == .grams)
+        #expect(model.refreshMessage?.contains("måleenhet") == true)
+        #expect(products.getProduct(cached.id)?.amountUnit == .milliliters)
+    }
+
+    @Test func refreshNeverReturnsAnotherOwnersPrivateSnapshot() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("BarcodeOwner-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("test.sqlite"))
+        let privateProduct = makeCachedBarcodeProduct(name: "Privat snapshot", fetchedAt: Date())
+        try store.saveProduct(privateProduct, ownerUserId: UUID())
+        let publicProduct = makeCachedBarcodeProduct(name: "Offentlig", fetchedAt: nil)
+        let remote = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let repository = DefaultBarcodeLookupRepository(products: DatabaseService(store: store), remote: remote)
+        let result = try? await repository.refresh(publicProduct, manually: false)
+        #expect(result == nil)
+        #expect(remote.callCount == 1)
+    }
+
+    @Test func ownNutritionCannotBeManuallyOverwritten() async throws {
+        let own = Product(name: "Min rettelse", barcodeEan: "1234567890123", source: "openfoodfacts",
+                          caloriesPer100g: 150, proteinGPer100g: 4, carbsGPer100g: 18,
+                          fatGPer100g: 3, nutritionSource: .user)
+        let remote = BarcodeServiceSpy(result: .success(own))
+        let repository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: own), remote: remote)
+        #expect(try await repository.refresh(own, manually: true) == nil)
+        #expect(remote.callCount == 0)
+    }
+
+    @Test func scanFailureDistinguishesUnknownIncompleteAndNetwork() async {
+        for (error, expected) in [(APIService.APIError.serverError(404), BarcodeLookupFailure.notFound),
+                                  (.incompleteProductData, .incomplete), (.serverError(503), .unavailable)] {
+            let viewModel = makeProductViewModel(repository: ProductRepositorySpy(product: nil),
+                                                barcodeService: BarcodeServiceSpy(result: .failure(error)), now: Date())
+            await viewModel.scan(barcode: "1234567890123", ownerUserId: nil)
+            #expect(viewModel.scanFailure == expected)
+            #expect(viewModel.scannedProduct == nil)
+            #expect(!viewModel.isScanning)
+        }
+    }
+
+    @Test func dismissedScanCannotPublishDelayedResultOverManualChoice() async {
+        let cached = makeCachedBarcodeProduct(name: "Forsinket", fetchedAt: Date())
+        let remote = BarcodeServiceSpy(result: .success(cached), delayNanoseconds: 30_000_000)
+        let viewModel = makeProductViewModel(repository: ProductRepositorySpy(product: nil), barcodeService: remote, now: Date())
+        let task = Task { await viewModel.scan(barcode: "1234567890123", ownerUserId: nil) }
+        while remote.callCount == 0 { await Task.yield() }
+        viewModel.resetScan()
+        let manual = Product(name: "Egen vare", source: "manual", caloriesPer100g: 10,
+                             proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 0)
+        viewModel.acceptManualScan(manual)
+        await task.value
+        #expect(viewModel.scannedProduct?.id == manual.id)
+        #expect(viewModel.scanFailure == nil)
+    }
+
+    @Test func failedCacheWriteKeepsProductCardAndReportsLocalFailure() async {
+        let cached = makeCachedBarcodeProduct(name: "Behold", fetchedAt: nil)
+        let updated = makeCachedBarcodeProduct(name: "Ny", fetchedAt: Date())
+        let products = ProductRepositorySpy(product: cached)
+        products.cacheError = LocalStoreError.sqlite("synthetic failure")
+        let repository = DefaultBarcodeLookupRepository(products: products, remote: BarcodeServiceSpy(result: .success(updated)))
+        let model = ProductDetailViewModel(product: cached, repository: repository)
+        await model.refresh(manually: true)
+        #expect(model.product.name == "Behold")
+        #expect(products.cachedProducts.isEmpty)
+        #expect(model.refreshMessage == BarcodeLookupFailure.storageFailure.message)
+    }
+
+    @Test func productCardKeepsDataOnRefreshFailureAndUpdatesOnSuccess() async {
+        let cached = makeCachedBarcodeProduct(name: "Behold", fetchedAt: Date())
+        let failedRepository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: cached),
+                                                             remote: BarcodeServiceSpy(result: .failure(TestBarcodeError.offline)))
+        let failed = ProductDetailViewModel(product: cached, repository: failedRepository)
+        await failed.refresh(manually: true)
+        #expect(failed.product.name == "Behold")
+        #expect(failed.refreshMessage == BarcodeLookupFailure.unavailable.message)
+        #expect(!failed.isRefreshing)
+
+        let updated = makeCachedBarcodeProduct(name: "Ny", fetchedAt: Date())
+        let repository = DefaultBarcodeLookupRepository(products: ProductRepositorySpy(product: cached),
+                                                       remote: BarcodeServiceSpy(result: .success(updated)))
+        let model = ProductDetailViewModel(product: cached, repository: repository)
+        await model.refresh(manually: true)
+        #expect(model.product.name == "Ny")
+        #expect(model.refreshMessage == "Produktdata er oppdatert.")
+    }
+
     @Test func matvaretabellenNutritionIsNotDowngradedByBarcodeRefresh() async {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let cached = Product(
@@ -332,6 +496,7 @@ struct ProductSearchTests {
             let requestURL = try #require(request.url)
             let components = try #require(URLComponents(url: requestURL, resolvingAgainstBaseURL: false))
             let queryItems = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+            #expect(request.cachePolicy == .reloadIgnoringLocalCacheData)
             #expect(components.path == "/api/v3/product/1234567890123")
             #expect(queryItems["cc"] == "no")
             #expect(queryItems["lc"] == "nb")
@@ -567,6 +732,7 @@ private struct ProductNameSearchServiceStub: ProductNameSearchService {
 private final class ProductRepositorySpy: ProductRepository {
     private var product: Product?
     private(set) var cachedProducts: [Product] = []
+    var cacheError: Error?
 
     init(product: Product?) {
         self.product = product
@@ -575,6 +741,7 @@ private final class ProductRepositorySpy: ProductRepository {
     func saveProduct(_ product: Product, ownerUserId: UUID) async throws { self.product = product }
 
     func cacheCatalogProduct(_ product: Product) async throws {
+        if let cacheError { throw cacheError }
         self.product = product
         cachedProducts.append(product)
     }

@@ -158,12 +158,19 @@ struct ProfileTests {
                               carbsGPer100g: 10, fatGPer100g: 4)
         try await database.saveProduct(product, ownerUserId: user.id)
         try await database.toggleFavorite(userId: user.id, productId: product.id)
+        let photo = Data([1, 2, 3])
+        let meal = SavedMeal(userId: user.id, name: "Testmåltid", items: [], localImageData: photo)
+        try await database.saveSavedMeal(meal)
+        try await database.saveSavedMeal(SavedMeal(userId: other, name: "Annen profil", items: [], localImageData: Data([9])))
         let exporter = UserDataExportService(logRepository: database, savedMealRepository: database,
             waterRepository: database, healthRepository: database, productRepository: database,
             personalDetailsStore: detailsStore)
         let url = try #require(await exporter.export(for: user))
         defer { try? FileManager.default.removeItem(at: url) }
         let json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let exportedMeals = try #require(json["saved_meals"] as? [[String: Any]])
+        #expect(exportedMeals.count == 1)
+        #expect(exportedMeals.first?["local_image_jpeg_base64"] as? String == photo.base64EncodedString())
         #expect((json["daily_goal"] as? [String: Any])?["dailyCalories"] as? Int == 2100)
         #expect((json["weight_entries"] as? [[String: Any]])?.count == 1)
         #expect((json["personal_details"] as? [String: Any])?["weightKg"] as? Int == 72)

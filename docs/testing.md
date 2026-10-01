@@ -13,6 +13,29 @@ visuell dekning.
 
 ## iOS
 
+### Release-størrelse
+
+Kjør `bash scripts/measure-app-size.sh` for et lokalt, signert Release-arkiv
+og eksport med alle enhetsvarianter. Krever lokal Apple Development-identitet
+og gyldig provisioningprofil. Ingen opplasting utføres.
+
+Resultater lagres under ignorert `build/app-size/`: `bundle-size.json` viser
+arkivets ukomprimerte appfiler, `build-context.txt` viser commit, lokale endringer
+og Xcode-versjon, og `export/App Thinning Size Report.txt` viser komprimerte og
+ukomprimerte enhetsvarianter. Eksporten bruker development-signering; endelig
+App Store-størrelse må bekreftes i App Store Connect. Sammenlign samme variant,
+Xcode-versjon og eksportmetode ved senere målinger. Skriptet kan også få en
+egen outputmappe som første argument; bruk en ny mappe for hver kjøring.
+
+Baseline 2026-10-01: Xcode 27.0 (27A266a), commit `dd4503c` med lokale
+arbeidsendringer. Signert Release-arkiv: 8 767 696 byte totalt, hvorav kjørbar
+kode 6 385 312 byte, `Assets.car` 1 852 472 byte og matvaretabell 480 672 byte.
+Universal development-eksport: 4,4 MB komprimert / 8,8 MB ukomprimert.
+iPhone- og iPad-variantene: 3,5 MB komprimert / 7,9 MB ukomprimert.
+Rårapporter og eksakt arbeidskontekst finnes lokalt i
+`build/app-size/baseline-2026-10-01-verified/`; arkiver og signerte eksportfiler
+skal ikke sjekkes inn i Git. Dette er en størrelsesreferanse, ikke en releasegodkjenning.
+
 List schemes og tilgjengelige simulatorer:
 
 ```bash
@@ -179,3 +202,23 @@ Ved kodeendringer skal ferdigrapporten oppgi:
 - hva som ikke ble testet
 - gjenværende risiko
 - go/no-go når endringen gjelder pilot eller release
+
+
+### Strekkodecache og katalogoppdatering
+
+Målrettet kontroll (velg en installert simulator):
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<simulatornavn>' \
+  -only-testing:MatLoggTests/ProductSearchTests \
+  -only-testing:MatLoggTests/BarcodeCatalogStorageTests \
+  -only-testing:MatLoggUITests/MatLoggUITests/testSearchTabSupportsLocalSearchAndProductOpening \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Testene dekker ferskhetsgrensen, automatisk retry-pause, manuell oppdatering,
+delte forespørsler, `Retry-After`, separate feiltilstander, forkasting av gamle
+skanneresultater, endret måleenhet og beskyttelse av private varer/historiske
+loggverdier. API-tester bruker syntetiske svar, ikke live leverandørdata.
+Fysisk skanning, VoiceOver og faktisk varedekning kontrolleres før pilot.

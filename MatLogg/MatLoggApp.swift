@@ -67,9 +67,16 @@ struct MatLoggContent: View {
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
         _savedMealsViewModel = StateObject(wrappedValue: SavedMealsViewModel(
             savedMealRepository: databaseService,
-            foodLogRepository: databaseService
+            foodLogRepository: databaseService,
+            photoRepository: LocalMealPhotoRepository()
         ))
-        _productViewModel = StateObject(wrappedValue: ProductViewModel(repository: databaseService))
+        let productAPI = APIService()
+        let barcodeRepository = DefaultBarcodeLookupRepository(products: databaseService, remote: productAPI)
+        _productViewModel = StateObject(wrappedValue: ProductViewModel(
+            repository: databaseService, catalogService: MatvaretabellenService(),
+            barcodeService: productAPI, nameSearchService: productAPI,
+            barcodeRepository: barcodeRepository
+        ))
         _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
         let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)

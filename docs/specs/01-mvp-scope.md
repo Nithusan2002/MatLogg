@@ -24,7 +24,7 @@
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
 | **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
 | **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
-| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
+| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |
@@ -35,7 +35,7 @@
 ## 1.2 Out-of-Scope MVP
 
 - [ ] Gruppering / venner / social features
-- [ ] Detaljert barcode-database-hosting (bruker Matvaretabellen + fallback)
+- [ ] Detaljert barcode-database-hosting (strekkoder fra Open Food Facts; Matvaretabellen er lokal råvarekatalog)
 - [ ] Web-app (bare web-deling og fallback)
 - [ ] Kalender-view, uke-sammeligning, statistikk-grafer
 - [ ] Oppskrifter / målkjemning

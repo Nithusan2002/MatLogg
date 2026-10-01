@@ -73,6 +73,7 @@ final class UserDataExportService: UserDataExporting {
                     "id": meal.id.uuidString,
                     "name": meal.name,
                     "suggested_meal_type": (meal.suggestedMealType as Any?) ?? NSNull(),
+                    "local_image_jpeg_base64": (meal.localImageData?.base64EncodedString() as Any?) ?? NSNull(),
                     "updated_at": ISO8601DateFormatter().string(from: meal.updatedAt),
                     "items": meal.items.map { item in
                         [

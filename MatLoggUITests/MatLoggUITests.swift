@@ -74,6 +74,8 @@ final class MatLoggUITests: XCTestCase {
         let row = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         attachSearchScreenshot(app, name: "Søk – lokale treff")
+        // The keyboard toolbar can overlap the first row's tap point.
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         row.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
         attachSearchScreenshot(app, name: "Søk – mengdevalg")
@@ -84,10 +86,17 @@ final class MatLoggUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         app.buttons["Tøm søket"].tap()
-        app.buttons["Ferdig"].tap()
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         XCTAssertTrue(app.buttons["Loggfør mat"].waitForExistence(timeout: 5))
-        let reused = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'"))
-        XCTAssertGreaterThanOrEqual(reused.count, 2, "Matvaren skal finnes både i favoritter og nylig brukt.")
+        let favorite = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-favorite-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        XCTAssertTrue(favorite.waitForExistence(timeout: 5), "Favorittvaren skal være tilgjengelig.")
+        // A lazy List need not materialize both sections at the same time.
+        let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-recent-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        for _ in 0..<6 {
+            if recent.exists { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(recent.exists, "Den loggførte varen skal finnes under Nylig brukt.")
         attachSearchScreenshot(app, name: "Søk – favoritt og nylig brukt")
     }
 

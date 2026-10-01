@@ -54,7 +54,7 @@ struct MatLoggTabBar: View {
                                 .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
                         }
                         .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
-                    Text("Loggfør")
+                    Text("Logg")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.deepInk)
                 }

@@ -502,6 +502,8 @@ struct SavedMeal: Codable, Identifiable, Equatable {
     var name: String
     var suggestedMealType: String?
     var items: [SavedMealItem]
+    /// Local-only JPEG; deliberately excluded from sync payloads.
+    var localImageData: Data?
     let createdAt: Date
     var updatedAt: Date
 
@@ -511,6 +513,7 @@ struct SavedMeal: Codable, Identifiable, Equatable {
         name: String,
         suggestedMealType: String? = nil,
         items: [SavedMealItem],
+        localImageData: Data? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -519,6 +522,7 @@ struct SavedMeal: Codable, Identifiable, Equatable {
         self.name = name
         self.suggestedMealType = suggestedMealType
         self.items = items
+        self.localImageData = localImageData
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

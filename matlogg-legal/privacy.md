@@ -49,32 +49,33 @@ Vi bruker data for a:
 4. Rettslig grunnlag (GDPR)
 
 Vi behandler data fordi:
-  - Det er nodvendig for a levere tjenesten (konto, lagring, logging, synk).
-  - Du kan gi samtykke til valgfrie funksjoner som analytics/krasjrapportering (se punkt 7).
+  - Konto og autentisering behandles for å levere tjenesten (GDPR artikkel 6 nr. 1 bokstav b).
+  - Vekt, ernæringsmål og tilknyttet spisehistorikk håndteres som helseopplysninger. Data som bare ligger på enheten, er ikke tilgjengelige for oss gjennom appen.
+  - Skysynk er deaktivert i dagens versjon. Før opplasting av helseopplysninger åpnes, skal både grunnlag etter artikkel 6 og unntak etter artikkel 9 være avklart og dokumentert. Tjenestebehov alene er ikke tilstrekkelig etter artikkel 9. Dersom uttrykkelig samtykke brukes, skal det innhentes før opplasting, og brukeren skal kunne trekke det tilbake og fortsette lokal logging.
+  - Det samles ikke inn bruksanalyse eller krasjrapporter gjennom et slikt SDK i dagens versjon.
 
 5. Lagring og “offline-first”
 
-MatLogg er “offline-first”, som betyr at data normalt lagres lokalt pa enheten din og synkroniseres nar nett er tilgjengelig (hvis synk er aktivert). Du kan bruke appen uten konstant nettilgang.
+MatLogg er “offline-first”. Mat-, mål- og vektdata lagres lokalt på enheten. Skysynk er deaktivert i dagens versjon; disse dataene lastes derfor ikke opp av synkfunksjonen. Konto og autentisering bruker Supabase når du velger å logge inn. Du kan bruke lokal logging uten konto eller nettilgang.
 
 6. Deling med tredjepart
 
 Vi kan dele begrensede data med:
-  - Supabase som databehandler for konto, autentisering, database, Edge Functions, backup og opplastingssynk. Prosjektene skal ligge i en valgt EØS-region.
-  - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer eller skanner. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
+  - Supabase som databehandler for konto og autentisering. Database, Edge Functions, backup og opplastingssynk er del av serverplattformen, men opplastingssynk er deaktivert i dagens appversjon. Prosjektene skal ligge i en valgt EØS-region.
+  - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer eller skanner, inkludert nar du ber om oppdaterte produktdata. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
 Vi selger ikke persondata.
 
 7. Valgfrie data: analytics og krasjrapporter
 
-Du kan velge a dele:
-  - Anonym bruksstatistikk (for a forbedre appen).
-  - Anonyme krasjrapporter (for a gjore appen mer stabil).
+Det er ikke koblet inn et SDK for bruksanalyse eller krasjrapportering i dagens appversjon. Bryterne under Profil → Personvern & valg lagrer bare valget lokalt; de starter ingen slik innsamling.
 
-Disse er valgfritt og kan slas av/pa nar som helst i Profil → Personvern & valg.
+Før en eventuell tjeneste tas i bruk, skal leverandør, datatyper, formål, lagring og nødvendige valg eller samtykker beskrives. Opplysninger skal ikke omtales som anonyme uten dokumentert anonymisering. Matlogger, vekt, mål, synkpayloads og kontoidentifikatorer skal ikke sendes til analyse- eller krasjrapportering.
 
 8. Kamera og andre tillatelser
   - Kamera brukes når du selv starter skanning eller velger «Ta bilde» ved manuell produktregistrering. iOS spør om kameratilgang før første bruk.
+  - Måltidsbilder er valgfrie og velges gjennom iOS sin bildevelger uten tilgang til hele biblioteket. Bildet komprimeres uten original fotometadata og lagres bare lokalt med det lagrede måltidet. Det lastes ikke opp eller synkroniseres. Bildet er med i lokal dataeksport og fjernes ved sletting av måltidet eller lokale profildata.
   - Produktbilder er valgfrie. Du kan ta et bilde eller velge ett bilde gjennom iOS sin bildevelger uten å gi tilgang til hele bildebiblioteket. Bildet komprimeres uten original fotometadata og lagres med produktet i den lokale databasen. Det lastes ikke opp eller synkroniseres. Ved sletting av lokale profildata fjernes også de lagrede produktbildene.
 
 9. Hvor lenge lagrer vi data?

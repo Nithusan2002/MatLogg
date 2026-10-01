@@ -2,6 +2,28 @@ import SwiftUI
 
 struct ProductDetailView: View {
     let product: Product
+    @ObservedObject var appState: AppState
+    @EnvironmentObject private var productViewModel: ProductViewModel
+    let onLogComplete: ((ReceiptPayload) -> Void)?
+
+    var body: some View {
+        ProductDetailContent(product: product, appState: appState,
+                             repository: productViewModel.barcodeRepository,
+                             onLogComplete: onLogComplete)
+            .id(product.id)
+    }
+}
+
+private struct ProductDetailContent: View {
+    @StateObject private var detailModel: ProductDetailViewModel
+    private var product: Product { detailModel.product }
+
+    init(product: Product, appState: AppState, repository: any BarcodeLookupRepository,
+         onLogComplete: ((ReceiptPayload) -> Void)?) {
+        self.appState = appState
+        self.onLogComplete = onLogComplete
+        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository))
+    }
     
     @ObservedObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
@@ -96,6 +118,32 @@ struct ProductDetailView: View {
                             .accessibilityHint("Åpner kilden i nettleseren")
                         }
                         
+                        if detailModel.canRefresh {
+                            if let fetchedAt = product.fetchedAt {
+                                Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                            Button {
+                                Task { await detailModel.refresh(manually: true) }
+                            } label: {
+                                Label(detailModel.isRefreshing ? "Henter produktdata …" : "Hent oppdaterte produktdata",
+                                      systemImage: "arrow.clockwise")
+                                    .font(AppTypography.body)
+                                    .frame(minHeight: 44)
+                            }
+                            .foregroundColor(AppColors.action)
+                            .disabled(detailModel.isRefreshing || isLogging)
+                            if let message = detailModel.refreshMessage {
+                                Text(message)
+                                    .font(AppTypography.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                                    .accessibilityIdentifier("productRefreshMessage")
+                            }
+                        }
+
                         if showNutritionImproving, product.nutritionSource == .openFoodFacts, product.verificationStatus == .unverified {
                             EmptyView()
                         }
@@ -279,6 +327,7 @@ struct ProductDetailView: View {
                     .foregroundColor(AppColors.action)
             }
         }
+        .task { await detailModel.refresh(manually: false) }
         .onAppear {
             if let userId = authViewModel.currentUser?.id {
                 isFavorite = productViewModel.isFavorite(product, userId: userId)
@@ -321,6 +370,7 @@ struct ProductDetailView: View {
 
     private func logProduct() {
         guard !isLogging, let amount = parsedAmount, amount > 0 else { return }
+        let product = detailModel.product
         isLogging = true
         logError = nil
         Task {
@@ -528,6 +578,11 @@ struct ProductSourceInfoView: View {
                             title: "Sist oppdatert hos kilden",
                             value: sourceUpdatedAt.formatted(date: .abbreviated, time: .omitted)
                         )
+                    }
+
+                    if let fetchedAt = product.fetchedAt {
+                        infoRow(title: "Sist hentet til enheten",
+                                value: fetchedAt.formatted(date: .abbreviated, time: .omitted))
                     }
 
                     Text("Her ser du hvor opplysningene kommer fra. Næringstallene kan inneholde feil eller være utdaterte.")
