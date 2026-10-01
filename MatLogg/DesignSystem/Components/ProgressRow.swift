@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ProgressRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let label: String
     let valueText: String
     let progress: Double
@@ -8,14 +10,19 @@ struct ProgressRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout())
+            layout {
                 Text(label)
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 Text(valueText)
                     .font(AppTypography.caption)
                     .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             
             GeometryReader { proxy in

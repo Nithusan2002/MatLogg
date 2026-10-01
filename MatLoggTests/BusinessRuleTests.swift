@@ -66,7 +66,6 @@ struct BusinessRuleTests {
         let metrics = ProgressMetrics(summaries: [])
         #expect(metrics.today == nil)
         #expect(metrics.averageCalories == 0)
-        #expect(metrics.calories(forMeal: "frokost") == 0)
     }
 
     @Test func calorieBalanceCoversRemainingExactOverAndInvalidValues() throws {

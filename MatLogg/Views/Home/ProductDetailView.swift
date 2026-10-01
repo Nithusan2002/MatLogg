@@ -63,6 +63,7 @@ struct ProductDetailView: View {
                             .foregroundColor(isFavorite ? AppColors.action : AppColors.textSecondary)
                             .frame(width: 44, height: 44)
                     }
+                    .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
                 }
                 .padding()
                 

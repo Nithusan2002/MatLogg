@@ -671,7 +671,8 @@ cache/products/{product_id}_thumb.jpg
 
 Strategy:
 • Download on first view (if image_url provided)
-• Store locally with TTL (60 days)
+• Thumbnail-komponenten bruker en separat URLCache (8 MB minne / 50 MB disk) og gjenbruker tilgjengelige bilder offline. Cache kan ryddes av systemet.
+• TTL på 60 dager og produkt-ID-baserte filer er fortsatt planlagt.
 • Fallback: placeholder icon
 
 Size limit: 50 MB total cache

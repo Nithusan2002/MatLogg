@@ -49,9 +49,11 @@ struct MatLoggTabBar: View {
                         .font(.system(size: 25, weight: .semibold))
                         .foregroundColor(AppColors.onVibrant)
                         .frame(width: 56, height: 56)
-                        .background(AppColors.brand, in: Circle())
+                        .background {
+                            Circle().fill(AppColors.brand)
+                                .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
+                        }
                         .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
-                        .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
                     Text("Loggfør")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.deepInk)
@@ -66,6 +68,8 @@ struct MatLoggTabBar: View {
             tabButton(tabs[3])
         }
         .frame(minHeight: 70)
+        // Compact navigation labels retain full names without exceeding the screen width.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
@@ -110,5 +114,14 @@ extension View {
     /// Keeps the final content in a tab-hosted scroll container above MatLogg's custom tab bar.
     func matLoggTabBarScrollClearance() -> some View {
         modifier(MatLoggTabBarScrollClearanceModifier())
+    }
+}
+
+/// Tab content can yield its navigation space while an input is being edited.
+struct MatLoggTabBarEditingKey: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
     }
 }

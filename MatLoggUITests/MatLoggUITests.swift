@@ -57,6 +57,96 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testSearchTabSupportsLocalSearchAndProductOpening() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 5))
+        app.buttons["Søk"].tap()
+        let field = app.textFields["food-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Snarveier"].exists)
+        attachSearchScreenshot(app, name: "Søk – start")
+        field.tap()
+        field.typeText("havregryn")
+        XCTAssertFalse(app.buttons["Loggfør mat"].exists, "Bunnmenyen skal ikke dekke søketreff over tastaturet.")
+        let row = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        attachSearchScreenshot(app, name: "Søk – lokale treff")
+        row.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
+        attachSearchScreenshot(app, name: "Søk – mengdevalg")
+        if app.buttons["Legg til favoritt"].exists {
+            app.buttons["Legg til favoritt"].tap()
+        }
+        XCTAssertTrue(app.buttons["Fjern fra favoritter"].waitForExistence(timeout: 5))
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        app.buttons["Tøm søket"].tap()
+        app.buttons["Ferdig"].tap()
+        XCTAssertTrue(app.buttons["Loggfør mat"].waitForExistence(timeout: 5))
+        let reused = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'"))
+        XCTAssertGreaterThanOrEqual(reused.count, 2, "Matvaren skal finnes både i favoritter og nylig brukt.")
+        attachSearchScreenshot(app, name: "Søk – favoritt og nylig brukt")
+    }
+
+    @MainActor
+    func testSearchManualFallbackSavesAndOpensAmountSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 5))
+        app.buttons["Søk"].tap()
+        let field = app.textFields["food-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("zzzsokutenlokaletreff")
+        app.buttons["Ferdig"].tap()
+        XCTAssertTrue(app.staticTexts["Ingen lokale treff"].waitForExistence(timeout: 5))
+        app.buttons["Registrer manuelt"].tap()
+        XCTAssertTrue(app.textFields["Produktnavn"].waitForExistence(timeout: 5))
+        for (label, value) in [("Produktnavn", "Søktest " + UUID().uuidString.prefix(8)),
+                               ("Energi", "100"), ("Protein", "2"), ("Karbohydrat", "10"), ("Fett", "4")] {
+            app.textFields[label].tap()
+            app.textFields[label].typeText(value)
+        }
+        app.swipeUp()
+        let save = app.buttons["Lagre og fortsett"]
+        if !save.isHittable { app.swipeUp() }
+        XCTAssertTrue(save.isHittable)
+        save.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Søktest '")).firstMatch.exists)
+    }
+
+    @MainActor
+    func testSearchSupportsAccessibilityTextSize() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 5))
+        app.buttons["Søk"].tap()
+        XCTAssertTrue(app.textFields["food-search-field"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["food-search-field"].isHittable)
+        XCTAssertTrue(app.buttons["Skann strekkode"].isHittable)
+        XCTAssertTrue(app.buttons["food-search-submit"].isHittable)
+        for control in [app.textFields["food-search-field"], app.buttons["Skann strekkode"], app.buttons["food-search-submit"]] {
+            XCTAssertGreaterThanOrEqual(control.frame.minX, app.frame.minX)
+            XCTAssertLessThanOrEqual(control.frame.maxX, app.frame.maxX)
+        }
+        attachSearchScreenshot(app, name: "Søk – stor tekst")
+    }
+
+    @MainActor
+    private func attachSearchScreenshot(_ app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testHomeCanNavigateAcrossPastAndFutureDates() throws {
         let app = XCUIApplication()
         app.launchArguments.append("--skip-auth")

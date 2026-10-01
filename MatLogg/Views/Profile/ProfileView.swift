@@ -5,6 +5,9 @@ struct ProfileView: View {
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
 
+    @EnvironmentObject private var demoMode: DemoMode
+    @State private var confirmDemoReset = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -14,6 +17,9 @@ struct ProfileView: View {
                     dailyGoalCard
                     shortcutCard
                     storageSummary
+                    #if DEBUG
+                    demoControls
+                    #endif
                     Label("Nappe · norsk matdagbok", systemImage: "flame.fill")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.textSecondary)
@@ -29,6 +35,28 @@ struct ProfileView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task { await appState.refreshSyncStatus() }
         }
+    }
+
+    private var demoControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Demomodus", isOn: Binding(get: { demoMode.isDemo }, set: { enabled in
+                Task { await demoMode.selectDemo(enabled) }
+            }))
+            .accessibilityIdentifier("profile-demo-mode")
+            Text("Fiktive data i separat lokal lagring. Dine vanlige data beholdes.")
+                .font(AppTypography.captionEmphasis)
+                .foregroundStyle(AppColors.textSecondary)
+            if demoMode.isDemo {
+                Button("Tilbakestill demodata") { confirmDemoReset = true }
+            }
+            if demoMode.isLoading { ProgressView("Klargjør demodata …") }
+        }
+        .padding(20)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+        .disabled(demoMode.isLoading)
+        .confirmationDialog("Tilbakestille demodata?", isPresented: $confirmDemoReset, titleVisibility: .visible) {
+            Button("Tilbakestill", role: .destructive) { Task { await demoMode.selectDemo(true, reset: true) } }
+        } message: { Text("Endringer i demoen fjernes. Vanlige data beholdes.") }
     }
 
     private var profileHeader: some View {
@@ -57,8 +85,7 @@ struct ProfileView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .profileCardShadow()
+            .matLoggCardSurface()
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile-personal-details")
@@ -87,8 +114,7 @@ struct ProfileView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .profileCardShadow()
+        .matLoggCardSurface()
         .accessibilityElement(children: .contain)
     }
 
@@ -102,21 +128,24 @@ struct ProfileView: View {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger", value: nil)
             }
         }
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .profileCardShadow()
+        .matLoggCardSurface()
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile-shortcuts")
     }
 
     private var profileName: String {
+        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !localName.isEmpty { return localName }
         if authViewModel.isLocalMode { return "På denne iPhonen" }
         let name = authViewModel.currentUser?.fullName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? "MatLogg-bruker" : name
     }
 
     private var profileInitials: String {
-        guard let user = authViewModel.currentUser, !user.isLocalProfile else { return "ML" }
-        let initials = String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
+        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name = localName.isEmpty ? (authViewModel.currentUser?.fullName ?? "") : localName
+        let parts = name.split(whereSeparator: { $0.isWhitespace })
+        let initials = parts.prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
         return initials.isEmpty ? "ML" : initials
     }
 
@@ -166,6 +195,7 @@ private struct ProfileMenuRow: View {
 }
 
 private struct ProfileSettingsView: View {
+    @EnvironmentObject private var demoMode: DemoMode
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
@@ -261,7 +291,9 @@ private struct ProfileSettingsView: View {
             }
             .listRowBackground(AppColors.surface)
             Section("Konto") {
-                if authViewModel.isLocalMode {
+                if demoMode.isDemo {
+                    LabeledContent("Status", value: "Demomodus – fiktiv lokal profil")
+                } else if authViewModel.isLocalMode {
                     LabeledContent("Status", value: "På denne iPhonen")
                     Text("Konto er valgfritt. Dataene dine er lagret på denne enheten. Synk mellom enheter er ikke tilgjengelig ennå.")
                         .font(AppTypography.caption)
@@ -360,9 +392,6 @@ private struct ProfileSettingsView: View {
     }
 }
 
-private extension View {
-    func profileCardShadow() -> some View { shadow(color: Color.black.opacity(0.07), radius: 0, x: 0, y: 7) }
-}
 
 struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]

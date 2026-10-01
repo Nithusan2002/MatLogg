@@ -289,3 +289,17 @@ angre/korrigering, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
 glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
 og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
 Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.
+
+## Demomodus for presentasjon (2026-09-30)
+
+DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
+Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
+serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
+favoritter og fire lagrede måltider med næringsdata fra medfølgende Matvaretabellen.
+Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
+bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
+profilen ikke har registreringer fra før.
+
+Verifisert på iOS 26.5-simulator: 15 målrettede Swift-tester (demo og profil) og
+én UI-test for bytte begge veier og gjenoppretting av demomodus etter omstart.
+Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifisert.

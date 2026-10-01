@@ -375,6 +375,7 @@ struct WeightEntry: Codable, Identifiable {
 }
 
 struct PersonalDetails: Codable {
+    var displayName: String?
     var weightKg: Double?
     var heightCm: Double?
     var birthDate: Date?

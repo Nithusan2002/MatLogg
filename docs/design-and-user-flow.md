@@ -89,21 +89,28 @@ og inngår i eksport, kontooverføring og sletting.
 
 ### Søk
 
-Søk samler oppdagelse og gjenbruk:
+Søk-fanen har et direkte søkefelt og én separat, tekstmerket inngang til
+strekkodeskanning. Tastaturet åpnes først når feltet aktiveres. Bunnmenyen skjules
+mens søkefeltet redigeres, slik at den ikke dekker treff over tastaturet, og vises
+igjen når redigeringen avsluttes. Søk fra Loggfør
+bruker samme skjerminnhold i en egen presentasjon med fokusert søkefelt.
 
-- råvaresøk
-- produktoppslag
-- favoritter
-- nylig brukte eller skannede produkter
-- inngang til strekkodeskanning
+Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
+utvalg råvarer. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
+nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
+og når skjermen vises igjen.
 
-Resultater skal vise navn og relevant kilde-/enhetskontekst. Ingen treff,
-nettverksfeil og ingen tidligere produkter er tre forskjellige tilstander.
-Navnesøk kombinerer Matvaretabellen for råvarer med Open Food Facts for
-pakkevarer og merkevarer. Eksternt navnesøk starter først når brukeren trykker
-«Søk» eller sender inn søket fra tastaturet; det skal ikke kjøres for hvert
-tastetrykk. Når eksternt søk ikke er tilgjengelig, beholdes eventuelle lokale
-råvaretreff og merkes som lagrede treff.
+Navnesøk kombinerer den lokale Matvaretabellen-katalogen og tilgjengelige lagrede
+produkter med Open Food Facts for pakkevarer og merkevarer. Lokale treff vises
+mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller innsending
+fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
+Private produkter fra andre profiler er ikke søkbare.
+
+Resultater viser navn, eventuelt merke og bilde, samt kilde-/enhetskontekst.
+Innledende lasting, lesefeil, ingen tidligere produkter, ingen lokale treff og
+ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søket.
+Skanning og fungerende manuell produktregistrering er tilgjengelige alternativer.
+Manuell registrering lagrer et brukeroppgitt produkt før mengdevalg og logging.
 
 ### Loggfør
 
@@ -143,7 +150,12 @@ Profil samler:
 - lokal/synkronisert datastatus
 
 Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
-Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Tom fødselsdato
+Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
+gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
+samles i «Grunnlag for målforslag», med en felles «Hvorfor spør vi?»-forklaring.
+Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
+Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
+foran eventuelt navn fra kontoen. Tom fødselsdato
 bevares som tom, ugyldige tall avvises ved feltet, og lagringsfeil beholder
 utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren

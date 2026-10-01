@@ -14,7 +14,7 @@ Kontakt: nithusank.2002@gmail.com
 
 Konto og innlogging
   - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
-  - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn.
+  - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
   - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
