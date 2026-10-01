@@ -29,7 +29,7 @@ final class HapticFeedbackService {
         case .barcodeDetected:
             impactLight.impactOccurred()
         case .loggingSuccess:
-            notification.notificationOccurred(.success)
+            impactLight.impactOccurred(intensity: 0.2)
         case .error:
             notification.notificationOccurred(.error)
         case .favoriteToggle:
