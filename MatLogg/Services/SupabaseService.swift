@@ -6,12 +6,26 @@ struct SupabaseConfiguration: Sendable {
     let publishableKey: String
     let callbackURL: URL
 
+    static func isAllowedURL(_ url: URL) -> Bool {
+        if url.scheme == "https" { return true }
+        guard url.scheme == "http", let host = url.host else { return false }
+        if host == "127.0.0.1" || host == "localhost" { return true }
+        #if DEBUG
+        let parts = host.split(separator: ".").compactMap { Int($0) }
+        guard parts.count == 4, parts.allSatisfy({ (0...255).contains($0) }) else { return false }
+        return parts[0] == 10 || (parts[0] == 192 && parts[1] == 168)
+            || (parts[0] == 172 && (16...31).contains(parts[1]))
+        #else
+        return false
+        #endif
+    }
+
     static func load(bundle: Bundle = .main) throws -> SupabaseConfiguration {
         guard let urlString = bundle.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
               !urlString.isEmpty,
               !urlString.contains("$("),
               let url = URL(string: urlString),
-              url.scheme == "https" || url.host == "127.0.0.1" || url.host == "localhost",
+              Self.isAllowedURL(url),
               let key = bundle.object(forInfoDictionaryKey: "SUPABASE_PUBLISHABLE_KEY") as? String,
               !key.isEmpty,
               !key.contains("$("),
@@ -162,17 +176,10 @@ final class SupabaseService: AccountAuthRepository, SyncAPIClient, NutritionLabe
                     byteSize: imageData.count
                 ))
             )
-            guard let uploadURL = URL(string: upload.signedUrl),
-                  uploadURL.scheme == "https" || uploadURL.host == "127.0.0.1" || uploadURL.host == "localhost" else {
-                throw ProductAIError.invalidResponse
-            }
-            var request = URLRequest(url: uploadURL)
-            request.httpMethod = "PUT"
-            request.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
-            let (_, uploadResponse) = try await URLSession.shared.upload(for: request, from: imageData)
-            guard let httpResponse = uploadResponse as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
-                throw ProductAIError.unavailable
-            }
+            try await client.storage.from("product-submissions").uploadToSignedURL(
+                upload.path, token: upload.token, data: imageData,
+                options: FileOptions(contentType: "image/jpeg")
+            )
             let response: NutritionExtractionResponse = try await client.functions.invoke(
                 "extract-nutrition-label",
                 options: .init(body: NutritionExtractionRequest(

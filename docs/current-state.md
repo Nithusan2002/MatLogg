@@ -352,3 +352,18 @@ Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifise
   katalog på gir 200 med produktliste, innlogget privat opplasting gir 201 og
   uautorisert opplasting gir 401. Felles importkart er eksplisitt konfigurert
   for alle funksjoner etter at runtime-kontroll avdekket manglende imports.
+
+### AI på fysisk testtelefon – kontrollert 2026-10-01
+
+- DEBUG støtter private IPv4-adresser til lokal Supabase; offentlig HTTP og
+  andre protokoller avvises. Opplasting bruker SDK-ens signerte sti/token på
+  konfigurert backend, uten å følge serverens interne vertsnavn.
+- AI-funksjonen henter privat bilde etter eierkontroll og sender det som inline
+  bildedata. Dette fungerer også når OpenAI ikke kan nå lokal Storage-URL.
+  `store: false` beholdes, bildet begrenses til 5 MB og output til 3000 tokens.
+  Lokal `gpt-5-nano` bruker minimal reasoning.
+- Åtte målrettede iOS-tester består. Syntetisk JPEG-opplasting består. AI happy
+  path stoppes av OpenAI `credit_balance_exhausted` / `insufficient_quota`;
+  modelltilgang alene var ikke tilstrekkelig til å verifisere betalte API-kall.
+- DEBUG-konfigurasjonen peker på Macens LAN-adresse, som krever samme nett og
+  ny appbygging. Produksjonskonfigurasjon og synkkontrakt er uendret.

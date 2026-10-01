@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Buffer } from "node:buffer";
 import {
   authenticatedUser,
   jsonResponse,
@@ -77,17 +78,25 @@ Deno.serve(async (request) => {
   });
   if (!allowed) return jsonResponse({ code: "DAILY_QUOTA_EXCEEDED" }, 429);
   const { data: asset } = await admin.from("submission_images").select(
-    "storage_path,kind,owner_id",
+    "storage_path,kind,owner_id,content_type",
   )
     .eq("id", parsed.data.assetId).eq("owner_id", authenticated.user.id).eq(
       "kind",
       "nutrition_label",
     ).maybeSingle();
   if (!asset) return jsonResponse({ code: "ASSET_NOT_FOUND" }, 404);
-  const { data: signed, error: signedError } = await admin.storage.from(
+  const { data: image, error: imageError } = await admin.storage.from(
     "product-submissions",
-  ).createSignedUrl(asset.storage_path, 300);
-  if (signedError) return jsonResponse({ code: "ASSET_NOT_FOUND" }, 404);
+  ).download(asset.storage_path);
+  if (imageError || !image) {
+    return jsonResponse({ code: "ASSET_NOT_FOUND" }, 404);
+  }
+  if (image.size === 0 || image.size > 5 * 1024 * 1024) {
+    return jsonResponse({ code: "VALIDATION_ERROR" }, 400);
+  }
+  const imageURL = `data:${asset.content_type};base64,${
+    Buffer.from(await image.arrayBuffer()).toString("base64")
+  }`;
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return jsonResponse({ code: "AI_UNAVAILABLE" }, 503);
 
@@ -104,6 +113,10 @@ Deno.serve(async (request) => {
       body: JSON.stringify({
         model: Deno.env.get("OPENAI_NUTRITION_MODEL") ?? "gpt-6-luna",
         store: false,
+        max_output_tokens: 3000,
+        ...(Deno.env.get("OPENAI_NUTRITION_MODEL") === "gpt-5-nano"
+          ? { reasoning: { effort: "minimal" } }
+          : {}),
         input: [{
           role: "user",
           content: [
@@ -114,7 +127,7 @@ Deno.serve(async (request) => {
             },
             {
               type: "input_image",
-              image_url: signed.signedUrl,
+              image_url: imageURL,
               detail: "high",
             },
           ],

@@ -123,6 +123,12 @@ struct ProductCreationTests {
         #expect(store.productDrafts(ownerUserId: newOwner).isEmpty)
     }
 
+    @Test func debugBackendAllowsPrivateLANButRejectsPublicHTTP() throws {
+        #expect(SupabaseConfiguration.isAllowedURL(try #require(URL(string: "http://192.168.103.229:55321"))))
+        #expect(!SupabaseConfiguration.isAllowedURL(try #require(URL(string: "http://example.com"))))
+        #expect(!SupabaseConfiguration.isAllowedURL(try #require(URL(string: "ftp://127.0.0.1"))))
+    }
+
     @Test func saltIsPreservedWithoutGuessingSodium() async throws {
         let repository = ProductCreationRepositorySpy()
         let viewModel = makeViewModel(owner: UUID(), repository: repository)
