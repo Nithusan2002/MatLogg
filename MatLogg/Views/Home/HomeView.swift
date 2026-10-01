@@ -1741,6 +1741,9 @@ extension Date {
 private struct ScannerFocusOverlay: View {
     let isLoading: Bool
 
+    private let focusSize = CGSize(width: 300, height: 180)
+    private let focusOffset: CGFloat = -42
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.28)
@@ -1748,49 +1751,51 @@ private struct ScannerFocusOverlay: View {
                     Rectangle()
                         .overlay {
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .frame(width: 300, height: 180)
-                                .offset(y: -42)
+                                .frame(width: focusSize.width, height: focusSize.height)
+                                .offset(y: focusOffset)
                                 .blendMode(.destinationOut)
                         }
                         .compositingGroup()
                 }
 
-            VStack(spacing: 32) {
-                ScannerCornerFrame()
-                    .stroke(
-                        isLoading ? AppColors.success : Color.white,
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
-                    )
-                    .frame(width: 300, height: 180)
-                    .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
-
-                if isLoading {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                            .tint(.white)
-                        Text("Henter produkt …")
-                            .font(AppTypography.bodyEmphasis)
+            ScannerCornerFrame()
+                .stroke(
+                    isLoading ? AppColors.success : Color.white,
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                )
+                .frame(width: focusSize.width, height: focusSize.height)
+                .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+                .overlay(alignment: .top) {
+                    Group {
+                        if isLoading {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                    .tint(.white)
+                                Text("Henter produkt …")
+                                    .font(AppTypography.bodyEmphasis)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(Color.black.opacity(0.68), in: Capsule())
+                            .accessibilityElement(children: .combine)
+                        } else {
+                            VStack(spacing: 4) {
+                                Text("Plasser koden i rammen")
+                                    .font(AppTypography.bodyEmphasis)
+                                Text("Strekkode eller Data Matrix")
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(Color.white.opacity(0.82))
+                            }
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color.black.opacity(0.68), in: Capsule())
-                    .accessibilityElement(children: .combine)
-                } else {
-                    VStack(spacing: 4) {
-                        Text("Plasser koden i rammen")
-                            .font(AppTypography.bodyEmphasis)
-                        Text("Strekkode eller Data Matrix")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(Color.white.opacity(0.82))
-                    }
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(Color.white)
+                    .offset(y: focusSize.height + 32)
                 }
-            }
-            .foregroundStyle(Color.white)
-            .offset(y: -12)
+                .offset(y: focusOffset)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
