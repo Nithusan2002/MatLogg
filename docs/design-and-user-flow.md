@@ -150,7 +150,8 @@ tilgjengelig i alle søketilstander og bruker samme høyde og avrunding som
 handlingsknappene over.
 
 Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
-utvalg råvarer. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
+utvalg råvarer. Seksjonene «Favoritter» og «Nylig brukt» skjules når de er tomme.
+Alle produktrader åpner mengdevalg og loggføring. Favoritter og
 nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
 og når skjermen vises igjen.
 
@@ -296,8 +297,26 @@ måltider](saved-meals.md).
 Velkomstskjermen skal vise budskap, trygghetspunkter og primærhandling uten
 scrolling på en vanlig iPhone i standard tekststørrelse. Innholdet ligger fortsatt
 i en scrollbar beholder som tilgjengelighetsfallback for små skjermer, liggende
-retning og store tekststørrelser. «Start uten mål» og «Kun loggføring» skal ikke
+retning og store tekststørrelser. «Start med bare matlogging» skal ikke
 opprette et skjult kalorimål i bakgrunnen.
+
+
+### Forenklet førstegangsberegning
+
+Introduksjonen tilbyr «Få et forslag til dagsmål» eller «Start med bare
+matlogging». Måloppsett følger retning → beregningsgrunnlag → samlet forslag
+→ personvernvalg → oppsummering og eksplisitt lokal lagring. Tempo vises bare
+ved oppgang/nedgang. Aktivitet samles med vekt, høyde, alder og formelgrunnlag.
+Manglende eller ugyldige opplysninger forklares ved feltene før beregning;
+manuelt mål og fortsatt logging uten mål er tilgjengelig.
+
+Resultatet viser kalorier og makroer samlet. Balansert er standard, og
+«Tilpass målene» åpner kalorifelt og makrofordeling ved behov. Separate
+justeringsknapper og obligatorisk makrotrinn er fjernet. Oppsummeringens
+«Endre» for næringsoversikt går tilbake til resultatet. Beregningsformel,
+produktgrenser og eksisterende lagringsgrenser er uendret. Profilens nye
+forslag bruker samme GoalCalculator og har valgfri næringsfordeling.
+
 
 Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
 velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller

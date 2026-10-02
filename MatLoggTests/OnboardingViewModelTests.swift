@@ -66,7 +66,7 @@ struct OnboardingViewModelTests {
         viewModel.intent = .lose
         viewModel.advance()
         viewModel.pace = .calm
-        viewModel.advance()
+        #expect(viewModel.step == .personalDetails)
         viewModel.weightText = "72"
         viewModel.heightText = "178"
         viewModel.ageText = "31"
@@ -76,7 +76,7 @@ struct OnboardingViewModelTests {
         let suggestion = try #require(viewModel.suggestion)
         #expect(viewModel.calorieTarget == suggestion)
         viewModel.advance()
-        viewModel.advance()
+        #expect(viewModel.step == .privacy)
         viewModel.advance()
         #expect(viewModel.step == .summary)
 
@@ -101,6 +101,41 @@ struct OnboardingViewModelTests {
 
         #expect(viewModel.suggestion == nil)
         #expect(!viewModel.hasValidCalorieTarget)
+    }
+
+    @Test func incompleteDetailsStayOnFormAndBackPreservesInput() {
+        let vm = OnboardingViewModel(goalRepository: OnboardingGoalRepositoryStub(), personalDetailsStore: OnboardingPersonalDetailsStoreStub())
+        vm.begin(userId: UUID(), goal: nil, details: .empty)
+        vm.advance()
+        vm.advance()
+        vm.weightText = "72"
+        vm.advance()
+        #expect(vm.step == .personalDetails)
+        #expect(vm.detailErrors["Vekt"] == nil)
+        #expect(vm.detailErrors["Høyde"] != nil)
+        #expect(vm.detailErrors["Alder"] != nil)
+        #expect(vm.detailErrors["Kjønn"] != nil)
+        vm.back()
+        #expect(vm.step == .intent)
+        vm.advance()
+        #expect(vm.weightText == "72")
+    }
+
+    @Test func manualTargetSkipsCalculationAndRejectsInvalidCustomMacros() {
+        let vm = OnboardingViewModel(goalRepository: OnboardingGoalRepositoryStub(), personalDetailsStore: OnboardingPersonalDetailsStoreStub())
+        vm.begin(userId: UUID(), goal: nil, details: .empty)
+        vm.advance()
+        vm.advance()
+        vm.continueWithManualTarget()
+        vm.calorieTargetText = "2100"
+        vm.macroPreset = .custom
+        vm.advance()
+        #expect(vm.step == .result)
+        vm.proteinText = "120"
+        vm.carbsText = "220"
+        vm.fatText = "70"
+        vm.advance()
+        #expect(vm.step == .privacy)
     }
 
     @Test func saveFailureKeepsDraftAndDoesNotComplete() async {

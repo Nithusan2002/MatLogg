@@ -123,6 +123,7 @@ struct DailyGoalsView: View {
 }
 
 private struct GoalSuggestionView: View {
+    @State private var showCustomization = false
     @StateObject private var viewModel: GoalSuggestionViewModel
     @Environment(\.dismiss) private var dismiss
     let onEditDetails: () -> Void
@@ -140,9 +141,7 @@ private struct GoalSuggestionView: View {
                 if viewModel.showingResult, let suggestion = viewModel.suggestion {
                     Section("Veiledende forslag") {
                         LabeledContent("Forslag til kalorimål", value: "ca. \(suggestion.calories) kcal/dag")
-                        LabeledContent("Protein", value: "\(suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
-                        LabeledContent("Karbohydrater", value: "\(suggestion.macros.carbsG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
-                        LabeledContent("Fett", value: "\(suggestion.macros.fatG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        GoalMacroSummaryView(macros: suggestion.macros)
                         Text("Beregnet fra lagrede personopplysninger og valgene dine. Dette er et estimat, ikke en medisinsk anbefaling.")
                             .font(AppTypography.caption)
                     }
@@ -171,8 +170,10 @@ private struct GoalSuggestionView: View {
                         Picker("Aktivitetsnivå", selection: $viewModel.activity) {
                             ForEach(ActivityLevel.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
+                        DisclosureGroup("Tilpass næringsfordelingen", isExpanded: $showCustomization) {
                         Picker("Fordeling av næringsstoffer", selection: $viewModel.preset) {
                             ForEach([MacroPreset.balanced, .proteinFocus, .carbFocus], id: \.self) { Text($0.label).tag($0) }
+                        }
                         }
                     }
                     .listRowBackground(AppColors.surface)

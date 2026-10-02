@@ -221,24 +221,18 @@ private struct FoodSearchContent: View {
 
     @ViewBuilder
     private var library: some View {
-        Section("Favoritter") {
-            if viewModel.favorites.isEmpty {
-                Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
-                    .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
-            } else {
+        if !viewModel.favorites.isEmpty {
+            Section("Favoritter") {
                 productRows(viewModel.favorites, context: "favorite")
             }
+            .listRowBackground(AppColors.surface)
         }
-        .listRowBackground(AppColors.surface)
-        Section("Nylig brukt") {
-            if viewModel.recent.isEmpty {
-                Text("Matvarer du loggfører vises her neste gang.")
-                    .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
-            } else {
+        if !viewModel.recent.isEmpty {
+            Section("Nylig brukt") {
                 productRows(viewModel.recent, context: "recent")
             }
+            .listRowBackground(AppColors.surface)
         }
-        .listRowBackground(AppColors.surface)
         if !viewModel.suggestions.isEmpty {
             Section("Råvarer") { productRows(viewModel.suggestions) }
                 .listRowBackground(AppColors.surface)

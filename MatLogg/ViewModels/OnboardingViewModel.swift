@@ -6,10 +6,8 @@ final class OnboardingViewModel: ObservableObject {
     enum Step: Hashable {
         case introduction
         case intent
-        case goalSetup
         case personalDetails
         case result
-        case macros
         case privacy
         case summary
     }
@@ -73,8 +71,8 @@ final class OnboardingViewModel: ObservableObject {
     @Published var carbsText = ""
     @Published var fatText = ""
     @Published private(set) var isManualTarget = false
+    @Published private(set) var attemptedDetails = false
     @Published private(set) var attemptedResult = false
-    @Published private(set) var attemptedMacros = false
 
     private let goalRepository: any GoalRepository
     private let personalDetailsStore: any PersonalDetailsStore
@@ -122,8 +120,9 @@ final class OnboardingViewModel: ObservableObject {
         calorieTargetText = goal.map { String($0.dailyCalories) } ?? ""
         errorMessage = nil
         isManualTarget = goal != nil
+        attemptedDetails = false
         attemptedResult = false
-        attemptedMacros = false
+        macroPreset = .balanced
         skipsGoalSetup = false
     }
 
@@ -140,19 +139,15 @@ final class OnboardingViewModel: ObservableObject {
             skipsGoalSetup = false
             go(to: .intent)
         case .intent:
-            go(to: intent == .loggingOnly ? .privacy : .goalSetup)
-        case .goalSetup:
-            go(to: .personalDetails)
+            go(to: intent == .loggingOnly ? .privacy : .personalDetails)
         case .personalDetails:
+            attemptedDetails = true
+            guard suggestion != nil else { return }
             prepareSuggestedTarget()
             go(to: .result)
         case .result:
             attemptedResult = true
-            guard hasValidCalorieTarget else { return }
-            go(to: .macros)
-        case .macros:
-            attemptedMacros = true
-            guard hasValidMacros else { return }
+            guard hasValidCalorieTarget, hasValidMacros else { return }
             go(to: .privacy)
         case .privacy:
             go(to: .summary)
@@ -178,18 +173,11 @@ final class OnboardingViewModel: ObservableObject {
         go(to: .result)
     }
 
-    func adjustCalories(by amount: Int) {
-        guard let value = calorieTarget else { return }
-        isManualTarget = true
-        calorieTargetText = String(GoalCalculator.clampCalories(value + amount))
-    }
-
     func back() {
         guard let previous = history.popLast() else { return }
         step = previous
         errorMessage = nil
         attemptedResult = false
-        attemptedMacros = false
     }
 
     func edit(_ destination: Step) {
@@ -225,13 +213,12 @@ final class OnboardingViewModel: ObservableObject {
 
     var primaryButtonTitle: String {
         switch step {
-        case .introduction: return "Sett opp min oversikt"
-        case .intent, .goalSetup: return "Fortsett"
-        case .personalDetails: return "Se forslag til kalorimål"
-        case .result: return "Bruk dette målet"
-        case .macros: return "Se min oppsummering"
+        case .introduction: return "Få et forslag til dagsmål"
+        case .intent: return "Fortsett"
+        case .personalDetails: return "Beregn forslag"
+        case .result: return "Bruk forslaget"
         case .privacy: return "Fortsett"
-        case .summary: return "Lagre og gå til Hjem"
+        case .summary: return "Lagre og start"
         }
     }
 
@@ -253,7 +240,7 @@ final class OnboardingViewModel: ObservableObject {
         let input = GoalCalculationInput(
             weightKg: Self.parseNumber(weightText),
             heightCm: Self.parseNumber(heightText),
-            ageYears: Int(ageText.filter(\.isNumber)),
+            ageYears: Int(ageText.trimmingCharacters(in: .whitespacesAndNewlines)),
             gender: gender == .ikkeOppgi ? nil : gender,
             activity: activity,
             intent: goalIntent,
@@ -264,8 +251,31 @@ final class OnboardingViewModel: ObservableObject {
         }
     }
 
+    var detailErrors: [String: String] {
+        guard attemptedDetails else { return [:] }
+        var errors: [String: String] = [:]
+        if (Self.parseNumber(weightText).map { $0.isFinite && GoalCalculator.supportedWeightRange.contains($0) } ?? false) == false {
+            errors["Vekt"] = "Oppgi vekt mellom 20 og 500 kg."
+        }
+        if (Self.parseNumber(heightText).map { $0.isFinite && GoalCalculator.supportedHeightRange.contains($0) } ?? false) == false {
+            errors["Høyde"] = "Oppgi høyde mellom 100 og 250 cm."
+        }
+        if (Int(ageText).map { GoalCalculator.supportedAgeRange.contains($0) } ?? false) == false {
+            errors["Alder"] = "Automatiske forslag krever alder mellom 18 og 120 år."
+        }
+        if gender != .mann && gender != .kvinne {
+            errors["Kjønn"] = "Beregningen krever Kvinne eller Mann. Du kan også angi mål selv."
+        }
+        return errors
+    }
+
+    var previewMacros: MacroTargets? {
+        guard let calorieTarget, hasValidMacros else { return nil }
+        return selectedMacros(calories: calorieTarget)
+    }
+
     var calorieTarget: Int? {
-        Int(calorieTargetText.filter(\.isNumber))
+        Int(calorieTargetText.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     var hasValidCalorieTarget: Bool {
@@ -301,7 +311,7 @@ final class OnboardingViewModel: ObservableObject {
         if skipsGoalSetup || intent == .loggingOnly {
             return [.privacy, .summary]
         }
-        return [.intent, .goalSetup, .personalDetails, .result, .macros, .privacy, .summary]
+        return [.intent, .personalDetails, .result, .privacy, .summary]
     }
 
     private func go(to destination: Step) {
@@ -309,7 +319,6 @@ final class OnboardingViewModel: ObservableObject {
         step = destination
         errorMessage = nil
         attemptedResult = false
-        attemptedMacros = false
     }
 
     private func prepareSuggestedTarget() {
@@ -318,7 +327,7 @@ final class OnboardingViewModel: ObservableObject {
     }
 
     private func makeGoal(userId: UUID) -> Goal? {
-        guard let goalIntent = intent.goalIntent,
+        guard hasValidMacros, let goalIntent = intent.goalIntent,
               let calorieTarget,
               GoalCalculator.calorieRange.contains(calorieTarget) else { return nil }
         let macros = selectedMacros(calories: calorieTarget)
@@ -349,7 +358,7 @@ final class OnboardingViewModel: ObservableObject {
         var details = initialDetails
         details.weightKg = Self.parseNumber(weightText)
         details.heightCm = Self.parseNumber(heightText)
-        details.birthDate = Int(ageText.filter(\.isNumber)).flatMap(Self.birthDateFromAge)
+        details.birthDate = Int(ageText.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap(Self.birthDateFromAge)
         details.gender = gender == .ikkeOppgi ? nil : gender
         details.activityLevel = activity
         return details

@@ -8,6 +8,7 @@ struct MatLoggOnboardingFlowView: View {
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
 
     @State private var showMeasurement: PersonalMeasurement?
+    @State private var showCustomization = false
     @State private var showPrivacyPolicy = false
     @State private var showPrivacyChoices = false
 
@@ -107,14 +108,10 @@ struct MatLoggOnboardingFlowView: View {
             introductionStep
         case .intent:
             intentStep
-        case .goalSetup:
-            goalSetupStep
         case .personalDetails:
             personalDetailsStep
         case .result:
             resultStep
-        case .macros:
-            macrosStep
         case .privacy:
             privacyStep
         case .summary:
@@ -126,14 +123,13 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             stepTitle(
                 eyebrow: "PÅ DINE PREMISSER",
-                title: "Logg mat på din måte",
+                title: "Hvordan vil du bruke MatLogg?",
                 body: "Kalorier og næringsverdier gir oversikt, mens mål og personlige opplysninger er valgfrie."
             )
-            VStack(spacing: 12) {
-                TrustCard(title: "Lagres på denne iPhonen", message: "Du kan bruke matloggen uten konto eller nett.", systemImage: "iphone")
-                TrustCard(title: "Valgfrie opplysninger", message: "Du bestemmer selv hva du vil legge inn.", systemImage: "slider.horizontal.3")
-                TrustCard(title: "Ingen medisinske råd", message: "Dette er en logg og oversikt, ikke behandling.", systemImage: "heart")
-            }
+            Text("Lagres på denne iPhonen. Du kan logge uten konto eller nett.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+
         }
     }
 
@@ -141,11 +137,11 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 20) {
             stepTitle(
                 eyebrow: "FORMÅL",
-                title: "Hva ønsker du oversikt over?",
+                title: "Hva ønsker du å følge?",
                 body: "Valget brukes bare til å forme oversikten din."
             )
             VStack(spacing: 12) {
-                ForEach(OnboardingViewModel.IntentChoice.allCases) { choice in
+                ForEach(OnboardingViewModel.IntentChoice.allCases.filter { $0 != .loggingOnly }) { choice in
                     ChoiceCard(
                         title: choice.title,
                         description: choice.description,
@@ -155,36 +151,9 @@ struct MatLoggOnboardingFlowView: View {
                     }
                 }
             }
-        }
-    }
-
-    private var goalSetupStep: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            stepTitle(
-                eyebrow: "VALGFRITT UTGANGSPUNKT",
-                title: "Tempo og aktivitet",
-                body: "Vi bruker valgene dine til å foreslå et kalorimål."
-            )
-            optionSection(title: "Ønsket tempo") {
-                ForEach(GoalPace.allCases, id: \.self) { pace in
-                    ChoiceCard(
-                        title: pace.label,
-                        description: pace.note,
-                        isSelected: onboardingViewModel.pace == pace
-                    ) {
-                        onboardingViewModel.pace = pace
-                    }
-                }
-            }
-            optionSection(title: "Aktivitet i hverdagen") {
-                ForEach([ActivityLevel.lav, .moderat, .hoy, .veldigHoy], id: \.self) { activity in
-                    ChoiceCard(
-                        title: activity.label,
-                        description: activity.description,
-                        isSelected: onboardingViewModel.activity == activity
-                    ) {
-                        onboardingViewModel.activity = activity
-                    }
+            if onboardingViewModel.intent != .maintain && onboardingViewModel.intent != .loggingOnly {
+                Picker("Tempo", selection: $onboardingViewModel.pace) {
+                    ForEach(GoalPace.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
             }
         }
@@ -226,13 +195,16 @@ struct MatLoggOnboardingFlowView: View {
     private var personalDetailsStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             stepTitle(
-                eyebrow: "VALGFRITT",
-                title: "Vil du ha et forslag til kalorimål?",
-                body: "Opplysningene lagres på profilen din og brukes bare til målberegningen."
+                eyebrow: "BEREGNINGSGRUNNLAG",
+                title: "Opplysninger til beregningen",
+                body: "Vi trenger disse opplysningene for å beregne et estimat. Du kan også angi mål selv eller fortsette uten mål."
             )
             measurementCard(.weight, text: onboardingViewModel.weightText)
+            if let error = onboardingViewModel.detailErrors["Vekt"] { validationText(error) }
             measurementCard(.height, text: onboardingViewModel.heightText)
+            if let error = onboardingViewModel.detailErrors["Høyde"] { validationText(error) }
             InputCard(label: "Alder", unit: "år", text: $onboardingViewModel.ageText, keyboard: .numberPad)
+            if let error = onboardingViewModel.detailErrors["Alder"] { validationText(error) }
             VStack(alignment: .leading, spacing: 8) {
                 Text("Kjønn")
                     .font(AppTypography.bodyEmphasis)
@@ -248,6 +220,15 @@ struct MatLoggOnboardingFlowView: View {
             Text("Vi bruker kjønn når vi beregner et forslag til kalorimål. Velger du Annet eller Ønsker ikke å oppgi, kan du sette målet selv.")
                 .font(AppTypography.caption)
                 .foregroundColor(AppColors.textSecondary)
+            if let error = onboardingViewModel.detailErrors["Kjønn"] { validationText(error) }
+            Picker("Aktivitet i hverdagen", selection: $onboardingViewModel.activity) {
+                ForEach([ActivityLevel.lav, .moderat, .hoy, .veldigHoy], id: \.self) { activity in
+                    Text(activity.label).tag(activity)
+                }
+            }
+            Text(onboardingViewModel.activity.description)
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
@@ -275,15 +256,26 @@ struct MatLoggOnboardingFlowView: View {
                 stepTitle(
                     eyebrow: "FORSLAG TIL KALORIMÅL",
                     title: "Ca. \(onboardingViewModel.calorieTarget ?? 0) kcal per dag",
-                    body: "Et forslag basert på det du har oppgitt, ikke en medisinsk anbefaling."
+                    body: "Et estimert startpunkt basert på opplysningene dine. Kan endres senere. Ikke en medisinsk anbefaling."
                 )
-                HStack(spacing: 8) {
-                    adjustmentButton(-100)
-                    adjustmentButton(-50)
-                    adjustmentButton(50)
-                    adjustmentButton(100)
+
+            }
+            if let macros = onboardingViewModel.previewMacros {
+                CardContainer {
+                    GoalMacroSummaryView(macros: macros)
                 }
-                InputCard(label: "Juster selv", unit: "kcal per dag", text: $onboardingViewModel.calorieTargetText, keyboard: .numberPad)
+            }
+            DisclosureGroup("Tilpass målene", isExpanded: $showCustomization) {
+                VStack(alignment: .leading, spacing: 16) {
+                    if !onboardingViewModel.isManualTarget {
+                        InputCard(label: "Kalorimål", unit: "kcal per dag", text: $onboardingViewModel.calorieTargetText, keyboard: .numberPad)
+                    }
+                    macrosStep
+                }
+                .padding(.top, 12)
+            }
+            if onboardingViewModel.attemptedResult && !onboardingViewModel.hasValidMacros {
+                validationText("Fyll inn gyldige gramverdier mellom 0 og 999 under Tilpass målene.")
             }
             if onboardingViewModel.attemptedResult && !onboardingViewModel.hasValidCalorieTarget {
                 validationText("Skriv et heltall mellom 1200 og 4500 kcal. Dette er grenser i appen, ikke en medisinsk anbefaling.")
@@ -293,11 +285,11 @@ struct MatLoggOnboardingFlowView: View {
 
     private var macrosStep: some View {
         VStack(alignment: .leading, spacing: 20) {
-            stepTitle(
-                eyebrow: "NÆRINGSOVERSIKT",
-                title: "Velg fordeling av næringsstoffer",
-                body: "Velg hvordan målet fordeles mellom protein, karbohydrater og fett. Dette er generelle forslag for voksne, ikke personlige ernæringsråd."
-            )
+            Text("Fordeling av næringsstoffer")
+                .font(AppTypography.bodyEmphasis)
+            Text("Balansert er valgt som standard. Du kan velge en annen fordeling.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
             VStack(spacing: 12) {
                 ForEach(MacroPreset.allCases, id: \.self) { preset in
                     ChoiceCard(title: preset.label, isSelected: onboardingViewModel.macroPreset == preset) {
@@ -309,7 +301,7 @@ struct MatLoggOnboardingFlowView: View {
                 InputCard(label: "Protein", unit: "g per dag", text: $onboardingViewModel.proteinText, keyboard: .decimalPad)
                 InputCard(label: "Karbohydrater", unit: "g per dag", text: $onboardingViewModel.carbsText, keyboard: .decimalPad)
                 InputCard(label: "Fett", unit: "g per dag", text: $onboardingViewModel.fatText, keyboard: .decimalPad)
-                if onboardingViewModel.attemptedMacros && !onboardingViewModel.hasValidMacros {
+                if onboardingViewModel.attemptedResult && !onboardingViewModel.hasValidMacros {
                     validationText("Fyll inn gram mellom 0 og 999 for alle tre næringsstoffene.")
                 }
             }
@@ -328,14 +320,14 @@ struct MatLoggOnboardingFlowView: View {
             stepTitle(
                 eyebrow: "OPPSUMMERING",
                 title: "Slik blir oversikten din",
-                body: "Alt kan justeres senere i Innstillinger og Profil."
+                body: "Du kan endre målene senere i Profil."
             )
             SummaryCard(title: "Mål", value: onboardingViewModel.goalSummary) {
                 onboardingViewModel.edit(.intent)
             }
             if onboardingViewModel.shouldCreateGoal {
                 SummaryCard(title: "Næringsoversikt", value: onboardingViewModel.macroSummary) {
-                    onboardingViewModel.edit(.macros)
+                    onboardingViewModel.edit(.result)
                 }
             }
             CardContainer {
@@ -360,7 +352,7 @@ struct MatLoggOnboardingFlowView: View {
 
             switch onboardingViewModel.step {
             case .introduction:
-                Button("Start uten mål") {
+                Button("Start med bare matlogging") {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         onboardingViewModel.chooseQuickStart()
                     }
@@ -458,17 +450,6 @@ struct MatLoggOnboardingFlowView: View {
         }
     }
 
-    private func adjustmentButton(_ amount: Int) -> some View {
-        Button(amount > 0 ? "+ \(amount)" : "− \(abs(amount))") {
-            onboardingViewModel.adjustCalories(by: amount)
-        }
-        .font(AppTypography.bodyEmphasis)
-        .foregroundColor(AppColors.ink)
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppColors.controlBorder, lineWidth: 1))
-    }
-
     private func validationText(_ text: String) -> some View {
         Label(text, systemImage: "exclamationmark.circle")
             .font(AppTypography.caption)
@@ -513,31 +494,6 @@ private struct ChoiceCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityValue(isSelected ? "Valgt" : "Ikke valgt")
-    }
-}
-
-private struct TrustCard: View {
-    let title: String
-    let message: String
-    let systemImage: String
-
-    var body: some View {
-        CardContainer {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: systemImage)
-                    .foregroundColor(AppColors.action)
-                    .frame(width: 36, height: 36)
-                    .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(AppTypography.bodyEmphasis)
-                    Text(message)
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .foregroundColor(AppColors.ink)
-            }
-        }
     }
 }
 

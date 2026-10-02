@@ -46,7 +46,9 @@ Acceptance Criteria:
 □ Kalorier og tilgjengelige makroverdier vises også uten mål
 □ Måltype: rolig nedgang / stabil vekt / rolig oppgang (bestemmer beregningsretning)
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
-□ Makromål: generell profil eller egendefinerte gram for protein/karbohydrat/fett
+□ Makromål: balansert standard vises med kaloriforslaget; annen profil eller egendefinerte gram åpnes via Tilpass målene
+□ Retning → beregningsgrunnlag (inkludert aktivitet) → forslag; tempo vises bare ved oppgang/nedgang
+□ Ugyldig beregningsgrunnlag vises ved feltene uten å sende brukeren til en tom resultatskjerm
 □ Vekt, høyde, alder, kjønn/formelvariant og aktivitet er valgfrie personopplysninger
 □ Automatisk estimat krever alder 18+, gyldig vekt/høyde og eksplisitt valg av kvinne- eller mannvarianten i voksenformelen
 □ Manglende eller annet formelgrunnlag gir ikke et gjettet standardestimat; brukeren angir eget mål eller supplerer opplysningene
