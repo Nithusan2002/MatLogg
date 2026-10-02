@@ -15,6 +15,7 @@ struct MatLoggContent: View {
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var morningCheckInViewModel: MorningCheckInViewModel
+    @StateObject private var healthIntegrationViewModel: HealthIntegrationViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
     @StateObject private var profileFavoritesViewModel: ProfileFavoritesViewModel
     @StateObject private var personalDetailsViewModel: PersonalDetailsViewModel
@@ -79,7 +80,25 @@ struct MatLoggContent: View {
             barcodeRepository: barcodeRepository
         ))
         _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
-        let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
+        let healthStore = databaseService.healthIntegrationStore
+        let healthCache = HealthWeightCacheStore(directory: healthStore?.healthCacheDirectory
+            ?? URL.applicationSupportDirectory.appendingPathComponent("UnavailableHealthCache"))
+        let healthClient: any HealthKitClient
+        // Developer/UI-test sessions and demo never open the real HealthKit store.
+        #if DEBUG
+        let useFakeHealth = isDemo || ProcessInfo.processInfo.arguments.contains("--skip-auth")
+            || ProcessInfo.processInfo.arguments.contains("--healthkit-fake")
+            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        #else
+        let useFakeHealth = isDemo
+        #endif
+        if useFakeHealth { healthClient = FakeHealthKitClient() }
+        else { healthClient = AppleHealthKitClient() }
+        let healthIntegration = DefaultHealthIntegrationRepository(store: healthStore, cache: healthCache, client: healthClient)
+        _healthIntegrationViewModel = StateObject(wrappedValue: HealthIntegrationViewModel(repository: healthIntegration))
+        let weightHistory = DefaultWeightHistoryRepository(manual: databaseService, health: healthIntegration)
+        let healthProfile = HealthProfileViewModel(repository: databaseService,
+            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults), weightHistoryRepository: weightHistory)
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
         _morningCheckInViewModel = StateObject(wrappedValue: MorningCheckInViewModel(
             repository: databaseService, store: UserDefaultsMorningCheckInStore(defaults: defaults)
@@ -134,8 +153,26 @@ struct MatLoggContent: View {
             .onChange(of: waterViewModel.mutationRevision) { _, _ in
                 Task { await appState.refreshSyncStatus() }
             }
-            .onDisappear { appState.updateAuthenticatedUser(nil) }
+            .onDisappear {
+                healthIntegrationViewModel.selectOwner(nil)
+                appState.updateAuthenticatedUser(nil)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthDomainDidChange)) { _ in
+                Task {
+                    await healthIntegrationViewModel.refresh()
+                    if let owner = authViewModel.currentUser?.id { await healthProfileViewModel.loadWeightEntries(userId: owner) }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthIntegrationDidRefresh)) { notification in
+                guard let owner = notification.object as? UUID, owner == authViewModel.currentUser?.id else { return }
+                Task {
+                    guard authViewModel.currentUser?.id == owner else { return }
+                    await healthProfileViewModel.loadWeightEntries(userId: owner)
+                }
+            }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
+                healthIntegrationViewModel.selectOwner(userId)
+                healthProfileViewModel.resetUserState()
                 profileExportViewModel.reset()
                 personalDetailsViewModel.begin(details: .empty, userId: nil)
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
@@ -172,7 +209,10 @@ struct MatLoggContent: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    Task { await appState.triggerSync(reason: .foreground) }
+                    Task {
+                        await appState.triggerSync(reason: .foreground)
+                        await healthIntegrationViewModel.refresh()
+                    }
                 }
             }
             .onChange(of: networkMonitor.restorationCount) { oldValue, newValue in
@@ -192,13 +232,17 @@ struct MatLoggContent: View {
     }
 
     private func loadHealthProfile() async {
+        healthIntegrationViewModel.selectOwner(authViewModel.currentUser?.id)
         if let userId = authViewModel.currentUser?.id {
             await healthProfileViewModel.loadGoal(userId: userId)
+            guard authViewModel.currentUser?.id == userId else { return }
             #if DEBUG
             if authViewModel.currentUser?.authProvider == "debug" {
                 healthProfileViewModel.useDevelopmentGoalIfMissing(userId: userId)
             }
             #endif
+            // Local profile/goal state is ready before potentially slow HealthKit work.
+            await healthIntegrationViewModel.refresh()
         } else {
             healthProfileViewModel.resetUserState()
         }
@@ -230,6 +274,7 @@ struct MatLoggContent: View {
         .environmentObject(productViewModel)
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
+        .environmentObject(healthIntegrationViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(morningCheckInViewModel)
         .environmentObject(dailyGoalsViewModel)

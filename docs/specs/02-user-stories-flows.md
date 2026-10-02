@@ -445,3 +445,10 @@ Acceptance Criteria:
 | **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
 | (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
 | **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
+
+## Apple Helse – godkjent utvidelse
+
+Som bruker kan jeg under Profil → Apple Helse velge mat ut, vekt inn og/eller
+manuell vekt ut uten konto. Tilgangsdialog vises bare ved eksplisitt tilkobling.
+Oversikt viser kilde og prioriterer manuell vekt. Oppdater nå, frakobling og
+bekreftet opprydding av egne Helse-data følger [integrasjonsflyten](../health-integration.md).

@@ -264,6 +264,7 @@ final class SavedMealsViewModel: ObservableObject {
                 proteinG: nutrition.protein,
                 carbsG: nutrition.carbs,
                 fatG: nutrition.fat,
+                nutritionSource: item.nutritionSource,
                 createdAt: timestamp
             ))
         }

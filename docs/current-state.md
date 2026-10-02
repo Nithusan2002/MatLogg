@@ -339,3 +339,10 @@ Manuell produktregistrering støtter valgfritt kamera-/bibliotekbilde.
 `Product.localImageData` lagres lokalt og inngår ikke i `ProductSyncPayload`.
 Eksisterende produktbilder bruker separat cache via `ProductImageRepository`.
 Dette er kodekontroll, ikke en ny funksjons- eller enhetstest.
+
+## Apple Helse – 2026-10-02
+
+Implementert som valgfri utvidelse bak Debug-pilotflagget `--enable-healthkit`,
+alltid deaktivert i Release. Mat ut og vekt inn/ut, separat beskyttet importcache,
+atomisk lokal eksportkø og profilisolasjon. Se [scope og QA-gates](health-integration.md).
+Fysisk HealthKit-verifisering og produksjonsgodkjenning er ikke utført.

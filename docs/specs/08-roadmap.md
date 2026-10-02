@@ -462,3 +462,9 @@ Notification: in-app banner + email
 Then: 3-month deprecation warning
 Finally: 410 Gone (archived)
 ```
+
+## 2026-10-02 – Apple Helse avgrenset til implementasjon bak flagg
+
+Historiske Apple Health-rader over er erstattet for førsteversjonen av
+[godkjent scope](../health-integration.md): mat ut og vekt inn/ut. Release- og
+pilotgodkjenning gjenstår. Vann, aktivitet og dynamiske mål er fortsatt senere scope.

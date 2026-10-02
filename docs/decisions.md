@@ -637,3 +637,13 @@ visning; hele dagen er fortsatt tilgjengelig. Produktbilder, navn og mengder
 prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
 av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
 beholdes. Ingen endringer i lagring eller synkkontrakt.
+
+## 2026-10-02 – Avgrenset Apple Helse-integrasjon
+
+Brukeren har godkjent implementasjon av valgfri mat ut og vekt inn/ut. Importert
+vekt ligger i separat beskyttet cache, ikke i domenets vekt-/Supabase-kø. Manuell
+vekt prioriteres per dag. Domenedata og HealthKit-outbox skrives atomisk lokalt;
+eksport beholder stabil identitet og monotont økende revisjon. Frakobling fjerner
+import og beholder egne tidligere eksporter til separat opprydding. Ingen
+backend-/synkkontraktsendring. Release forblir deaktivert til fysisk enhetstest og
+eksplisitt go/no-go. Detaljer: [Apple Helse](health-integration.md).

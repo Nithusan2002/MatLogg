@@ -232,3 +232,41 @@ dekker inngang fra Hjem, måltidsvalg og datobytte med stor tekst.
 `MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay`
 dekker registrering på tidligere dato og flytting til et annet måltid.
 Begge UI-testene lagrer skjermbilder i testresultatet.
+
+## Apple Helse – målrettet verifisering
+
+HealthIntegrationTests bruker syntetiske data, en fake HealthKitClient og egne
+midlertidige databaser. SDK-samplekonverteringen testes uten HKHealthStore.
+Testene dekker migrasjon 7→8, atomisk outbox, canonical lokale HealthKit-typer,
+revisjoner/retry, presisjon/kilde/enhet, kopiering til valgt dato, sletting/angre,
+delvis tilgang, 90-dagers import, anchor, cachefeil, manuell prioritet, frakobling,
+profiloverføring og forsinkede native operasjoner. Kontroller også regresjonene
+for måltidslagring, morgeninnsjekk, profil, gjenbruk og lagrede måltider.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<simulatornavn>' \
+  -only-testing:MatLoggTests/HealthIntegrationTests \
+  -only-testing:MatLoggTests/MealBatchStorageTests \
+  -only-testing:MatLoggTests/MorningCheckInTests \
+  -only-testing:MatLoggTests/ProfileTests \
+  -only-testing:MatLoggTests/MealReuseTests \
+  -only-testing:MatLoggTests/SavedMealsTests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+HealthIntegrationUITests tester valg, tomtilstand, omstart og frakobling med
+svært stor tekst og `--healthkit-fake`. Kjør separat med
+`-only-testing:MatLoggUITests/HealthIntegrationUITests`.
+
+Verifisert 2026-10-02 på iOS 26.5 / iPhone 17 Pro-simulator: 71 tester i seks
+suiter grønne, hvorav 26 HealthIntegrationTests. HealthIntegrationUITests har
+bestått; Release-simulatorbygg og norske usage descriptions er kontrollert.
+`git diff --check` er grønn. Eksisterende testkilder har Swift 6-aktørvarsler;
+appen har fortsatt Swift 5-konfigurasjon.
+
+Dette er ikke en produksjonsgodkjenning: fysisk HealthKit-tilgang, signert
+provisioning, Data Protection på låst iPhone og native retry/rettelser/sletting
+må fortsatt testes. Simulator eksponerer ikke iPhones filbeskyttelsesklasse;
+den automatiske testen bekrefter backup-unntak og atomisk cache/anchor, mens
+filbeskyttelsesklassen må bekreftes på enheten. Se [pilotgates](health-integration.md).

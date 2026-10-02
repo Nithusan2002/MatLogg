@@ -8,7 +8,8 @@ final class LocalStore {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 7
+    static let latestSchemaVersion = 8
+    var healthWritesEnabled = FeatureFlags.healthIntegrationEnabled
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -62,7 +63,7 @@ final class LocalStore {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["health_exports", "health_settings", "product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -101,6 +102,13 @@ final class LocalStore {
                 }
                 try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
                 try updateOwnerLocked(table: "products", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
+                // The namespace and import cache are independent of the profile ID.
+                if !(try healthRowsLocked("SELECT json FROM health_settings WHERE userId = ?;", owner: localOwnerId)).isEmpty {
+                    try healthSQLLocked("DELETE FROM health_settings WHERE userId = ?;", values: [accountOwnerId.uuidString])
+                    try healthSQLLocked("UPDATE health_settings SET userId = ? WHERE userId = ?;", values: [accountOwnerId.uuidString, localOwnerId.uuidString])
+                }
+                try healthSQLLocked("UPDATE health_exports SET userId = ? WHERE userId = ?;", values: [accountOwnerId.uuidString, localOwnerId.uuidString])
+                try cancelDisabledHealthExportsLocked(healthSettingsLocked(owner: accountOwnerId), owner: accountOwnerId)
                 try execute("COMMIT;")
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
@@ -118,6 +126,8 @@ final class LocalStore {
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
                 try deleteOwnerRowsLocked(table: "products", column: "ownerUserId", ownerId: ownerId)
+                try healthSQLLocked("DELETE FROM health_settings WHERE userId = ?;", values: [ownerId.uuidString])
+                try healthSQLLocked("DELETE FROM health_exports WHERE userId = ?;", values: [ownerId.uuidString])
                 for table in ["product_drafts", "catalog_submissions"] {
                     try deleteOwnerRowsLocked(table: table, column: "ownerUserId", ownerId: ownerId)
                 }
@@ -186,11 +196,15 @@ final class LocalStore {
                 let payload = try syncEncoder.encode(LogSyncPayload(log: log))
                 try saveLogLocked(log, data: data)
                 try enqueueSyncEventLocked(ownerUserId: log.userId, type: .logUpsert, entityId: log.id.uuidString, payload: payload)
+                try enqueueHealthLogLocked(log)
             }
         }
     }
 
     private func saveLogLocked(_ log: FoodLog, data: Data) throws {
+        if let existingOwner = ownerUserIdLocked(table: "logs", id: log.id), existingOwner != log.userId {
+            throw HealthIntegrationError.invalidSample
+        }
         let sql = """
         INSERT OR REPLACE INTO logs(id, userId, productId, mealType, loggedDate, loggedTime, calories, protein, carbs, fat, json)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -222,6 +236,7 @@ final class LocalStore {
             for id in ids {
                 guard let ownerUserId = ownerUserIdLocked(table: "logs", id: id) else { continue }
                 let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+                try enqueueHealthDeletionLocked(owner: ownerUserId, entity: id, kinds: HealthDataKind.allCases.filter { $0 != .weight })
                 try deleteLogLocked(id)
                 try enqueueSyncEventLocked(ownerUserId: ownerUserId, type: .logDelete, entityId: id.uuidString, payload: payload)
             }
@@ -662,37 +677,47 @@ final class LocalStore {
     
     // MARK: - Weight
     
-    func saveWeightEntry(_ entry: WeightEntry) throws {
-        let data = try encoder.encode(entry)
-        let payload = try syncEncoder.encode(WeightSyncPayload(entry: entry))
-        try performAtomicWrite(ownerUserId: entry.userId, type: .weightUpsert, entityId: entry.id.uuidString, payload: payload) {
-            let deleteSql = "DELETE FROM weights WHERE userId = ? AND date = ?;"
-            var deleteStmt: OpaquePointer?
-            sqlite3_prepare_v2(db, deleteSql, -1, &deleteStmt, nil)
-            sqlite3_bind_text(deleteStmt, 1, entry.userId.uuidString, -1, SQLITE_TRANSIENT)
-            sqlite3_bind_double(deleteStmt, 2, entry.date.timeIntervalSince1970)
-            try requireDone(sqlite3_step(deleteStmt))
-            sqlite3_finalize(deleteStmt)
-            
-            let insertSql = """
-            INSERT OR REPLACE INTO weights(id, userId, date, json)
-            VALUES(?, ?, ?, ?);
-            """
+    func saveWeightEntry(_ input: WeightEntry) throws {
+        guard input.weightKg.isFinite, input.weightKg > 0 else { throw HealthIntegrationError.invalidSample }
+        try performTransaction {
+            if let existingOwner = ownerUserIdLocked(table: "weights", id: input.id), existingOwner != input.userId {
+                throw HealthIntegrationError.invalidSample
+            }
+            // Keep the identity when another UI creates a fresh ID for the same day.
+            let existing = try storedWeightLocked(owner: input.userId, date: input.date)
+            let entry = WeightEntry(id: existing?.id ?? input.id, userId: input.userId, date: input.date,
+                                    weightKg: input.weightKg, createdAt: existing?.createdAt ?? input.createdAt)
+            let data = try encoder.encode(entry)
+            let payload = try syncEncoder.encode(WeightSyncPayload(entry: entry))
             var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, insertSql, -1, &stmt, nil)
+            guard sqlite3_prepare_v2(db, "INSERT OR REPLACE INTO weights(id, userId, date, json) VALUES(?, ?, ?, ?);", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
             sqlite3_bind_text(stmt, 1, entry.id.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_text(stmt, 2, entry.userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(stmt, 3, entry.date.timeIntervalSince1970)
             bindBlob(stmt, index: 4, data: data)
             try requireDone(sqlite3_step(stmt))
-            sqlite3_finalize(stmt)
+            try enqueueSyncEventLocked(ownerUserId: entry.userId, type: .weightUpsert, entityId: entry.id.uuidString, payload: payload)
+            try enqueueHealthValueLocked(owner: entry.userId, entity: entry.id, kind: .weight,
+                                         value: entry.weightKg, date: entry.date)
         }
     }
-    
+
+    private func storedWeightLocked(owner: UUID, date: Date) throws -> WeightEntry? {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT json FROM weights WHERE userId = ? AND date = ? LIMIT 1;", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_double(stmt, 2, date.timeIntervalSince1970)
+        guard sqlite3_step(stmt) == SQLITE_ROW, let data = readBlob(stmt, index: 0) else { return nil }
+        return try decoder.decode(WeightEntry.self, from: data)
+    }
+
     func deleteWeightEntry(_ id: UUID) throws {
         try performTransaction {
             guard let ownerUserId = ownerUserIdLocked(table: "weights", id: id) else { return }
             let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
+            try enqueueHealthDeletionLocked(owner: ownerUserId, entity: id, kinds: [.weight])
             let sql = "DELETE FROM weights WHERE id = ?;"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
@@ -1171,6 +1196,10 @@ final class LocalStore {
                     case 7:
                         try execute("CREATE TABLE water_logs(id TEXT PRIMARY KEY, userId TEXT NOT NULL, json BLOB NOT NULL);")
                         try execute("CREATE INDEX water_logs_owner_idx ON water_logs(userId);")
+                    case 8:
+                        try execute("CREATE TABLE health_settings(userId TEXT PRIMARY KEY, json BLOB NOT NULL);")
+                        try execute("CREATE TABLE health_exports(id TEXT PRIMARY KEY, userId TEXT NOT NULL, json BLOB NOT NULL);")
+                        try execute("CREATE INDEX health_exports_owner_idx ON health_exports(userId);")
                     default:
                         throw LocalStoreError.unsupportedSchema(targetVersion)
                     }
@@ -1760,4 +1789,169 @@ private enum SyncEventType: String {
     case waterDelete = "water.delete"
     case savedMealUpsert = "saved_meal.upsert"
     case savedMealDelete = "saved_meal.delete"
+}
+
+// MARK: - Local-only HealthKit outbox (same transaction as domain writes)
+extension LocalStore {
+    var healthCacheDirectory: URL {
+        databaseFileURL().deletingLastPathComponent().appendingPathComponent("HealthCache", isDirectory: true)
+    }
+
+    func hasHealthSettings(owner: UUID) throws -> Bool {
+        try queue.sync { !(try healthRowsLocked("SELECT json FROM health_settings WHERE userId = ?;", owner: owner)).isEmpty }
+    }
+
+    func healthSettings(owner: UUID) throws -> HealthIntegrationSettings {
+        try queue.sync { try healthSettingsLocked(owner: owner) }
+    }
+
+    func setHealthSettings(_ settings: HealthIntegrationSettings, owner: UUID) throws {
+        try performTransaction {
+            try healthSQLLocked("INSERT INTO health_settings(userId, json) VALUES(?, ?) ON CONFLICT(userId) DO UPDATE SET json = excluded.json;",
+                                values: [owner.uuidString], data: encoder.encode(settings))
+            try cancelDisabledHealthExportsLocked(settings, owner: owner)
+        }
+    }
+
+    func healthExports(owner: UUID) throws -> [HealthExportRecord] {
+        try queue.sync { try healthExportsLocked(owner: owner) }
+    }
+
+    func completeHealthExport(_ record: HealthExportRecord, owner: UUID, at date: Date) throws {
+        try performTransaction {
+            guard let current = try healthExportLocked(id: record.id, owner: owner),
+                  current.eventID == record.eventID else { return } // A newer edit must stay pending.
+            var completed = current
+            completed.pending = false
+            completed.value = nil
+            completed.timestamp = nil
+            completed.nutritionSource = nil
+            completed.amount = nil
+            completed.amountUnit = nil
+            completed.lastSuccess = date
+            try writeHealthExportLocked(completed, owner: owner)
+        }
+    }
+
+    func queueHealthCleanup(owner: UUID) throws {
+        try performTransaction {
+            for var record in try healthExportsLocked(owner: owner) {
+                record.revision += 1
+                record.eventID = UUID()
+                record.pending = true
+                record.isDeletion = true
+                record.value = nil
+                record.timestamp = nil
+                try writeHealthExportLocked(record, owner: owner)
+            }
+        }
+    }
+
+    private func cancelDisabledHealthExportsLocked(_ settings: HealthIntegrationSettings, owner: UUID) throws {
+        for var record in try healthExportsLocked(owner: owner) where !settings.exports(record.kind) && record.pending {
+            record.pending = false
+            record.value = nil
+            record.timestamp = nil
+            record.nutritionSource = nil
+            record.amount = nil
+            record.amountUnit = nil
+            try writeHealthExportLocked(record, owner: owner)
+        }
+    }
+
+    private func healthSettingsLocked(owner: UUID) throws -> HealthIntegrationSettings {
+        let data = try healthRowsLocked("SELECT json FROM health_settings WHERE userId = ?;", owner: owner).first
+        return try data.map { try decoder.decode(HealthIntegrationSettings.self, from: $0) } ?? HealthIntegrationSettings()
+    }
+
+    func healthExport(id: String, owner: UUID) throws -> HealthExportRecord? {
+        try queue.sync { try healthExportLocked(id: id, owner: owner) }
+    }
+
+    private func healthExportLocked(id: String, owner: UUID) throws -> HealthExportRecord? {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT json FROM health_exports WHERE id = ? AND userId = ?;", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, id, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, owner.uuidString, -1, SQLITE_TRANSIENT)
+        let result = sqlite3_step(stmt)
+        if result == SQLITE_DONE { return nil }
+        guard result == SQLITE_ROW, let data = readBlob(stmt, index: 0) else { throw databaseError() }
+        return try decoder.decode(HealthExportRecord.self, from: data)
+    }
+
+    private func healthExportsLocked(owner: UUID) throws -> [HealthExportRecord] {
+        try healthRowsLocked("SELECT json FROM health_exports WHERE userId = ? ORDER BY id;", owner: owner)
+            .map { try decoder.decode(HealthExportRecord.self, from: $0) }
+    }
+
+    private func healthRowsLocked(_ sql: String, owner: UUID) throws -> [Data] {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+        var rows: [Data] = []
+        var result = sqlite3_step(stmt)
+        while result == SQLITE_ROW {
+            if let data = readBlob(stmt, index: 0) { rows.append(data) }
+            result = sqlite3_step(stmt)
+        }
+        try requireDone(result)
+        return rows
+    }
+
+    private func healthSQLLocked(_ sql: String, values: [String], data: Data? = nil) throws {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        for (index, value) in values.enumerated() { sqlite3_bind_text(stmt, Int32(index + 1), value, -1, SQLITE_TRANSIENT) }
+        if let data { bindBlob(stmt, index: Int32(values.count + 1), data: data) }
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    private func writeHealthExportLocked(_ record: HealthExportRecord, owner: UUID) throws {
+        try healthSQLLocked("INSERT INTO health_exports(id, userId, json) VALUES(?, ?, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json WHERE health_exports.userId = excluded.userId;",
+                            values: [record.id, owner.uuidString], data: encoder.encode(record))
+    }
+
+    private func enqueueHealthValueLocked(owner: UUID, entity: UUID, kind: HealthDataKind, value: Double, date: Date,
+                                         source: NutritionSource? = nil, amount: Float? = nil, unit: String? = nil) throws {
+        guard healthWritesEnabled else { return }
+        let settings = try healthSettingsLocked(owner: owner)
+        guard settings.exports(kind) else { return }
+        guard value.isFinite, value >= 0, date.timeIntervalSince1970.isFinite else { throw HealthIntegrationError.invalidSample }
+        let id = "matlogg.\(settings.exportNamespace.uuidString).\(entity.uuidString).\(kind.rawValue)"
+        let previous = try healthExportLocked(id: id, owner: owner)
+        let record = HealthExportRecord(id: id, kind: kind, revision: (previous?.revision ?? 0) + 1, eventID: UUID(),
+                                        pending: true, type: .upsert, value: value, timestamp: date,
+                                        nutritionSource: source, amount: amount, amountUnit: unit, lastSuccess: previous?.lastSuccess)
+        try writeHealthExportLocked(record, owner: owner)
+    }
+
+    private func enqueueHealthLogLocked(_ log: FoodLog) throws {
+        let values: [(HealthDataKind, Float)] = [(.energy, log.calories), (.protein, log.proteinG), (.carbohydrates, log.carbsG), (.fat, log.fatG)]
+        for (kind, value) in values {
+            try enqueueHealthValueLocked(owner: log.userId, entity: log.id, kind: kind, value: Double(value), date: log.loggedTime,
+                                         source: log.nutritionSource, amount: log.amountG, unit: log.resolvedAmountUnit.rawValue)
+        }
+    }
+
+    private func enqueueHealthDeletionLocked(owner: UUID, entity: UUID, kinds: [HealthDataKind]) throws {
+        guard healthWritesEnabled else { return }
+        let settings = try healthSettingsLocked(owner: owner)
+        for kind in kinds where settings.exports(kind) {
+            let id = "matlogg.\(settings.exportNamespace.uuidString).\(entity.uuidString).\(kind.rawValue)"
+            guard var record = try healthExportLocked(id: id, owner: owner) else { continue }
+            record.revision += 1
+            record.eventID = UUID()
+            record.isDeletion = true
+            record.pending = true
+            record.value = nil
+            record.timestamp = nil
+            record.nutritionSource = nil
+            record.amount = nil
+            record.amountUnit = nil
+            try writeHealthExportLocked(record, owner: owner)
+        }
+    }
 }

@@ -237,6 +237,7 @@ private struct WeightEntryContent: View {
     @State private var showWeightEntry = false
     @State private var showDeleteConfirm = false
     @State private var entryToDelete: WeightEntry?
+    @State private var showAllHistory = false
 
     var body: some View {
         Group {
@@ -259,25 +260,42 @@ private struct WeightEntryContent: View {
                 PrimaryButton(title: "Lagre", systemImage: "plus") { Task { await saveWeight() } }
             }
 
-            if healthProfileViewModel.weightEntries.isEmpty {
+            if healthProfileViewModel.weightHistory.isEmpty {
                 Text("Ingen vektdata ennå")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
             } else {
-                ForEach(healthProfileViewModel.weightEntries.suffix(3).reversed()) { entry in
+                ForEach(healthProfileViewModel.weightHistory.suffix(showAllHistory ? healthProfileViewModel.weightHistory.count : 3).reversed()) { entry in
                     HStack {
-                        Text(entry.date.formatted(.dateTime.day().month(.abbreviated)))
+                        VStack(alignment: .leading) {
+                            Text(entry.date.formatted(.dateTime.day().month(.abbreviated)))
+                            Text(entry.source).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        }
                         Spacer()
                         Text("\(formatWeight(entry.weightKg)) kg").fontWeight(.semibold)
                     }
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.deepInk)
+                    .frame(minHeight: 44)
                     .contentShape(Rectangle())
+                    .accessibilityElement(children: .combine)
+                    .accessibilityHint(entry.manualEntry == nil ? "Fra Helse. Rettelser og sletting gjøres i Helse-appen." : "Trykk for å slette registreringen")
                     .onTapGesture {
-                        entryToDelete = entry
-                        showDeleteConfirm = true
+                        if let manual = entry.manualEntry {
+                            entryToDelete = manual
+                            showDeleteConfirm = true
+                        }
                     }
                 }
+            }
+            if healthProfileViewModel.weightHistory.count > 3 {
+                Button(showAllHistory ? "Vis de siste registreringene" : "Vis hele vekthistorikken") { showAllHistory.toggle() }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("weight-show-history")
+            }
+            if healthProfileViewModel.weightHistory.contains(where: { $0.manualEntry == nil }) {
+                Text("Vekt fra Helse er skrivebeskyttet. Rettelser og sletting gjøres i Helse-appen.")
+                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
             }
         }
         .alert("Slette vektregistrering?", isPresented: $showDeleteConfirm) {

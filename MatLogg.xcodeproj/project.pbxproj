@@ -426,6 +426,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Debug-Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "MatLogg henter valgfri vekthistorikk fra Apple Helse for å vise den sammen med dine manuelle registreringer. Vekten sendes ikke til MatLoggs server.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MatLogg deler kalorier, næringsstoffer og vekt du velger å registrere, med Apple Helse. Du velger hva som deles.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til MatLogg-backend på lokalnettet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -465,6 +467,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Release-Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "MatLogg henter valgfri vekthistorikk fra Apple Helse for å vise den sammen med dine manuelle registreringer. Vekten sendes ikke til MatLoggs server.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "MatLogg deler kalorier, næringsstoffer og vekt du velger å registrere, med Apple Helse. Du velger hva som deles.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til MatLogg-backend på lokalnettet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

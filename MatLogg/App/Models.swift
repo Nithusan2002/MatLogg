@@ -456,6 +456,7 @@ struct FoodLog: Codable, Identifiable {
     let fatG: Float
     
     let createdAt: Date
+    let nutritionSource: NutritionSource? // Local provenance; absent in legacy logs.
     let isSynced: Bool
     
     init(
@@ -471,6 +472,7 @@ struct FoodLog: Codable, Identifiable {
         proteinG: Float,
         carbsG: Float,
         fatG: Float,
+        nutritionSource: NutritionSource? = nil,
         createdAt: Date = Date(),
         isSynced: Bool = false
     ) {
@@ -486,6 +488,7 @@ struct FoodLog: Codable, Identifiable {
         self.proteinG = proteinG
         self.carbsG = carbsG
         self.fatG = fatG
+        self.nutritionSource = nutritionSource
         self.createdAt = createdAt
         self.isSynced = isSynced
     }

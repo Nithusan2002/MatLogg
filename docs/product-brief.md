@@ -95,7 +95,8 @@ Følgende skal ikke innføres uten en ny produktbeslutning:
 - sosial feed, venner, konkurranser eller gamification
 - medisinske anbefalinger eller automatiske behandlingsråd
 - automatisk utfylling av manglende næringsverdier
-- Apple Health, treningsklokker eller andre helseintegrasjoner
+- treningsklokker og helseintegrasjoner utover den godkjente, avgrensede
+  [Apple Helse-utvidelsen](health-integration.md); denne er av i produksjon
 - annonser, abonnement eller andre inntektsflater
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og

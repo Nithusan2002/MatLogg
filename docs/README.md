@@ -11,6 +11,8 @@ Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md)
 Produkt- og UX-adferd uten nett er definert i
 [offline-adferd og synkstatus](offline-behavior.md).
 
+Apple Helse-utvidelsen, lagring og pilotgates finnes i [helseintegrasjonen](health-integration.md).
+
 Funksjonsscope for gjenbruk finnes i [gårsdagens måltid](meal-reuse.md) og
 [lagrede måltider](saved-meals.md).
 

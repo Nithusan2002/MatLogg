@@ -210,7 +210,7 @@ final class MealReuseViewModel: ObservableObject {
                                   amountG: amount, amountUnit: original.resolvedAmountUnit,
                                   loggedDate: day, loggedTime: timestamp,
                                   calories: nutrition.calories,
-                                  proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, createdAt: timestamp))
+                                  proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, nutritionSource: original.nutritionSource, createdAt: timestamp))
         }
         do {
             try await repository.saveLogs(copies)

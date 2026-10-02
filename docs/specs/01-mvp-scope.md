@@ -144,3 +144,11 @@ antatt glassvolum, drikkemål, påminnelser eller helseintegrasjon.
 Valgfri daglig innsjekk på Hjem med eksisterende vektregistrering, fullfør uten
 vekt, endre og hopp over dagen. Bare siste kortstatus lagres lokalt per profil.
 Se `../design-and-user-flow.md` for flyt og avgrensninger.
+
+## Godkjent scope-utvidelse: Apple Helse (2026-10-02)
+
+Førsteversjonen deler kalorier/makroer og manuell vekt, og henter 90 dagers
+vekthistorikk fulgt av nye målinger. Alle valg er av som standard. Ingen vann-,
+aktivitets- eller måljusteringsfunksjon. Avgrensning, datalagring og release-gates
+er normative i [Apple Helse-planen](../health-integration.md). Release er av;
+godkjent implementasjon betyr ikke godkjent produksjonsutrulling.

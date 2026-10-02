@@ -100,3 +100,25 @@ Du kan gjore dette i appen (Profil) eller ved a kontakte oss pa e-post.
 
 Kontakt oss pa nithusank.2002@gmail.com.
 Du kan ogsa klage til Datatilsynet hvis du mener behandlingen bryter regelverket.
+
+## Valgfri Apple Helse-integrasjon
+
+Integrasjonen er foreløpig bare tilgjengelig i særskilt aktivert pilot/utviklingsversjon.
+Den ordinære Release-versjonen har funksjonen deaktivert. Under Profil → Apple Helse
+velger du separat om MatLogg skal dele kalorier og makronæringsstoffer, hente vekt
+eller dele vekt du registrerer i MatLogg. Apple Helse ber om tilgang til de valgte
+datatypene. Du kan endre tilgangene i Helse-appen.
+
+Ved tilkobling hentes siste 90 dagers vekt, deretter nye og slettede målinger.
+Disse lokale kopiene lagres med filbeskyttelse uten automatisk backup og sendes
+ikke til MatLoggs server, analyse eller krasjrapportering. Dine mål endres ikke
+automatisk. Mat og manuell vekt deles bare når du registrerer eller endrer dem
+etter aktivering; eldre historikk deles ikke automatisk.
+
+Frakobling stopper overføring og fjerner hentet vekt fra MatLogg. Data som allerede
+er delt med Helse beholdes der. Andre apper du har gitt tilgang i Helse kan lese
+dem. MatLogg beholder et minimalt lokalt register over egne overføringer slik
+at du kan velge «Slett data MatLogg har delt med Helse». Dette valget sletter bare
+MatLoggs egne overføringer fra profilen, og rapporterer dersom sletting ikke lykkes.
+Profilsletting fjerner MatLoggs lokale kopier/register, men sletter ikke automatisk
+data i Helse. Rydd der før profilsletting, eller slett dataene direkte i Helse-appen.

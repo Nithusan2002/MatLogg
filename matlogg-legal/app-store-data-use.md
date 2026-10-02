@@ -42,3 +42,15 @@ merkes som innsamling.
 
 - [Apple App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/)
 - [Apple App Review Guidelines 5.1.3](https://developer.apple.com/app-store/review/guidelines/#health-and-health-research)
+
+## Apple Helse – pilotgrunnlag (2026-10-02)
+
+HealthKit-capability og lese-/skrivetekster er inkludert, men funksjonen er av i
+Release. En aktivert pilot behandler importert vekt bare lokalt i separat beskyttet
+cache og deler brukerens valgte mat-/vektregistreringer med HealthKit på enheten.
+MatLogg får ingen servertilgang til disse Helse-dataene. Dette innfører ingen
+analyse, sporing eller annonser. Ikke merk ren lokal HealthKit-behandling som
+serverinnsamling. Kontroller faktisk arkiv, flagg, leverandører og Apples gjeldende
+skjemakrav før pilot/innsending; dette er ikke en oppdatering av det innsendte
+App Store Connect-skjemaet. Personvernerklæringen beskriver valgene, frakobling og
+separat sletting av eksporterte Helse-data.

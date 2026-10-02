@@ -119,6 +119,13 @@ struct ProfileView: View {
                 ProfileMenuRow(icon: "heart", title: "Favoritter", value: nil)
             }
             Divider().overlay(AppColors.separator)
+            if FeatureFlags.healthIntegrationEnabled {
+                NavigationLink { HealthIntegrationView() } label: {
+                    ProfileMenuRow(icon: "heart.text.clipboard", title: "Apple Helse", value: nil)
+                }
+                .accessibilityIdentifier("profile-apple-health")
+                Divider().overlay(AppColors.separator)
+            }
             NavigationLink { ProfileSettingsView() } label: {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger", value: nil)
             }
@@ -278,7 +285,7 @@ private struct ProfileSettingsView: View {
                     Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
                 }
                 DisclosureGroup("Hva følger med?") {
-                    Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")
+                    Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekt registrert i MatLogg, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")
                         .font(AppTypography.caption)
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -324,7 +331,7 @@ private struct ProfileSettingsView: View {
             }
             Button("Avbryt", role: .cancel) {}
         } message: {
-            Text("Lokale data slettes umiddelbart. Kontoen markeres for permanent sletting etter 30 dager. Dette kan ikke angres i appen.")
+            Text("Lokale data slettes umiddelbart. Kontoen markeres for permanent sletting etter 30 dager. Dette kan ikke angres i appen. Data som allerede er delt med Apple Helse beholdes. Slett dem under Profil → Apple Helse før kontosletting, eller i Helse-appen.")
         }
         .alert("Fjern data fra denne iPhonen?", isPresented: $showRemoveLocalConfirm) {
             Button("Fjern og logg ut", role: .destructive) {
@@ -336,7 +343,7 @@ private struct ProfileSettingsView: View {
             }
             Button("Avbryt", role: .cancel) {}
         } message: {
-            Text("Dataene fjernes bare fra denne iPhonen. Du kan ikke hente dem tilbake fra kontoen din ennå.")
+            Text("Dataene fjernes bare fra denne iPhonen. Du kan ikke hente dem tilbake fra kontoen din ennå. Data delt med Apple Helse beholdes og må slettes separat i Helse-appen eller under Profil → Apple Helse før du fjerner profilen.")
         }
         .sheet(item: $exportViewModel.document, onDismiss: { exportViewModel.clearDocument() }) { document in
             ShareSheet(activityItems: [document.url])

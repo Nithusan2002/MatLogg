@@ -27,6 +27,8 @@ class DatabaseService: WaterRepository {
         startupError = nil
     }
 
+    var healthIntegrationStore: LocalStore? { store } // Composition root only.
+
     var isAvailable: Bool { store != nil }
 
     func getWaterGlasses(userId: UUID) async throws -> [WaterGlass] {
@@ -62,18 +64,22 @@ class DatabaseService: WaterRepository {
     
     func saveLogs(_ logs: [FoodLog]) async throws {
         try requireStore().saveLogs(logs)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
 
     func deleteLogs(_ ids: [UUID]) async throws {
         try requireStore().deleteLogs(ids)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
 
     func saveLog(_ log: FoodLog) async throws {
         try requireStore().saveLog(log)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
     
     func deleteLog(_ id: UUID) async throws {
         try requireStore().deleteLog(id)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
 
     func getAllLogs(userId: UUID) async -> [FoodLog] {
@@ -153,10 +159,12 @@ class DatabaseService: WaterRepository {
     
     func saveWeightEntry(_ entry: WeightEntry) async throws {
         try requireStore().saveWeightEntry(entry)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
     
     func deleteWeightEntry(_ id: UUID) async throws {
         try requireStore().deleteWeightEntry(id)
+        NotificationCenter.default.post(name: .healthDomainDidChange, object: nil)
     }
     
     func getWeightEntries(userId: UUID) async -> [WeightEntry] {
@@ -224,7 +232,11 @@ class DatabaseService: WaterRepository {
     }
 
     func resetAllLocalData() async throws {
-        try requireStore().resetAllData()
+        let store = try requireStore()
+        if FileManager.default.fileExists(atPath: store.healthCacheDirectory.path) {
+            try FileManager.default.removeItem(at: store.healthCacheDirectory)
+        }
+        try store.resetAllData()
         defaults.removeObject(forKey: "personalDetails")
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("morningCheckIn.") {
             defaults.removeObject(forKey: key)
@@ -236,7 +248,13 @@ class DatabaseService: WaterRepository {
     }
 
     func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
-        try requireStore().claimLocalData(from: localOwnerId, to: accountOwnerId)
+        guard localOwnerId != accountOwnerId else { return }
+        let store = try requireStore()
+        if try store.hasHealthSettings(owner: localOwnerId) {
+            let destinationHealth = try store.healthSettings(owner: accountOwnerId)
+            try HealthWeightCacheStore(directory: store.healthCacheDirectory).remove(namespace: destinationHealth.exportNamespace)
+        }
+        try store.claimLocalData(from: localOwnerId, to: accountOwnerId)
         let oldKey = "personalDetails.\(localOwnerId.uuidString)"
         let newKey = "personalDetails.\(accountOwnerId.uuidString)"
         if defaults.object(forKey: newKey) == nil, let details = defaults.data(forKey: oldKey) {
@@ -252,7 +270,10 @@ class DatabaseService: WaterRepository {
     }
 
     func deleteLocalData(ownerId: UUID) async throws {
-        try requireStore().deleteLocalData(ownerId: ownerId)
+        let store = try requireStore()
+        let settings = try store.healthSettings(owner: ownerId)
+        try HealthWeightCacheStore(directory: store.healthCacheDirectory).remove(namespace: settings.exportNamespace)
+        try store.deleteLocalData(ownerId: ownerId)
         defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
         defaults.removeObject(forKey: UserDefaultsMorningCheckInStore.key(ownerId))
     }

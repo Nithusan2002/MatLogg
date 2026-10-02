@@ -55,7 +55,7 @@ final class LogViewModel: ObservableObject {
                     amountG: log.amountG, amountUnit: log.resolvedAmountUnit,
                     loggedDate: log.loggedDate, loggedTime: log.loggedTime,
                     calories: log.calories, proteinG: log.proteinG,
-                    carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
+                    carbsG: log.carbsG, fatG: log.fatG, nutritionSource: log.nutritionSource, createdAt: log.createdAt)
         }
         let success = await persist(errorPrefix: "Kunne ikke angre sletting") {
             try await repository.saveLogs(restored)
@@ -181,7 +181,8 @@ final class LogViewModel: ObservableObject {
             calories: nutrition.calories,
             proteinG: nutrition.protein,
             carbsG: nutrition.carbs,
-            fatG: nutrition.fat
+            fatG: nutrition.fat,
+            nutritionSource: product.nutritionSource
         )
 
         return await persist(errorPrefix: "Kunne ikke lagre logging") {
@@ -255,6 +256,7 @@ final class LogViewModel: ObservableObject {
             proteinG: nutrition.protein,
             carbsG: nutrition.carbs,
             fatG: nutrition.fat,
+            nutritionSource: log.nutritionSource,
             createdAt: log.createdAt,
             isSynced: log.isSynced
         )
@@ -267,7 +269,11 @@ final class LogViewModel: ObservableObject {
     @discardableResult
     func copyLogs(from sourceDate: Date, to targetDate: Date, userId: UUID) async -> Bool {
         let sourceSummary = await repository.getSummary(userId: userId, date: sourceDate)
-        let targetDay = Calendar.current.startOfDay(for: targetDate)
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: targetDate)
+        let clock = calendar.dateComponents([.hour, .minute, .second], from: Date())
+        let timestamp = calendar.date(bySettingHour: clock.hour ?? 0, minute: clock.minute ?? 0,
+                                      second: clock.second ?? 0, of: targetDay) ?? targetDay
 
         return await persist(errorPrefix: "Kunne ikke kopiere logging") {
             for log in sourceSummary.logs {
@@ -278,11 +284,12 @@ final class LogViewModel: ObservableObject {
                     amountG: log.amountG,
                     amountUnit: log.resolvedAmountUnit,
                     loggedDate: targetDay,
-                    loggedTime: Date(),
+                    loggedTime: timestamp,
                     calories: log.calories,
                     proteinG: log.proteinG,
                     carbsG: log.carbsG,
-                    fatG: log.fatG
+                    fatG: log.fatG,
+                    nutritionSource: log.nutritionSource
                 )
                 try await repository.saveLog(copy)
             }
