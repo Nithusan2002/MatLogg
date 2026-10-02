@@ -28,11 +28,13 @@ struct LoggView: View {
     enum AddSheet: Identifiable {
         case raw
         case manual
+        case savedMeals
         
         var id: String {
             switch self {
             case .raw: return "raw"
             case .manual: return "manual"
+            case .savedMeals: return "savedMeals"
             }
         }
     }
@@ -114,6 +116,7 @@ struct LoggView: View {
                 }
             }
             .confirmationDialog("Legg til", isPresented: $showAddActions) {
+                Button("Lagrede måltider") { activeSheet = .savedMeals }
                 Button("Skann") { showScanCamera = true }
                 Button("Søk / Råvarer") { activeSheet = .raw }
                 Button("Legg til manuelt") { activeSheet = .manual }
@@ -128,6 +131,12 @@ struct LoggView: View {
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
+                case .savedMeals:
+                    SavedMealsListView {
+                        activeSheet = nil
+                        if mealFilter != nil { mealFilter = appState.selectedMealType }
+                        Task { await loadSelectedSummary() }
+                    }
                 case .raw:
                     RawMaterialsSearchView { payload in
                         receiptPayload = payload
@@ -187,6 +196,9 @@ struct LoggView: View {
                 }
             }
             .onChange(of: logViewModel.mutationRevision) { _, _ in
+                Task { await loadSelectedSummary() }
+            }
+            .onChange(of: savedMealsViewModel.mutationRevision) { _, _ in
                 Task { await loadSelectedSummary() }
             }
     }
