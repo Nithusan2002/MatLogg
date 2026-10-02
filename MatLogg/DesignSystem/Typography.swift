@@ -7,6 +7,8 @@ enum AppTypography {
     static let sectionTitle = Font.system(.headline, design: .rounded, weight: .heavy)
     static let body = Font.system(.body, design: .rounded, weight: .regular)
     static let bodyEmphasis = Font.system(.body, design: .rounded, weight: .semibold)
+    static let secondary = Font.system(.subheadline, design: .rounded, weight: .regular)
+    static let secondaryEmphasis = Font.system(.subheadline, design: .rounded, weight: .semibold)
     static let caption = Font.system(.caption, design: .rounded, weight: .regular)
     static let captionEmphasis = Font.system(.caption, design: .rounded, weight: .bold)
 }

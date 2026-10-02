@@ -4,6 +4,7 @@ struct WaterCardView: View {
     @ObservedObject var viewModel: WaterViewModel
     let userId: UUID?
     let date: Date
+    var compact = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCorrection = false
 
@@ -14,7 +15,7 @@ struct WaterCardView: View {
                     HStack(spacing: 12) { summary; Spacer(minLength: 8); waterControls }
                     VStack(alignment: .leading, spacing: 8) { summary; waterControls }
                 }
-                if viewModel.isLoaded {
+                if viewModel.isLoaded && !compact {
                     WaterCupGrid(count: viewModel.glasses.count, reduceMotion: reduceMotion)
                 }
                 if let message = viewModel.errorMessage {
@@ -36,25 +37,42 @@ struct WaterCardView: View {
         .task(id: context) { await viewModel.load(userId: userId, date: date) }
     }
 
+    private var waterTitle: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Vann i dag" }
+        if calendar.isDateInYesterday(date) { return "Vann i går" }
+        if calendar.isDateInTomorrow(date) { return "Vann i morgen" }
+        return "Vann \(date.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "nb_NO"))))"
+    }
+
     private var context: String { "\(userId?.uuidString ?? "")-\(date.timeIntervalSince1970)" }
 
     private var summary: some View {
         Button { showCorrection = true } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(Calendar.current.isDateInToday(date) ? "Vann i dag" : "Vann")
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundStyle(AppColors.textSecondary)
-                Text(viewModel.isLoaded ? "\(viewModel.glasses.count) glass" : "Henter …")
-                    .font(AppTypography.title)
-                    .foregroundStyle(AppColors.deepInk)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
+            HStack(spacing: 10) {
+                if compact {
+                    Image(systemName: "drop.fill")
+                        .foregroundStyle(AppColors.deepInk)
+                        .frame(width: 32, height: 32)
+                        .background(AppColors.info.opacity(0.16), in: Circle())
+                        .accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(waterTitle)
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text(viewModel.isLoaded ? "\(viewModel.glasses.count) glass" : "Henter …")
+                        .font(compact ? AppTypography.bodyEmphasis : AppTypography.title)
+                        .foregroundStyle(AppColors.deepInk)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
             }
             .frame(minHeight: 44, alignment: .leading)
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.isLoaded || viewModel.isBusy)
-        .accessibilityLabel("Vann, \(viewModel.glasses.count) glass")
+        .accessibilityLabel(viewModel.isLoaded ? "\(waterTitle), \(viewModel.glasses.count) glass" : "\(waterTitle), henter")
         .accessibilityIdentifier("water-count")
         .accessibilityValue(String(viewModel.glasses.count))
         .accessibilityHint("Juster antall glass for valgt dag")

@@ -37,10 +37,18 @@ målsnarveier er fjernet. Menyen gir tilgang til favoritter og innstillinger.
 En kort tekst forklarer lokal lagring uten å presentere synkhendelser som
 antall lagrede matvarer.
 
-Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
+Profilkortet er den faste inngangen til Personlige detaljer, uten duplisert
+lenke i Innstillinger. Målkortet åpner Daglige mål.
+Innstillinger grupperer personvern, visning/tilbakemelding, data/lagring
 og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
-og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
-feltvalidering og lukker først etter vellykket lagring. Vekt til beregning
+og feil. Personlige detaljer har et eksplisitt utkast, påkrevd fødselsdato ved lagring,
+feltvalidering og lukker først etter vellykket lagring. Skjermen bruker to
+samlede kort, «Profil» og «Grunnlag for målforslag», med kompakte feltrader
+og vertikalt oppsett ved stor tekst. Fødselsdato velges i en datovelger med appens tema
+og eksplisitt bekreftelse, uten mulighet for fjerning; hovedraden beholder samme etikett.
+Vekt og høyde åpner et kort med horisontal tallskala, fast markør, direkte
+inntasting og «Bruk verdi». Avbryt beholder utkastet; «Fjern opplysningen»
+tømmer feltet. Valget lagres først med profilens «Lagre». Vekt til beregning
 holdes tydelig atskilt fra vekthistorikken.
 
 Profilkort og menyrader skal støtte Dynamic Type, VoiceOver og minst 44 × 44 pt
@@ -48,15 +56,16 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 
 ### **SKJERM 1: Home (Main)**
 
-Home bruker en varm, kortbasert retning. Toppområdet viser MatLogg, dato og
-profil. Deretter følger dagsstatus uten egen overskrift eller gjentatt dato, og fire alltid synlige måltidskort i
-rekkefølgen frokost, lunsj, middag og kveldsmat. Generiske søk- og
-skanneknapper dupliseres ikke på Hjem.
+Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
+viser MatLogg, dato og profil. Etter eventuell lokal synkstatus følger «Dagen din, så langt.», et valgfritt
+samlet næringsfelt, en kompakt vannrad og «Loggfør mat». Deretter følger fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
+lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
+Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-En stor sentral «Loggfør»-knapp åpner et bunnark med søk, skanning, måltidsvalg
-og hurtigvalg fra favoritter og nylig brukte produkter.
-Kortene viser inntil tre innslag, mengde og kaloriverdi. Trykk åpner
-dagens logg filtrert på måltidet; tomme kort har en tydelig legg-til-handling.
+Den sentrale «Loggfør»-knappen åpner bunnarket med eksisterende loggingvalg.
+Måltidsseksjonene viser inntil tre innslag med produktbilde og mengde, samt en
+samlet næringsrad. Trykk på en fylt seksjon åpner valgt måltid for valgt dato;
+tomme seksjoner har en tydelig «Legg til»-handling. Gjenbruk og angre beholdes.
 
 Tilstandskrav for Home, hurtigvalg og søk:
 
@@ -220,6 +229,9 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - **Topp:** Back-knapp + favoritt-toggle (☆/★)
 - **Bilde:** Produktbilde (fra barcode DB eller placeholder)
 - **Info:** Produktnavn, merke, kategori, strekkode
+- **Katalogoppdatering:** OFF-produkter med OFF-næringsgrunnlag viser «Sist hentet» og «Hent oppdaterte produktdata». Handlingen viser lasting og resultat som tekst, og deaktiveres under oppdatering eller logging. Logging med eksisterende data fungerer under automatisk oppdatering. Egne varer får ikke denne handlingen.
+- **Feil ved skanning:** «Vi fant ikke produktet» og «Produktet mangler næringsdata» er separate meldinger med «Registrer manuelt». Tilkoblingsfeil tilbyr også «Prøv igjen»; ratebegrensning viser ventetid.
+- **Tilgjengelighet:** Oppdateringshandlingen bruker tekstmerket knapp, minst 44 pt touchflate og Dynamic Type. Tilstand formidles med tekst, ikke bare farge.
 - **Næring:** Per 100g (alltid basis)
 - **Porsjonsstørrelser:** Buttons, viser hvis tilgjengelig (Matvaretabellen)
 - **Mengde-velger:** Numerisk input + stepper (default 100g)
@@ -574,3 +586,10 @@ over skjermene. Profil har «Demomodus» og
 endringer i demoen fjernes og vanlige data beholdes. Under klargjøring vises
 fremdrift og interaksjoner deaktiveres; feil beholder tidligere appkontekst.
 Bytte til vanlig modus bevarer eksisterende registreringer og kontosesjon.
+
+### Måltidsrom (gjeldende loggvisning)
+
+Dato → rullbar måltidsvelger → måltidsnavn og antall → produktbilder, matnavn
+og mengder → Legg til mat. Måltidets samlede næring vises rett under
+måltidsnavn og antall, før produktlisten. Hele dagen kan velges
+sekundært. Se design-and-user-flow.md for handlinger og tilstander.

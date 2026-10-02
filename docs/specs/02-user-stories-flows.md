@@ -144,7 +144,9 @@ Acceptance Criteria:
   - Mengde-felt prefylt: 100g
   - "Legg til"-knapp satt og klar
 □ Treff caches lokalt med stabil identitet basert på kilde + strekkode
-□ Hvis ikkje funnet eller komplett kcal-/makrogrunnlag mangler: manuell flyt (se US-3.3)
+□ Ukjent strekkode og ufullstendig kcal-/makrogrunnlag vises som separate tilstander, begge med manuell registrering (se US-3.3)
+□ Nettverksfeil tilbyr «Prøv igjen» og «Registrer manuelt»; ratebegrensning viser ventetid
+□ Eksisterende OFF-produkter kan oppdateres manuelt fra produktkortet; lagrede data beholdes ved feil
 □ Maksimal latency: 3 sekunder (nett), fra skann til produktkort
 □ Scannings-historikk lagres lokalt (evt. uten nett)
 ```

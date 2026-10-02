@@ -754,6 +754,41 @@ struct MatLoggTests {
 
 @MainActor
 struct LogViewModelTests {
+    @Test func mealRoomTotalsUseAllMealEntriesAndClearWithSession() async {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let date = Date()
+        let breakfast = FoodLog(userId: owner, productId: UUID(), mealType: "frokost",
+                                amountG: 60, loggedDate: date, calories: 220.4,
+                                proteinG: 8.2, carbsG: 35.4, fatG: 4.1)
+        let fruit = FoodLog(userId: owner, productId: UUID(), mealType: "frokost",
+                           amountG: 67, loggedDate: date, calories: 59.4,
+                           proteinG: 0.7, carbsG: 13.8, fatG: 0.2)
+        let lunch = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj",
+                           amountG: 100, loggedDate: date, calories: 300,
+                           proteinG: 15, carbsG: 30, fatG: 10)
+        repository.logs = [breakfast, fruit, lunch]
+        await vm.loadSelectedSummary(userId: owner, date: date)
+        #expect(!vm.isSummaryLoading)
+        #expect(vm.logs(for: "frokost").count == 2)
+        #expect(abs(vm.nutrition(for: "frokost").calories - 279.8) < 0.001)
+        #expect(abs(vm.nutrition(for: "frokost").protein - 8.9) < 0.001)
+        #expect(vm.logs(for: nil).count == 3)
+        #expect(abs(vm.nutrition(for: nil).calories - 579.8) < 0.001)
+        #expect(vm.nutrition(for: "middag").calories == 0)
+        // A search only affects visible rows, not the selected meal's totals.
+        let matches = LogSummaryService.groupedLogs(logs: vm.logs(for: "frokost"), searchText: "havre") {
+            $0 == breakfast.productId ? "Havregryn" : "Banan"
+        }
+        #expect(matches.first?.logs.count == 1)
+        #expect(vm.logs(for: "frokost").count == 2)
+        await vm.loadSelectedSummary(userId: nil, date: date)
+        #expect(vm.logs(for: nil).isEmpty)
+        #expect(vm.mealProductImageURLs.isEmpty)
+        #expect(!vm.isSummaryLoading)
+    }
+
     @Test func deletionFailureDoesNotOfferUndoAndLeavingDuringDeleteDoesNotReviveReceipt() async {
         let repository = FoodLogRepositorySpy()
         let vm = LogViewModel(repository: repository)

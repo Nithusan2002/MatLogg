@@ -3,11 +3,13 @@ import SQLite3
 import Testing
 @testable import MatLogg
 
+@MainActor
 struct SavedMealStorageTests {
     @Test func migrationPersistsMealAndCanonicalEventsAcrossReopen() throws {
         try withStore { store, url in
             let userId = UUID()
-            let meal = makeMeal(userId: userId)
+            var meal = makeMeal(userId: userId)
+            meal.localImageData = Data([1, 2, 3])
             #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
             try store.saveSavedMeal(meal)
             let event = try #require(store.fetchPendingEvents(limit: 10).first)
@@ -15,6 +17,7 @@ struct SavedMealStorageTests {
             #expect(event.entityId == meal.id.uuidString)
             #expect(event.schemaVersion == 1)
             let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            #expect(payload["localImageData"] == nil)
             let items = try #require(payload["items"] as? [[String: Any]])
             #expect(items.first?["amountUnit"] as? String == "ml")
 
@@ -28,7 +31,8 @@ struct SavedMealStorageTests {
 
     @Test func failedEventInsertRollsBackTemplateWrite() throws {
         try withStore { store, url in
-            let meal = makeMeal(userId: UUID())
+            var meal = makeMeal(userId: UUID())
+            meal.localImageData = Data([1, 2, 3])
             try executeSQL("""
                 CREATE TRIGGER fail_saved_meal_event BEFORE INSERT ON sync_queue
                 WHEN NEW.type = 'saved_meal.upsert'
@@ -38,6 +42,25 @@ struct SavedMealStorageTests {
             #expect(throws: (any Error).self) { try store.saveSavedMeal(meal) }
             #expect(store.getSavedMeals(userId: meal.userId).isEmpty)
             #expect(store.pendingSyncCount() == 0)
+        }
+    }
+
+    @Test func olderMealsDecodeWithoutPhotoAndImagesRespectOwnership() throws {
+        try withStore { store, url in
+            var meal = makeMeal(userId: UUID())
+            let encoded = try JSONEncoder().encode(meal)
+            var json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+            json.removeValue(forKey: "localImageData")
+            let older = try JSONDecoder().decode(SavedMeal.self, from: JSONSerialization.data(withJSONObject: json))
+            #expect(older.localImageData == nil)
+            meal.localImageData = Data([4, 5, 6])
+            try store.saveSavedMeal(meal)
+            #expect(store.getSavedMeals(userId: UUID()).isEmpty)
+            meal.localImageData = nil
+            try store.saveSavedMeal(meal)
+            let reopened = try LocalStore(databaseURL: url)
+            let stored = try #require(reopened.getSavedMeals(userId: meal.userId).first)
+            #expect(stored.localImageData == nil)
         }
     }
 

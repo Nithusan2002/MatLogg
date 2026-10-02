@@ -20,7 +20,7 @@ struct ProgressRow: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 Text(valueText)
-                    .font(AppTypography.caption)
+                    .font(AppTypography.secondary)
                     .foregroundColor(AppColors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

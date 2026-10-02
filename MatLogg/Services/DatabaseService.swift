@@ -226,6 +226,9 @@ class DatabaseService: WaterRepository {
     func resetAllLocalData() async throws {
         try requireStore().resetAllData()
         defaults.removeObject(forKey: "personalDetails")
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("morningCheckIn.") {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     func localDataSummary(ownerId: UUID) async -> LocalDataSummary {
@@ -239,12 +242,19 @@ class DatabaseService: WaterRepository {
         if defaults.object(forKey: newKey) == nil, let details = defaults.data(forKey: oldKey) {
             defaults.set(details, forKey: newKey)
         }
+        let checkInKey = UserDefaultsMorningCheckInStore.key(localOwnerId)
+        let accountCheckInKey = UserDefaultsMorningCheckInStore.key(accountOwnerId)
+        if defaults.object(forKey: accountCheckInKey) == nil, let status = defaults.object(forKey: checkInKey) {
+            defaults.set(status, forKey: accountCheckInKey)
+        }
+        defaults.removeObject(forKey: checkInKey)
         defaults.removeObject(forKey: oldKey)
     }
 
     func deleteLocalData(ownerId: UUID) async throws {
         try requireStore().deleteLocalData(ownerId: ownerId)
         defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
+        defaults.removeObject(forKey: UserDefaultsMorningCheckInStore.key(ownerId))
     }
     
     func fetchPendingEvents(limit: Int) async -> [SyncEvent] {

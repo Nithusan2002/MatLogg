@@ -226,7 +226,7 @@ private struct FoodSearchContent: View {
                 Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
                     .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
             } else {
-                productRows(viewModel.favorites)
+                productRows(viewModel.favorites, context: "favorite")
             }
         }
         .listRowBackground(AppColors.surface)
@@ -235,7 +235,7 @@ private struct FoodSearchContent: View {
                 Text("Matvarer du loggfører vises her neste gang.")
                     .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
             } else {
-                productRows(viewModel.recent)
+                productRows(viewModel.recent, context: "recent")
             }
         }
         .listRowBackground(AppColors.surface)
@@ -278,7 +278,7 @@ private struct FoodSearchContent: View {
         }
     }
 
-    private func productRows(_ products: [Product]) -> some View {
+    private func productRows(_ products: [Product], context: String = "result") -> some View {
         ForEach(products) { product in
             Button {
                 searchFocused = false
@@ -289,6 +289,7 @@ private struct FoodSearchContent: View {
             .buttonStyle(.plain)
             .disabled(viewModel.isPreparing)
             .accessibilityHint("Åpner mengdevalg og loggføring")
+            .accessibilityIdentifier("food-search-\(context)-\(product.id.uuidString)")
         }
     }
 

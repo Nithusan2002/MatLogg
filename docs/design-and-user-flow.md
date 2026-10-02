@@ -48,14 +48,20 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 
 Prioritet:
 
-1. dato og kontekst
-2. valgfri dagsstatus uten egen overskrift eller gjentatt dato
-3. alle fire måltider: Frokost, Lunsj, Middag og Kveldsmat
-4. kontekstuelle legg-til-handlinger og personlige hurtigvalg
-5. status for lokalt lagrede endringer som venter på synk
+1. dato og kontekst, inkludert status for lokalt lagrede endringer
+2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
+3. kompakt vannrad med valgt dato, antall glass og minus/pluss
+4. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
+5. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+6. personlige hurtigvalg
+
+Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
+kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
+sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
+Eksisterende visningsvalg for målstatus beholdes.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidskort viser et begrenset sammendrag; trykk åpner den filtrerte dagsloggen.
+Måltidsseksjoner viser et begrenset sammendrag; trykk åpner valgt måltid for valgt dato.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
 måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
@@ -64,6 +70,49 @@ vises på Hjem fordi de gir en kortere flyt enn generisk søk.
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
+
+### Morgensjekk
+
+På Hjem, rett under datoen, vises én «Sjekk inn»-knapp for dagens dato,
+med samme overflate, tekstfarge, høyde og avrunding som «Skann strekkode» i Søk.
+Ingen kortoverskrift eller forklaring vises på Hjem. «Sjekk inn» åpner et ark med valgfri vekt i kg og «Ferdig».
+Vektfeltet åpner den samme linjalvelgeren som profil og onboarding, med tekst
+om lagring i vekthistorikken. «Bruk verdi» fyller bare innsjekkutkastet; Avbryt
+beholder tidligere input. Dagens registrerte vekt brukes når den finnes.
+Tomme felt fylles ikke automatisk med startverdien. «Fjern opplysningen»
+tømmer bare utkastet og sletter ikke en registrert vekt. Innsjekk
+uten vekt er tillatt. Vekt bruker eksisterende vekthistorikk og atomisk lokal
+vekt-/synkskriving; redigering beholder dagens registrerings-ID. Mål og
+personlige detaljer endres ikke. Tomt felt sletter ikke tidligere vekt.
+
+Etter vellykket fullføring viser knappen en hake og «Sjekket inn i dag»,
+og åpner dagens innsjekk for redigering. Neste dag vises «Sjekk inn» igjen.
+VoiceOver leser den synlige statusen én gang. «Hopp over i dag»
+skjuler kortet resten av dagen. Avbryt endrer ingenting. Kortstatus er en lokal
+visningspreferanse per profil med bare siste dato/status, uten synk eller
+historikk. Ny dag tilbyr ny innsjekk. Kortet er tilgjengelig hele dagen og
+vises ikke på andre valgte datoer. Ingen popup, påminnelser, streaks,
+dagsintensjon eller nye helsefelt inngår. Store tekststørrelser bruker vertikal
+layout; alle handlinger har minst 44 punkters trykkflate og vektfeltet har
+VoiceOver-tekst med enhet. Lagringsfeil beholder input og tilbyr nytt forsøk.
+
+### Dagslogg
+
+Dagsloggen åpnes fra Hjem med alle måltider som standard, også ved trykk på
+et bestemt måltidskort. Måltidsfilter aktiveres kun eksplisitt av brukeren.
+Skjermen viser valgt dato, en kompakt dagsoppsummering og
+varer samlet i én flate per måltid. Varerader viser navn, mengde med lagret
+enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
+sletting med eksisterende angremulighet. Oppsummeringen er informasjon, ikke
+en skjult handling for å nullstille søk eller filter.
+
+Søk åpnes med en knapp i skjermhodet og gjelder valgt dag. Aktivt måltidsfilter
+vises med en eksplisitt handling for å vise alle måltider. Ingen søke- eller
+filtertreff skilles fra en tom dag, og tilbyr nullstilling uten å endre dato.
+Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
+«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen.
+«Kopier fra i går» ligger i dagsmenyen når handlingen er tilgjengelig.
+Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
 ### Vann på Hjem
 
@@ -161,17 +210,43 @@ Profil samler:
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
 
+Profilkortet er den faste inngangen til Personlige detaljer; denne lenken
+finnes ikke i Innstillinger. Innstillinger samler personvern, visning og
+tilbakemelding, data og lagring samt konto. Personopplysninger og forklaringen
+om målforslag ligger i Personlige detaljer, mens kalori- og makromål redigeres
+i Daglige mål.
 Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
 Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
 gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
-samles i «Grunnlag for målforslag», med en felles «Hvorfor spør vi?»-forklaring.
-Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
+samles i kortet «Grunnlag for målforslag», med en kort formålsforklaring før
+feltene og «Om opplysningene og målforslag» som utvidbar forklaring etter kortet.
+Feltene bruker kompakte rader med verdi til høyre; ved tilgjengelighetsstørrelser
+står verdien under feltnavnet. Fødselsdato har en fast rad med «Ikke oppgitt»
+som tomtilstand. Dato velges som utkast i datovelgeren og bekreftes
+med «Bruk dato». Arket bruker appens bakgrunn, kort og handlingsfarge, med norsk
+datovelger og uten handling for å fjerne fødselsdato. Vektens skille fra vekthistorikken forklares under kortet.
+Vekt og høyde åpner et ark med skyvbar, horisontal linjal og fast midtmarkør.
+Skalaen bruker 0,1 kg (20–300 kg) og 1 cm (80–250 cm). Områdene gjelder bare
+linjalen; direkte inntasting bevarer alle gyldige positive verdier og eksisterende
+presisjon. Tomme felt starter velgeren på 70 kg eller 170 cm, uten å fylle inn
+profilen automatisk. «Bruk verdi» oppdaterer profilutkastet, «Fjern opplysningen»
+tømmer feltet, og Avbryt eller lukking forkaster arket. Profilens «Lagre» er
+fortsatt eneste lagringshandling. VoiceOver kan justere skalaen med sveip
+opp/ned; direkte inntasting er tilgjengelig ved alle tekststørrelser.
+Fødselsdato kreves ved lagring av Personlige detaljer; øvrige opplysninger er
+valgfrie, og brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
-foran eventuelt navn fra kontoen. Tom fødselsdato
-bevares som tom, ugyldige tall avvises ved feltet, og lagringsfeil beholder
+foran eventuelt navn fra kontoen. Eksisterende profiler uten fødselsdato
+beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldige tall avvises ved feltet, og lagringsfeil beholder
 utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
+
+Innstillinger viser lokal lagringsstatus uten gjentatt forklaring når synk ikke
+er tilgjengelig. Eksportdetaljer samles under «Hva følger med?», uten egen
+forklaring under «Last ned data». I lokal modus har Konto ingen ekstra
+lagringsstatusrad; en kort synlig tekst forklarer at konto er valgfritt og at
+innlogging foreløpig ikke gir sikkerhetskopi eller synk mellom enheter.
 
 Eksport under Innstillinger inneholder matlogg, vann, lagrede måltider,
 gjeldende daglige mål, vekthistorikk, personlige detaljer og favoritter for
@@ -396,3 +471,23 @@ tilbyr «Angre» i fire sekunder (åtte med VoiceOver). Flere raske slettinger
 samles og kan gjenopprettes atomisk med samme mengde, enhet, næringsgrunnlag
 og tidspunkter. Gjenoppretting bruker nye logg-ID-er for å tåle forsinkede
 slettehendelser. Bekreftelser for større slettinger beholdes.
+
+## Måltidsrommet
+
+Hjem åpner riktig måltid og dato. Måltidsvelgeren viser Frokost, Lunsj, Middag
+og Kveldsmat; «Se hele dagen» tilbyr samlet liste. Datobytte beholder måltidet.
+Produktbilder, navn og mengde prioriteres; næring per vare er sekundært.
+Trykk eller VoiceOver-handlingen «Rediger» åpner eksisterende redigering; sveiping tilbyr flytting og
+sletting med angre. «Legg til mat» beholder valgt måltid og dato.
+Samlet næring vises rett under måltidsnavn og antall varer og summerer hele måltidet uavhengig av søk.
+Søk gjelder valgt måltid eller hele dagen. Lasting skilles fra tomt måltid og
+ingen søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
+«Kopier hele dagen fra i går» beholder eksisterende dagsscope.
+
+### Linjalvelger i onboarding
+
+Vekt og høyde bruker samme linjalvelger som Personlige detaljer, med tekst
+tilpasset onboarding. «Bruk verdi» oppdaterer bare onboarding-utkastet.
+Avbryt beholder tidligere input; tomme felt fylles ikke automatisk med
+linjalens startverdi. Direkte inntasting og fjerning er tilgjengelig.
+Eksisterende validering avgjør om opplysningene kan brukes i beregningen.

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import UIKit
 
 struct SavedMealCreationSource: Identifiable {
@@ -18,46 +19,89 @@ struct SaveMealFromLogsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Navn") {
-                    TextField("For eksempel Vanlig frokost", text: $name)
-                        .textInputAutocapitalization(.sentences)
-                        .accessibilityIdentifier("saved-meal-name")
-                }
-                Section {
-                    ForEach(source.logs) { log in
-                        HStack {
-                            Text(productName(for: log))
-                            Spacer()
-                            Text("\(format(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+            VStack(spacing: 0) {
+                MatLoggSheetHeader(title: "Lagre som måltid", isCloseDisabled: viewModel.isSaving) { dismiss() }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Navn")
+                                .font(AppTypography.sectionTitle)
+                                .foregroundStyle(AppColors.deepInk)
+                            CardContainer {
+                                TextField("For eksempel Vanlig frokost", text: $name)
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(AppColors.ink)
+                                    .textInputAutocapitalization(.sentences)
+                                    .frame(minHeight: 44)
+                                    .accessibilityLabel("Navn på måltidet")
+                                    .accessibilityIdentifier("saved-meal-name")
+                            }
+                        }
+
+                        SavedMealPhotoPicker()
+                            .disabled(viewModel.isSaving)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Innhold")
+                                .font(AppTypography.sectionTitle)
+                                .foregroundStyle(AppColors.deepInk)
+                            CardContainer {
+                                VStack(spacing: 12) {
+                                    ForEach(source.logs) { log in
+                                        if log.id != source.logs.first?.id {
+                                            Divider().overlay(AppColors.separator)
+                                        }
+                                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                            Text(productName(for: log))
+                                                .font(AppTypography.bodyEmphasis)
+                                                .foregroundStyle(AppColors.deepInk)
+                                            Spacer(minLength: 8)
+                                            Text("\(format(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+                                                .font(AppTypography.body)
+                                                .foregroundStyle(AppColors.textSecondary)
+                                                .fixedSize(horizontal: true, vertical: false)
+                                        }
+                                        .accessibilityElement(children: .combine)
+                                    }
+                                }
+                            }
+                            Text("Mengder og næringstall lagres slik de er nå. Tidligere registreringer endres ikke.")
+                                .font(AppTypography.caption)
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                     }
-                } header: {
-                    Text("Innhold")
-                } footer: {
-                    Text("Mengder og næringstall lagres slik de er nå. Tidligere registreringer endres ikke.")
+                    .padding(16)
                 }
-                if let error = viewModel.errorMessage {
-                    Section { Text(error).foregroundStyle(AppColors.ink) }
-                }
+                .disabled(viewModel.isSaving)
             }
-            .navigationTitle("Lagre som måltid")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Avbryt") { dismiss() }
-                        .disabled(viewModel.isSaving)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(viewModel.isSaving ? "Lagrer …" : "Lagre") {
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
+                    if let error = viewModel.errorMessage {
+                        Text(error)
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.action)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre") {
                         Task { await save() }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving || viewModel.isLoadingPhoto)
+                    .opacity(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving ? 0.5 : 1)
                     .accessibilityIdentifier("saved-meal-save")
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(AppColors.background)
             }
+            .background(AppColors.background.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
             .interactiveDismissDisabled(viewModel.isSaving)
+            .onAppear { viewModel.beginPhotoEditing() }
+            .onDisappear { viewModel.beginPhotoEditing() }
             .task {
                 let products = await productViewModel.products(ids: Set(source.logs.map(\.productId)))
                 productNames = products.mapValues(\.name)
@@ -66,6 +110,8 @@ struct SaveMealFromLogsView: View {
                 }
             }
         }
+        .tint(AppColors.action)
+        .presentationDragIndicator(.visible)
     }
 
     private func save() async {
@@ -189,6 +235,11 @@ struct SavedMealLogView: View {
                         Text("Kontroller før du loggfører.")
                             .font(AppTypography.body)
                             .foregroundStyle(AppColors.textSecondary)
+
+                        if let data = meal.localImageData, let image = UIImage(data: data) {
+                            ProductHeroImageView(image: image, height: 180)
+                                .accessibilityLabel("Bilde av \(meal.name)")
+                        }
 
                         targetPicker
 
@@ -369,6 +420,8 @@ struct SavedMealEditorView: View {
         NavigationStack {
             Form {
                 Section("Navn") { TextField("Navn", text: $name) }
+                Section { SavedMealPhotoPicker().disabled(viewModel.isSaving) }
+                    .listRowBackground(AppColors.surface)
                 Section("Matvarer") {
                     ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }).filter { !removed.contains($0.id) }) { item in
                         VStack(alignment: .leading, spacing: 8) {
@@ -387,21 +440,28 @@ struct SavedMealEditorView: View {
                 }
                 if let error = viewModel.errorMessage { Section { Text(error) } }
             }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .font(AppTypography.body)
+            .foregroundStyle(AppColors.ink)
             .navigationTitle("Endre måltid")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(viewModel.isSaving ? "Lagrer …" : "Lagre") { Task { await save() } }
-                        .disabled(viewModel.isSaving || parsedAmounts == nil || meal.items.count == removed.count)
+                        .disabled(viewModel.isSaving || viewModel.isLoadingPhoto || parsedAmounts == nil || meal.items.count == removed.count)
                 }
             }
             .onAppear {
+                viewModel.beginPhotoEditing(data: meal.localImageData)
                 name = meal.name
                 amounts = Dictionary(uniqueKeysWithValues: meal.items.map { ($0.id, format($0.amountG)) })
             }
+            .onDisappear { viewModel.beginPhotoEditing() }
             .interactiveDismissDisabled(viewModel.isSaving)
         }
+        .tint(AppColors.action)
     }
 
     private var parsedAmounts: [UUID: Float]? {
@@ -427,10 +487,21 @@ struct SavedMealRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "square.stack.3d.up.fill")
-                .foregroundStyle(AppColors.action)
-                .frame(width: 44, height: 44)
-                .background(AppColors.mutedSurface, in: Circle())
+            Group {
+                if let data = meal.localImageData, let image = UIImage(data: data) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: "square.stack.3d.up.fill")
+                        .foregroundStyle(AppColors.action)
+                        .frame(width: 44, height: 44)
+                        .background(AppColors.mutedSurface, in: Circle())
+                }
+            }
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(meal.name).font(AppTypography.bodyEmphasis).foregroundStyle(AppColors.deepInk)
                 Text(subtitle).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary).lineLimit(2)
@@ -493,4 +564,48 @@ private func sourceLabel(_ source: NutritionSource) -> String {
 
 private func hideKeyboard() {
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+}
+
+private struct SavedMealPhotoPicker: View {
+    @EnvironmentObject private var viewModel: SavedMealsViewModel
+    @State private var selection: PhotosPickerItem?
+
+    var body: some View {
+        let pickerTitle = viewModel.photoData == nil ? "Legg ved bilde" : "Bytt bilde"
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Bilde (valgfritt)")
+                .font(AppTypography.sectionTitle)
+                .foregroundStyle(AppColors.deepInk)
+            if let image = viewModel.photoPreview {
+                ProductHeroImageView(image: image, height: 160)
+                    .accessibilityLabel("Valgt måltidsbilde")
+            }
+            PhotosPicker(selection: $selection, matching: .images) {
+                Label(pickerTitle, systemImage: "photo")
+                    .font(AppTypography.bodyEmphasis)
+                    .frame(minHeight: 44)
+            }
+            .foregroundStyle(AppColors.action)
+            .accessibilityIdentifier("saved-meal-photo-picker")
+            if viewModel.photoData != nil || viewModel.isLoadingPhoto {
+                Button("Fjern bilde", role: .destructive) {
+                    selection = nil
+                    viewModel.beginPhotoEditing()
+                }
+                .font(AppTypography.body)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("saved-meal-photo-remove")
+            }
+            if viewModel.isLoadingPhoto { ProgressView("Åpner bilde …") }
+            if let error = viewModel.photoError {
+                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.action)
+            }
+            Text("Bildet lagres bare på denne enheten og synkroniseres ikke.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+        }
+        .onChange(of: selection) { _, item in
+            if let item { Task { await viewModel.loadPhoto(item) } }
+        }
+    }
 }

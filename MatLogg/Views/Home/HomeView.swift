@@ -256,11 +256,13 @@ private extension View {
 }
 
 struct HomeTabView: View {
+    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
+    @EnvironmentObject var morningCheckInViewModel: MorningCheckInViewModel
     @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
@@ -284,6 +286,9 @@ struct HomeTabView: View {
 
                     DayNavigationBar(selection: selectedDateBinding)
 
+                    MorningCheckInView(viewModel: morningCheckInViewModel,
+                                       userId: authViewModel.currentUser?.id, date: selectedDate)
+
                     if appState.unsyncedSyncCount > 0 {
                         Label(
                             homeSyncStatusText,
@@ -297,6 +302,11 @@ struct HomeTabView: View {
                         .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .accessibilityLabel(homeSyncStatusText)
                     }
+
+                    Text("Dagen din, så langt.")
+                        .font(AppTypography.hero)
+                        .foregroundColor(AppColors.deepInk)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if preferencesViewModel.showGoalStatusOnHome {
                         if isSummaryLoading {
@@ -330,7 +340,10 @@ struct HomeTabView: View {
                         }
                     }
 
-                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate)
+                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate, compact: true)
+
+                    PrimaryButton(title: "Loggfør mat", systemImage: "plus", action: onOpenQuickLog)
+                        .accessibilityIdentifier("home-log-food")
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -362,9 +375,6 @@ struct HomeTabView: View {
                             .font(AppTypography.sectionTitle)
                             .foregroundColor(AppColors.ink)
                         Spacer()
-                        Text(loggedMealCountLabel)
-                            .font(AppTypography.captionEmphasis)
-                            .foregroundColor(AppColors.textSecondary)
                     }
 
                     ForEach(MealPresentation.all) { meal in
@@ -392,6 +402,8 @@ struct HomeTabView: View {
                     }
 
                     quickLogSection
+
+
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
@@ -400,7 +412,7 @@ struct HomeTabView: View {
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedMealForLog) { meal in
-                LoggView(initialDate: selectedDate, initialMealFilter: meal.key)
+                LoggView(initialDate: selectedDate, initialMeal: meal.key)
             }
         }
         .task(id: authViewModel.currentUser?.id) {
@@ -429,6 +441,9 @@ struct HomeTabView: View {
             )
         }
         .onChange(of: logViewModel.mutationRevision) { _, _ in
+            Task { await refreshSummaries() }
+        }
+        .onChange(of: savedMealsViewModel.mutationRevision) { _, _ in
             Task { await refreshSummaries() }
         }
         .onChange(of: appState.logSelectedDate) { _, _ in
@@ -493,14 +508,6 @@ struct HomeTabView: View {
         productNames = names
         isSummaryLoading = false
         await logViewModel.loadMealProductImages(for: summary.logs)
-    }
-
-    private var loggedMealCount: Int {
-        Set(selectedSummary?.logs.map(\.mealType) ?? []).count
-    }
-
-    private var loggedMealCountLabel: String {
-        loggedMealCount == 0 ? "Ingen logget ennå" : "\(loggedMealCount) av 4 logget"
     }
 
     private var selectedDateBinding: Binding<Date> {
@@ -582,8 +589,11 @@ struct HomeTabView: View {
     }
 
     private var profileInitials: String {
-        guard let user = authViewModel.currentUser else { return "ML" }
-        return String(user.firstName.prefix(1) + user.lastName.prefix(1)).uppercased()
+        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name = localName.isEmpty ? (authViewModel.currentUser?.fullName ?? "") : localName
+        let parts = name.split(whereSeparator: { $0.isWhitespace })
+        let initials = parts.prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
+        return initials.isEmpty ? "ML" : initials
     }
 
     private var shortDateLabel: String {
@@ -662,17 +672,24 @@ struct MealOverviewCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Text(String(meal.title.prefix(1)))
-                    .font(AppTypography.captionEmphasis)
+                    .font(AppTypography.secondaryEmphasis)
                     .foregroundColor(AppColors.deepInk)
                     .frame(width: 34, height: 34)
                     .background(meal.tint.opacity(0.22), in: Circle())
-                Text(meal.title.uppercased())
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
+                Button(action: onOpen) {
+                    Text(meal.title)
+                        .font(AppTypography.sectionTitle)
+                        .foregroundColor(AppColors.deepInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Åpne \(meal.title)")
+                .accessibilityIdentifier("home-meal-open-\(meal.key)")
                 Spacer()
                 Button(action: onAdd) {
                     Text("+ Legg til")
-                        .font(AppTypography.captionEmphasis)
+                        .font(AppTypography.secondaryEmphasis)
                         .foregroundColor(AppColors.action)
                         .frame(minWidth: 44, minHeight: 44)
                 }
@@ -701,15 +718,16 @@ struct MealOverviewCard: View {
                                 Text(productName(log.productId))
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.deepInk)
+                                    .fixedSize(horizontal: false, vertical: true)
                                 Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
-                                    .font(AppTypography.caption)
+                                    .font(AppTypography.secondary)
                                     .foregroundColor(AppColors.textSecondary)
                             }
                         }
                     }
                     if logs.count > 3 {
                         Text("+ \(logs.count - 3) flere")
-                            .font(AppTypography.captionEmphasis).foregroundColor(AppColors.textSecondary)
+                            .font(AppTypography.secondaryEmphasis).foregroundColor(AppColors.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -719,27 +737,49 @@ struct MealOverviewCard: View {
                     .frame(height: 1)
                     .accessibilityHidden(true)
 
-                Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal · P \(NutritionDisplay.wholeGrams(totals.protein)) g · K \(NutritionDisplay.wholeGrams(totals.carbs)) g · F \(NutritionDisplay.wholeGrams(totals.fat)) g")
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.deepInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.deepInk)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
             }
         }
         .padding(16)
-        .matLoggCardSurface(shadowEnabled: !logs.isEmpty, borderEnabled: false)
-        .overlay {
-            if logs.isEmpty {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AppColors.controlBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6]))
-            }
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .matLoggCardSurface(cornerRadius: 24, borderEnabled: false)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .onTapGesture {
             if !logs.isEmpty { onOpen() }
         }
         .accessibilityElement(children: .contain)
         .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
+    }
+
+    @ViewBuilder
+    private func mealMacros(protein: Float, carbs: Float, fat: Float) -> some View {
+        macroLabel("P", value: protein, tint: AppColors.macroProteinTint)
+        macroLabel("K", value: carbs, tint: AppColors.macroCarbTint)
+        macroLabel("F", value: fat, tint: AppColors.macroFatTint)
+    }
+
+    private func macroLabel(_ label: String, value: Float, tint: Color) -> some View {
+        Text("\(label) \(NutritionDisplay.wholeGrams(value)) g")
+            .font(AppTypography.captionEmphasis)
+            .foregroundColor(AppColors.deepInk)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.12), in: Capsule())
+            .fixedSize()
     }
 
 }
@@ -760,61 +800,58 @@ struct StatusCardView: View {
         calorieBalance?.over ?? 0
     }
     
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(AppColors.calorieBlue)
-                                .frame(width: 8, height: 8)
-                                .accessibilityHidden(true)
-                            Text("KALORIER SPIST")
-                                .font(AppTypography.captionEmphasis)
-                        }
-                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                            .font(AppTypography.hero)
-                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                            .font(AppTypography.bodyEmphasis)
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Registrert energi")
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
+                Text("\(NutritionDisplay.wholeCalories(summary.totalCalories)) kcal")
+                    .font(AppTypography.hero)
                     .foregroundColor(AppColors.deepInk)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityElement(children: .combine)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                    .font(AppTypography.secondary)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
 
-                    Rectangle()
-                        .fill(AppColors.separator)
-                        .frame(height: 1)
-                        .accessibilityHidden(true)
-
-                    VStack(spacing: 12) {
-                        ProgressRow(
-                            label: "Proteiner",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalProtein))g / \(NutritionDisplay.wholeGrams(goal.proteinTargetG))g",
-                            progress: progressValue(current: Double(summary.totalProtein), target: Double(goal.proteinTargetG)),
-                            tint: AppColors.macroProteinTint
-                        )
-                        ProgressRow(
-                            label: "Karbohydrater",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalCarbs))g / \(NutritionDisplay.wholeGrams(goal.carbsTargetG))g",
-                            progress: progressValue(current: Double(summary.totalCarbs), target: Double(goal.carbsTargetG)),
-                            tint: AppColors.macroCarbTint
-                        )
-                        ProgressRow(
-                            label: "Fett",
-                            valueText: "\(NutritionDisplay.wholeGrams(summary.totalFat))g / \(NutritionDisplay.wholeGrams(goal.fatTargetG))g",
-                            progress: progressValue(current: Double(summary.totalFat), target: Double(goal.fatTargetG)),
-                            tint: AppColors.macroFatTint
-                        )
-                    }
-                }
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
+                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+            layout {
+                nutrient(label: "Proteiner", value: summary.totalProtein, target: goal.proteinTargetG, tint: AppColors.macroProteinTint)
+                nutrient(label: "Karbohydrater", value: summary.totalCarbs, target: goal.carbsTargetG, tint: AppColors.macroCarbTint)
+                nutrient(label: "Fett", value: summary.totalFat, target: goal.fatTargetG, tint: AppColors.macroFatTint)
             }
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .matLoggCardSurface(fill: AppColors.warmSurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
     }
 
-    private func progressValue(current: Double, target: Double) -> Double {
-        guard target > 0 else { return 0 }
-        return current / target
+    private func nutrient(label: String, value: Float, target: Float, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 5) {
+                Circle().fill(tint).frame(width: 6, height: 6).accessibilityHidden(true)
+                Text(label)
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("\(NutritionDisplay.wholeGrams(value)) g")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.deepInk)
+            Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(NutritionDisplay.wholeGrams(value)) gram, mål \(NutritionDisplay.wholeGrams(target)) gram")
     }
 }
 
@@ -1002,9 +1039,9 @@ struct CameraView: View {
 
     @StateObject private var cameraAuthorization: CameraAuthorizationViewModel
     
-    @State private var scannedBarcode: String?
-    @State private var scannedProduct: Product?
-    @State private var isLoading = false
+    private var scannedBarcode: String? { productViewModel.scannedBarcode }
+    private var scannedProduct: Product? { productViewModel.scannedProduct }
+    private var isLoading: Bool { productViewModel.isScanning }
     @State private var isTorchOn = false
     @State private var isTorchAvailable = false
     @State private var scanHelpTitle: String?
@@ -1076,6 +1113,16 @@ struct CameraView: View {
         }
         .onDisappear {
             isTorchOn = false
+            if !showManualProduct && !showProductDetail { productViewModel.resetScan() }
+        }
+        .onChange(of: productViewModel.scannedProduct?.id) { _, id in
+            if id != nil, !showManualProduct {
+                showScanHelp = false
+                showProductDetail = true
+            }
+        }
+        .onChange(of: productViewModel.scanFailure) { _, failure in
+            showProductNotFound = failure != nil
         }
         .task {
             cameraAuthorization.refresh()
@@ -1092,9 +1139,7 @@ struct CameraView: View {
             )
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
-            scannedBarcode = nil
-            scannedProduct = nil
-            isLoading = false
+            productViewModel.resetScan()
         }) {
             if let product = scannedProduct {
                 ProductDetailView(
@@ -1121,7 +1166,7 @@ struct CameraView: View {
                     try await productViewModel.saveManualProduct(product, ownerUserId: userId)
                 }
             ) { product in
-                scannedProduct = product
+                productViewModel.acceptManualScan(product)
                 if let userId = authViewModel.currentUser?.id {
                     Task {
                         await productViewModel.recordScan(productId: product.id, userId: userId)
@@ -1130,15 +1175,18 @@ struct CameraView: View {
                 }
             }
         }
-        .alert("Produktet kan ikke brukes ennå", isPresented: $showProductNotFound) {
-            Button("Legg til selv", action: {
-                showManualProduct = true
-            })
-            Button("Avbryt", role: .cancel) {
-                scannedBarcode = nil
+        .alert(productViewModel.scanFailure?.title ?? "Produktoppslag", isPresented: $showProductNotFound) {
+            if productViewModel.scanFailure == .unavailable {
+                Button("Prøv igjen") {
+                    guard let barcode = scannedBarcode else { return }
+                    productViewModel.resetScan()
+                    Task { await productViewModel.scan(barcode: barcode, ownerUserId: authViewModel.currentUser?.id) }
+                }
             }
+            Button("Registrer manuelt") { showManualProduct = true }
+            Button("Avbryt", role: .cancel) { productViewModel.resetScan() }
         } message: {
-            Text("Vi fant ikke komplette næringsverdier per 100 g eller 100 ml. Vil du legge produktet til manuelt?")
+            Text(productViewModel.scanFailure?.message ?? "")
         }
     }
 
@@ -1216,7 +1264,7 @@ struct CameraView: View {
                     openSearch()
                 }
                 ScannerActionButton(title: "Registrer manuelt", systemImage: "square.and.pencil") {
-                    scannedBarcode = nil
+                    productViewModel.resetScan()
                     showManualProduct = true
                 }
             }
@@ -1314,7 +1362,7 @@ struct CameraView: View {
             }
 
             Button("Registrer manuelt") {
-                scannedBarcode = nil
+                productViewModel.resetScan()
                 showManualProduct = true
             }
             .font(AppTypography.bodyEmphasis)
@@ -1365,94 +1413,12 @@ struct CameraView: View {
 
         guard scannedBarcode != barcode else { return }
         
-        scannedBarcode = barcode
-        isLoading = true
-
-        UIAccessibility.post(
-            notification: .announcement,
-            argument: "Kode funnet. Henter produkt."
-        )
-
+        UIAccessibility.post(notification: .announcement, argument: "Kode funnet. Henter produkt.")
         HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
         SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: preferencesViewModel.soundFeedbackEnabled)
-        
-        if let cached = productViewModel.cachedProduct(
-            barcode: barcode,
-            ownerUserId: authViewModel.currentUser?.id
-        ) {
-            scannedProduct = cached
-            isLoading = false
-            showProductDetail = true
-            Task {
-                await recordCachedScan(cached)
-                if let refreshed = await productViewModel.refreshCachedProductIfNeeded(cached),
-                   scannedBarcode == barcode {
-                    scannedProduct = refreshed
-                }
-            }
-            return
-        }
-        
         Task {
-            do {
-                let product = try await productViewModel.fetchProduct(barcode: barcode)
-                await MainActor.run {
-                    scannedProduct = product
-                    isLoading = false
-                    showScanHelp = false
-                    showProductDetail = true
-                }
-                await saveScannedProduct(product)
-            } catch let apiError as APIService.APIError {
-                await MainActor.run {
-                    isLoading = false
-                    switch apiError {
-                    case .serverError(404), .incompleteProductData:
-                        showProductNotFound = true
-                    case .backendError(let statusCode, _, _) where statusCode == 404:
-                        showProductNotFound = true
-                    case .rateLimited:
-                        presentScanHelp(
-                            title: apiError.localizedDescription,
-                            hints: ["Vent litt", "Prøv deretter å skanne på nytt"]
-                        )
-                    case .serverError(let statusCode) where (500...599).contains(statusCode):
-                        presentScanHelp(
-                            title: "Produktdatabasen er midlertidig utilgjengelig",
-                            hints: ["Prøv igjen litt senere", "Legg til produktet manuelt om nødvendig"]
-                        )
-                    default:
-                        HapticFeedbackService.shared.trigger(
-                            .error,
-                            isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-                        )
-                        SoundFeedbackService.shared.play(
-                            .error,
-                            isEnabled: preferencesViewModel.soundFeedbackEnabled
-                        )
-                        presentScanHelp(
-                            title: "Fikk ikke kontakt med produktdatabasen",
-                            hints: ["Sjekk nett", "Prøv igjen", "Hold kamera rolig og skann på nytt"]
-                        )
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                    HapticFeedbackService.shared.trigger(
-                        .error,
-                        isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-                    )
-                    SoundFeedbackService.shared.play(
-                        .error,
-                        isEnabled: preferencesViewModel.soundFeedbackEnabled
-                    )
-                    presentScanHelp(
-                        title: "Noe gikk galt ved skanning",
-                        hints: ["Hold kamera rolig", "Mer lys", "Flytt nærmere strekkoden"]
-                    )
-                }
-            }
+            await productViewModel.scan(barcode: barcode, ownerUserId: authViewModel.currentUser?.id)
+            await appState.refreshSyncStatus()
         }
     }
 
@@ -1485,24 +1451,6 @@ struct CameraView: View {
         }
     }
 
-    private func saveScannedProduct(_ product: Product) async {
-        guard let userId = authViewModel.currentUser?.id else { return }
-        if await productViewModel.saveScannedProduct(product, userId: userId) {
-            await appState.refreshSyncStatus()
-        } else {
-            appState.errorMessage = productViewModel.errorMessage
-        }
-    }
-
-    private func recordCachedScan(_ product: Product) async {
-        guard let userId = authViewModel.currentUser?.id else { return }
-        if await productViewModel.recordScan(productId: product.id, userId: userId) {
-            await appState.refreshSyncStatus()
-        } else {
-            appState.errorMessage = productViewModel.errorMessage
-        }
-    }
-    
     private func handleError(_ error: String) {
         presentScanHelp(
             title: error,
@@ -1624,7 +1572,7 @@ struct SearchHubView: View {
         .environmentObject(AppState(databaseService: database))
         .environmentObject(LogViewModel(repository: database))
         .environmentObject(MealReuseViewModel(repository: database))
-        .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database))
+        .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database, photoRepository: LocalMealPhotoRepository()))
         .environmentObject(ProductViewModel(repository: database))
         .environment(\.foodSearchRepository, DefaultFoodSearchRepository(
             products: database, catalog: MatvaretabellenService(), remote: APIService()

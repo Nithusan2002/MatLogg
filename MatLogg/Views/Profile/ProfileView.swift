@@ -20,11 +20,6 @@ struct ProfileView: View {
                     #if DEBUG
                     demoControls
                     #endif
-                    Label("Nappe · norsk matdagbok", systemImage: "flame.fill")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -205,8 +200,7 @@ private struct ProfileSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Profil og personvern") {
-                NavigationLink("Personlige detaljer") { PersonalDetailsView() }
+            Section("Personvern") {
                 NavigationLink("Personvern og valg") { PrivacyChoicesView() }
             }
             .listRowBackground(AppColors.surface)
@@ -272,8 +266,10 @@ private struct ProfileSettingsView: View {
                     )
                 }
 
-                Text(syncExplanationText)
-                    .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                if appState.isSyncAvailable {
+                    Text(syncExplanationText)
+                        .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                }
                 Button(exportViewModel.isExporting ? "Klargjør eksport …" : "Last ned data") {
                     Task { await exportViewModel.export(user: authViewModel.currentUser) }
                 }
@@ -281,8 +277,6 @@ private struct ProfileSettingsView: View {
                 if let error = exportViewModel.errorMessage {
                     Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
                 }
-                Text("Last ned en fil med loggen, målene og opplysningene dine.")
-                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 DisclosureGroup("Hva følger med?") {
                     Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")
                         .font(AppTypography.caption)
@@ -294,8 +288,7 @@ private struct ProfileSettingsView: View {
                 if demoMode.isDemo {
                     LabeledContent("Status", value: "Demomodus – fiktiv lokal profil")
                 } else if authViewModel.isLocalMode {
-                    LabeledContent("Status", value: "På denne iPhonen")
-                    Text("Konto er valgfritt. Dataene dine er lagret på denne enheten. Synk mellom enheter er ikke tilgjengelig ennå.")
+                    Text("Konto er valgfritt. Innlogging gir foreløpig ikke sikkerhetskopi eller synk mellom enheter.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                     NavigationLink("Logg inn eller opprett konto") { LoginView() }

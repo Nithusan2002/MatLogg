@@ -10,25 +10,42 @@ Første versjon omfatter:
 
 - «Lagre som måltid» fra en måltidsgruppe i Logg
 - navn, matvarer, eksakte mengder, næringssnapshot, kilde og rekkefølge
+- ett valgfritt lokalt måltidsbilde fra iOS-bildevelgeren
 - «Lagrede måltider» øverst i Loggfør-arket
+- «Lagrede måltider» fra «Legg til» i Logg, med valgt dato og måltidskategori
 - forhåndsvisning og mengdejustering før logging
 - logging til valgt dato og måltidskategori, også når måltidet har innhold fra før
 - endring av navn/mengder, fjerning av varer og sletting av malen
 - kompakt lokal kvittering og atomisk angre
 
 Det er ikke støtte for å bygge en ny mal fra et tomt lerret, legge til nye varer
-i en eksisterende mal, bilder, mapper, deling, porsjonsskalering eller
+i en eksisterende mal, mapper, deling, porsjonsskalering eller
 oppskriftstekst i denne versjonen.
 
 ## Flyt og design
 
 I Logg åpner menyen ved en måltidsoverskrift «Lagre som måltid». Brukeren gir
 malen et navn og kontrollerer innholdet. Den opprinnelige loggen endres ikke.
+Brukeren kan velge ett bilde, se forhåndsvisning, bytte eller fjerne det både
+ved oppretting og redigering. Bilde er valgfritt, og avbryt lagrer ingen endringer.
+Lagring er deaktivert mens bildet lastes. Feil beholder et eventuelt tidligere
+bilde og viser en melding. Listen og forhåndsvisningen viser lagret bilde.
+
+Bildet er bare lokalt: det lastes ikke opp, synkroniseres ikke og følger ikke
+nye logginnslag ved bruk av malen. iOS-bildevelgeren krever ikke generell
+bibliotektilgang. Bilder begrenses til 1200 piksler på lengste side og 2 MB JPEG;
+original fotometadata fjernes. Importer over 30 MB avvises. Et iCloud-bilde
+kan kreve nett før import, men allerede importerte bilder fungerer offline.
 
 Loggfør-arket viser inntil tre lagrede måltider før favoritter og nylig brukte
 matvarer. «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
+
+I Logg åpner «Legg til» → «Lagrede måltider» samme liste og forhåndsvisning.
+Datoen og måltidskategorien fra loggen beholdes. Etter logging lukkes listen
+og loggen oppdateres. En tom liste forklarer hvordan et måltid kan lagres.
+Hjem og Logg oppdaterer måltidsoversikten når en lagret mal brukes eller angres.
 
 Kilde vises bare når brukerens kildevalg er aktivert. Eksisterende semantiske
 farger, typografi, kort og
@@ -51,6 +68,12 @@ Hvert element bevarer produkt-ID, produktnavn, numerisk mengde, enhet (`g` eller
 `ml`), de eksakte lagrede næringsverdiene og ernæringskilden som brukeren
 godkjente. Mengdeendring
 skalerer dette snapshotet og henter ikke stille nyere produktverdier.
+
+Valgfri `localImageData` lagres i måltidets eksisterende JSON-rad, slik at bilde,
+mal og synkhendelse skrives atomisk. Eldre rader dekodes med manglende bilde.
+`SavedMealSyncPayload` utelater bildefeltet; ingen server- eller kontraktsendring
+kreves. Sletting av malen eller profildata fjerner også bildet. Lokal eksport
+inkluderer JPEG-data som base64.
 
 Lokalt SQLite-skjema v2 legger til `saved_meals`. Skriving av malen og
 `saved_meal.upsert` skjer i én transaksjon. Sletting og `saved_meal.delete`

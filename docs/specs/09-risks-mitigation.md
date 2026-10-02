@@ -16,10 +16,8 @@ Bruker kan ikke scanne eller få produktinfo
 
 **Mitigering:**
 1. **Seed local DB** med ~500 mest brukte produkter (offline fallback)
-2. **Cache**: Alle skanninger caches lokalt (never re-fetch samme EAN)
-3. **Multiple providers**: 
-   - Primary: Matvaretabellen
-   - Fallback: Open Food Facts API (Global)
+2. **Cache**: OFF-treff caches lokalt i 30 dager; eldre treff vises straks og revalideres ved bruk. Manuell oppdatering er tilgjengelig. Ved feil beholdes siste kjente data.
+3. **Datakilder**: Strekkoder slås opp direkte hos Open Food Facts. Matvaretabellen er lokal råvarekatalog og ikke et strekkoderegister. Flere strekkodeleverandører er senere scope.
 4. **Graceful degradation**: "Søk manuelt" fallback hvis API nede
 5. **Retry logic**: Exponential backoff + circuit breaker
 6. **Monitoring**: Alert if >5% barcode lookup failures

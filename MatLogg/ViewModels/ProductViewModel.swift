@@ -16,35 +16,19 @@ struct FoodSearchOutcome {
     let source: RawFoodSearchOutcome.Source
 }
 
-struct BarcodeProductCachePolicy {
-    nonisolated static let standard = BarcodeProductCachePolicy(
-        freshnessLifetime: 30 * 24 * 60 * 60,
-        refreshRetryDelay: 24 * 60 * 60
-    )
-
-    let freshnessLifetime: TimeInterval
-    let refreshRetryDelay: TimeInterval
-
-    nonisolated func needsRevalidation(_ product: Product, now: Date) -> Bool {
-        guard product.source == "openfoodfacts",
-              product.nutritionSource == .openFoodFacts else { return false }
-        guard let fetchedAt = product.fetchedAt else { return true }
-        return now.timeIntervalSince(fetchedAt) >= freshnessLifetime
-    }
-}
-
 @MainActor
 final class ProductViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     private let repository: any ProductRepository
     private let catalogService: any ProductCatalogService
-    private let barcodeService: any BarcodeProductService
+    let barcodeRepository: any BarcodeLookupRepository
     private let nameSearchService: any ProductNameSearchService
-    private let cachePolicy: BarcodeProductCachePolicy
-    private let now: () -> Date
-    private var barcodeRefreshTasks: [String: Task<Product?, Never>] = [:]
-    private var barcodeRefreshRetryAfter: [String: Date] = [:]
+    @Published private(set) var scannedProduct: Product?
+    @Published private(set) var scannedBarcode: String?
+    @Published private(set) var isScanning = false
+    @Published private(set) var scanFailure: BarcodeLookupFailure?
+    private var scanRequestID = UUID()
 
     static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
         FoodSearchMatcher.matches(query: query, name: name, brand: brand)
@@ -71,14 +55,15 @@ final class ProductViewModel: ObservableObject {
         barcodeService: any BarcodeProductService,
         nameSearchService: any ProductNameSearchService,
         cachePolicy: BarcodeProductCachePolicy = .standard,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        barcodeRepository: (any BarcodeLookupRepository)? = nil
     ) {
         self.repository = repository
         self.catalogService = catalogService
-        self.barcodeService = barcodeService
+        self.barcodeRepository = barcodeRepository ?? DefaultBarcodeLookupRepository(
+            products: repository, remote: barcodeService, policy: cachePolicy, now: now
+        )
         self.nameSearchService = nameSearchService
-        self.cachePolicy = cachePolicy
-        self.now = now
     }
 
     func product(id: UUID) -> Product? {
@@ -102,42 +87,53 @@ final class ProductViewModel: ObservableObject {
     }
 
     func fetchProduct(barcode: String) async throws -> Product {
-        try await barcodeService.searchProductByBarcodeOpenFoodFacts(barcode)
+        try await barcodeRepository.fetch(barcode: barcode)
     }
 
-    /// Returns a refreshed snapshot only when a stale Open Food Facts cache row
-    /// was successfully revalidated. Callers continue using the cached product
-    /// while this work runs, preserving offline-first scan behavior.
     func refreshCachedProductIfNeeded(_ cached: Product) async -> Product? {
-        guard let barcode = cached.barcodeEan,
-              cachePolicy.needsRevalidation(cached, now: now()) else { return nil }
+        try? await barcodeRepository.refresh(cached, manually: false)
+    }
 
-        if let retryAfter = barcodeRefreshRetryAfter[barcode], retryAfter > now() {
-            return nil
-        }
-        if let existingTask = barcodeRefreshTasks[barcode] {
-            return await existingTask.value
-        }
+    func resetScan() {
+        scanRequestID = UUID()
+        scannedBarcode = nil
+        scannedProduct = nil
+        scanFailure = nil
+        isScanning = false
+    }
 
-        let task = Task<Product?, Never> { [barcodeService, repository] in
-            do {
-                let refreshed = try await barcodeService.searchProductByBarcodeOpenFoodFacts(barcode)
-                try await repository.cacheCatalogProduct(refreshed)
-                return refreshed
-            } catch {
-                return nil
+    func acceptManualScan(_ product: Product) {
+        scanRequestID = UUID()
+        scannedProduct = product
+        isScanning = false
+        scanFailure = nil
+    }
+
+    /// Publishes local data immediately; the product card owns revalidation.
+    func scan(barcode: String, ownerUserId: UUID?) async {
+        guard !isScanning, scannedBarcode != barcode else { return }
+        let requestID = UUID()
+        scanRequestID = requestID
+        scannedBarcode = barcode
+        scannedProduct = nil
+        scanFailure = nil
+        isScanning = true
+        do {
+            let product: Product
+            if let cached = barcodeRepository.cached(barcode: barcode, owner: ownerUserId) {
+                product = cached
+            } else {
+                product = try await barcodeRepository.fetch(barcode: barcode)
             }
+            guard scanRequestID == requestID else { return }
+            scannedProduct = product
+            isScanning = false
+            if let ownerUserId { _ = await recordScan(productId: product.id, userId: ownerUserId) }
+        } catch {
+            guard scanRequestID == requestID else { return }
+            scanFailure = BarcodeLookupFailure.classify(error)
+            isScanning = false
         }
-        barcodeRefreshTasks[barcode] = task
-
-        let refreshed = await task.value
-        barcodeRefreshTasks[barcode] = nil
-        if refreshed == nil {
-            barcodeRefreshRetryAfter[barcode] = now().addingTimeInterval(cachePolicy.refreshRetryDelay)
-        } else {
-            barcodeRefreshRetryAfter[barcode] = nil
-        }
-        return refreshed
     }
 
     @discardableResult

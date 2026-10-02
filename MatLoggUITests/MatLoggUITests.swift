@@ -23,6 +23,88 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testMealRoomOpensMealAndKeepsSelectionAcrossDates() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let breakfast = app.buttons["home-meal-open-frokost"]
+        XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
+        for _ in 0..<8 {
+            if breakfast.isHittable { break }
+            app.swipeUp()
+        }
+        breakfast.tap()
+        let selected = app.buttons["meal-room-select-frokost"]
+        XCTAssertTrue(selected.waitForExistence(timeout: 5))
+        XCTAssertTrue(selected.isSelected)
+        let lunch = app.buttons["meal-room-select-lunsj"]
+        if !lunch.isHittable { selected.swipeLeft() }
+        lunch.tap()
+        XCTAssertTrue(lunch.isSelected)
+        let previousDay = app.buttons["Forrige dag"]
+        XCTAssertTrue(previousDay.exists)
+        previousDay.tap()
+        XCTAssertTrue(lunch.isSelected)
+        let all = app.buttons["meal-room-all"]
+        all.tap()
+        XCTAssertFalse(lunch.isSelected)
+        all.tap()
+        XCTAssertTrue(selected.isSelected)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Måltidsrom – stor tekst"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    func testMealRoomLogsAndEditsFoodForSelectedPastDay() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append("--skip-auth")
+        app.launch()
+        let breakfast = app.buttons["home-meal-open-frokost"]
+        XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
+        for _ in 0..<8 {
+            if breakfast.isHittable { break }
+            app.swipeUp()
+        }
+        breakfast.tap()
+        XCTAssertTrue(app.buttons["meal-room-select-frokost"].waitForExistence(timeout: 5))
+        app.buttons["Forrige dag"].tap()
+        let dateLabel = app.buttons["day-navigation-date"].label
+        let addFood = app.buttons["meal-room-add"]
+        for _ in 0..<8 {
+            if addFood.isHittable { break }
+            app.swipeUp()
+        }
+        addFood.tap()
+        app.buttons["Søk / Råvarer"].tap()
+        let search = app.textFields["food-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("havregryn")
+        let result = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        result.tap()
+        let save = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        save.tap()
+        let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
+        edit.tap()
+        XCTAssertTrue(app.buttons["Flytt til Lunsj"].waitForExistence(timeout: 5))
+        app.buttons["Flytt til Lunsj"].tap()
+        app.buttons["Lagre endringer"].tap()
+        app.buttons["meal-room-select-lunsj"].tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Måltidsrom – registrert mat"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testExample() throws {
         let app = XCUIApplication()
         app.launch()
@@ -74,6 +156,8 @@ final class MatLoggUITests: XCTestCase {
         let row = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         attachSearchScreenshot(app, name: "Søk – lokale treff")
+        // The keyboard toolbar can overlap the first row's tap point.
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         row.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
         attachSearchScreenshot(app, name: "Søk – mengdevalg")
@@ -84,10 +168,17 @@ final class MatLoggUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         app.buttons["Tøm søket"].tap()
-        app.buttons["Ferdig"].tap()
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         XCTAssertTrue(app.buttons["Loggfør mat"].waitForExistence(timeout: 5))
-        let reused = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'"))
-        XCTAssertGreaterThanOrEqual(reused.count, 2, "Matvaren skal finnes både i favoritter og nylig brukt.")
+        let favorite = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-favorite-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        XCTAssertTrue(favorite.waitForExistence(timeout: 5), "Favorittvaren skal være tilgjengelig.")
+        // A lazy List need not materialize both sections at the same time.
+        let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-recent-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        for _ in 0..<6 {
+            if recent.exists { break }
+            app.collectionViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(recent.exists, "Den loggførte varen skal finnes under Nylig brukt.")
         attachSearchScreenshot(app, name: "Søk – favoritt og nylig brukt")
     }
 

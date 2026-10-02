@@ -409,6 +409,20 @@ CREATE INDEX idx_sync_events_user_synced ON sync_events(user_id, is_synced);
   ferskhetsregel og skal ikke nedgraderes til Open Food Facts-næring av
   bakgrunnsoppdateringen.
 - Ved OFF‑nedetid: fallback til cache + “prøv igjen”
+- Brukeren kan be om oppdaterte data på produktkortet selv om treffet er ferskt.
+  Manuelt forsøk kan omgå automatisk retry-pause, men ikke Open Food Facts sin
+  ratebegrensning. `Retry-After` gjelder alle strekkodeoppslag i repositoryets
+  levetid; uten angitt ventetid brukes 60 sekunder. Automatisk retry-pause og
+  ratebegrensning holdes i minnet og nullstilles når app-prosessen avsluttes.
+- Oppslag, cache og deduplisering eies av `BarcodeLookupRepository`. ViewModels
+  eier skanne-/produktkorttilstand; views videresender brukerhandlinger.
+- Katalogskriving skal aldri overskrive en privat produktrad, heller ikke ved
+  samme ID. Brukerens private produkt prioriteres ved strekkodeoppslag.
+- Oppdatering endrer ikke kalorier, makroer eller enhet i tidligere logger.
+  MatLogg lagrer disse verdiene på loggen, uavhengig av katalogproduktet.
+- Ved endret måleenhet beholdes produktkortets eksisterende grunnlag til kortet
+  åpnes på nytt. Mengden tolkes aldri automatisk som en annen enhet.
+
 
 ---
 
@@ -740,3 +754,10 @@ Bildet tegnes på nytt uten original fotometadata, med lengste side maksimalt
 Feltet er ikke med i `ProductSyncPayload`; ingen bildeopplasting eller
 synkkontraktsendring inngår. Eksisterende produkter uten feltet kan fortsatt
 leses. Sletting av produktets lokale rad fjerner også bildet.
+
+### Valgfritt lokalt måltidsbilde
+
+`SavedMeal.localImageData` er valgfri JPEG i eksisterende lokal JSON-rad.
+Bildet lagres atomisk med malen og slettes med malen/profildata. Eldre rader
+uten feltet støttes. Feltet utelates fra `SavedMealSyncPayload`; synkkontrakt v1
+og backend er uendret. Se [lagrede måltider](../saved-meals.md) for importgrenser.

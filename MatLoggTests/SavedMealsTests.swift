@@ -1,9 +1,69 @@
 import Foundation
 import Testing
+import UIKit
+import ImageIO
 @testable import MatLogg
 
 @MainActor
 struct SavedMealsTests {
+    @Test func photoPersistsOnCreationAndCanBeRemovedOnEdit() async throws {
+        let fixture = SavedMealsFixture()
+        await fixture.vm.load(userId: fixture.userId)
+        let data = try #require(UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { _ in
+            UIColor.red.setFill()
+            UIBezierPath(rect: CGRect(x: 0, y: 0, width: 8, height: 8)).fill()
+        }.jpegData(compressionQuality: 0.75))
+        await fixture.vm.importPhoto { data }
+        #expect(await fixture.vm.saveFromLogs(name: "Med bilde", mealType: "frokost", logs: [fixture.log], userId: fixture.userId))
+        let meal = try #require(fixture.repository.savedMeals.first)
+        #expect(meal.localImageData == data)
+        fixture.vm.beginPhotoEditing(data: data)
+        await fixture.vm.importPhoto { throw CocoaError(.fileReadCorruptFile) }
+        #expect(fixture.vm.photoData == data)
+        #expect(fixture.vm.photoError != nil)
+        fixture.vm.beginPhotoEditing()
+        #expect(await fixture.vm.update(meal, name: meal.name, amounts: [meal.items[0].id: meal.items[0].amountG], removedItemIDs: []))
+        #expect(fixture.repository.savedMeals.first?.localImageData == nil)
+    }
+
+    @Test func removedPhotoCannotBeRestoredByLateImport() async {
+        let fixture = SavedMealsFixture()
+        await fixture.vm.importPhoto {
+            fixture.vm.beginPhotoEditing()
+            return Data([1, 2, 3])
+        }
+        #expect(fixture.vm.photoData == nil)
+        #expect(!fixture.vm.isLoadingPhoto)
+        #expect(fixture.vm.photoError == nil)
+    }
+
+    @Test func photoProcessorLimitsSizeAndStripsOriginalMetadata() throws {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 800)).image { _ in
+            UIColor.blue.setFill()
+            UIBezierPath(rect: CGRect(x: 0, y: 0, width: 1600, height: 800)).fill()
+        }
+        let original = try #require(image.jpegData(compressionQuality: 1))
+        let originalSource = try #require(CGImageSourceCreateWithData(original as CFData, nil))
+        let pixels = try #require(CGImageSourceCreateImageAtIndex(originalSource, 0, nil))
+        let withMetadata = NSMutableData()
+        let destination = try #require(CGImageDestinationCreateWithData(withMetadata, "public.jpeg" as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, pixels, [
+            kCGImagePropertyGPSDictionary: [kCGImagePropertyGPSLatitude: 1.0, kCGImagePropertyGPSLatitudeRef: "N"]
+        ] as CFDictionary)
+        #expect(CGImageDestinationFinalize(destination))
+        let processed = try LocalMealPhotoRepository.prepare(withMetadata as Data)
+        let source = try #require(CGImageSourceCreateWithData(processed as CFData, nil))
+        let properties = try #require(CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any])
+        #expect((properties[kCGImagePropertyPixelWidth] as? Int ?? 0) <= 1200)
+        #expect((properties[kCGImagePropertyPixelHeight] as? Int ?? 0) <= 1200)
+        #expect(properties[kCGImagePropertyGPSDictionary] == nil)
+        #expect(processed.count <= 2 * 1024 * 1024)
+    }
+
+    @Test func invalidImageIsRejectedByProcessor() {
+        #expect(throws: (any Error).self) { try LocalMealPhotoRepository.prepare(Data([1, 2, 3])) }
+    }
+
     @Test func savesExistingMealWithExactNutritionSnapshot() async throws {
         let fixture = SavedMealsFixture()
         await fixture.vm.load(userId: fixture.userId)
@@ -152,7 +212,7 @@ private final class SavedMealsFixture {
         nutritionSource: .matvaretabellen, verificationStatus: .verified, isVerified: true
     )
     let repository = SavedMealsRepositorySpy()
-    lazy var vm = SavedMealsViewModel(savedMealRepository: repository, foodLogRepository: repository)
+    lazy var vm = SavedMealsViewModel(savedMealRepository: repository, foodLogRepository: repository, photoRepository: LocalMealPhotoRepository())
     lazy var log = FoodLog(
         userId: userId, productId: product.id, mealType: "frokost", amountG: 50,
         loggedDate: Calendar.current.startOfDay(for: Date()), calories: 200,

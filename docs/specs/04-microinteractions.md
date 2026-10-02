@@ -151,11 +151,18 @@ Tap → dismiss eller auto-dismiss (5s)
 Sekvens:
 1. Skann-deteksjon → kamera lukkes umiddelbar
 2. "Henter produkt ..." (med spinner) vises (500ms–3s)
-3. Produktkort dukker opp (hvis OK) ELLER "Ikke funnet" (hvis 404)
+3. Produktkort vises ved treff. Ukjent strekkode, ufullstendige næringsdata og tilkoblingsfeil har egne meldinger.
 4. Hvis error: retry-option
 
 Tegn: iOS system spinner (UIActivityIndicatorView, style: medium)
 ```
+
+Lagrede treff åpner produktkortet umiddelbart. Eldre OFF-treff revalideres ved
+åpning; logging med eksisterende data fungerer fortsatt. «Hent oppdaterte
+produktdata» viser «Henter produktdata …» mens oppslaget kjører. Lagrede data,
+mengde og valgt måltid beholdes ved feil. Resultat vises som tekst. Endret
+måleenhet krever at kortet åpnes på nytt; mengden omtolkes ikke automatisk.
+
 
 ### **Sync Upload**
 

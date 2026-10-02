@@ -73,6 +73,7 @@ kcal/makrogrunnlag, ernæringskilde og rekkefølge. Det historiske feltet
 `amountG` bærer den numeriske mengden; manglende enhet tolkes som `g`. Backend
 henter eier fra tokenet og erstatter måltidets elementer i
 samme transaksjon som inbox-raden. `saved_meal.delete` inneholder måltids-ID.
+Valgfri `localImageData` er kun lokal og inngår ikke i synkpayloaden.
 
 Kontrakten er fortsatt en opplastingskontrakt. Nedlasting og konfliktløsning
 mellom flere enheter er ikke implementert. Gjeldende produktadferd, betydningen

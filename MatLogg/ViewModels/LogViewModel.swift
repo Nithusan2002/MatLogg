@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
+    @Published private(set) var isSummaryLoading = false
     @Published private(set) var selectedSummary: DailySummary?
     @Published private(set) var yesterdaySummary: DailySummary?
     @Published private(set) var selectedProductNames: [UUID: String] = [:]
@@ -107,16 +108,22 @@ final class LogViewModel: ObservableObject {
     func loadSelectedSummary(userId: UUID?, date: Date, calendar: Calendar = .current) async {
         let requestID = UUID()
         activeSummaryRequestID = requestID
+        isSummaryLoading = true
+        defer {
+            if activeSummaryRequestID == requestID { isSummaryLoading = false }
+        }
 
         guard let userId else {
             selectedSummary = nil
             yesterdaySummary = nil
             selectedProductNames = [:]
+            mealProductImageURLs = [:]
+            mealProductImageData = [:]
             return
         }
 
         let selected = await repository.getSummary(userId: userId, date: date)
-        let productNames = await productNames(for: selected.logs)
+        let products = await repository.getProducts(Set(selected.logs.map(\.productId)))
         let yesterday: DailySummary?
         if calendar.isDateInToday(date),
            let previousDate = calendar.date(byAdding: .day, value: -1, to: date) {
@@ -128,7 +135,19 @@ final class LogViewModel: ObservableObject {
         guard activeSummaryRequestID == requestID else { return }
         selectedSummary = selected
         yesterdaySummary = yesterday
-        selectedProductNames = productNames
+        selectedProductNames = products.mapValues(\.name)
+        mealProductImageData = products.compactMapValues(\.localImageData)
+        mealProductImageURLs = products.compactMapValues { $0.imageUrl.flatMap(URL.init(string:)) }
+    }
+
+    func logs(for mealType: String?) -> [FoodLog] {
+        let logs = selectedSummary?.logs ?? []
+        guard let mealType else { return logs }
+        return logs.filter { $0.mealType == mealType }
+    }
+
+    func nutrition(for mealType: String?) -> NutritionBreakdown {
+        NutritionCalculator.totals(for: logs(for: mealType))
     }
 
     @discardableResult

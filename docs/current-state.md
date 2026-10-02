@@ -31,6 +31,17 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
 
 ### iOS
 
+- Morgensjekk på Hjem for dagens dato: valgfri vekt i eksisterende historikk,
+  fullfør uten vekt, endre og hopp over. Siste kortstatus er lokal per profil;
+  ingen nye helsefelt, påminnelser eller endringer i synkkontrakten.
+
+- Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
+  30 dagers ferskhet og manuell oppdatering på produktkortet, med separate
+  skannefeil for ukjent produkt, ufullstendig næring og nettverksfeil. Private
+  produkter og historiske loggverdier beskyttes ved katalogoppdatering.
+  Fast dekningskontroll er beskrevet i produksjonsberedskap; første baseline
+  med norske butikkvarer er ennå ikke gjennomført.
+
 - Navngitte lagrede måltider kan opprettes fra en måltidsgruppe i Logg,
   redigeres/slettes, vises i Loggfør-arket og loggføres atomisk til valgt dato
   og måltidskategori med samlet angre. Se [scope](saved-meals.md).
@@ -55,6 +66,9 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
   Uleselige JSON-rader logges diagnostisk uten å bli slettet.
 - Logging med mengde og bevart enhet (`g`/`ml`), måltid, kalorier og
   makronæringsstoffer. Eldre data uten enhet tolkes som gram.
+- Måltidsrommet åpner valgt måltid og dato fra Hjem, med rullbar måltidsvelger,
+  produktbilder, redigering/flytting, sletting med angre og sekundær hel-dagsvisning.
+  Måltidstotaler inkluderer alle varer uavhengig av søk.
 - Dagsnavigasjon med piler og kalender på Hjem og i Logg. Valgt dato følger
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.

@@ -65,7 +65,9 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 | `sectionTitle` | Seksjonsoverskrifter. |
 | `body` | Brødtekst og ordinære verdier. |
 | `bodyEmphasis` | Handlinger, feltnavn og fremhevet brødtekst. |
-| `caption` | Metadata, kilde og støttetekst. |
+| `secondary` | Ofte lest sekundærtekst, mengder og næringsverdier (skalerbar subheadline, normalt 15 pt). |
+| `secondaryEmphasis` | Fremhevet sekundærtekst og handlinger i måltidskort. |
+| `caption` | Kompakt metadata og korte, mindre sentrale etiketter. |
 | `captionEmphasis` | Kompakte etiketter og status. |
 
 Den avrundede systemtypografien er del av MatLoggs vennlige uttrykk. Lange
@@ -93,9 +95,9 @@ tvers av flere komponenter; featureviews skal ikke etablere parallelle skalaer.
 
 På Hjem brukes 16 pt mellom innholdsgrupper og 12 pt mellom måltidskortets
 overskrift og innhold og mellom matvarer. Tomtekst har innholdsstyrt høyde,
-uten ekstra minimumshøyde. Måltidskort beholder 16 pt padding, mens
-produktsirkler er 44 pt. Tekst og trykkflater komprimeres ikke.
-Fylte måltidskort viser matvarenavn og mengder for opptil tre varer og én
+uten ekstra minimumshøyde. Måltidsseksjoner bruker 16 pt padding, lys `surface`-kortflate, 24 pt
+kontinuerlige hjørner og designsystemets diskrete skygge uten ytre kant. Produktbilder er 44 pt. Tekst og trykkflater komprimeres ikke.
+Fylte måltidsseksjoner viser matvarenavn og mengder for opptil tre varer og én
 samlet næringsrad for hele måltidet: kcal, protein, karbohydrater og fett.
 Totalen inkluderer varer bak «+ flere», summeres før avrunding og kan bryte
 over flere linjer. Detaljer per vare vises når måltidet åpnes.
@@ -165,10 +167,14 @@ Kort brukes når innhold trenger en reell grense, for eksempel dagsstatus,
 måltidsoppsummering eller personvernvalg. Ikke legg hvert tekstavsnitt i et kort,
 og unngå kort inni kort.
 
-Dagsstatus på Hjem samler kalorier og de tre makroradene i én lys
-`CardContainer`. Kaloritallet bruker skalerbar `hero`-typografi, blått er en
-liten dekorativ aksent, og en diskret skillelinje skiller kalorier fra makroer.
-Kalorier og makroer beholder sine etiketter, verdier og mål.
+Dagsstatus på Hjem følger «Dagen din, så langt.» og bruker én samlet
+`warmSurface`-flate med 24 pt hjørner og 20 pt padding. Registrert energi
+bruker skalerbar `hero`-typografi; balansen mot målet vises nøytralt under.
+Makroer vises i tre kolonner med verdi og sekundært mål, uten progresjonsstolper.
+Ved tilgjengelighetsstørrelser stables de vertikalt. Makrofargene brukes kun
+som små dekorative markører, mens tekst identifiserer næringsstoffet.
+En korallfarget `PrimaryButton` åpner loggingarket før måltidsseksjonene.
+Eksisterende krembakgrunn, plommetekst og avrundede typografi beholdes.
 
 Kortskygger legges bare på bakgrunnsformen, aldri på containeren med tekst,
 ikoner eller kontroller. Bruk `CardContainer` for ordinære kort og
@@ -259,3 +265,27 @@ Den kompakte femknappsmenyen begrenser videre skalering slik at etikettene
 forblir lesbare i skjermbredden også når innholdet bruker tilgjengelighetsstørrelser.
 Alle knapper har minst 44 pt trykkflate og fullstendige VoiceOver-navn.
 Søk skjuler menyen mens søkefeltet redigeres.
+
+### Måltidsdetaljer på Hjem
+
+Måltidsnavn bruker sectionTitle; matnavn bruker bodyEmphasis og kan bryte over
+flere linjer. Mengde står som sekundær tekst ved produktbildet. Måltidets
+samlede kcal vises over tre diskrete makroetiketter med eksisterende makrofarger
+på 12 % tonet bakgrunn og deepInk-tekst. Etikettene stables når bredden ikke
+rekker. VoiceOver leser totalen med fulle næringsnavn. Ingen ekstra
+progresjonsstolper eller måltidskvote introduseres.
+
+Vann på Hjem vises som en kompakt rad mellom næringsfeltet og loggknappen.
+Raden viser valgt dag, antall glass og 44 pt minus-/plussknapper uten glassrutenett.
+Ved liten bredde eller stor tekst stables innholdet. Lasting, feil med retry og
+justering beholdes; raden vises også når målstatus er skjult.
+
+### Måltidsrom
+
+Loggskjermen bruker eksisterende tema og en horisontal, rullbar MealChip-velger.
+Produktbilder er 44 pt; matnavn og mengde står over en sekundær næringslinje.
+Radene har 10 pt vertikal padding uten ekstra vertikale List-innrykk.
+Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;
+ingen separat Endre-knapp vises. Et kompakt warmSurface-
+felt rett under måltidsnavn og antall varer viser måltidets næring. Rader beholder systemets List-
+sveiping, skalerbar typografi og matLoggTabBarScrollClearance().

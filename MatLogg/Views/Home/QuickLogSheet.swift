@@ -194,7 +194,7 @@ struct QuickLogSheet: View {
                 .foregroundColor(AppColors.deepInk)
 
             Label(logDateLabel, systemImage: "calendar")
-                .font(AppTypography.caption)
+                .font(AppTypography.secondary)
                 .foregroundColor(AppColors.textSecondary)
 
             HStack(spacing: 8) {

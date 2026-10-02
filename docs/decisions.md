@@ -594,3 +594,46 @@ Publisert som tydelig merket prototype på `https://nithusan.no/MatLogg/` etter 
 Landingssidens statiske appvisninger ble 2026-10-01 erstattet med faktiske simulatorbilder av Hjem, måltider, Søk og Oversikt fra lokal utviklingsversjon med verifisert demomodus. Skjermbildene inneholder fiktive brukerdata. Den separate interaktive nettdemoen beholder illustrasjonsmerking.
 
 Søk/Mengde/Logg-delen ble samme dag endret til en bildeskifter med tre faktiske simulatorbilder fra én loggingflyt. Simulert søk, mengdeberegning og logging på nettsiden er fjernet; knappene velger kun bilde.
+
+
+## 2026-10-01 – Oppdatering og dekning av strekkodeprodukter
+
+Behold OFF-cache med 30 dagers ferskhet og revalidering ved bruk. Legg til
+manuell oppdatering som respekterer providerens ratebegrensning, separate
+feiltilstander for ukjent produkt/ufullstendig næringsgrunnlag/tilkoblingsfeil,
+og sperre mot å overskrive private produkter. Historiske loggverdier bevares.
+Oppslag/cache samles i repository, mens ViewModels eier feature-state. Ingen
+endring i backend, synkformat eller databaseskjema. Før pilot og månedlig under
+pilot kontrolleres et fast norsk vareutvalg uten innsamling av brukerhistorikk;
+ekstra dataleverandør vurderes først når målingene viser behov.
+
+## 2026-10-01 – Måltidslogg først på Hjem
+
+Hjem prioriterer måltider og personlige hurtigvalg foran næringsoversikt og
+vann. Måltidene får kompakte seksjoner med skillelinjer fremfor dashboardkort.
+Dette understøtter rask matlogging og gir MatLogg et tydeligere særpreg.
+Næringsverdier, mål, logging, gjenbruk og lokal lagring beholder eksisterende adferd.
+
+## 2026-10-01 – Valgfritt bilde for lagrede måltider
+
+Lagrede måltider kan ha ett brukervalgt bilde fra iOS-bildevelgeren. Vi bruker
+samme lokale lagringsretning som produktbilder: komprimert JPEG uten original
+fotometadata i aggregatets JSON, atomisk med mal og synkhendelse. Bildet er
+utelatt fra synk, inngår i lokal eksport og slettes med malen/profilen. Dette
+utvider tidligere scope uten bilde; kamera og bildeopplasting inngår ikke.
+
+## 2026-10-01 – Rolig dagsoversikt med eksisterende tema
+
+Valgt designretning er prototype 3, tilpasset eksisterende krem-, korall- og
+plommefarger. Samlet næringsfelt og en eksplisitt loggknapp kommer før kompakte
+måltidsseksjoner. Makrotall og mål beholdes, mens progresjonsstolper fjernes
+fra Hjem. Dette erstatter dagens tidligere beslutning om måltidslogg først.
+Ingen nye datakrav eller endringer i målberegning, lagring eller synk.
+
+## 2026-10-01 – Måltidsrom erstatter primær dagslogg
+
+Hjem sender dato og måltid til loggskjermen. Ett måltid om gangen er primær
+visning; hele dagen er fortsatt tilgjengelig. Produktbilder, navn og mengder
+prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
+av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
+beholdes. Ingen endringer i lagring eller synkkontrakt.

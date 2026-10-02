@@ -4,7 +4,7 @@ final class ProfileUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
-    func testPersonalDetailsInvalidInputStaysOnScreenAndCancelDiscardsDraft() {
+    func testMeasurementPickerValidatesInputAndCancelDiscardsDraft() {
         let app = XCUIApplication()
         app.launchArguments.append("--skip-auth")
         app.launch()
@@ -13,19 +13,53 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         details.tap()
         XCTAssertTrue(app.navigationBars["Personlige detaljer"].waitForExistence(timeout: 3))
-        let weight = app.textFields["personal-details-weight"]
-        let original = weight.value as? String ?? ""
+        let weight = app.buttons["personal-details-weight"]
+        let original = weight.label
         weight.tap()
-        // A placeholder is not text to erase.
-        let count = original == "Valgfritt" ? 0 : original.count
-        weight.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count) + "0")
-        app.buttons["personal-details-save"].tap()
-        XCTAssertTrue(app.navigationBars["Personlige detaljer"].exists)
-        XCTAssertTrue(app.staticTexts["Skriv et gyldig tall over 0 kg, eller la feltet stå tomt."].exists)
+        let value = app.textFields["measurement-picker-value"]
+        XCTAssertTrue(value.waitForExistence(timeout: 3))
+        value.tap()
+        value.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (value.value as? String ?? "").count) + "0")
+        app.buttons["measurement-picker-apply"].tap()
+        XCTAssertTrue(app.staticTexts["measurement-picker-error"].exists)
+        value.tap()
+        value.typeText(XCUIKeyboardKey.delete.rawValue + "72,25")
+        app.buttons["measurement-picker-apply"].tap()
+        XCTAssertTrue(weight.waitForExistence(timeout: 3))
+        XCTAssertTrue(weight.label.contains("72,25"))
         app.navigationBars["Personlige detaljer"].buttons["Avbryt"].tap()
         details.tap()
-        XCTAssertEqual(app.textFields["personal-details-weight"].value as? String, original)
+        XCTAssertEqual(app.buttons["personal-details-weight"].label, original)
         app.navigationBars["Personlige detaljer"].buttons["Avbryt"].tap()
+    }
+
+    @MainActor
+    func testMeasurementRulerAdjustsAndSheetCancelKeepsOriginalValue() {
+        let app = XCUIApplication()
+        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        app.buttons["Profil"].tap()
+        app.buttons["profile-personal-details"].tap()
+        let height = app.buttons["personal-details-height"]
+        for _ in 0..<6 {
+            if height.isHittable { break }
+            app.swipeUp()
+        }
+        let original = height.label
+        height.tap()
+        let ruler = app.otherElements["measurement-picker-ruler"]
+        XCTAssertTrue(ruler.waitForExistence(timeout: 3))
+        let value = app.textFields["measurement-picker-value"]
+        let initialValue = value.value as? String
+        ruler.swipeLeft()
+        XCTAssertNotEqual(value.value as? String, initialValue)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Høydevelger med stor tekst"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        app.scrollViews["measurement-picker-sheet"].buttons["Avbryt"].tap()
+        XCTAssertTrue(height.waitForExistence(timeout: 3))
+        XCTAssertEqual(height.label, original)
     }
 
     @MainActor
@@ -34,6 +68,12 @@ final class ProfileUITests: XCTestCase {
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         app.buttons["Profil"].tap()
+        let details = app.buttons["profile-personal-details"]
+        XCTAssertTrue(details.waitForExistence(timeout: 3))
+        XCTAssertTrue(details.isHittable)
+        details.tap()
+        XCTAssertTrue(app.navigationBars["Personlige detaljer"].waitForExistence(timeout: 3))
+        app.navigationBars["Personlige detaljer"].buttons["Avbryt"].tap()
         let settings = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Innstillinger'")).firstMatch
         for _ in 0..<8 {
             if settings.isHittable { break }
@@ -42,6 +82,7 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(settings.isHittable)
         settings.tap()
         XCTAssertTrue(app.navigationBars["Innstillinger"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Personlige detaljer"].exists)
         let privacy = app.buttons["Personvern og valg"]
         XCTAssertTrue(privacy.waitForExistence(timeout: 3))
         privacy.tap()

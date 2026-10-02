@@ -7,6 +7,7 @@ struct MatLoggOnboardingFlowView: View {
     @EnvironmentObject private var onboardingViewModel: OnboardingViewModel
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
 
+    @State private var showMeasurement: PersonalMeasurement?
     @State private var showPrivacyPolicy = false
     @State private var showPrivacyChoices = false
 
@@ -28,6 +29,16 @@ struct MatLoggOnboardingFlowView: View {
             .tint(AppColors.action)
             .navigationBarBackButtonHidden(true)
             .onAppear(perform: beginIfPossible)
+            .sheet(item: $showMeasurement) { measurement in
+                MeasurementPickerSheet(
+                    measurement: measurement,
+                    initialText: measurement == .weight ? onboardingViewModel.weightText : onboardingViewModel.heightText,
+                    explanation: "Brukes til et veiledende målforslag. Opplysningen lagres først når du fullfører oppsettet."
+                ) { value in
+                    if measurement == .weight { onboardingViewModel.weightText = value }
+                    else { onboardingViewModel.heightText = value }
+                }
+            }
             .sheet(isPresented: $showPrivacyPolicy) {
                 if let url = PrivacyConstants.privacyPolicyURL {
                     SafariView(url: url)
@@ -179,6 +190,39 @@ struct MatLoggOnboardingFlowView: View {
         }
     }
 
+    private func measurementCard(_ measurement: PersonalMeasurement, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(measurement.title) (\(measurement.unit))")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundStyle(AppColors.ink)
+            Button {
+                showMeasurement = measurement
+            } label: {
+                HStack(spacing: 12) {
+                    Text(text.isEmpty ? "Velg " + measurement.title.lowercased() : text + " " + measurement.unit)
+                        .font(AppTypography.body)
+                        .foregroundStyle(text.isEmpty ? AppColors.textSecondary : AppColors.ink)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .frame(minHeight: 48)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppColors.controlBorder, lineWidth: 1))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(measurement.title + ", " + measurement.unit)
+            .accessibilityValue(text.isEmpty ? "Ikke oppgitt" : text)
+            .accessibilityHint("Åpner tallskala og direkte inntasting.")
+            .accessibilityIdentifier("onboarding-" + measurement.rawValue)
+        }
+    }
+
     private var personalDetailsStep: some View {
         VStack(alignment: .leading, spacing: 18) {
             stepTitle(
@@ -186,8 +230,8 @@ struct MatLoggOnboardingFlowView: View {
                 title: "Vil du ha et forslag til kalorimål?",
                 body: "Opplysningene lagres på profilen din og brukes bare til målberegningen."
             )
-            InputCard(label: "Vekt", unit: "kg", text: $onboardingViewModel.weightText, keyboard: .decimalPad)
-            InputCard(label: "Høyde", unit: "cm", text: $onboardingViewModel.heightText, keyboard: .decimalPad)
+            measurementCard(.weight, text: onboardingViewModel.weightText)
+            measurementCard(.height, text: onboardingViewModel.heightText)
             InputCard(label: "Alder", unit: "år", text: $onboardingViewModel.ageText, keyboard: .numberPad)
             VStack(alignment: .leading, spacing: 8) {
                 Text("Kjønn")
