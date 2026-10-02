@@ -287,12 +287,18 @@ struct LoggView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(mealFilter == nil ? "Hele dagen" : "Dette måltidet")
                             .font(AppTypography.captionEmphasis)
+                            .foregroundStyle(AppColors.deepInk)
                         Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
                             .font(AppTypography.title)
-                        Text("Protein \(NutritionDisplay.wholeGrams(totals.protein)) g · Karbohydrat \(NutritionDisplay.wholeGrams(totals.carbs)) g · Fett \(NutritionDisplay.wholeGrams(totals.fat)) g")
-                            .font(AppTypography.secondary)
-                            .foregroundStyle(AppColors.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(AppColors.deepInk)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) {
+                                mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                            }
+                        }
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -376,6 +382,24 @@ struct LoggView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()
+    }
+
+    private func mealNutrientLabels(protein: Float, carbs: Float, fat: Float) -> some View {
+        Group {
+            mealNutrientLabel("Protein", value: protein, tint: AppColors.macroProteinTint)
+            mealNutrientLabel("Karbohydrat", value: carbs, tint: AppColors.macroCarbTint)
+            mealNutrientLabel("Fett", value: fat, tint: AppColors.macroFatTint)
+        }
+    }
+
+    private func mealNutrientLabel(_ label: String, value: Float, tint: Color) -> some View {
+        Text("\(label) \(NutritionDisplay.wholeGrams(value)) g")
+            .font(AppTypography.captionEmphasis)
+            .foregroundStyle(AppColors.deepInk)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.12), in: Capsule())
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func beginAdding(to meal: String) {
