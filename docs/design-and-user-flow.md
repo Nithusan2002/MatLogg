@@ -71,6 +71,31 @@ Når målstatus er skjult eller mangler, skal matlogging fortsatt være like syn
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
 
+### Morgensjekk
+
+På Hjem, rett under datoen, vises én «Sjekk inn»-knapp for dagens dato,
+med samme overflate, tekstfarge, høyde og avrunding som «Skann strekkode» i Søk.
+Ingen kortoverskrift eller forklaring vises på Hjem. «Sjekk inn» åpner et ark med valgfri vekt i kg og «Ferdig».
+Vektfeltet åpner den samme linjalvelgeren som profil og onboarding, med tekst
+om lagring i vekthistorikken. «Bruk verdi» fyller bare innsjekkutkastet; Avbryt
+beholder tidligere input. Dagens registrerte vekt brukes når den finnes.
+Tomme felt fylles ikke automatisk med startverdien. «Fjern opplysningen»
+tømmer bare utkastet og sletter ikke en registrert vekt. Innsjekk
+uten vekt er tillatt. Vekt bruker eksisterende vekthistorikk og atomisk lokal
+vekt-/synkskriving; redigering beholder dagens registrerings-ID. Mål og
+personlige detaljer endres ikke. Tomt felt sletter ikke tidligere vekt.
+
+Etter vellykket fullføring viser knappen en hake og «Sjekket inn i dag»,
+og åpner dagens innsjekk for redigering. Neste dag vises «Sjekk inn» igjen.
+VoiceOver leser den synlige statusen én gang. «Hopp over i dag»
+skjuler kortet resten av dagen. Avbryt endrer ingenting. Kortstatus er en lokal
+visningspreferanse per profil med bare siste dato/status, uten synk eller
+historikk. Ny dag tilbyr ny innsjekk. Kortet er tilgjengelig hele dagen og
+vises ikke på andre valgte datoer. Ingen popup, påminnelser, streaks,
+dagsintensjon eller nye helsefelt inngår. Store tekststørrelser bruker vertikal
+layout; alle handlinger har minst 44 punkters trykkflate og vektfeltet har
+VoiceOver-tekst med enhet. Lagringsfeil beholder input og tilbyr nytt forsøk.
+
 ### Dagslogg
 
 Dagsloggen åpnes fra Hjem med alle måltider som standard, også ved trykk på
@@ -445,3 +470,11 @@ Samlet næring vises rett under måltidsnavn og antall varer og summerer hele m�
 Søk gjelder valgt måltid eller hele dagen. Lasting skilles fra tomt måltid og
 ingen søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
 «Kopier hele dagen fra i går» beholder eksisterende dagsscope.
+
+### Linjalvelger i onboarding
+
+Vekt og høyde bruker samme linjalvelger som Personlige detaljer, med tekst
+tilpasset onboarding. «Bruk verdi» oppdaterer bare onboarding-utkastet.
+Avbryt beholder tidligere input; tomme felt fylles ikke automatisk med
+linjalens startverdi. Direkte inntasting og fjerning er tilgjengelig.
+Eksisterende validering avgjør om opplysningene kan brukes i beregningen.

@@ -5,11 +5,13 @@ struct MeasurementPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var editingValue: Bool
+    let explanation: String?
     let onApply: (String) -> Void
 
-    init(measurement: PersonalMeasurement, initialText: String, onApply: @escaping (String) -> Void) {
+    init(measurement: PersonalMeasurement, initialText: String, explanation: String? = nil, onApply: @escaping (String) -> Void) {
         _viewModel = StateObject(wrappedValue: MeasurementPickerViewModel(
             measurement: measurement, initialText: initialText))
+        self.explanation = explanation
         self.onApply = onApply
     }
 
@@ -50,9 +52,9 @@ struct MeasurementPickerSheet: View {
                     ruler
                 }
 
-                Text(measurement == .weight
+                Text(explanation ?? (measurement == .weight
                      ? "Dette er grunnlag for målforslag, ikke en registrering i vekthistorikken."
-                     : "Høyden brukes som grunnlag for målforslag.")
+                     : "Høyden brukes som grunnlag for målforslag."))
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)

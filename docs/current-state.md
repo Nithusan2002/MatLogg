@@ -31,6 +31,10 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
 
 ### iOS
 
+- Morgensjekk på Hjem for dagens dato: valgfri vekt i eksisterende historikk,
+  fullfør uten vekt, endre og hopp over. Siste kortstatus er lokal per profil;
+  ingen nye helsefelt, påminnelser eller endringer i synkkontrakten.
+
 - Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
   30 dagers ferskhet og manuell oppdatering på produktkortet, med separate
   skannefeil for ukjent produkt, ufullstendig næring og nettverksfeil. Private
