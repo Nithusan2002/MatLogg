@@ -12,6 +12,7 @@ Første versjon omfatter:
 - navn, matvarer, eksakte mengder, næringssnapshot, kilde og rekkefølge
 - ett valgfritt lokalt måltidsbilde fra iOS-bildevelgeren
 - «Lagrede måltider» øverst i Loggfør-arket
+- «Lagrede måltider» fra «Legg til» i Logg, med valgt dato og måltidskategori
 - forhåndsvisning og mengdejustering før logging
 - logging til valgt dato og måltidskategori, også når måltidet har innhold fra før
 - endring av navn/mengder, fjerning av varer og sletting av malen
@@ -40,6 +41,11 @@ Loggfør-arket viser inntil tre lagrede måltider før favoritter og nylig brukt
 matvarer. «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
+
+I Logg åpner «Legg til» → «Lagrede måltider» samme liste og forhåndsvisning.
+Datoen og måltidskategorien fra loggen beholdes. Etter logging lukkes listen
+og loggen oppdateres. En tom liste forklarer hvordan et måltid kan lagres.
+Hjem og Logg oppdaterer måltidsoversikten når en lagret mal brukes eller angres.
 
 Kilde vises bare når brukerens kildevalg er aktivert. Eksisterende semantiske
 farger, typografi, kort og

@@ -256,6 +256,7 @@ private extension View {
 }
 
 struct HomeTabView: View {
+    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
     @EnvironmentObject var appState: AppState
@@ -440,6 +441,9 @@ struct HomeTabView: View {
             )
         }
         .onChange(of: logViewModel.mutationRevision) { _, _ in
+            Task { await refreshSummaries() }
+        }
+        .onChange(of: savedMealsViewModel.mutationRevision) { _, _ in
             Task { await refreshSummaries() }
         }
         .onChange(of: appState.logSelectedDate) { _, _ in
