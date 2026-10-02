@@ -215,7 +215,10 @@ finnes ikke i Innstillinger. Innstillinger samler personvern, visning og
 tilbakemelding, data og lagring samt konto. Personopplysninger og forklaringen
 om målforslag ligger i Personlige detaljer, mens kalori- og makromål redigeres
 i Daglige mål.
-Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
+Profil viser «Daglige mål» som første rad i menyen, over Favoritter og
+Innstillinger. Raden viser lagret kalorimål i kcal per dag, eller «Valgfritt ·
+Sett opp mål» når mål mangler. Hele raden åpner Daglige mål; den detaljerte
+kalori- og makrooversikten vises på målskjermen.
 Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
 gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
 samles i kortet «Grunnlag for målforslag», med en kort formålsforklaring før

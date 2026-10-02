@@ -14,7 +14,6 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     Text("Profil").font(AppTypography.hero).foregroundColor(AppColors.deepInk)
                     profileHeader
-                    dailyGoalCard
                     shortcutCard
                     storageSummary
                     #if DEBUG
@@ -87,44 +86,31 @@ struct ProfileView: View {
         .accessibilityHint("Åpner personlige detaljer")
     }
 
-    private var dailyGoalCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Daglige mål").font(AppTypography.title).foregroundColor(AppColors.deepInk)
-            if let goal = healthProfileViewModel.currentGoal {
-                GoalValueRow(label: "Kalorier", value: "\(goal.dailyCalories) kcal")
-                GoalValueRow(label: "Protein", value: "\(goal.proteinTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
-                GoalValueRow(label: "Karbohydrater", value: "\(goal.carbsTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
-                GoalValueRow(label: "Fett", value: "\(goal.fatTargetG.formatted(.number.precision(.fractionLength(0...1)))) g")
-            } else {
-                Text("Du kan logge mat uten mål.")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-            }
-            NavigationLink { DailyGoalsView() } label: {
-                Label(healthProfileViewModel.currentGoal == nil ? "Sett opp mål" : "Endre mål", systemImage: "pencil")
-                    .font(AppTypography.bodyEmphasis)
-                    .frame(minHeight: 44)
-            }
-            .accessibilityIdentifier("profile-edit-goals")
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .matLoggCardSurface()
-        .accessibilityElement(children: .contain)
-    }
-
     private var shortcutCard: some View {
         VStack(spacing: 0) {
+            NavigationLink { DailyGoalsView() } label: {
+                ProfileMenuRow(
+                    icon: "target",
+                    title: "Daglige mål",
+                    subtitle: healthProfileViewModel.currentGoal.map {
+                        "\($0.dailyCalories.formatted(.number.locale(Locale(identifier: "nb_NO")))) kcal per dag"
+                    } ?? "Valgfritt · Sett opp mål"
+                )
+            }
+            .accessibilityIdentifier("profile-edit-goals")
+            .accessibilityHint("Åpner redigering av daglige mål")
+            Divider().overlay(AppColors.separator)
             NavigationLink { ProfileFavoritesView() } label: {
-                ProfileMenuRow(icon: "heart", title: "Favoritter", value: nil)
+                ProfileMenuRow(icon: "heart", title: "Favoritter")
             }
             Divider().overlay(AppColors.separator)
             NavigationLink { ProfileSettingsView() } label: {
-                ProfileMenuRow(icon: "gearshape", title: "Innstillinger", value: nil)
+                ProfileMenuRow(icon: "gearshape", title: "Innstillinger")
             }
         }
         .matLoggCardSurface()
         .buttonStyle(.plain)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile-shortcuts")
     }
 
@@ -152,23 +138,10 @@ struct ProfileView: View {
     }
 }
 
-private struct GoalValueRow: View {
-    let label: String
-    let value: String
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.deepInk)
-            Spacer()
-            Text(value).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.textSecondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
 private struct ProfileMenuRow: View {
     let icon: String
     let title: String
-    let value: String?
+    var subtitle: String? = nil
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
@@ -176,16 +149,23 @@ private struct ProfileMenuRow: View {
                 .foregroundColor(AppColors.deepInk)
                 .frame(width: 48, height: 48)
                 .background(AppColors.mutedSurface, in: Circle())
-            Text(title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.deepInk)
-            Spacer(minLength: 8)
-            if let value {
-                Text(value).font(AppTypography.body).foregroundColor(AppColors.textSecondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.deepInk)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(AppTypography.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            Spacer(minLength: 8)
             Image(systemName: "chevron.right").font(.body.weight(.semibold)).foregroundColor(AppColors.textSecondary)
         }
         .padding(.horizontal, 18)
+        .padding(.vertical, 14)
         .frame(minHeight: 78)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 

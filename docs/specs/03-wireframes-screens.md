@@ -31,14 +31,15 @@ navn, initialer og en eksplisitt inngang til Personlige detaljer. Navn er valgfr
 og redigeres med Avbryt/Lagre i Personlige detaljer. Det lagres per profil på
 enheten og vises foran eventuelt kontonavn; det synkroniseres ikke.
 
-«Daglige mål» viser lagrede kalori- og makromål, med «Endre mål». Uten mål
-forklares at mål er valgfrie, med «Sett opp mål». Separate tallkort og dupliserte
-målsnarveier er fjernet. Menyen gir tilgang til favoritter og innstillinger.
+«Daglige mål» er første rad i menyen, over Favoritter og Innstillinger.
+Raden viser lagret kalorimål i kcal per dag, eller «Valgfritt · Sett opp mål»
+når mål mangler. Hele raden åpner målskjermen, som viser detaljene for kalorier
+og makroer. Underteksten bryter over flere linjer ved stor tekst.
 En kort tekst forklarer lokal lagring uten å presentere synkhendelser som
 antall lagrede matvarer.
 
 Profilkortet er den faste inngangen til Personlige detaljer, uten duplisert
-lenke i Innstillinger. Målkortet åpner Daglige mål.
+lenke i Innstillinger. Målraden åpner Daglige mål.
 Innstillinger grupperer personvern, visning/tilbakemelding, data/lagring
 og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
 og feil. Personlige detaljer har et eksplisitt utkast, påkrevd fødselsdato ved lagring,
