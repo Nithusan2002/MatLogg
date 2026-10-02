@@ -39,8 +39,12 @@ final class PersonalDetailsViewModel: ObservableObject {
         errorMessage = nil
         let weightKg = number(weight, field: "weight", unit: "kg")
         let heightCm = number(height, field: "height", unit: "cm")
-        if let birthDate, birthDate > now {
-            errors["birthDate"] = "Fødselsdato kan ikke være i fremtiden."
+        if let birthDate {
+            if birthDate > now {
+                errors["birthDate"] = "Fødselsdato kan ikke være i fremtiden."
+            }
+        } else {
+            errors["birthDate"] = "Velg fødselsdato før du lagrer."
         }
         guard errors.isEmpty else { return false }
         guard let userId else {

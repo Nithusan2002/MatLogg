@@ -11,14 +11,13 @@ struct PersonalDetailsView: View {
     @State private var showMeasurement: PersonalMeasurement?
     @State private var showBirthDate = false
     @State private var birthDateDraft = Date()
-    @State private var removeBirthDate = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Disse opplysningene er valgfrie.")
+                Text("Fødselsdato må fylles inn. De øvrige opplysningene er valgfrie.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
 
@@ -50,7 +49,6 @@ struct PersonalDetailsView: View {
                             Button {
                                 focusedField = nil
                                 birthDateDraft = viewModel.birthDate ?? Date()
-                                removeBirthDate = false
                                 showBirthDate = true
                             } label: {
                                 detailRow("Fødselsdato") {
@@ -94,7 +92,7 @@ struct PersonalDetailsView: View {
                 }
 
                 DisclosureGroup {
-                    Text("Du kan sette mål selv uten disse opplysningene. Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes bare som grunnlag for et veiledende målforslag. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv. Eksisterende mål endres ikke automatisk når du lagrer.")
+                    Text("Du kan sette mål selv uten et automatisk målforslag. Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes bare som grunnlag for et veiledende målforslag. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv. Eksisterende mål endres ikke automatisk når du lagrer.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                         .padding(.top, 8)
@@ -163,14 +161,25 @@ struct PersonalDetailsView: View {
         }
         .sheet(isPresented: $showBirthDate) {
             NavigationStack {
-                Form {
-                    DatePicker("Velg fødselsdato", selection: $birthDateDraft, in: ...Date(), displayedComponents: .date)
-                        .datePickerStyle(.wheel)
-                        .disabled(removeBirthDate)
-                    if viewModel.birthDate != nil {
-                        Toggle("Fjern fødselsdato", isOn: $removeBirthDate)
+                ScrollView {
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Velg fødselsdato")
+                                .font(AppTypography.sectionTitle)
+                                .foregroundStyle(AppColors.ink)
+                            DatePicker("Fødselsdato", selection: $birthDateDraft, in: ...Date(), displayedComponents: .date)
+                                .datePickerStyle(.wheel)
+                                .labelsHidden()
+                                .environment(\.locale, Locale(identifier: "nb_NO"))
+                                .accessibilityIdentifier("personal-details-birth-date-picker")
+                        }
                     }
+                    .padding(16)
                 }
+                .background(AppColors.background.ignoresSafeArea())
+                .tint(AppColors.action)
+                .toolbarBackground(AppColors.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
                 .navigationTitle("Fødselsdato")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -179,12 +188,13 @@ struct PersonalDetailsView: View {
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Bruk dato") {
-                            viewModel.birthDate = removeBirthDate ? nil : birthDateDraft
+                            viewModel.birthDate = birthDateDraft
                             showBirthDate = false
                         }
                     }
                 }
             }
+            .presentationBackground(AppColors.background)
         }
     }
 

@@ -12,6 +12,7 @@ struct ProfileTests {
         let owner = UUID()
         let vm = PersonalDetailsViewModel(store: store)
         vm.begin(details: .empty, userId: owner)
+        vm.birthDate = Date(timeIntervalSince1970: 1)
         vm.displayName = "  Test Navn  "
         #expect(vm.save())
         vm.begin(details: store.load(userId: owner), userId: owner)
@@ -27,16 +28,23 @@ struct ProfileTests {
         #expect(details.displayName == nil)
     }
 
-    @Test func emptyDetailsStayOptionalAndAreSavedForTheActiveOwner() {
+    @Test func birthDateIsRequiredAndOtherDetailsStayOptional() {
         let store = ProfileDetailsStoreStub()
         let userId = UUID()
         var accepted: PersonalDetails?
         let vm = PersonalDetailsViewModel(store: store) { accepted = $0 }
         vm.begin(details: .empty, userId: userId)
         #expect(vm.birthDate == nil)
+        #expect(!vm.save())
+        #expect(vm.errors["birthDate"] != nil)
+        #expect(store.owner == nil)
+        #expect(accepted == nil)
+        let birthDate = Date(timeIntervalSince1970: 1)
+        vm.birthDate = birthDate
         #expect(vm.save())
+        #expect(vm.errors.isEmpty)
         #expect(store.owner == userId)
-        #expect(accepted?.birthDate == nil)
+        #expect(accepted?.birthDate == birthDate)
         #expect(store.details.weightKg == nil)
         #expect(store.details.heightCm == nil)
         #expect(store.details.gender == nil)
@@ -48,6 +56,7 @@ struct ProfileTests {
         let store = ProfileDetailsStoreStub()
         let vm = PersonalDetailsViewModel(store: store)
         vm.begin(details: .empty, userId: UUID())
+        vm.birthDate = Date(timeIntervalSince1970: 1)
         vm.weight = value
         vm.height = value
         #expect(!vm.save())
@@ -62,6 +71,7 @@ struct ProfileTests {
         var publications = 0
         let vm = PersonalDetailsViewModel(store: store) { _ in publications += 1 }
         vm.begin(details: .empty, userId: UUID())
+        vm.birthDate = Date(timeIntervalSince1970: 1)
         vm.displayName = "Test Navn"
         vm.weight = "72,25"
         vm.height = "180"
@@ -83,7 +93,7 @@ struct ProfileTests {
         vm.birthDate = Date().addingTimeInterval(86_400)
         #expect(!vm.save())
         #expect(vm.errors["birthDate"] != nil)
-        vm.begin(details: .empty, userId: nil)
+        vm.begin(details: PersonalDetails(birthDate: Date(timeIntervalSince1970: 1)), userId: nil)
         #expect(!vm.save())
         #expect(vm.errorMessage != nil)
         #expect(store.owner == nil)
@@ -101,7 +111,7 @@ struct ProfileTests {
     @Test func unchangedDetailsKeepTheirPrecision() {
         let store = ProfileDetailsStoreStub()
         let vm = PersonalDetailsViewModel(store: store)
-        let details = PersonalDetails(weightKg: 72.123456789, heightCm: 180.123456789)
+        let details = PersonalDetails(weightKg: 72.123456789, heightCm: 180.123456789, birthDate: Date(timeIntervalSince1970: 1))
         vm.begin(details: details, userId: UUID())
         #expect(vm.save())
         #expect(store.details.weightKg == details.weightKg)

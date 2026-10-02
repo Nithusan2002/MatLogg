@@ -19,6 +19,7 @@ Konto og innlogging
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen
+  - Fødselsdato må fylles inn når du lagrer Personlige detaljer. Den lagres lokalt per profil og brukes som grunnlag for veiledende målforslag. Øvrige felt i Personlige detaljer er valgfrie.
   - Vannregistreringer: ett glass per registrering, med dato, tidspunkt og profileier. Ingen antatt mengde i ml.
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
   - Lagrede maltider du oppretter for gjenbruk, inkludert navn, matvarer,

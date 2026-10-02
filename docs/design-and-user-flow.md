@@ -217,8 +217,9 @@ samles i kortet «Grunnlag for målforslag», med en kort formålsforklaring fø
 feltene og «Om opplysningene og målforslag» som utvidbar forklaring etter kortet.
 Feltene bruker kompakte rader med verdi til høyre; ved tilgjengelighetsstørrelser
 står verdien under feltnavnet. Fødselsdato har en fast rad med «Ikke oppgitt»
-som tomtilstand. Valg og fjerning gjøres som utkast i datovelgeren og bekreftes
-med «Bruk dato». Vektens skille fra vekthistorikken forklares under kortet.
+som tomtilstand. Dato velges som utkast i datovelgeren og bekreftes
+med «Bruk dato». Arket bruker appens bakgrunn, kort og handlingsfarge, med norsk
+datovelger og uten handling for å fjerne fødselsdato. Vektens skille fra vekthistorikken forklares under kortet.
 Vekt og høyde åpner et ark med skyvbar, horisontal linjal og fast midtmarkør.
 Skalaen bruker 0,1 kg (20–300 kg) og 1 cm (80–250 cm). Områdene gjelder bare
 linjalen; direkte inntasting bevarer alle gyldige positive verdier og eksisterende
@@ -227,10 +228,11 @@ profilen automatisk. «Bruk verdi» oppdaterer profilutkastet, «Fjern opplysnin
 tømmer feltet, og Avbryt eller lukking forkaster arket. Profilens «Lagre» er
 fortsatt eneste lagringshandling. VoiceOver kan justere skalaen med sveip
 opp/ned; direkte inntasting er tilgjengelig ved alle tekststørrelser.
-Alle opplysningene er valgfrie; brukeren kan også sette mål selv.
+Fødselsdato kreves ved lagring av Personlige detaljer; øvrige opplysninger er
+valgfrie, og brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
-foran eventuelt navn fra kontoen. Tom fødselsdato
-bevares som tom, ugyldige tall avvises ved feltet, og lagringsfeil beholder
+foran eventuelt navn fra kontoen. Eksisterende profiler uten fødselsdato
+beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldige tall avvises ved feltet, og lagringsfeil beholder
 utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.

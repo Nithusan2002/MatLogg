@@ -39,11 +39,11 @@ antall lagrede matvarer.
 
 Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
 og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
-og feil. Personlige detaljer har et eksplisitt utkast, valgfri fødselsdato,
+og feil. Personlige detaljer har et eksplisitt utkast, påkrevd fødselsdato ved lagring,
 feltvalidering og lukker først etter vellykket lagring. Skjermen bruker to
 samlede kort, «Profil» og «Grunnlag for målforslag», med kompakte feltrader
-og vertikalt oppsett ved stor tekst. Fødselsdato velges eller fjernes i en
-datovelger med eksplisitt bekreftelse; hovedraden beholder samme etikett.
+og vertikalt oppsett ved stor tekst. Fødselsdato velges i en datovelger med appens tema
+og eksplisitt bekreftelse, uten mulighet for fjerning; hovedraden beholder samme etikett.
 Vekt og høyde åpner et kort med horisontal tallskala, fast markør, direkte
 inntasting og «Bruk verdi». Avbryt beholder utkastet; «Fjern opplysningen»
 tømmer feltet. Valget lagres først med profilens «Lagre». Vekt til beregning
