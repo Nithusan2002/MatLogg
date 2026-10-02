@@ -37,7 +37,9 @@ målsnarveier er fjernet. Menyen gir tilgang til favoritter og innstillinger.
 En kort tekst forklarer lokal lagring uten å presentere synkhendelser som
 antall lagrede matvarer.
 
-Innstillinger grupperer profil/personvern, visning/tilbakemelding, data/lagring
+Profilkortet er den faste inngangen til Personlige detaljer, uten duplisert
+lenke i Innstillinger. Målkortet åpner Daglige mål.
+Innstillinger grupperer personvern, visning/tilbakemelding, data/lagring
 og konto. Eksport forklarer hvilke datasett som følger med og viser fremdrift
 og feil. Personlige detaljer har et eksplisitt utkast, påkrevd fødselsdato ved lagring,
 feltvalidering og lukker først etter vellykket lagring. Skjermen bruker to

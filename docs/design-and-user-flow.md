@@ -210,6 +210,11 @@ Profil samler:
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
 
+Profilkortet er den faste inngangen til Personlige detaljer; denne lenken
+finnes ikke i Innstillinger. Innstillinger samler personvern, visning og
+tilbakemelding, data og lagring samt konto. Personopplysninger og forklaringen
+om målforslag ligger i Personlige detaljer, mens kalori- og makromål redigeres
+i Daglige mål.
 Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
 Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
 gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
@@ -236,6 +241,12 @@ beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldig
 utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
+
+Innstillinger viser lokal lagringsstatus uten gjentatt forklaring når synk ikke
+er tilgjengelig. Eksportdetaljer samles under «Hva følger med?», uten egen
+forklaring under «Last ned data». I lokal modus har Konto ingen ekstra
+lagringsstatusrad; en kort synlig tekst forklarer at konto er valgfritt og at
+innlogging foreløpig ikke gir sikkerhetskopi eller synk mellom enheter.
 
 Eksport under Innstillinger inneholder matlogg, vann, lagrede måltider,
 gjeldende daglige mål, vekthistorikk, personlige detaljer og favoritter for

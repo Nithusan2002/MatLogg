@@ -68,6 +68,12 @@ final class ProfileUITests: XCTestCase {
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         app.buttons["Profil"].tap()
+        let details = app.buttons["profile-personal-details"]
+        XCTAssertTrue(details.waitForExistence(timeout: 3))
+        XCTAssertTrue(details.isHittable)
+        details.tap()
+        XCTAssertTrue(app.navigationBars["Personlige detaljer"].waitForExistence(timeout: 3))
+        app.navigationBars["Personlige detaljer"].buttons["Avbryt"].tap()
         let settings = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Innstillinger'")).firstMatch
         for _ in 0..<8 {
             if settings.isHittable { break }
@@ -76,6 +82,7 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(settings.isHittable)
         settings.tap()
         XCTAssertTrue(app.navigationBars["Innstillinger"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["Personlige detaljer"].exists)
         let privacy = app.buttons["Personvern og valg"]
         XCTAssertTrue(privacy.waitForExistence(timeout: 3))
         privacy.tap()
