@@ -7,6 +7,7 @@ struct ProductThumbnailView: View {
     var localData: Data? = nil
     var placeholderSystemImage: String = "fork.knife"
     var size: CGFloat = 52
+    var imagePadding: CGFloat = 4
 
     var body: some View {
         Group {
@@ -14,7 +15,7 @@ struct ProductThumbnailView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .padding(4)
+                    .padding(imagePadding)
             } else {
                 placeholder
             }

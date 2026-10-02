@@ -74,7 +74,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
 - Søk-fanen har direkte søk, favoritter og nylig loggede varer. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
-- Måltidsoversikten viser 44 pt produktbilder fra produktets lagrede bilde-URL, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon; måltidenes fargede bokstavmarkører beholdes.
+- Måltidskortene på Hjem og produktradene i dagsloggens måltidsvisning viser 52 pt produktbilder med 2 pt innvendig luft fra produktets lagrede bilde-URL eller lokale bilde, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon i samme ramme; måltidenes fargede bokstavmarkører beholdes. Søkeresultater beholder kompakte bilder.
 - Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
 - Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.

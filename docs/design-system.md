@@ -96,7 +96,7 @@ tvers av flere komponenter; featureviews skal ikke etablere parallelle skalaer.
 På Hjem brukes 16 pt mellom innholdsgrupper og 12 pt mellom måltidskortets
 overskrift og innhold og mellom matvarer. Tomtekst har innholdsstyrt høyde,
 uten ekstra minimumshøyde. Måltidsseksjoner bruker 16 pt padding, lys `surface`-kortflate, 24 pt
-kontinuerlige hjørner og designsystemets diskrete skygge uten ytre kant. Produktbilder er 44 pt. Tekst og trykkflater komprimeres ikke.
+kontinuerlige hjørner og designsystemets diskrete skygge uten ytre kant. Produktbilder er 52 pt med 2 pt innvendig luft og hele varen synlig. Tekst og trykkflater komprimeres ikke.
 Fylte måltidsseksjoner viser matvarenavn og mengder for opptil tre varer og én
 samlet næringsrad for hele måltidet: kcal, protein, karbohydrater og fett.
 Totalen inkluderer varer bak «+ flere», summeres før avrunding og kan bryte
@@ -283,7 +283,7 @@ justering beholdes; raden vises også når målstatus er skjult.
 ### Måltidsrom
 
 Loggskjermen bruker eksisterende tema og en horisontal, rullbar MealChip-velger.
-Produktbilder er 44 pt; matnavn og mengde står over en sekundær næringslinje.
+Produktbilder er 52 pt med 2 pt innvendig luft og hele varen synlig; matnavn og mengde står over en sekundær næringslinje.
 Radene har 10 pt vertikal padding uten ekstra vertikale List-innrykk.
 Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;
 ingen separat Endre-knapp vises. Et kompakt warmSurface-

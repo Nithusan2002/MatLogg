@@ -59,7 +59,7 @@ struct LogRowView: View {
     private var rowContent: some View {
         if mealRoom {
             HStack(alignment: .top, spacing: 12) {
-                ProductThumbnailView(url: imageURL, localData: imageData, size: 44)
+                ProductThumbnailView(url: imageURL, localData: imageData, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {
                     productDescription
                     Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")

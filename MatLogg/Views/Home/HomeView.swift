@@ -713,7 +713,7 @@ struct MealOverviewCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
                         HStack(alignment: .top, spacing: 12) {
-                            ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 44)
+                            ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 52, imagePadding: 2)
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(productName(log.productId))
                                     .font(AppTypography.bodyEmphasis)
