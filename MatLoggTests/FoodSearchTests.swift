@@ -165,7 +165,7 @@ struct FoodSearchTests {
         let own = product("Min havre")
         try store.saveProduct(own, ownerUserId: owner)
         try store.toggleFavorite(userId: owner, productId: own.id)
-        let repository = DefaultFoodSearchRepository(products: database, catalog: MatvaretabellenService(), remote: SearchNameServiceStub())
+        let repository = DefaultFoodSearchRepository(products: database, catalog: MatvaretabellenService(), remote: SearchNameServiceStub(), recentFoods: database)
         let library = try await repository.loadLibrary(owner: owner)
         #expect(library.products.count > 2_000)
         #expect(library.products.contains { $0.id == own.id })

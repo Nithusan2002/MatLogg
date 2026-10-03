@@ -2,6 +2,53 @@ import XCTest
 
 @MainActor
 final class PortionLoggingUITests: XCTestCase {
+    func testProcessingSheetPreservesPortionAndMeal() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--portion-qa", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        openBreakfast(app)
+        let add = app.buttons["meal-room-add"]
+        reveal(add, in: app)
+        add.tap()
+        app.buttons["Søk etter mat"].tap()
+        let search = app.textFields["food-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        search.tap()
+        search.typeText("Porsjonstestbrød")
+        if app.buttons["Search"].exists { app.buttons["Search"].tap() }
+        let result = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
+        reveal(result, in: app)
+        result.tap()
+        let processing = app.buttons["productProcessingInfo"]
+        reveal(processing, in: app)
+        let total = app.staticTexts["portion-total"]
+        XCTAssertTrue(total.waitForExistence(timeout: 5))
+        let originalTotal = total.label
+        let nutriScore = app.buttons["productNutriScoreInfo"]
+        reveal(nutriScore, in: app)
+        nutriScore.tap()
+        XCTAssertTrue(app.images["nutriscore-logo"].waitForExistence(timeout: 5))
+        let logoAttachment = XCTAttachment(screenshot: app.screenshot())
+        logoAttachment.name = "Nutri-Score – offisiell grafikk"
+        logoAttachment.lifetime = .keepAlways
+        self.add(logoAttachment)
+        app.buttons["nutriscore-info-close"].tap()
+        processing.tap()
+        XCTAssertTrue(app.staticTexts["Ultraprosessert · NOVA 4"].waitForExistence(timeout: 5))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Bearbeidingsgrad – forklaringsark"
+        attachment.lifetime = .keepAlways
+        self.add(attachment)
+        app.buttons["processing-info-close"].tap()
+        reveal(total, in: app)
+        XCTAssertEqual(total.label, originalTotal)
+        app.buttons["product-log-save"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS 'Polarbrød'")).firstMatch
+        reveal(row, in: app)
+        XCTAssertTrue(app.buttons["meal-room-select-frokost"].isSelected)
+    }
+
     func testTwoPiecesSurviveRelaunchAndEditToThree() {
         continueAfterFailure = false
         let app = XCUIApplication()

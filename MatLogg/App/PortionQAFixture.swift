@@ -10,6 +10,10 @@ enum PortionQAFixture {
         servings: [ServingOption(id: Product.catalogID(source: "qa", externalID: "bread-piece"),
             label: "1 Polarbrød (37,5 g)", grams: 37.5, source: .openFoodFacts,
             isDefaultSuggestion: true, kind: .piece, shortLabel: "Polarbrød")],
-        nutritionSource: .openFoodFacts, imageSource: .none)
+        nutritionSource: .openFoodFacts, imageSource: .none,
+        nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023"),
+        processingInfo: ProductProcessingInfo(novaGroup: 4,
+            markers: ["4": [["ingredients", "en:salt"], ["ingredients", "en:unknown"]]],
+            ingredients: "Syntetisk ingrediensliste for UI-test."))
 }
 #endif

@@ -9,6 +9,7 @@ build/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/xcshareddata/
 DerivedData/
+*.xcodeproj/-Xcc/
 .DS_Store
 xcuserdata/
 

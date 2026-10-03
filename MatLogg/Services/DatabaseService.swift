@@ -1,6 +1,6 @@
 import Foundation
 
-class DatabaseService: WaterRepository, ProfileDataExportRepository {
+class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
     private let ioQueue: DispatchQueue
@@ -116,6 +116,10 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository {
 
     func getAllLogs(userId: UUID) async -> [FoodLog] {
         await performIfAvailable { $0?.getAllLogs(userId: userId) ?? [] }
+    }
+
+    func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood] {
+        try await perform { try $0.getRecentFoods(owner: owner, before: before, limit: limit) }
     }
     
     func getSummary(userId: UUID, date: Date) async -> DailySummary {

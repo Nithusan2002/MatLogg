@@ -15,6 +15,8 @@ struct ProductDetailView: View {
 }
 
 private struct ProductDetailContent: View {
+    @State private var showNutriScoreInfo = false
+    @State private var showProcessingInfo = false
     @StateObject private var detailModel: ProductDetailViewModel
     private var product: Product { detailModel.product }
 
@@ -179,6 +181,57 @@ private struct ProductDetailContent: View {
                         }
                         .padding(.horizontal)
                         
+                        if let info = detailModel.processingInfo {
+                            CardContainer {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Produktinformasjon")
+                                        .font(AppTypography.sectionTitle)
+                                        .foregroundColor(AppColors.ink)
+                                    Button { showNutriScoreInfo = true } label: {
+                                        HStack(spacing: 12) {
+                                            Text("Nutri-Score").font(AppTypography.bodyEmphasis)
+                                            Spacer(minLength: 8)
+                                            if let info = detailModel.nutriScoreInfo {
+                                                NutriScoreLogo(info: info, width: 104)
+                                            } else {
+                                                Text("Ikke tilgjengelig").font(AppTypography.secondary)
+                                            }
+                                            Image(systemName: "chevron.right")
+                                                .foregroundColor(AppColors.textSecondary)
+                                        }
+                                        .foregroundColor(AppColors.ink)
+                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("productNutriScoreInfo")
+                                    .accessibilityHint("Åpner forklaring og kilde")
+                                    Divider()
+                                Button { showProcessingInfo = true } label: {
+                                    HStack(spacing: 12) {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text("Bearbeidingsgrad")
+                                                .font(AppTypography.caption)
+                                                .foregroundColor(AppColors.textSecondary)
+                                            Text(info.groupTitle)
+                                                .font(AppTypography.bodyEmphasis)
+                                                .foregroundColor(AppColors.ink)
+                                        }
+                                        Spacer(minLength: 8)
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(AppColors.textSecondary)
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("productProcessingInfo")
+                                .accessibilityHint("Åpner forklaring, ingredienser og kilde")
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+
                         Divider()
                             .padding(.horizontal)
                         
@@ -329,6 +382,16 @@ private struct ProductDetailContent: View {
         }
         .sheet(isPresented: $showSourceInfo) {
             ProductSourceInfoView(product: product)
+        }
+        .sheet(isPresented: $showNutriScoreInfo) {
+            ProductNutriScoreSheet(productName: product.name, info: detailModel.nutriScoreInfo,
+                                  sourceURL: detailModel.processingSourceURL, fetchedAt: product.fetchedAt)
+        }
+        .sheet(isPresented: $showProcessingInfo) {
+            if let info = detailModel.processingInfo {
+                ProductProcessingInfoSheet(productName: product.name, info: info,
+                                           sourceURL: detailModel.processingSourceURL)
+            }
         }
     }
 
@@ -644,4 +707,175 @@ struct NutritionRowView: View {
         .environmentObject(ProductViewModel(repository: DatabaseService()))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
+}
+
+/// Presentation only: opening this sheet performs no catalog lookup.
+private struct ProductProcessingInfoSheet: View {
+    let productName: String
+    let info: ProductProcessingInfo
+    let sourceURL: URL?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(productName)
+                        .font(AppTypography.title)
+                        .accessibilityAddTraits(.isHeader)
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(info.groupTitle).font(AppTypography.sectionTitle)
+                            Text(info.classificationText ?? "Open Food Facts har ingen tilgjengelig klassifisering for dette produktet.")
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Grunnlag for klassifiseringen")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        if info.markerNames.isEmpty {
+                            Text("Forklarende grunnlag ikke tilgjengelig.")
+                        } else {
+                            ForEach(info.markerNames, id: \.self) { name in
+                                Text(name.capitalized)
+                            }
+                            if info.hasUntranslatedMarkers {
+                                Text("Bare tilgjengelig, forståelig grunnlag vises.")
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Ingredienser")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(info.ingredients ?? "Ingrediensliste ikke tilgjengelig.")
+                        Text("Kontroller emballasjen hvis opplysningene avviker.")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Om NOVA")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        Text("NOVA deler matvarer i fire grupper etter bearbeiding. Klassifiseringen bygger på registrerte produktopplysninger og kan være ufullstendig. NOVA beskriver ikke produktets samlede næringskvalitet.")
+                        if let sourceURL {
+                            Link("Se produktet hos Open Food Facts", destination: sourceURL)
+                                .foregroundColor(AppColors.action)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                    }
+                }
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.ink)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(AppColors.background)
+            .navigationTitle("Bearbeidingsgrad")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lukk") { dismiss() }
+                        .foregroundColor(AppColors.action)
+                        .accessibilityIdentifier("processing-info-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct ProductNutriScoreSheet: View {
+    let productName: String
+    let info: ProductNutriScoreInfo?
+    let sourceURL: URL?
+    let fetchedAt: Date?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(productName)
+                        .font(AppTypography.title)
+                        .accessibilityAddTraits(.isHeader)
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let info {
+                                NutriScoreLogo(info: info, width: 180)
+                            } else {
+                                Text("Nutri-Score ikke tilgjengelig")
+                                    .font(AppTypography.sectionTitle)
+                            }
+                            Text(info == nil
+                                 ? "Open Food Facts har ingen tilgjengelig karakter for dette produktet."
+                                 : "Oppgitt av Open Food Facts.")
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text("Nutri-Score oppsummerer produktets næringsprofil fra A til E og kan brukes til å sammenligne lignende produkter. Den beskriver ikke bearbeidingsgrad eller hele kostholdet.")
+                    if let info {
+                        Text(info.version.map { "Beregningsversjon: \($0)" } ?? "Beregningsversjon ikke oppgitt.")
+                            .font(AppTypography.secondary)
+                    }
+                    Text("Registrerte opplysninger kan være ufullstendige. Karakteren kan avvike fra emballasjen dersom beregningsversjonen er forskjellig.")
+                        .foregroundColor(AppColors.textSecondary)
+                    if let fetchedAt {
+                        Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    if let sourceURL {
+                        Link("Se produktet hos Open Food Facts", destination: sourceURL)
+                            .foregroundColor(AppColors.action)
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                }
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.ink)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(AppColors.background)
+            .navigationTitle("Nutri-Score")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lukk") { dismiss() }
+                        .foregroundColor(AppColors.action)
+                        .accessibilityIdentifier("nutriscore-info-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+/// Official vector artwork bundled for offline use; original colors are preserved.
+private struct NutriScoreLogo: View {
+    let info: ProductNutriScoreInfo
+    let width: CGFloat
+
+    var body: some View {
+        if let assetName = info.imageAssetName {
+            Image(assetName)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: width)
+                .accessibilityLabel("Nutri-Score \(info.grade)")
+                .accessibilityIdentifier("nutriscore-logo")
+        } else {
+            Text("Nutri-Score \(info.grade)")
+                .font(AppTypography.bodyEmphasis)
+        }
+    }
 }

@@ -391,7 +391,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -407,6 +407,7 @@ class APIService {
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
         let fields = [
             "code", "product_name", "brands", "categories", "image_front_url",
+            "nutriscore_grade", "nutriscore_version", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
             "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
             "nutrition_data_per", "nutriments", "last_modified_t", "rev", "schema_version",
             "data_quality_errors_tags", "data_quality_warnings_tags"
@@ -606,6 +607,8 @@ class APIService {
             sourceRevision: product.revision,
             sourceSchemaVersion: product.schemaVersion,
             fetchedAt: Date(),
+            nutriScoreInfo: product.nutriScoreInfo,
+            processingInfo: product.processingInfo,
             dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? [])
         )
     }
@@ -808,8 +811,63 @@ private struct OpenFoodFactsProduct: Codable {
     let dataQualityErrors: [String]?
     let dataQualityWarnings: [String]?
 
+    // Optional enrichment must never prevent decoding a usable product.
+    private var nutriScoreGrade: String? = nil
+    private var nutriScoreVersion: String? = nil
+    private var novaGroup: Int? = nil
+    private var novaMarkers: [String: [[String]]] = [:]
+    private var ingredientsText: String? = nil
+    private var ingredientsNB: String? = nil
+    private var ingredientsNO: String? = nil
+
+    var nutriScoreInfo: ProductNutriScoreInfo? {
+        ProductNutriScoreInfo(grade: nutriScoreGrade, version: nutriScoreVersion)
+    }
+
+    var processingInfo: ProductProcessingInfo {
+        let ingredients = [ingredientsNB, ingredientsNO, ingredientsText]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        return ProductProcessingInfo(novaGroup: novaGroup.flatMap { (1...4).contains($0) ? $0 : nil },
+                                     markers: novaMarkers, ingredients: ingredients)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
+        productName = try c.decodeIfPresent(String.self, forKey: .productName)
+        brands = try c.decodeIfPresent(String.self, forKey: .brands)
+        categories = try c.decodeIfPresent(String.self, forKey: .categories)
+        imageUrl = try c.decodeIfPresent(String.self, forKey: .imageUrl)
+        servingSize = try c.decodeIfPresent(String.self, forKey: .servingSize)
+        servingQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .servingQuantity)
+        productQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .productQuantity)
+        productQuantityUnit = try c.decodeIfPresent(String.self, forKey: .productQuantityUnit)
+        nutriments = try c.decodeIfPresent(OpenFoodFactsNutriments.self, forKey: .nutriments)
+        nutritionDataPer = try c.decodeIfPresent(String.self, forKey: .nutritionDataPer)
+        lastModifiedTimestamp = try c.decodeIfPresent(Int.self, forKey: .lastModifiedTimestamp)
+        revision = try c.decodeIfPresent(Int.self, forKey: .revision)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion)
+        dataQualityErrors = try c.decodeIfPresent([String].self, forKey: .dataQualityErrors)
+        dataQualityWarnings = try c.decodeIfPresent([String].self, forKey: .dataQualityWarnings)
+        nutriScoreGrade = try? c.decode(String.self, forKey: .nutriScoreGrade)
+        nutriScoreVersion = try? c.decode(String.self, forKey: .nutriScoreVersion)
+        novaGroup = try? c.decode(Int.self, forKey: .novaGroup)
+        novaMarkers = (try? c.decode([String: [[String]]].self, forKey: .novaMarkers)) ?? [:]
+        ingredientsText = try? c.decode(String.self, forKey: .ingredientsText)
+        ingredientsNB = try? c.decode(String.self, forKey: .ingredientsNB)
+        ingredientsNO = try? c.decode(String.self, forKey: .ingredientsNO)
+    }
+
     enum CodingKeys: String, CodingKey {
         case code
+        case nutriScoreGrade = "nutriscore_grade"
+        case nutriScoreVersion = "nutriscore_version"
+        case novaGroup = "nova_group"
+        case novaMarkers = "nova_groups_markers"
+        case ingredientsText = "ingredients_text"
+        case ingredientsNB = "ingredients_text_nb"
+        case ingredientsNO = "ingredients_text_no"
         case productName = "product_name"
         case brands
         case categories

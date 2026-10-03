@@ -196,7 +196,8 @@ struct HomeView: View {
     }
 
     private func undoLogging(_ payload: ReceiptPayload) {
-        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id,
+              payload.ownerID == nil || payload.ownerID == userId else { return }
         isUndoingReceipt = true
         Task {
             let succeeded = await logViewModel.undoLatestLog(
@@ -204,7 +205,8 @@ struct HomeView: View {
                 mealType: payload.mealType,
                 amountG: Float(payload.amountG),
                 userId: userId,
-                date: payload.loggedDate
+                date: payload.loggedDate,
+                logID: payload.logID
             )
             if succeeded {
                 dismissReceipt()
@@ -914,6 +916,8 @@ struct ReceiptPayload: Identifiable {
     let mealType: String
     let loggedDate: Date
     var portionSelection: PortionSelection? = nil
+    var logID: UUID? = nil
+    var ownerID: UUID? = nil
 }
 
 struct ScanButtonLarge: View {
@@ -1036,7 +1040,8 @@ struct ScanHistoryView: View {
     }
 
     private func undoLogging(_ payload: ReceiptPayload) {
-        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id,
+              payload.ownerID == nil || payload.ownerID == userId else { return }
         isUndoingReceipt = true
         Task {
             let succeeded = await logViewModel.undoLatestLog(
@@ -1044,7 +1049,8 @@ struct ScanHistoryView: View {
                 mealType: payload.mealType,
                 amountG: Float(payload.amountG),
                 userId: userId,
-                date: payload.loggedDate
+                date: payload.loggedDate,
+                logID: payload.logID
             )
             if succeeded {
                 dismissReceipt()
@@ -1470,7 +1476,8 @@ struct CameraView: View {
     }
 
     private func undoLogging(_ payload: ReceiptPayload) {
-        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id,
+              payload.ownerID == nil || payload.ownerID == userId else { return }
         isUndoingReceipt = true
         Task {
             let succeeded = await logViewModel.undoLatestLog(
@@ -1478,7 +1485,8 @@ struct CameraView: View {
                 mealType: payload.mealType,
                 amountG: Float(payload.amountG),
                 userId: userId,
-                date: payload.loggedDate
+                date: payload.loggedDate,
+                logID: payload.logID
             )
             if succeeded {
                 dismissReceipt()
@@ -1614,7 +1622,7 @@ struct SearchHubView: View {
         .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database, photoRepository: LocalMealPhotoRepository()))
         .environmentObject(ProductViewModel(repository: database))
         .environment(\.foodSearchRepository, DefaultFoodSearchRepository(
-            products: database, catalog: MatvaretabellenService(), remote: APIService()
+            products: database, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: database
         ))
         .environmentObject(HealthProfileViewModel(repository: database))
         .environmentObject(AuthViewModel())

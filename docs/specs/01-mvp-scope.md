@@ -41,6 +41,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 | **Kompakt loggbekreftelse** | P0 | Etter logging: vare, mengde og måltid + «Angre», uten å blokkere videre logging |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
 | **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
+| **Logg igjen fra Nylig brukt** | P1 | Eksplisitt knapp med siste registrerte mengde/enhet til valgt dato og måltid. Lokal lagring med Angre; uforenlig mengde-/porsjonsgrunnlag åpner produktkortet. |
 | **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
 | **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |

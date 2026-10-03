@@ -143,6 +143,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let sourceRevision: Int?
     let sourceSchemaVersion: Int?
     let fetchedAt: Date?
+    let nutriScoreInfo: ProductNutriScoreInfo?
+    let processingInfo: ProductProcessingInfo?
     let dataQualityWarnings: [String]?
     
     // Local flags
@@ -180,6 +182,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         sourceRevision: Int? = nil,
         sourceSchemaVersion: Int? = nil,
         fetchedAt: Date? = nil,
+        nutriScoreInfo: ProductNutriScoreInfo? = nil,
+        processingInfo: ProductProcessingInfo? = nil,
         dataQualityWarnings: [String]? = nil
     ) {
         self.id = id
@@ -213,6 +217,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.sourceRevision = sourceRevision
         self.sourceSchemaVersion = sourceSchemaVersion
         self.fetchedAt = fetchedAt
+        self.nutriScoreInfo = nutriScoreInfo
+        self.processingInfo = processingInfo
         self.dataQualityWarnings = dataQualityWarnings
     }
 
@@ -841,4 +847,67 @@ nonisolated struct WaterGlass: Codable, Equatable, Identifiable, Sendable {
     var userId: UUID
     var date: Date
     var createdAt = Date()
+}
+
+/// Read-only catalog information; no classification is inferred locally.
+nonisolated struct ProductProcessingInfo: Codable, Sendable, Equatable {
+    let novaGroup: Int?
+    let markers: [String: [[String]]]
+    let ingredients: String?
+
+    var groupTitle: String {
+        switch novaGroup {
+        case 1: return "Minimalt bearbeidet · NOVA 1"
+        case 2: return "Bearbeidet matlagingsingrediens · NOVA 2"
+        case 3: return "Bearbeidet · NOVA 3"
+        case 4: return "Ultraprosessert · NOVA 4"
+        default: return "Bearbeidingsgrad ikke tilgjengelig"
+        }
+    }
+
+    var classificationText: String? {
+        guard let novaGroup, (1...4).contains(novaGroup) else { return nil }
+        return novaGroup == 4
+            ? "Klassifisert som ultraprosessert av Open Food Facts."
+            : "Ikke klassifisert som ultraprosessert av Open Food Facts."
+    }
+
+    private var groupMarkers: [[String]] {
+        guard let novaGroup else { return [] }
+        return markers[String(novaGroup)] ?? []
+    }
+
+    private func markerName(_ marker: [String]) -> String? {
+        guard marker.count == 2, marker[0] == "ingredients" else { return nil }
+        return ["en:salt": "salt", "en:sugar": "sukker"][marker[1]]
+    }
+
+    var hasUntranslatedMarkers: Bool {
+        groupMarkers.contains { markerName($0) == nil }
+    }
+
+    var markerNames: [String] {
+        Set(groupMarkers.compactMap(markerName)).sorted()
+    }
+}
+
+/// Source-provided grade, never calculated from local nutrition values.
+nonisolated struct ProductNutriScoreInfo: Codable, Sendable, Equatable {
+    let grade: String
+    let version: String?
+
+    /// Only recognized source algorithm versions select a logo variant.
+    var imageAssetName: String? {
+        guard ["A", "B", "C", "D", "E"].contains(grade),
+              let version, ["2021", "2023"].contains(version) else { return nil }
+        return "NutriScore-\(version)-\(grade)"
+    }
+
+    init?(grade: String?, version: String?) {
+        guard let normalized = grade?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+              ["A", "B", "C", "D", "E"].contains(normalized) else { return nil }
+        self.grade = normalized
+        let trimmedVersion = version?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.version = trimmedVersion?.isEmpty == false ? trimmedVersion : nil
+    }
 }

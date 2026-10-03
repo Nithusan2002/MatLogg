@@ -165,6 +165,24 @@ mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller inns
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
 Private produkter fra andre profiler er ikke søkbare.
 
+«Nylig brukt» viser siste registrering per matvare for aktiv profil, med synlig
+mengde/enhet og en egen «Loggfør [mengde]»-knapp. Valgt måltid og dato vises
+over listen og forblir synlig under rulling. Trykk på selve varen åpner fortsatt produktkortet.
+Ved tilgjengelighetstekst ruller søkekontrollene sammen med listen, slik at
+kontrollene ikke skyver Nylig brukt utenfor tilgjengelig skjermplass.
+Framtidige registreringer brukes ikke som gjenloggingsgrunnlag. Ved like
+loggtidspunkter avgjør opprettelsestid og logg-ID rekkefølgen.
+
+Gjenlogging bevarer eksakt g/ml og et kompatibelt porsjonssnapshot. Endret
+enhet eller porsjonsgrunnlag krever kontroll i produktkortet. Næringsverdier
+beregnes fra gjeldende lokale produktdata; historiske registreringer endres
+ikke. Ny registrering og hendelse lagres atomisk uten nettverksoppslag.
+Knappene sperres under lagring. Feil beholder varen og lar brukeren prøve
+igjen. Bekreftelse vises først etter lokal lagring; Angre bruker den nye
+registreringens ID og profil og sletter aldri en annen identisk registrering.
+Profil-, dato- eller måltidsbytte under lagring undertrykker en utdatert
+bekreftelse; en påbegynt lagring beholder destinasjonen fra trykkøyeblikket.
+
 Resultater viser navn, eventuelt merke og bilde, samt kilde-/enhetskontekst.
 Innledende lasting, lesefeil, ingen tidligere produkter, ingen lokale treff og
 ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søket.
@@ -554,3 +572,30 @@ listen, før søket er startet. Informasjonen skal ikke låses til bunnen og
 fortrenge handlinger ved store tilgjengelighetsstørrelser. Profil → Innstillinger
 har samme forklaring og «Eksporter data», med tydelig tekst om manglende import.
 Eksisterende tokens, tabbar-clearance og systemdeling beholdes.
+
+### Bearbeidingsgrad på produktkortet (2026-10-03)
+
+OFF-produkter viser en kompakt, trykkbar NOVA-rad før måltidsvalget.
+Gruppenavn og kildebasert status vises uten helsescore eller fargegradering.
+Raden åpner et stort, rullbart forklaringsark med produktnavn, status,
+tilgjengelig norsk grunnlag, ingredienser og produktlenke. Arket har Lukk
+og støtter sveip for lukking. Mengde og måltid bevares. Ukjente markører
+vises ikke som tekniske tagger; delvis forståelig grunnlag merkes. Manglende klassifisering og ingredienser beskrives eksplisitt.
+Opplysningene følger produktcachen og fungerer offline; klassifiseringen er
+gjeldende kataloginformasjon, ikke et historisk snapshot av matloggen.
+
+### Nutri-Score og produktinformasjon (2026-10-03)
+
+Ett produktinformasjonskort samler Nutri-Score og bearbeidingsgrad etter
+næringsoversikten per 100 g og før måltidsvalget. Begge rader åpner egne
+forklaringsark uten nye nettverkskall. Nutri-Score viser offisiell A–E-grafikk for kjente beregningsversjoner
+(2021: original, 2023: «New calculation»). Bildene følger appen og virker
+offline. Ved ukjent/manglende versjon vises tekstlig karakter. Kilde og
+algoritmeversjon vises i arket; ingen lokal beregning eller poengoversikt.
+Manglende karakter vises som «Ikke tilgjengelig». Mengde og måltid bevares.
+
+Grafikken er hentet uendret fra Open Food Facts:
+https://static.openfoodfacts.org/images/attributes/dist/nutriscore-{a-e}.svg
+og `nutriscore-{a-e}-new-en.svg`. Bruk av offisiell merking følger
+https://www.santepubliquefrance.fr/en/nutrition-and-physical-activity/nutri-score
+og OFFs veiledning om offisielle assets.

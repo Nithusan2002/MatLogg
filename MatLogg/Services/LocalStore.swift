@@ -323,6 +323,45 @@ nonisolated final class LocalStore: @unchecked Sendable {
             return results
         }
     }
+
+    func getRecentFoods(owner: UUID, before: Date, limit: Int) throws -> [RecentFood] {
+        try queue.sync {
+            guard limit > 0 else { return [] }
+            let sql = """
+            WITH ranked AS (
+                SELECT json, productId, loggedTime, id, json_extract(json, '$.createdAt') AS createdAt,
+                       ROW_NUMBER() OVER (PARTITION BY productId ORDER BY loggedTime DESC, json_extract(json, '$.createdAt') DESC, id DESC) AS rank
+                FROM logs
+                WHERE userId = ? AND loggedDate <= ? AND loggedTime <= ?
+            )
+            SELECT p.json, r.json FROM ranked r
+            JOIN products p ON p.id = r.productId
+            WHERE r.rank = 1 AND (p.storageKind = 'catalog' OR p.ownerUserId = ?)
+            ORDER BY r.loggedTime DESC, r.createdAt DESC, r.id DESC
+            LIMIT ?;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 2, Calendar.current.startOfDay(for: before).timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 3, before.timeIntervalSince1970)
+            sqlite3_bind_text(stmt, 4, owner.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_int(stmt, 5, Int32(min(limit, 100)))
+            var result: [RecentFood] = []
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                if let productData = readBlob(stmt, index: 0), let logData = readBlob(stmt, index: 1),
+                   let product = decode(Product.self, from: productData, entity: "product"),
+                   let log = decode(FoodLog.self, from: logData, entity: "food_log"), log.userId == owner {
+                    result.append(RecentFood(product: product, log: log))
+                }
+                step = sqlite3_step(stmt)
+            }
+            guard step == SQLITE_DONE else { throw databaseError() }
+            return result
+        }
+    }
     
     func getSummary(userId: UUID, date: Date) -> DailySummary {
         let dayStart = Calendar.current.startOfDay(for: date)

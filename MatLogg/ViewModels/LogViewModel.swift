@@ -11,6 +11,11 @@ final class LogViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var mutationRevision = 0
 
+    /// Repositories used by other logging features have already committed the write.
+    func didPersistExternalLog() {
+        mutationRevision += 1
+    }
+
     @Published private(set) var deletionReceiptID: UUID?
     @Published private(set) var deletedLogCount = 0
     @Published private(set) var isDeletingOrRestoring = false
@@ -218,13 +223,15 @@ final class LogViewModel: ObservableObject {
         mealType: String,
         amountG: Float,
         userId: UUID,
-        date: Date = Date()
+        date: Date = Date(),
+        logID: UUID? = nil
     ) async -> Bool {
         let logs = await repository.getAllLogs(userId: userId)
         let day = Calendar.current.startOfDay(for: date)
         let latest = logs
             .filter {
-                $0.productId == productId &&
+                (logID == nil || $0.id == logID) &&
+                $0.userId == userId && $0.productId == productId &&
                 $0.mealType == mealType &&
                 $0.amountG == amountG &&
                 Calendar.current.isDate($0.loggedDate, inSameDayAs: day)

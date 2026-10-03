@@ -1,10 +1,50 @@
 import Foundation
 
+nonisolated struct RecentFood: Identifiable, Sendable {
+    let product: Product
+    let log: FoodLog
+    let amountLabel: String
+    let canRepeat: Bool
+    var id: UUID { product.id }
+
+    init(product: Product, log: FoodLog) {
+        self.product = product
+        self.log = log
+        amountLabel = PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection)
+        canRepeat = Self.canRepeat(product: product, log: log)
+    }
+
+    private static func canRepeat(product: Product, log: FoodLog) -> Bool {
+        guard product.id == log.productId, product.amountUnit == log.resolvedAmountUnit,
+              NutritionCalculator.validatedCalculation(per100: NutritionBreakdown(
+                calories: product.caloriesPer100g, protein: product.proteinGPer100g,
+                carbs: product.carbsGPer100g, fat: product.fatGPer100g), amount: log.amountG) != nil else { return false }
+        guard let portion = log.portionSelection else { return true }
+        return portion.matches(amount: Double(log.amountG), unit: product.amountUnit)
+            && (product.servings ?? []).contains {
+                $0.portionLabel == portion.label && $0.grams == portion.amountPerServing
+                    && $0.amountUnit == portion.unit && $0.source == portion.source
+                    && $0.selectableKind == portion.kind
+            }
+    }
+}
+
+protocol RecentFoodRepository {
+    func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood]
+    func saveLog(_ log: FoodLog) async throws
+}
+
+enum RepeatFoodOutcome {
+    case logged(Product, FoodLog)
+    case review(Product)
+}
+
 struct FoodSearchLibrary {
     let products: [Product]
     let recent: [Product]
     let favorites: [Product]
     let suggestions: [Product]
+    var recentFoods: [RecentFood] = []
 }
 
 @MainActor
@@ -14,9 +54,13 @@ protocol FoodSearchRepository {
     func searchRemote(query: String, owner: UUID?) async throws -> [Product]
     func saveManual(_ product: Product, owner: UUID) async throws
     func prepare(_ product: Product, owner: UUID) async throws
+    func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome
 }
 
 extension FoodSearchRepository {
+    func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome {
+        throw DatabaseServiceError.unavailable
+    }
     func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         FoodSearchLibrary(products: [], recent: [], favorites: [], suggestions: [])
     }
@@ -27,18 +71,22 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
     private let products: any ProductRepository
     private let catalog: any ProductCatalogService
     private let remote: any ProductNameSearchService
+    private let recentFoods: any RecentFoodRepository
 
-    init(products: any ProductRepository, catalog: any ProductCatalogService, remote: any ProductNameSearchService) {
+    init(products: any ProductRepository, catalog: any ProductCatalogService, remote: any ProductNameSearchService,
+         recentFoods: any RecentFoodRepository) {
         self.products = products
         self.catalog = catalog
         self.remote = remote
+        self.recentFoods = recentFoods
     }
 
     func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         let stored = try await products.getSearchableProducts(ownerUserId: owner)
-        let recent = if let owner { await products.getRecentProducts(userId: owner, kind: nil, limit: 6) } else { [Product]() }
+        let recent = if let owner { try await recentFoods.getRecentFoods(owner: owner, before: Date(), limit: 6) } else { [RecentFood]() }
         let favorites = if let owner { await products.getFavorites(userId: owner, kind: nil) } else { [Product]() }
-        return FoodSearchLibrary(products: stored, recent: recent, favorites: favorites, suggestions: [])
+        return FoodSearchLibrary(products: stored, recent: recent.map(\.product), favorites: favorites,
+                                 suggestions: [], recentFoods: recent)
     }
 
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
@@ -59,7 +107,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         return FoodSearchLibrary(
             products: FoodSearchMatcher.unique(local.products + rawProducts),
             recent: local.recent, favorites: local.favorites,
-            suggestions: Array(rawProducts.prefix(8))
+            suggestions: Array(rawProducts.prefix(8)), recentFoods: local.recentFoods
         )
     }
 
@@ -82,6 +130,27 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         if product.source != "user", products.getProduct(product.id) == nil {
             try await products.cacheCatalogProduct(product)
         }
+    }
+
+    func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome {
+        guard food.log.userId == owner, ["frokost", "lunsj", "middag", "snacks"].contains(mealType),
+              date.timeIntervalSince1970.isFinite else { throw DatabaseServiceError.unavailable }
+        // Recheck ownership, current product data and the last logged amount before writing.
+        let current = try await recentFoods.getRecentFoods(owner: owner, before: Date(), limit: 6)
+        guard let candidate = current.first(where: { $0.id == food.id }) else { throw DatabaseServiceError.unavailable }
+        guard candidate.log.id == food.log.id, candidate.canRepeat,
+              let nutrition = NutritionCalculator.validatedCalculation(per100: NutritionBreakdown(
+                calories: candidate.product.caloriesPer100g, protein: candidate.product.proteinGPer100g,
+                carbs: candidate.product.carbsGPer100g, fat: candidate.product.fatGPer100g), amount: candidate.log.amountG)
+        else { return .review(candidate.product) }
+        let log = FoodLog(userId: owner, productId: candidate.id, mealType: mealType,
+                          amountG: candidate.log.amountG, amountUnit: candidate.log.resolvedAmountUnit,
+                          portionSelection: candidate.log.portionSelection,
+                          loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
+                          calories: nutrition.calories, proteinG: nutrition.protein,
+                          carbsG: nutrition.carbs, fatG: nutrition.fat)
+        try await recentFoods.saveLog(log)
+        return .logged(candidate.product, log)
     }
 }
 

@@ -800,3 +800,16 @@ Porsjoner krever dokumentert brukeroppgitt størrelse i g/ml og lagres som
 `ServingOption` med brukerkilde. Beregningsverdier normaliseres uten avrunding
 før lagring; gram og ml konverteres ikke. Tilleggsmetadata inngår i lokal produkt-JSON og additivt i `product.upsert`.
 Eldre produkter uten metadata dekodes fortsatt. Serveren lagrer metadata sammen med produktet.
+
+### OFF-bearbeidingsinformasjon (2026-10-03)
+
+`Product.processingInfo` er valgfri katalogmetadata med `novaGroup` (1–4),
+rå markører med type/kilde-ID og ingrediensliste (nb → no → originaltekst).
+Lagres i eksisterende produkt-JSON; eldre JSON uten feltet er kompatibel.
+Ingen endring i synkhendelser eller serverkontrakt. Estimerte næringsverdier
+og lokalt beregnet NOVA inngår ikke.
+
+`Product.nutriScoreInfo` er valgfri OFF-katalogmetadata: karakter A–E og
+original beregningsversjon når tilgjengelig. Feltet lagres i eksisterende
+produkt-JSON og bevares ved produktkopiering. Eldre JSON er kompatibel;
+ingen database- eller synkkontraktsendring.

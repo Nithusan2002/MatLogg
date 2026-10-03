@@ -8,6 +8,8 @@ final class FoodSearchViewModel: ObservableObject {
     @Published private(set) var query = ""
     @Published private(set) var results: [Product] = []
     @Published private(set) var recent: [Product] = []
+    @Published private(set) var recentFoods: [RecentFood] = []
+    @Published private(set) var isRepeating = false
     @Published private(set) var favorites: [Product] = []
     @Published private(set) var suggestions: [Product] = []
     @Published private(set) var isLoading = true
@@ -28,6 +30,7 @@ final class FoodSearchViewModel: ObservableObject {
     private var searchID = UUID()
     private var selectionID = UUID()
     private var searchTask: Task<Void, Never>?
+    private var repeatID = UUID()
 
     var hasQuery: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -60,6 +63,7 @@ final class FoodSearchViewModel: ObservableObject {
     private func apply(_ loaded: FoodSearchLibrary) {
         library = loaded.products
         recent = loaded.recent
+        recentFoods = loaded.recentFoods
         favorites = loaded.favorites
         suggestions = loaded.suggestions
         updateResults()
@@ -73,6 +77,8 @@ final class FoodSearchViewModel: ObservableObject {
         query = ""
         library = []; remoteProducts = []; results = []
         recent = []; favorites = []; suggestions = []
+        recentFoods = []
+        invalidateRepeatPresentation()
         selectedProduct = nil
         pendingManualProduct = nil
         selectionError = nil
@@ -126,6 +132,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func suspend() {
+        invalidateRepeatPresentation()
         searchID = UUID()
         searchTask?.cancel()
         searchTask = nil
@@ -152,7 +159,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func open(_ product: Product) async {
-        guard !isPreparing else { return }
+        guard !isPreparing, !isRepeating else { return }
         guard let owner else {
             selectionError = "Åpne en lokal profil for å loggføre mat."
             return
@@ -170,6 +177,34 @@ final class FoodSearchViewModel: ObservableObject {
             selectionError = "Kunne ikke åpne matvaren. Prøv igjen."
         }
         if selectionID == request { isPreparing = false }
+    }
+
+    func invalidateRepeatPresentation() {
+        repeatID = UUID()
+        selectionError = nil
+    }
+
+    func logAgain(_ food: RecentFood, mealType: String, date: Date) async -> (Product, FoodLog)? {
+        guard !isRepeating, !isPreparing, let owner, food.log.userId == owner else { return nil }
+        let request = UUID()
+        repeatID = request
+        isRepeating = true
+        selectionError = nil
+        defer { isRepeating = false }
+        do {
+            let outcome = try await repository.logAgain(food, owner: owner, mealType: mealType, date: date)
+            guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
+            switch outcome {
+            case .logged(let product, let log): return (product, log)
+            case .review(let product):
+                selectedProduct = product
+                return nil
+            }
+        } catch {
+            guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
+            selectionError = "Kunne ikke lagre på enheten. Prøv igjen."
+            return nil
+        }
     }
 
     private func updateResults() {

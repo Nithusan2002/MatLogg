@@ -34,6 +34,7 @@ private struct FoodSearchContent: View {
     @StateObject private var viewModel: FoodSearchViewModel
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var logViewModel: LogViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showManualProduct = false
     @FocusState private var searchFocused: Bool
@@ -57,8 +58,16 @@ private struct FoodSearchContent: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if !isFirstLog {
+            if !isFirstLog && !dynamicTypeSize.isAccessibilitySize {
                 searchControls.padding(.horizontal, 16)
+            }
+            if !isFirstLog && !viewModel.hasQuery && !viewModel.recentFoods.isEmpty {
+                Text("Logg til: \(appState.selectedMealType.capitalized) · \(appState.logSelectedDate.formatted(date: .abbreviated, time: .omitted))")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .accessibilityIdentifier("food-search-repeat-destination")
             }
             if isTab {
                 searchList.matLoggTabBarScrollClearance()
@@ -76,6 +85,9 @@ private struct FoodSearchContent: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await reload() } }
         }
+        .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in viewModel.invalidateRepeatPresentation() }
         .preference(key: MatLoggTabBarEditingKey.self, value: isTab && searchFocused)
         .onDisappear {
             searchFocused = false
@@ -201,6 +213,11 @@ private struct FoodSearchContent: View {
 
     private var searchList: some View {
         List {
+            if !isFirstLog && dynamicTypeSize.isAccessibilitySize {
+                Section { searchControls }
+                    .listRowBackground(AppColors.background)
+                    .listRowSeparator(.hidden)
+            }
             if isFirstLog {
                 Section {
                     let informationLayout = dynamicTypeSize.isAccessibilitySize
@@ -245,6 +262,9 @@ private struct FoodSearchContent: View {
                 if viewModel.isPreparing {
                     Section { ProgressView("Åpner matvare …") }
                 }
+                if viewModel.isRepeating {
+                    Section { ProgressView("Lagrer på enheten …") }
+                }
                 if viewModel.hasQuery {
                     results
                 } else if isFirstLog {
@@ -273,13 +293,46 @@ private struct FoodSearchContent: View {
             }
         }
         .listRowBackground(AppColors.surface)
-        Section("Nylig brukt") {
+        Section {
             if viewModel.recent.isEmpty {
                 Text("Matvarer du loggfører vises her neste gang.")
                     .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
-            } else {
+            } else if viewModel.recentFoods.isEmpty {
                 productRows(viewModel.recent, context: "recent")
+            } else {
+                ForEach(viewModel.recentFoods) { food in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button {
+                            searchFocused = false
+                            Task { await viewModel.open(food.product) }
+                        } label: { FoodSearchProductRow(product: food.product) }
+                        .buttonStyle(.borderless)
+                        .accessibilityHint("Åpner mengdevalg og loggføring")
+                        .accessibilityIdentifier("food-search-recent-\(food.id.uuidString)")
+                        Text("Sist logget: \(food.amountLabel)")
+                            .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        Button {
+                            searchFocused = false
+                            if food.canRepeat { repeatFood(food) }
+                            else { Task { await viewModel.open(food.product) } }
+                        } label: {
+                            Text(food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundStyle(AppColors.action)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(food.canRepeat
+                            ? "Loggfør \(food.product.name), \(food.amountLabel)"
+                            : "Kontroller mengde for \(food.product.name)")
+                        .accessibilityHint("Til \(appState.selectedMealType), \(appState.logSelectedDate.formatted(date: .complete, time: .omitted))")
+                        .accessibilityIdentifier("food-search-repeat-\(food.id.uuidString)")
+                    }
+                    .disabled(viewModel.isPreparing || viewModel.isRepeating)
+                }
             }
+        } header: {
+            Text("Nylig brukt")
         }
         .listRowBackground(AppColors.surface)
         if !viewModel.suggestions.isEmpty {
@@ -330,9 +383,27 @@ private struct FoodSearchContent: View {
                 FoodSearchProductRow(product: product)
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.isPreparing)
+            .disabled(viewModel.isPreparing || viewModel.isRepeating)
             .accessibilityHint("Åpner mengdevalg og loggføring")
             .accessibilityIdentifier("food-search-\(context)-\(product.id.uuidString)")
+        }
+    }
+
+    private func repeatFood(_ food: RecentFood) {
+        let date = appState.logSelectedDate
+        let meal = appState.selectedMealType
+        let owner = authViewModel.currentUser?.id
+        Task {
+            guard let (product, log) = await viewModel.logAgain(food, mealType: meal, date: date),
+                  authViewModel.currentUser?.id == owner,
+                  appState.logSelectedDate == date, appState.selectedMealType == meal else { return }
+            logViewModel.didPersistExternalLog()
+            onLogComplete(ReceiptPayload(product: product, amountG: Double(log.amountG),
+                                         amountUnit: log.resolvedAmountUnit, mealType: log.mealType,
+                                         loggedDate: log.loggedDate, portionSelection: log.portionSelection,
+                                         logID: log.id, ownerID: log.userId))
+            await appState.refreshSyncStatus()
+            await reload()
         }
     }
 

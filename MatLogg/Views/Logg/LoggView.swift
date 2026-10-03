@@ -189,7 +189,8 @@ struct LoggView: View {
     }
 
     private func undoLogging(_ payload: ReceiptPayload) {
-        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id,
+              payload.ownerID == nil || payload.ownerID == userId else { return }
         isUndoingReceipt = true
         Task {
             let succeeded = await logViewModel.undoLatestLog(
@@ -197,7 +198,8 @@ struct LoggView: View {
                 mealType: payload.mealType,
                 amountG: Float(payload.amountG),
                 userId: userId,
-                date: payload.loggedDate
+                date: payload.loggedDate,
+                logID: payload.logID
             )
             if succeeded {
                 dismissReceipt()

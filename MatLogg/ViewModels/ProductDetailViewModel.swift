@@ -15,6 +15,21 @@ final class ProductDetailViewModel: ObservableObject {
         self.repository = repository
     }
 
+    var nutriScoreInfo: ProductNutriScoreInfo? {
+        product.source == "openfoodfacts" ? product.nutriScoreInfo : nil
+    }
+
+    var processingInfo: ProductProcessingInfo? {
+        guard product.source == "openfoodfacts" else { return nil }
+        return product.processingInfo ?? ProductProcessingInfo(novaGroup: nil, markers: [:], ingredients: nil)
+    }
+
+    var processingSourceURL: URL? {
+        guard let code = product.barcodeEan, !code.isEmpty,
+              code.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return URL(string: "https://world.openfoodfacts.org/product/\(code)")
+    }
+
     var canRefresh: Bool { product.canRefreshCatalogData }
 
     func nutrition(for amount: Double?) -> NutritionBreakdown {

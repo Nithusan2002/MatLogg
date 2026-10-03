@@ -41,7 +41,7 @@ struct MatLoggContent: View {
         portionQARepository = databaseService
         #endif
         let searchRepository = DefaultFoodSearchRepository(
-            products: databaseService, catalog: MatvaretabellenService(), remote: APIService()
+            products: databaseService, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: databaseService
         )
         foodSearchRepository = searchRepository
         _quickLogViewModel = StateObject(wrappedValue: QuickLogViewModel(repository: searchRepository))
