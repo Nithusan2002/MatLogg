@@ -151,6 +151,7 @@ nonisolated struct NutriScoreSegments: Equatable {
 /// Source-based presentation only; missing groups never imply a negative answer.
 nonisolated struct ProductProcessingPresentation {
     let status: String
+    let isUltraProcessed: Bool?
     let explanation: String
     let basis: String
 
@@ -162,11 +163,13 @@ nonisolated struct ProductProcessingPresentation {
             4: "ultraprosessert mat"
         ]
         guard let group = info.novaGroup, let description = descriptions[group] else {
+            isUltraProcessed = nil
             status = "Klassifisering mangler"
             explanation = "Open Food Facts har ingen tilgjengelig NOVA-klassifisering for dette produktet. Vi kan derfor ikke si om det er ultraprosessert."
             basis = "Grunnlag for klassifiseringen er ikke tilgjengelig."
             return
         }
+        isUltraProcessed = group == 4
         status = group == 4 ? "Klassifisert som ultraprosessert" : "Ikke klassifisert som ultraprosessert"
         explanation = "Open Food Facts plasserer produktet i NOVA \(group): \(description)."
         if info.markerNames.isEmpty {

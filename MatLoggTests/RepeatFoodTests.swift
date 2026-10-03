@@ -128,8 +128,8 @@ struct RepeatFoodTests {
     @Test func doubleTapIsBlockedAndContextOrProfileChangeDiscardsPresentation() async throws {
         let repository = RepeatSearchStub(), owner = UUID(), item = product()
         let food = RecentFood(product: item, log: log(item, owner: owner))
-        let vm = FoodSearchViewModel(repository: repository)
-        await vm.load(owner: owner)
+        let vm = QuickLogViewModel(repository: repository)
+        await vm.load(userId: owner)
         for changeProfile in [false, true] {
             let operation = Task { await vm.logAgain(food, mealType: "middag", date: Date()) }
             for _ in 0..<1_000 {
@@ -138,12 +138,12 @@ struct RepeatFoodTests {
             }
             #expect(vm.isRepeating)
             #expect(await vm.logAgain(food, mealType: "middag", date: Date()) == nil)
-            if changeProfile { await vm.load(owner: UUID()) }
+            if changeProfile { await vm.load(userId: UUID()) }
             else { vm.invalidateRepeatPresentation() }
             repository.continuation?.resume(returning: .logged(item, food.log))
             repository.continuation = nil
             #expect(await operation.value == nil)
-            #expect(!vm.isRepeating && vm.selectionError == nil)
+            #expect(!vm.isRepeating && vm.logError == nil)
         }
         #expect(repository.calls == 2)
     }
@@ -151,15 +151,15 @@ struct RepeatFoodTests {
     @Test func saveFailureCanRetryAndReviewOpensProductWithoutReceipt() async {
         let repository = RepeatSearchStub(), owner = UUID(), item = product()
         let food = RecentFood(product: item, log: log(item, owner: owner))
-        let vm = FoodSearchViewModel(repository: repository)
-        await vm.load(owner: owner)
+        let vm = QuickLogViewModel(repository: repository)
+        await vm.load(userId: owner)
         repository.fail = true
         #expect(await vm.logAgain(food, mealType: "lunsj", date: Date()) == nil)
-        #expect(vm.selectionError != nil && !vm.isRepeating)
+        #expect(vm.logError != nil && !vm.isRepeating)
         repository.fail = false
         repository.review = item
         #expect(await vm.logAgain(food, mealType: "lunsj", date: Date()) == nil)
-        #expect(vm.selectedProduct?.id == item.id && vm.selectionError == nil)
+        #expect(vm.selectedQuickProduct?.id == item.id && vm.logError == nil)
     }
 
     private func product(id: UUID = UUID(), unit: AmountUnit = .grams, servings: [ServingOption]? = nil) -> Product {

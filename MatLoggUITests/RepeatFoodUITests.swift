@@ -33,14 +33,19 @@ final class RepeatFoodUITests: XCTestCase {
         openSearch(app)
         // This search presentation focuses the field; submit the empty query to dismiss the keyboard.
         app.textFields["food-search-field"].typeText("\n")
-        let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
+        let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-recent-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
+        reveal(recent, in: app)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-repeat-'")).firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["food-search-repeat-destination"].exists)
+        app.buttons["food-search-close"].tap()
+        let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(repeatButton, in: app)
         XCTAssertTrue(repeatButton.label.contains("37,5 g"))
-        let destination = app.staticTexts["food-search-repeat-destination"]
+        let destination = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-destination-'")).firstMatch
         XCTAssertTrue(destination.exists)
         XCTAssertTrue(destination.label.contains("Frokost"))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Nylig brukt – gjenlogging med stor tekst"
+        screenshot.name = "Loggfør igjen – hurtigmeny med stor tekst"
         screenshot.lifetime = .keepAlways
         add(screenshot)
         repeatButton.tap()

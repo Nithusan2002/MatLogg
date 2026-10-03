@@ -17,6 +17,7 @@ struct RawMaterialsSearchView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Lukk") { dismiss() }.foregroundColor(AppColors.action)
+                        .accessibilityIdentifier("food-search-close")
                 }
             }
         }

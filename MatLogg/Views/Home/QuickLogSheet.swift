@@ -6,8 +6,8 @@ struct QuickLogSheet: View {
     @EnvironmentObject private var viewModel: QuickLogViewModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var logViewModel: LogViewModel
     @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
-    @State private var selectedProduct: Product?
     @State private var selectedSavedMeal: SavedMeal?
     @State private var showAllSavedMeals = false
 
@@ -48,6 +48,10 @@ struct QuickLogSheet: View {
 
                 mealPicker
 
+                if !viewModel.isLoading && viewModel.errorMessage == nil && !viewModel.recentFoods.isEmpty {
+                    repeatSection
+                }
+
                 savedMealsSection
 
                 if viewModel.isLoading {
@@ -69,7 +73,7 @@ struct QuickLogSheet: View {
                             .frame(minHeight: 44)
                     }
                     .frame(maxWidth: .infinity, minHeight: 120)
-                } else if viewModel.products.isEmpty {
+                } else if viewModel.additionalProducts.isEmpty && viewModel.recentFoods.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         quickProductsHeading
                         VStack(spacing: 10) {
@@ -86,10 +90,10 @@ struct QuickLogSheet: View {
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
-                        quickProductsHeading
+                        if !viewModel.additionalProducts.isEmpty { quickProductsHeading }
                         LazyVStack(spacing: 10) {
-                            ForEach(viewModel.products) { product in
-                                Button { selectedProduct = product } label: {
+                            ForEach(viewModel.additionalProducts) { product in
+                                Button { viewModel.selectedQuickProduct = product } label: {
                                     HStack(spacing: 12) {
                                         Text(String(product.name.prefix(1)).uppercased())
                                             .font(AppTypography.bodyEmphasis)
@@ -100,7 +104,7 @@ struct QuickLogSheet: View {
                                             Text(product.name)
                                                 .font(AppTypography.bodyEmphasis)
                                                 .foregroundColor(AppColors.deepInk)
-                                                .lineLimit(1)
+                                                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                                             Text(productSubtitle(product))
                                                 .font(AppTypography.caption)
                                                 .foregroundColor(AppColors.textSecondary)
@@ -114,6 +118,7 @@ struct QuickLogSheet: View {
                                     .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(viewModel.isRepeating)
                             }
                         }
                     }
@@ -125,7 +130,11 @@ struct QuickLogSheet: View {
         }
         .background(AppColors.background.ignoresSafeArea())
         .task(id: authViewModel.currentUser?.id) { await loadContent() }
-        .sheet(item: $selectedProduct) { product in
+        .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onDisappear { viewModel.invalidateRepeatPresentation() }
+        .sheet(item: $viewModel.selectedQuickProduct) { product in
             ProductDetailView(product: product, appState: appState) { payload in
                 dismiss()
                 onLogComplete(payload)
@@ -144,6 +153,78 @@ struct QuickLogSheet: View {
                 dismiss()
                 onSavedMealLogComplete()
             }
+        }
+    }
+
+    private var repeatSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Loggfør igjen")
+                .font(AppTypography.sectionTitle)
+                .foregroundStyle(AppColors.deepInk)
+                .accessibilityAddTraits(.isHeader)
+            if viewModel.isRepeating { ProgressView("Lagrer på enheten …") }
+            if let error = viewModel.logError {
+                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.action)
+            }
+            ForEach(viewModel.recentFoods) { food in
+                VStack(alignment: .leading, spacing: 8) {
+                    Button { viewModel.selectedQuickProduct = food.product } label: {
+                        HStack {
+                            Text(food.product.name)
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundStyle(AppColors.deepInk)
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Åpner mengdevalg og loggføring")
+                    if !food.canRepeat {
+                        Text("Sist logget: \(food.amountLabel)")
+                            .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    }
+                    Text("Til \(selectedMealTitle) · \(logDateLabel)")
+                        .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        .accessibilityIdentifier("quick-log-repeat-destination-\(food.id.uuidString)")
+                    Button {
+                        if food.canRepeat { repeatFood(food) }
+                        else { viewModel.selectedQuickProduct = food.product }
+                    } label: {
+                        Text(food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundStyle(AppColors.action)
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(food.canRepeat
+                        ? "Loggfør \(food.product.name), \(food.amountLabel)"
+                        : "Kontroller mengde for \(food.product.name)")
+                    .accessibilityHint("Til \(selectedMealTitle), \(logDateLabel)")
+                    .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
+                }
+                .padding(12)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+                .disabled(viewModel.isRepeating)
+            }
+        }
+    }
+
+    private func repeatFood(_ food: RecentFood) {
+        let date = appState.logSelectedDate
+        let meal = appState.selectedMealType
+        let owner = authViewModel.currentUser?.id
+        Task {
+            guard let (product, log) = await viewModel.logAgain(food, mealType: meal, date: date),
+                  authViewModel.currentUser?.id == owner,
+                  appState.logSelectedDate == date, appState.selectedMealType == meal else { return }
+            logViewModel.didPersistExternalLog()
+            dismiss()
+            onLogComplete(ReceiptPayload(product: product, amountG: Double(log.amountG),
+                                         amountUnit: log.resolvedAmountUnit, mealType: log.mealType,
+                                         loggedDate: log.loggedDate, portionSelection: log.portionSelection,
+                                         logID: log.id, ownerID: log.userId))
+            await appState.refreshSyncStatus()
         }
     }
 
@@ -182,7 +263,7 @@ struct QuickLogSheet: View {
     }
 
     private var quickProductsHeading: some View {
-        Text("Favoritter og nylig brukt")
+        Text("Andre hurtigvalg")
             .font(AppTypography.sectionTitle)
             .foregroundStyle(AppColors.deepInk)
             .accessibilityAddTraits(.isHeader)

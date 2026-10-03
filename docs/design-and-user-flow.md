@@ -146,9 +146,10 @@ mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller inns
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
 Private produkter fra andre profiler er ikke søkbare.
 
-«Nylig brukt» viser siste registrering per matvare for aktiv profil, med synlig
-mengde/enhet og en egen «Loggfør [mengde]»-knapp. Valgt måltid og dato vises
-over listen og forblir synlig under rulling. Trykk på selve varen åpner fortsatt produktkortet.
+«Nylig brukt» i Søk viser kompakte produktrader som åpner produktkortet.
+Hurtiglogging ligger under «Loggfør igjen» i Loggfør-menyen, med siste
+registrerte mengde/enhet og valgt måltid og dato ved hver loggeknapp.
+Disse varene gjentas ikke under «Andre hurtigvalg»; der beholdes øvrige favoritter.
 Ved tilgjengelighetstekst ruller søkekontrollene sammen med listen, slik at
 kontrollene ikke skyver Nylig brukt utenfor tilgjengelig skjermplass.
 Framtidige registreringer brukes ikke som gjenloggingsgrunnlag. Ved like
@@ -557,7 +558,8 @@ Eksisterende tokens, tabbar-clearance og systemdeling beholdes.
 ### Bearbeidingsgrad på produktkortet (2026-10-03)
 
 OFF-produkter viser en kompakt, trykkbar NOVA-rad før måltidsvalget.
-Gruppenavn og kildebasert status vises uten helsescore eller fargegradering.
+Gruppenavn og kildebasert status vises uten helsescore. Klassifiseringsraden
+bruker dempet grønn/rød bakgrunn som beskrevet nedenfor.
 Raden åpner et stort, rullbart forklaringsark med produktnavn, status,
 tilgjengelig norsk grunnlag, ingredienser og produktlenke. Arket har Lukk
 og støtter sveip for lukking. Mengde og måltid bevares. Ukjente markører
@@ -614,9 +616,37 @@ Plusspoengtotalen endres ikke.
 NOVA-raden heter «Er maten ultraprosessert?» og viser kildebasert status:
 «Ikke klassifisert som ultraprosessert» for NOVA 1–3, «Klassifisert som
 ultraprosessert» for NOVA 4 og «Klassifisering mangler» for ukjent/ugyldig gruppe.
-Nøytral farge, fleksibel høyde og full tekst bevarer ro og tilgjengelighet.
+Raden bruker dempet grønn bakgrunn for NOVA 1–3, dempet rød for NOVA 4
+og nøytral bakgrunn ved manglende/ugyldig klassifisering. Fargene gjelder bare
+klassifiseringsraden, ikke hele produktkortet eller samlet næringskvalitet.
+Semantiske tokens støtter lys og mørk modus; fleksibel høyde og full tekst
+bevarer tilgjengelighet.
 Arket «Ultraprosessert mat» viser produkt, status, gruppeforklaring, avgrensning
 mot næringskvalitet, «Hva bygger vurderingen på?», ingredienser, utfellbar
 NOVA-forklaring, kilde, hentetidspunkt og produktlenke. Markører knyttes til
 aktuell gruppe; ukjent grunnlag gjettes aldri. Gyldig gruppe beholdes selv om
 forklarende markører mangler. Åpning krever ingen IO og bevarer loggingstilstand.
+
+### Samlet loggingkort på produktdetaljer (2026-10-03)
+
+Måltid og mengde vises på én kortflate med tydelige deloverskrifter og en
+diskret intern skillelinje. Måltidsvalg bruker fire knapper med lik bredde i
+et rutenett med to kolonner, valgt måltid i dempet rosa. Dato vises under
+Måltid. Mengdevelger, porsjonsgrunnlag, total mengde og «Næringsinnhold for
+din mengde» følger under. Full tekst og fleksibel høyde beholdes ved stor
+skrift. Den faste «Legg til»-knappen bruker fortsatt valgt måltid.
+
+### Prioritering på produktdetaljer (2026-10-03)
+
+Produktbilde (160 pt), fullt produktnavn og tilgjengelig merke kommer først.
+Loggingkortet følger med mengde, næringsinnhold og deretter måltid/dato.
+Valgt måltid har både rosa bakgrunn og hake. Produktinformasjon kommer etter
+logging og samler utfellbart næringsinnhold per 100 g/ml, Nutri-Score og NOVA
+(de to siste når OFF-metadata er tilgjengelige). Kilde, hentetid og
+oppdateringshandling følger under. Den faste lagreknappen viser måltid og
+total mengde. Eksisterende datagrunnlag, validering og lagring beholdes.
+
+Mengdevelgeren har en ramme rundt valgt porsjon/enhet og nedoverpil.
+Antall vises til venstre for en samlet kontroll med minus, tallfelt og pluss.
+Ved tilgjengelighetsstørrelser vises etiketten over kontrollgruppen. Generisk
+«portion» vises som «Porsjon»; råverdi og lagret porsjonsgrunnlag beholdes.

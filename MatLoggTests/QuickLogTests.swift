@@ -4,6 +4,21 @@ import Testing
 
 @MainActor
 struct QuickLogTests {
+    @Test func repeatChoicesKeepUnloggedFavoritesWithoutDuplicatingRecentFoods() async {
+        let repository = QuickLibraryStub()
+        let recent = product("Nylig vare"), favorite = product("Ulogget favoritt"), owner = UUID()
+        let log = FoodLog(userId: owner, productId: recent.id, mealType: "frokost", amountG: 150,
+                          loggedDate: Date(), calories: 150, proteinG: 3, carbsG: 15, fatG: 6)
+        repository.library = FoodSearchLibrary(products: [], recent: [recent], favorites: [recent, favorite],
+                                               suggestions: [], recentFoods: [RecentFood(product: recent, log: log)])
+        let model = QuickLogViewModel(repository: repository)
+        await model.load(userId: owner)
+        #expect(model.recentFoods.map(\.id) == [recent.id])
+        #expect(model.additionalProducts.map(\.id) == [favorite.id])
+        model.reset()
+        #expect(model.recentFoods.isEmpty && model.additionalProducts.isEmpty)
+    }
+
     @Test func localQuickChoicesKeepFavoritesFirstAndDeduplicateRecentItems() async {
         let repository = QuickLibraryStub()
         let favorite = product("Favoritt")

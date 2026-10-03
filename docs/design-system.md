@@ -297,3 +297,9 @@ sveiping, skalerbar typografi og matLoggTabBarScrollClearance().
 pluss-/minusbidrag til Nutri-Score, ikke matens trygghet eller teknisk status.
 Tekst, poengtall og kortbakgrunn forblir nøytrale. Begge tokens har egne
 lys-/mørkmodusverdier; teksten forklarer alltid signalet uten farge.
+
+NOVA-raden bruker `processingNonUltraSurface` (lys `#E7F4EC`, mørk
+`#20352B`) for NOVA 1–3 og `processingUltraSurface` (lys `#FBE9E7`,
+mørk `#3D2728`) for NOVA 4. Ukjent klassifisering bruker `mutedSurface`.
+Dette er kildebasert bearbeidingsklassifisering, ikke en helsescore; full
+statustekst og forklaring beholdes. Radens tekst og pil bruker `ink` for kontrast.

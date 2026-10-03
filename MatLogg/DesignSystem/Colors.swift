@@ -10,6 +10,9 @@ enum AppColors {
     static let brand = Color(UIColor.appBrand)
     static let accent = Color(UIColor.appAccent)
     static let success = Color(UIColor.appSuccess)
+    // Source classification only; these colors do not express nutritional quality.
+    static let processingNonUltraSurface = Color(UIColor.appProcessingNonUltraSurface)
+    static let processingUltraSurface = Color(UIColor.appProcessingUltraSurface)
     static let info = Color(UIColor.appInfo)
     // Nutri-Score calculation contributions; not food safety or technical status.
     static let nutritionPositiveContribution = Color(UIColor.appNutritionPositiveContribution)
@@ -57,6 +60,8 @@ private extension UIColor {
     static let appBrand = UIColor.dynamic(light: 0xFF5268, dark: 0xFF7182)
     static let appAccent = UIColor.dynamic(light: 0xFFBF3F, dark: 0xFFD06D)
     static let appSuccess = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)
+    static let appProcessingNonUltraSurface = UIColor.dynamic(light: 0xE7F4EC, dark: 0x20352B)
+    static let appProcessingUltraSurface = UIColor.dynamic(light: 0xFBE9E7, dark: 0x3D2728)
     static let appInfo = UIColor.dynamic(light: 0x35B8F4, dark: 0x62C9FA)
     static let appNutritionPositiveContribution = UIColor.dynamic(light: 0x16844A, dark: 0x63D493)
     static let appNutritionNegativeContribution = UIColor.dynamic(light: 0xC83E47, dark: 0xFF8790)

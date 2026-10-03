@@ -9,9 +9,15 @@ struct APIServiceTests {
         for group: Int? in [nil, 0, 1, 2, 3, 4, 9] {
             let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: group, markers: [:], ingredients: nil))
             switch group {
-            case 1, 2, 3: #expect(presentation.status == "Ikke klassifisert som ultraprosessert")
-            case 4: #expect(presentation.status == "Klassifisert som ultraprosessert")
-            default: #expect(presentation.status == "Klassifisering mangler")
+            case 1, 2, 3:
+                #expect(presentation.status == "Ikke klassifisert som ultraprosessert")
+                #expect(presentation.isUltraProcessed == false)
+            case 4:
+                #expect(presentation.status == "Klassifisert som ultraprosessert")
+                #expect(presentation.isUltraProcessed == true)
+            default:
+                #expect(presentation.status == "Klassifisering mangler")
+                #expect(presentation.isUltraProcessed == nil)
             }
         }
         let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: 3,

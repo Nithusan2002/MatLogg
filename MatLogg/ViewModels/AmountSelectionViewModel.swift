@@ -57,6 +57,10 @@ final class AmountSelectionViewModel: ObservableObject {
     }
 
     var isValid: Bool { amount != nil && (selectedServing == nil || portion != nil) }
+    var amountSummary: String? {
+        guard isValid, let amount else { return nil }
+        return PortionDisplay.amount(amount, unit: unit, portion: portion)
+    }
     var canDecrease: Bool { isValid && (value ?? 0) > 1 }
     var canIncrease: Bool {
         guard isValid, let value, let serving = selectedServing else { return false }

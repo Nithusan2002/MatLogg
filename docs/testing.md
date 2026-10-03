@@ -270,14 +270,15 @@ redigering fra Hjem med kontroll av flytting til Lunsj.
 Testene bruker egne kontroll-ID-er slik at favoritt- og lagreknapper ikke
 forveksles. Fysisk skanning og VoiceOver kontrolleres før pilot.
 
-### Gjenlogging fra Nylig brukt
+### Loggfør igjen i hurtigmenyen
 
 `RepeatFoodTests` dekker profilfiltrering, framtidige registreringer, stabil
 sortering, eksakt g/ml, gjeldende næringsdata, porsjonssnapshot og kontroll ved
 endret grunnlag. Testene dekker også atomisk rollback ved hendelsesfeil,
 retry, raske dobbelttrykk, kontekst-/profilbytte og Angre med eksakt logg-ID.
 `RepeatFoodUITests/testRepeatPortionAndUndoKeepsOriginalLog` kontrollerer
-synlig mengde/destinasjon, direkte gjenlogging og bevart original etter Angre
+kompakte nylige varer i Søk, synlig mengde/destinasjon i Loggfør-menyen,
+direkte gjenlogging og bevart original etter Angre
 med største tilgjengelighetstekst.
 
 Målrettet kjøring: `xcodebuild test` med scheme `MatLogg`, en egen QA-simulator,

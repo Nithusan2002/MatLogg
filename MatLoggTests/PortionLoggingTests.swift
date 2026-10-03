@@ -5,6 +5,29 @@ import Testing
 
 @MainActor
 struct PortionLoggingTests {
+    @Test func understandableAmountSummaryTracksSelectionAndInvalidInput() {
+        let serving = ServingOption(label: "1 beger · 150 g", grams: 150, source: .user,
+                                    kind: .piece, shortLabel: "beger")
+        let model = AmountSelectionViewModel(unit: .grams, servings: [serving])
+        model.select(serving)
+        #expect(model.amountSummary == "1 beger · 150 g")
+        model.text = "0,5"
+        #expect(model.amountSummary == "0,5 beger · 75 g")
+        model.select(nil)
+        #expect(model.amountSummary == "75 g")
+        model.text = "0"
+        #expect(model.amountSummary == nil)
+        let liquid = AmountSelectionViewModel(unit: .milliliters, amount: 250)
+        #expect(liquid.amountSummary == "250 ml")
+    }
+
+    @Test func documentedSingularNamesRemainConservative() {
+        #expect(ServingOption.documentedLabel("1 beger · 150 g") == "beger")
+        #expect(ServingOption.documentedLabel("1 beger (150 g)") == "beger")
+        #expect(ServingOption.documentedLabel("2 beger · 300 g") == "porsjon")
+        #expect(ServingOption.documentedLabel("150 g") == "porsjon")
+        #expect(ServingOption.documentedLabel("1 · 150 g") == "porsjon")
+    }
     private func serving(_ amount: Double = 37.5, unit: AmountUnit = .grams) -> ServingOption {
         ServingOption(label: "1 Polarbrød (37,5 g)", grams: amount, unit: unit,
                       source: .openFoodFacts, kind: .piece, shortLabel: "Polarbrød")

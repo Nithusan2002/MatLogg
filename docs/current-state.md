@@ -20,10 +20,11 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 
 Sist kontrollert mot kode: 2026-10-02.
 
-### Gjenlogging fra Nylig brukt – 2026-10-03
+### Loggfør igjen i hurtigmenyen – 2026-10-03
 
-Nylig brukt har en egen loggeknapp med siste faktiske mengde og enhet for
-aktiv profil. Valgt måltid og dato vises før handlingen. Framtidige logger
+Loggfør-menyen har «Loggfør igjen» med siste faktiske mengde og enhet for
+aktiv profil. Søk beholder kompakte nylige produkter som åpner produktkortet.
+Valgt måltid og dato vises ved loggeknappen. Framtidige logger
 utelates; endret enhet eller porsjonsgrunnlag åpner mengdekontroll.
 Gjenlogging beregner næring fra lokale produktdata og lagrer ny logg og
 canonical hendelse atomisk. Angre bruker eksakt logg-ID og profil.
@@ -32,8 +33,9 @@ Ingen migrasjon, synkkontraktsendring eller opplasting er innført.
 Verifisert med 34 målrettede Swift-tester (`RepeatFoodTests`, `FoodSearchTests`,
 `QuickLogTests`, `LogViewModelTests`) og én UI-test for direkte porsjonslogging
 og Angre med største tilgjengelighetstekst på iPhone 17 Pro / iOS 26.5.
-Etter siste UI-/oppdateringsendring ble de 20 gjenlogging-/loggtestene og
-UI-testen kjørt igjen og bestod. Fysisk iPhone og manuell VoiceOver gjenstår.
+Flyttingen til hurtigmenyen er verifisert med 21 målrettede tester på tvers av
+`RepeatFoodTests`, `FoodSearchTests` og `QuickLogTests`, samt UI-testen for
+kompakt Søk, gjenlogging og Angre. Fysisk iPhone og manuell VoiceOver gjenstår.
 
 Synk-/recovery-oppfølgingen 2026-10-02 inkluderer nye målrettede tester og
 faktisk staging-kontroll. Øvrige resultater gjelder datoen og omfanget som er

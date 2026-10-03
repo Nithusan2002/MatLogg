@@ -9,17 +9,26 @@ struct PortionAmountInput: View {
             Menu {
                 Button(model.unit.spokenName) { model.select(nil) }
                 ForEach(model.servings) { serving in
-                    Button(serving.label) { model.select(serving) }
+                    Button(displayLabel(serving.label)) { model.select(serving) }
                 }
                 if let selected = model.selectedServing, !model.servings.contains(where: { $0.id == selected.id }) {
-                    Button("\(selected.portionLabel) (lagret grunnlag)") { model.select(selected) }
+                    Button("\(displayLabel(selected.portionLabel)) (lagret grunnlag)") { model.select(selected) }
                 }
             } label: {
                 HStack {
                     Text("Mengde")
                     Spacer()
-                    Text(model.selectedServing?.portionLabel ?? model.unit.spokenName)
-                    Image(systemName: "chevron.down")
+                    HStack(spacing: 8) {
+                        Text(displayLabel(model.selectedServing?.portionLabel ?? model.unit.spokenName))
+                        Image(systemName: "chevron.down")
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .background(AppColors.surface)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(AppColors.controlBorder, lineWidth: 1)
+                    }
                 }
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
@@ -28,37 +37,60 @@ struct PortionAmountInput: View {
             .accessibilityLabel("Velg mengdeenhet")
             .accessibilityIdentifier("portion-unit-picker")
 
-            if dynamicTypeSize.isAccessibilitySize {
-                amountField
-                if model.selectedServing != nil {
-                    HStack {
-                        decreaseButton
-                        Spacer()
-                        increaseButton
+            if model.selectedServing != nil {
+                if dynamicTypeSize.isAccessibilitySize {
+                    countLabel
+                    countControls
+                } else {
+                    HStack(spacing: 8) {
+                        countLabel
+                        Spacer(minLength: 8)
+                        countControls
                     }
                 }
             } else {
-                HStack {
-                    if model.selectedServing != nil { decreaseButton }
-                    amountField
-                    if model.selectedServing != nil { increaseButton }
-                }
+                amountField
             }
             if let serving = model.selectedServing {
-                Text("\(PortionDisplay.number(serving.grams)) \(model.unit.rawValue) per \(serving.portionLabel)")
+                Text("\(PortionDisplay.number(serving.grams)) \(model.unit.rawValue) per \(displayLabel(serving.portionLabel).lowercased())")
                     .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 Text(sourceLabel(serving.source))
                     .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                if let amount = model.amount {
-                    Text("Totalt: \(PortionDisplay.number(amount)) \(model.unit.rawValue)")
-                        .font(AppTypography.body)
-                        .accessibilityIdentifier("portion-total")
-                }
+            }
+            if let summary = model.amountSummary {
+                Text(summary)
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundStyle(AppColors.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Valgt mengde: \(summary)")
+                    .accessibilityIdentifier("portion-total")
             }
             if !model.isValid {
                 Text("Skriv en gyldig mengde. Totalen må være større enn 0 og høyst 10 000 \(model.unit.rawValue).")
                     .font(AppTypography.caption).foregroundStyle(AppColors.action)
             }
+        }
+    }
+
+    // Normalize generic source wording only for display; preserve the stored label.
+    private func displayLabel(_ raw: String) -> String {
+        switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "portion", "porsjon": return "Porsjon"
+        default: return raw
+        }
+    }
+
+    private var countLabel: some View {
+        Text("Antall")
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.ink)
+    }
+
+    private var countControls: some View {
+        HStack(spacing: 4) {
+            decreaseButton
+            AmountInputRow(title: "Antall", gramsText: $model.text, unit: "", showsTitle: false)
+            increaseButton
         }
     }
 

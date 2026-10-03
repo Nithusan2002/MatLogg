@@ -84,7 +84,7 @@ final class PortionLoggingUITests: XCTestCase {
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         reveal(increase, in: app)
         increase.tap()
-        XCTAssertTrue(app.staticTexts["Totalt: 75 g"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2 Polarbrød · 75 g"].waitForExistence(timeout: 5))
         app.buttons["product-log-save"].tap()
         let two = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS '2 Polarbrød'")).firstMatch
         reveal(two, in: app)
@@ -95,10 +95,10 @@ final class PortionLoggingUITests: XCTestCase {
         openBreakfast(app)
         reveal(two, in: app)
         two.tap()
-        XCTAssertTrue(app.staticTexts["Totalt: 75 g"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2 Polarbrød · 75 g"].waitForExistence(timeout: 5))
         reveal(increase, in: app)
         increase.tap()
-        reveal(app.staticTexts["Totalt: 112,5 g"], in: app)
+        reveal(app.staticTexts["3 Polarbrød · 112,5 g"], in: app)
         app.buttons["Lagre endringer"].tap()
         let three = app.buttons[loggedRowID]
         reveal(three, in: app)

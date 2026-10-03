@@ -65,7 +65,7 @@ extension ServingOption {
         // Only an explicit singular unit prefix is normalized; plural/multiple units stay generic.
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.hasPrefix("1 ") else { return "porsjon" }
-        let name = trimmed.dropFirst(2).split(separator: "(", maxSplits: 1).first
+        let name = trimmed.dropFirst(2).split(whereSeparator: { $0 == "(" || $0 == "·" }).first
             .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
         guard !name.isEmpty, !name.contains(where: { $0.isNumber }), name.count <= 80 else { return "porsjon" }
         return name

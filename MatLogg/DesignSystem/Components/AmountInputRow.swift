@@ -6,28 +6,32 @@ struct AmountInputRow: View {
     let unit: String
     let placeholder: String
     let onFocus: (() -> Void)?
+    let showsTitle: Bool
     
     init(
         title: String = "Mengde",
         gramsText: Binding<String>,
         unit: String = "g",
         placeholder: String = "0",
-        onFocus: (() -> Void)? = nil
+        onFocus: (() -> Void)? = nil,
+        showsTitle: Bool = true
     ) {
         self.title = title
         self._gramsText = gramsText
         self.unit = unit
         self.placeholder = placeholder
         self.onFocus = onFocus
+        self.showsTitle = showsTitle
     }
     
     var body: some View {
         HStack(spacing: 10) {
-            Text(title)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.ink)
-            
-            Spacer()
+            if showsTitle {
+                Text(title)
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.ink)
+                Spacer()
+            }
             
             SelectAllTextField(text: $gramsText, placeholder: placeholder, onFocus: onFocus)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
@@ -45,9 +49,11 @@ struct AmountInputRow: View {
                 .accessibilityLabel(title)
                 .accessibilityValue("\(gramsText) \(unit)")
             
-            Text(unit)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.textSecondary)
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
+            }
         }
     }
 }

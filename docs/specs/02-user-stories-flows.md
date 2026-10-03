@@ -460,6 +460,8 @@ Acceptance Criteria:
 
 - Velg en dokumentert porsjon eller hel pakke og angi antall med felt eller −/+.
 - Eksempel: 2 × 37,5 g vises som 75 g og lagres med antall og historisk grunnlag.
+- Mengdevalget viser en samlet oppsummering, for eksempel «1 beger · 150 g»
+  eller «2 Polarbrød · 75 g», før logging. Direkte mengde viser g/ml.
 - Antall, kilde/enhet og næring bevares etter omstart og ved redigering.
 - Direkte gram/ml fungerer for varer uten egnet porsjonsgrunnlag.
 - Egne nye porsjoner er utenfor dette leveransescope-et.

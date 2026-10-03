@@ -3,7 +3,13 @@ import Combine
 
 @MainActor
 final class QuickLogViewModel: ObservableObject {
+    @Published private(set) var recentFoods: [RecentFood] = []
+    @Published private(set) var isRepeating = false
+    @Published private(set) var logError: String?
+    @Published var selectedQuickProduct: Product?
+    private var repeatID = UUID()
     @Published private(set) var products: [Product] = []
+    @Published private(set) var additionalProducts: [Product] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published var selectedManualProduct: Product?
@@ -17,6 +23,10 @@ final class QuickLogViewModel: ObservableObject {
     func reset() {
         requestID = UUID()
         products = []
+        additionalProducts = []
+        recentFoods = []
+        selectedQuickProduct = nil
+        invalidateRepeatPresentation()
         owner = nil
         pendingManualProduct = nil
         selectedManualProduct = nil
@@ -37,8 +47,38 @@ final class QuickLogViewModel: ObservableObject {
         pendingManualProduct = nil
     }
 
+    func invalidateRepeatPresentation() {
+        repeatID = UUID()
+        logError = nil
+    }
+
+    func logAgain(_ food: RecentFood, mealType: String, date: Date) async -> (Product, FoodLog)? {
+        guard !isRepeating, let owner, food.log.userId == owner else { return nil }
+        let request = UUID()
+        repeatID = request
+        isRepeating = true
+        logError = nil
+        defer { isRepeating = false }
+        do {
+            let outcome = try await repository.logAgain(food, owner: owner, mealType: mealType, date: date)
+            guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
+            switch outcome {
+            case .logged(let product, let log): return (product, log)
+            case .review(let product):
+                selectedQuickProduct = product
+                return nil
+            }
+        } catch {
+            guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
+            logError = "Kunne ikke lagre på enheten. Prøv igjen."
+            return nil
+        }
+    }
+
     func load(userId: UUID?) async {
         if owner != userId {
+            invalidateRepeatPresentation()
+            selectedQuickProduct = nil
             pendingManualProduct = nil
             selectedManualProduct = nil
         }
@@ -50,10 +90,15 @@ final class QuickLogViewModel: ObservableObject {
         do {
             let library = try await repository.loadLocalLibrary(owner: userId)
             guard requestID == request, !Task.isCancelled else { return }
+            recentFoods = library.recentFoods
             products = Array(FoodSearchMatcher.unique(library.favorites + library.recent).prefix(8))
+            let repeatedIDs = Set(recentFoods.map(\.id))
+            additionalProducts = products.filter { !repeatedIDs.contains($0.id) }
         } catch {
             guard requestID == request, !Task.isCancelled else { return }
             products = []
+            additionalProducts = []
+            recentFoods = []
             errorMessage = "Kunne ikke hente hurtigvalg. Prøv igjen."
         }
         isLoading = false
