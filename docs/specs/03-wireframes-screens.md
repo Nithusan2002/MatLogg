@@ -13,7 +13,7 @@
 │ MatLogg Root (TabView)                  │
 ├─────────────────────────────────────────┤
 │ Tab 1: HJEM (dagsstatus og måltider)    │
-│ Tab 2: SØK (råvarer, nylig, favoritter) │
+│ Tab 2: SØK (favoritter, nylig brukt) │
 │ Tab 3: LEGG TIL (handlingsmeny)         │
 │ Tab 4: OVERSIKT (uke, makroer og utvikling) │
 │ Tab 5: PROFIL (mål, trygghet og konto)  │
@@ -85,7 +85,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting.
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
-- Søk-fanen har direkte søk, favoritter og nylig loggede varer. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
+- Søk-fanen har direkte søk, favoritter og nylig loggede varer. Tomme seksjoner skjules; uten historikk eller favoritter vises «Søk etter en matvare for å komme i gang.», også ved første logging. Råvarer vises kun som søkeresultater. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
 - Måltidskortene på Hjem og produktradene i dagsloggens måltidsvisning viser 52 pt produktbilder med 2 pt innvendig luft fra produktets lagrede bilde-URL eller lokale bilde, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon i samme ramme; måltidenes fargede bokstavmarkører beholdes. Søkeresultater beholder kompakte bilder.
 - Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.

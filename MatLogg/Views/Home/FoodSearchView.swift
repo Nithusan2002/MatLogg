@@ -235,7 +235,7 @@ private struct FoodSearchContent: View {
             if viewModel.isLoading {
                 Section { ProgressView("Henter matvarer …").frame(maxWidth: .infinity, minHeight: 80) }
             } else {
-                if viewModel.isLoadingCatalog {
+                if viewModel.isLoadingCatalog && viewModel.hasQuery {
                     Section { ProgressView("Henter flere matvarer …") }
                 }
                 if let error = viewModel.loadError {
@@ -252,9 +252,6 @@ private struct FoodSearchContent: View {
                 }
                 if viewModel.hasQuery {
                     results
-                } else if isFirstLog {
-                    Section("Velg en matvare") { productRows(viewModel.suggestions) }
-                        .listRowBackground(AppColors.surface)
                 } else {
                     library
                 }
@@ -269,27 +266,27 @@ private struct FoodSearchContent: View {
 
     @ViewBuilder
     private var library: some View {
-        Section("Favoritter") {
-            if viewModel.favorites.isEmpty {
-                Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
-                    .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
-            } else {
-                productRows(viewModel.favorites, context: "favorite")
+        if viewModel.favorites.isEmpty && viewModel.recent.isEmpty {
+            Section {
+                Text("Søk etter en matvare for å komme i gang.")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
+                    .accessibilityIdentifier("food-search-empty-library")
             }
-        }
-        .listRowBackground(AppColors.surface)
-        Section("Nylig brukt") {
-            if viewModel.recent.isEmpty {
-                Text("Matvarer du loggfører vises her neste gang.")
-                    .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
-            } else {
-                productRows(viewModel.recent, context: "recent")
-            }
-        }
-        .listRowBackground(AppColors.surface)
-        if !viewModel.suggestions.isEmpty {
-            Section("Råvarer") { productRows(viewModel.suggestions) }
+            .listRowBackground(AppColors.surface)
+        } else {
+            if !viewModel.favorites.isEmpty {
+                Section("Favoritter") {
+                    productRows(viewModel.favorites, context: "favorite")
+                }
                 .listRowBackground(AppColors.surface)
+            }
+            if !viewModel.recent.isEmpty {
+                Section("Nylig brukt") {
+                    productRows(viewModel.recent, context: "recent")
+                }
+                .listRowBackground(AppColors.surface)
+            }
         }
     }
 

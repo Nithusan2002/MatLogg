@@ -135,8 +135,10 @@ Søk og Skann strekkode, før favoritter eller søkeresultater. Knappen er
 tilgjengelig i alle søketilstander og bruker samme høyde og avrunding som
 handlingsknappene over.
 
-Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
-utvalg råvarer. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
+Før søk vises favoritter og inntil seks nylig **loggede** varer. Tomme
+seksjoner skjules. Uten favoritter eller historikk vises «Søk etter en matvare
+for å komme i gang.», også ved første logging. Råvarer vises først som treff
+når brukeren skriver i søkefeltet. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
 nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
 og når skjermen vises igjen.
 
