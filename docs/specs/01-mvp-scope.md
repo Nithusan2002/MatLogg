@@ -158,11 +158,11 @@ Hjem tilbyr ett trykk per glass, daglig antall, angre og fjerning av ett glass.
 Registrering følger valgt dato og lagres lokalt med atomisk synkhendelse. Ingen
 antatt glassvolum, drikkemål, påminnelser eller helseintegrasjon.
 
-## Morgensjekk (2026-10-01)
+## Morgensjekk utsatt (2026-10-03)
 
-Valgfri daglig innsjekk på Hjem med eksisterende vektregistrering, fullfør uten
-vekt, endre og hopp over dagen. Bare siste kortstatus lagres lokalt per profil.
-Se `../design-and-user-flow.md` for flyt og avgrensninger.
+Daglig innsjekk er tatt ut av Hjem inntil videre for å prioritere matlogging.
+Valgfri vektregistrering og vekthistorikk beholdes under Oversikt.
+Se `../design-and-user-flow.md` for gjeldende flyt.
 
 ### Manuelle produkter: næringsgrunnlag (2026-10-03)
 

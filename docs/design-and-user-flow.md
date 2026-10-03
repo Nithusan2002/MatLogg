@@ -74,30 +74,11 @@ Når målstatus er skjult eller mangler, skal matlogging fortsatt være like syn
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
 måloppnåelse.
 
-### Morgensjekk
+### Vektregistrering
 
-På Hjem, rett under datoen, vises én «Sjekk inn»-knapp for dagens dato,
-med samme overflate, tekstfarge, høyde og avrunding som «Skann strekkode» i Søk.
-Ingen kortoverskrift eller forklaring vises på Hjem. «Sjekk inn» åpner et ark med valgfri vekt i kg og «Ferdig».
-Vektfeltet åpner den samme linjalvelgeren som profil og onboarding, med tekst
-om lagring i vekthistorikken. «Bruk verdi» fyller bare innsjekkutkastet; Avbryt
-beholder tidligere input. Dagens registrerte vekt brukes når den finnes.
-Tomme felt fylles ikke automatisk med startverdien. «Fjern opplysningen»
-tømmer bare utkastet og sletter ikke en registrert vekt. Innsjekk
-uten vekt er tillatt. Vekt bruker eksisterende vekthistorikk og atomisk lokal
-vekt-/synkskriving; redigering beholder dagens registrerings-ID. Mål og
-personlige detaljer endres ikke. Tomt felt sletter ikke tidligere vekt.
-
-Etter vellykket fullføring viser knappen en hake og «Sjekket inn i dag»,
-og åpner dagens innsjekk for redigering. Neste dag vises «Sjekk inn» igjen.
-VoiceOver leser den synlige statusen én gang. «Hopp over i dag»
-skjuler kortet resten av dagen. Avbryt endrer ingenting. Kortstatus er en lokal
-visningspreferanse per profil med bare siste dato/status, uten synk eller
-historikk. Ny dag tilbyr ny innsjekk. Kortet er tilgjengelig hele dagen og
-vises ikke på andre valgte datoer. Ingen popup, påminnelser, streaks,
-dagsintensjon eller nye helsefelt inngår. Store tekststørrelser bruker vertikal
-layout; alle handlinger har minst 44 punkters trykkflate og vektfeltet har
-VoiceOver-tekst med enhet. Lagringsfeil beholder input og tilbyr nytt forsøk.
+«Sjekk inn» er tatt ut av Hjem inntil videre (2026-10-03). Vekt registreres
+valgfritt under Oversikt → Registrer vekt. Eksisterende vekthistorikk beholdes;
+endringen påvirker ikke mål eller lagring. Ingen daglig innsjekk tilbys.
 
 ### Dagslogg
 
@@ -275,7 +256,7 @@ Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i p
 foran eventuelt navn fra kontoen. Eksisterende profiler uten fødselsdato
 beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldige tall avvises ved feltet, og lagringsfeil beholder
 utkastet på skjermen. «Vekt brukt i målforslag» er beregningsgrunnlag, ikke en vektregistrering.
-Sjekk inn og Oversikt bruker «Registrer vekt» for vekthistorikken.
+Oversikt bruker «Registrer vekt» for vekthistorikken.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
 

@@ -86,7 +86,7 @@ struct PersonalDetailsView: View {
                         }
                     }
 
-                    Text("Vekten her brukes bare som grunnlag for målforslag. Registrer vekt i Sjekk inn eller Oversikt for å legge den til i vekthistorikken.")
+                    Text("Vekten her brukes bare som grunnlag for målforslag. Registrer vekt i Oversikt for å legge den til i vekthistorikken.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }

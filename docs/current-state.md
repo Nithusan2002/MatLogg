@@ -99,9 +99,9 @@ forblir deaktivert. Se [implementeringsplanen](portion-logging-implementation-pl
   måloppsett finnes under Profil → Daglige mål. Tidligere fullført onboarding
   bevares. Ingen nye mål opprettes automatisk.
 
-- Morgensjekk på Hjem for dagens dato: valgfri vekt i eksisterende historikk,
-  fullfør uten vekt, endre og hopp over. Siste kortstatus er lokal per profil;
-  ingen nye helsefelt, påminnelser eller endringer i synkkontrakten.
+- Morgensjekk er tatt ut av Hjem inntil videre (2026-10-03). Vektregistrering
+  og eksisterende historikk beholdes i Oversikt. Innsjekkimplementasjonen og
+  lokal status beholdes uten aktiv inngang eller opprettelse ved app-roten.
 
 - Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
   30 dagers ferskhet og manuell oppdatering på produktkortet, med separate

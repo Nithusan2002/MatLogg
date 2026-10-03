@@ -252,7 +252,6 @@ struct HomeTabView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
-    @EnvironmentObject var morningCheckInViewModel: MorningCheckInViewModel
     @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
@@ -277,9 +276,6 @@ struct HomeTabView: View {
                     homeHeader
 
                     DayNavigationBar(selection: selectedDateBinding)
-
-                    MorningCheckInView(viewModel: morningCheckInViewModel,
-                                       userId: authViewModel.currentUser?.id, date: selectedDate)
 
                     if !appState.isSyncAvailable || appState.unsyncedSyncCount > 0 {
                         Label(

@@ -15,7 +15,6 @@ struct MatLoggContent: View {
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
     @StateObject private var quickLogViewModel: QuickLogViewModel
     @StateObject private var productViewModel: ProductViewModel
-    @StateObject private var morningCheckInViewModel: MorningCheckInViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
     @StateObject private var profileFavoritesViewModel: ProfileFavoritesViewModel
     @StateObject private var personalDetailsViewModel: PersonalDetailsViewModel
@@ -91,9 +90,6 @@ struct MatLoggContent: View {
         _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
         let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
-        _morningCheckInViewModel = StateObject(wrappedValue: MorningCheckInViewModel(
-            repository: databaseService, store: UserDefaultsMorningCheckInStore(defaults: defaults)
-        ))
         _personalDetailsViewModel = StateObject(wrappedValue: PersonalDetailsViewModel(
             store: UserDefaultsPersonalDetailsStore(defaults: defaults), onSaved: healthProfile.acceptSavedPersonalDetails
         ))
@@ -246,7 +242,6 @@ struct MatLoggContent: View {
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
         .environmentObject(healthProfileViewModel)
-        .environmentObject(morningCheckInViewModel)
         .environmentObject(dailyGoalsViewModel)
         .environmentObject(personalDetailsViewModel)
         .environmentObject(profileFavoritesViewModel)
