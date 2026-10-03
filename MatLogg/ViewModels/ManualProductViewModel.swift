@@ -7,6 +7,51 @@ import SwiftUI
 @MainActor
 final class ManualProductViewModel: ObservableObject {
     static let maximumNameLength = 80
+    @Published var basis: ManualNutritionBasis = .per100g
+    @Published var servingName = ""
+    @Published var servingAmount = ""
+    @Published var servingUnit: AmountUnit = .grams
+    @Published var showBasisConfirmation = false
+    private var pendingBasis: ManualNutritionBasis?
+    private var pendingServingUnit: AmountUnit?
+
+    var nutritionContext: String {
+        guard basis == .serving else { return "per \(basis.title)" }
+        let label = servingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty, let amount = parseNumber(servingAmount), amount > 0 else {
+            return "per porsjon/stykk"
+        }
+        return "per \(label) (\(amount.formatted(.number.locale(Locale(identifier: "nb_NO")))) \(servingUnit.rawValue))"
+    }
+
+    func requestBasis(_ value: ManualNutritionBasis) {
+        guard value != basis else { return }
+        if [calories, protein, carbs, fat].contains(where: { !$0.isEmpty }) {
+            pendingServingUnit = nil
+            pendingBasis = value
+            showBasisConfirmation = true
+        } else { basis = value }
+    }
+
+    func requestServingUnit(_ value: AmountUnit) {
+        guard value != servingUnit else { return }
+        if [calories, protein, carbs, fat].contains(where: { !$0.isEmpty }) {
+            pendingBasis = nil
+            pendingServingUnit = value
+            showBasisConfirmation = true
+        } else { servingUnit = value }
+    }
+
+    func confirmBasisChange() {
+        guard pendingBasis != nil || pendingServingUnit != nil else { return }
+        calories = ""; protein = ""; carbs = ""; fat = ""
+        if let pendingBasis { basis = pendingBasis }
+        if let pendingServingUnit { servingUnit = pendingServingUnit }
+        self.pendingBasis = nil
+        self.pendingServingUnit = nil
+        errorMessage = nil
+    }
+
     @Published var name = ""
     @Published var calories = ""
     @Published var protein = ""
@@ -82,20 +127,29 @@ final class ManualProductViewModel: ObservableObject {
 
         guard let values = validatedValues() else { return nil }
 
+        let input = values.input
+        let factor = 100 / input.amount
+        let servings: [ServingOption]? = basis == .serving ? [
+            ServingOption(label: input.label ?? "Porsjon", grams: input.amount, unit: input.unit,
+                          source: .user, isDefaultSuggestion: true)
+        ] : nil
         let product = Product(
             name: values.name,
             barcodeEan: barcode,
             source: "user",
             kind: .packaged,
-            caloriesPer100g: Float(values.calories),
-            proteinGPer100g: values.protein,
-            carbsGPer100g: values.carbs,
-            fatGPer100g: values.fat,
+            caloriesPer100g: Float(input.calories * factor),
+            proteinGPer100g: Float(input.protein * factor),
+            carbsGPer100g: Float(input.carbs * factor),
+            fatGPer100g: Float(input.fat * factor),
             localImageData: productImage?.jpegData(compressionQuality: 0.75),
+            servings: servings,
             nutritionSource: .user,
             imageSource: productImage == nil ? .none : .user,
             verificationStatus: .unverified,
-            isVerified: false
+            isVerified: false,
+            manualNutritionInput: input,
+            nutritionBasis: input.unit == .grams ? .per100g : .per100ml
         )
 
         isSaving = true
@@ -122,37 +176,42 @@ final class ManualProductViewModel: ObservableObject {
             return nil
         }
 
-        guard let caloriesValue = parseNumber(calories),
-              caloriesValue.rounded() == caloriesValue,
-              (1...900).contains(caloriesValue) else {
-            errorMessage = "Energi må være et helt tall mellom 1 og 900 kcal per 100 g."
+        let unit: AmountUnit = basis == .serving ? servingUnit : (basis == .per100ml ? .milliliters : .grams)
+        let amount: Double
+        let label = servingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if basis == .serving {
+            guard !label.isEmpty, label.count <= 80,
+                  let parsed = parseNumber(servingAmount), (0.1...10000).contains(parsed) else {
+                errorMessage = "Oppgi et porsjonsnavn og en størrelse mellom 0,1 og 10 000 g/ml."
+                return nil
+            }
+            amount = parsed
+        } else { amount = 100 }
+
+        guard let caloriesValue = parseNumber(calories), caloriesValue >= 0,
+              caloriesValue * 100 / amount <= 10000 else {
+            errorMessage = "Oppgi gyldig energi i kcal \(nutritionContext)."
             return nil
         }
-
-        guard let proteinValue = parseMacro(protein),
-              let carbsValue = parseMacro(carbs),
-              let fatValue = parseMacro(fat) else {
-            errorMessage = "Oppgi protein, karbohydrat og fett mellom 0 og 100 g per 100 g."
+        guard let proteinValue = parseNumber(protein), proteinValue >= 0,
+              let carbsValue = parseNumber(carbs), carbsValue >= 0,
+              let fatValue = parseNumber(fat), fatValue >= 0,
+              [proteinValue, carbsValue, fatValue].allSatisfy({ $0 * 100 / amount <= 10000 }) else {
+            errorMessage = "Oppgi gyldige verdier for protein, karbohydrat og fett \(nutritionContext)."
             return nil
         }
-
-        guard proteinValue + carbsValue + fatValue <= 100 else {
-            errorMessage = "Protein, karbohydrat og fett kan til sammen ikke overstige 100 g per 100 g."
+        // Mass bounds apply only to grams; volume says nothing about product density.
+        if unit == .grams, proteinValue + carbsValue + fatValue > amount {
+            errorMessage = "Protein, karbohydrat og fett kan til sammen ikke overstige \(amount.formatted(.number.locale(Locale(identifier: "nb_NO")))) g \(nutritionContext)."
             return nil
         }
-
-        return ValidatedValues(
-            name: trimmedName,
-            calories: Int(caloriesValue),
-            protein: Float(proteinValue),
-            carbs: Float(carbsValue),
-            fat: Float(fatValue)
-        )
-    }
-
-    private func parseMacro(_ value: String) -> Double? {
-        guard let number = parseNumber(value), (0...100).contains(number) else { return nil }
-        return number
+        if unit == .grams, caloriesValue * 100 / amount > 900 {
+            errorMessage = "Energi kan ikke overstige 900 kcal per 100 g."
+            return nil
+        }
+        return ValidatedValues(name: trimmedName, input: ManualNutritionInput(
+            basis: basis, amount: amount, unit: unit, label: basis == .serving ? label : nil,
+            calories: caloriesValue, protein: proteinValue, carbs: carbsValue, fat: fatValue))
     }
 
     private func parseNumber(_ value: String) -> Double? {
@@ -166,8 +225,5 @@ final class ManualProductViewModel: ObservableObject {
 
 private struct ValidatedValues {
     let name: String
-    let calories: Int
-    let protein: Float
-    let carbs: Float
-    let fat: Float
+    let input: ManualNutritionInput
 }

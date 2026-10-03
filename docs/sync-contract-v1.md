@@ -86,3 +86,13 @@ inneholder `id`. Eier hentes fra tokenet, og inbox og glass skrives atomisk.
 Servermigrasjon og Edge Function må oppdateres før klienten sender vannevents.
 Eldre servere avviser den nye typen; aktiver derfor ikke synk før utrulling og
 kontrakt-/integrasjonstester er godkjent. Opplasting gir ingen toveis synk.
+
+## Produktets næringsgrunnlag (2026-10-03)
+
+`product.upsert` har additive valgfrie `nutritionBasis` (per100g/per100ml),
+`servings` og `manualNutritionInput` (basis, amount, unit, label og rå kcal/makroer).
+Historisk `nutrientsPer100g` inneholder per-100-verdier i eksplisitt grunnlag;
+fravær av grunnlag betyr per100g for eldre klienter. Serveren lagrer metadata
+atomisk med produkt og inbox. Migrasjonen 20261003090000 og Edge-valideringen
+må rulles ut før klienten; schemaVersion forblir 1. Produksjonssynk forblir av
+inntil database- og integrasjonstester er verifisert.

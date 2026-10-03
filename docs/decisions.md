@@ -637,3 +637,11 @@ visning; hele dagen er fortsatt tilgjengelig. Produktbilder, navn og mengder
 prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
 av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
 beholdes. Ingen endringer i lagring eller synkkontrakt.
+
+## 2026-10-03 – Næringsgrunnlag ved manuell registrering
+
+Manuelle produkter kan registreres per 100 g, 100 ml eller navngitt porsjon med
+størrelse i g/ml. Eksisterende per-100-modell og porsjonsvalg gjenbrukes;
+originalinput bevares som valgfri metadata lokalt og i en additiv utvidelse av synkkontrakt v1.
+Porsjoner uten kjent størrelse er utenfor scope. Massegrenser brukes kun for
+gram; ml innebærer ingen antatt tetthet. Null kcal og desimaler tillates.

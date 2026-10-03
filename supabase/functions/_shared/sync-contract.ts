@@ -45,12 +45,31 @@ const goalPayload = z.object({
 });
 const favoritePayload = z.object({ productId: uuid });
 const weightPayload = z.object({ id: uuid, date: isoDate, weightKg: positive });
+const manualNutritionInput = z.object({
+  basis: z.enum(["per100g", "per100ml", "serving"]),
+  amount: positive.max(10000),
+  unit: z.enum(["g", "ml"]),
+  label: z.string().trim().min(1).max(80).nullable().optional(),
+  calories: nonNegative, protein: nonNegative, carbs: nonNegative, fat: nonNegative,
+}).refine((v) => v.basis !== "serving" || !!v.label, "Serving requires a label")
+  .refine((v) => v.basis === "serving" || (v.amount === 100 && v.unit === (v.basis === "per100ml" ? "ml" : "g")), "Input basis and unit must match");
+const productServing = z.object({
+  id: uuid, label: z.string().trim().min(1).max(200), grams: positive.max(10000),
+  unit: z.enum(["g", "ml"]).nullable().optional(),
+  source: z.enum(["openFoodFacts", "user", "heuristic"]),
+  isDefaultSuggestion: z.boolean(),
+  kind: z.enum(["portion", "piece", "package", "baseAmount"]).nullable().optional(),
+  shortLabel: z.string().max(80).nullable().optional(),
+});
 const productPayload = z.object({
   id: uuid,
   name: z.string().trim().min(1),
   brand: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
   nutrientsPer100g: z.record(z.unknown()),
+  nutritionBasis: z.enum(["per100g", "per100ml"]).optional(),
+  servings: z.array(productServing).max(100).nullable().optional(),
+  manualNutritionInput: manualNutritionInput.nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   source: z.string().trim().min(1),
 });

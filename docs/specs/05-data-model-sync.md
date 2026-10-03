@@ -761,3 +761,12 @@ leses. Sletting av produktets lokale rad fjerner også bildet.
 Bildet lagres atomisk med malen og slettes med malen/profildata. Eldre rader
 uten feltet støttes. Feltet utelates fra `SavedMealSyncPayload`; synkkontrakt v1
 og backend er uendret. Se [lagrede måltider](../saved-meals.md) for importgrenser.
+
+## Manuelt næringsgrunnlag (2026-10-03)
+
+Manuelle produkter har eksplisitt `nutritionBasis` og valgfri lokal
+`manualNutritionInput` med originalverdier, grunnlag, mengde, enhet og navn.
+Porsjoner krever dokumentert brukeroppgitt størrelse i g/ml og lagres som
+`ServingOption` med brukerkilde. Beregningsverdier normaliseres uten avrunding
+før lagring; gram og ml konverteres ikke. Tilleggsmetadata inngår i lokal produkt-JSON og additivt i `product.upsert`.
+Eldre produkter uten metadata dekodes fortsatt. Serveren lagrer metadata sammen med produktet.

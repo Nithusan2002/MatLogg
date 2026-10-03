@@ -75,6 +75,12 @@ struct ManualProductView: View {
             .onChange(of: selectedPhoto) { _, item in
                 if let item { Task { await viewModel.loadPhoto(item) } }
             }
+            .confirmationDialog("Bytte næringsgrunnlag?", isPresented: $viewModel.showBasisConfirmation, titleVisibility: .visible) {
+                Button("Bytt og tøm næringsverdiene", role: .destructive) { viewModel.confirmBasisChange() }
+                Button("Avbryt", role: .cancel) {}
+            } message: {
+                Text("Fyll inn verdiene på nytt fra emballasjen for det nye grunnlaget.")
+            }
             .scrollDismissesKeyboard(.interactively)
         }
     }
@@ -146,9 +152,29 @@ struct ManualProductView: View {
                         .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Verdier per 100 g fra emballasjen.")
+                    Text("Verdier \(viewModel.nutritionContext) fra emballasjen.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
+                }
+                Picker("Næringsinnhold per", selection: Binding(
+                    get: { viewModel.basis }, set: { viewModel.requestBasis($0) }
+                )) {
+                    ForEach(ManualNutritionBasis.allCases, id: \.self) { basis in
+                        Text(basis.title).tag(basis)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(viewModel.isSaving)
+                if viewModel.basis == .serving {
+                    field("Porsjonsnavn", text: $viewModel.servingName, prompt: "For eksempel Skive", keyboard: .default)
+                    field("Porsjonsstørrelse", text: $viewModel.servingAmount, prompt: "For eksempel 40", keyboard: .decimalPad, nutritionValue: false)
+                    Picker("Enhet for porsjonsstørrelse", selection: Binding(get: { viewModel.servingUnit }, set: { viewModel.requestServingUnit($0) })) {
+                        Text("g").tag(AmountUnit.grams)
+                        Text("ml").tag(AmountUnit.milliliters)
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Næringsverdiene gjelder én porsjon med størrelsen du oppgir.")
+                        .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
                 }
                 field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .numberPad)
                 field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)
@@ -162,7 +188,8 @@ struct ManualProductView: View {
         _ title: String,
         text: Binding<String>,
         prompt: String,
-        keyboard: UIKeyboardType
+        keyboard: UIKeyboardType,
+        nutritionValue: Bool = true
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
@@ -180,7 +207,7 @@ struct ManualProductView: View {
                 .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .accessibilityLabel("\(title), obligatorisk")
                 .accessibilityIdentifier(title.components(separatedBy: " (").first ?? title)
-                .accessibilityHint(keyboard == .default ? prompt : "Verdi per 100 gram. \(prompt)")
+                .accessibilityHint(keyboard == .default || !nutritionValue ? prompt : "Verdi \(viewModel.nutritionContext). \(prompt)")
         }
     }
 }

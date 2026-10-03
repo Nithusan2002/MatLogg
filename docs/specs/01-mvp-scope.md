@@ -144,3 +144,9 @@ antatt glassvolum, drikkemål, påminnelser eller helseintegrasjon.
 Valgfri daglig innsjekk på Hjem med eksisterende vektregistrering, fullfør uten
 vekt, endre og hopp over dagen. Bare siste kortstatus lagres lokalt per profil.
 Se `../design-and-user-flow.md` for flyt og avgrensninger.
+
+### Manuelle produkter: næringsgrunnlag (2026-10-03)
+
+Manuell registrering støtter 100 g, 100 ml og porsjon/stykk med navn og kjent
+størrelse i g/ml. Egne porsjoner er avgrenset til produktet som opprettes;
+editor for eksisterende katalogprodukter og porsjoner uten størrelse er utenfor scope.

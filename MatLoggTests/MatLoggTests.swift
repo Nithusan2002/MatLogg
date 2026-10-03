@@ -1685,6 +1685,74 @@ private final class AuthSessionStoreSpy: AuthSessionStore {
 
 @MainActor
 struct ManualProductViewModelTests {
+    @Test func servingNormalizesAndPreservesOriginalInput() async throws {
+        let model = ManualProductViewModel(barcode: nil) { _ in }
+        model.name = "Brød"
+        model.basis = .serving
+        model.servingName = "Skive"
+        model.servingAmount = "40"
+        model.calories = "120"
+        model.protein = "4"
+        model.carbs = "20"
+        model.fat = "2"
+        let product = try #require(await model.save())
+        #expect(product.caloriesPer100g == 300)
+        #expect(product.calculateNutrition(forAmount: 40).calories == 120)
+        #expect(product.servings?.first?.grams == 40)
+        let storeURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: storeURL) }
+        let store = try LocalStore(databaseURL: storeURL)
+        try store.saveProduct(product, ownerUserId: UUID())
+        let reopened = try LocalStore(databaseURL: storeURL)
+        #expect(reopened.getProduct(product.id)?.manualNutritionInput?.calories == 120)
+        #expect(reopened.getProduct(product.id)?.manualNutritionInput?.label == "Skive")
+        let events = store.fetchPendingEvents(limit: 10)
+        #expect(events.count == 1)
+        let payload = try #require(JSONSerialization.jsonObject(with: events[0].payload) as? [String: Any])
+        #expect(payload["nutritionBasis"] as? String == "per100g")
+        #expect((payload["manualNutritionInput"] as? [String: Any])?["calories"] as? Double == 120)
+    }
+
+    @Test func millilitersAllowZeroEnergyAndDoNotApplyMassBounds() async throws {
+        let model = ManualProductViewModel(barcode: nil) { _ in }
+        model.name = "Drikke"
+        model.basis = .per100ml
+        model.calories = "0"
+        model.protein = "0"
+        model.carbs = "110"
+        model.fat = "0"
+        let product = try #require(await model.save())
+        #expect(product.amountUnit == .milliliters)
+        #expect(product.calculateNutrition(forAmount: 250).carbs == 275)
+    }
+
+    @Test func invalidServingAndNonfiniteValuesAreRejected() async {
+        let model = ManualProductViewModel(barcode: nil) { _ in Issue.record("Must not save") }
+        model.name = "Test"
+        model.basis = .serving
+        model.servingName = "Porsjon"
+        model.servingAmount = "0"
+        model.calories = "120"
+        model.protein = "4"; model.carbs = "20"; model.fat = "2"
+        #expect(await model.save() == nil)
+        model.servingAmount = "40"
+        model.calories = "nan"
+        #expect(await model.save() == nil)
+    }
+
+    @Test func changingBasisRequiresExplicitReset() {
+        let model = ManualProductViewModel(barcode: nil) { _ in }
+        model.calories = "120"
+        model.requestBasis(.per100ml)
+        #expect(model.basis == .per100g)
+        #expect(model.calories == "120")
+        #expect(model.showBasisConfirmation)
+        model.confirmBasisChange()
+        #expect(model.basis == .per100ml)
+        #expect(model.calories.isEmpty)
+    }
+
+
     @Test @MainActor func rejectsProductNameAboveMaximumLength() async {
         var didSave = false
         let viewModel = ManualProductViewModel(barcode: nil) { _ in

@@ -169,8 +169,12 @@ Et valgfritt produktbilde kan tas med kamera eller velges fra bildebiblioteket
 i «Om produktet», med forhåndsvisning, bytte og fjerning før lagring. Bildet
 lagres kun lokalt; registrering fungerer uten bilde og ved avvist kameratilgang.
 Skjemaet grupperer feltene i «Om produktet» og «Næringsinnhold». Alle dagens
-felt er obligatoriske. Næringsverdiene oppgis per 100 g, med kcal eller g
-synlig i feltetiketten også etter inntasting. «Lagre og velg mengde» lagrer
+næringsfelt er obligatoriske. «Næringsinnhold per» tilbyr 100 g, 100 ml eller
+porsjon/stykk. Porsjon krever navn og størrelse i g/ml; verdier oppgis for én
+porsjon og normaliseres til per 100 g/ml ved lagring. Originalverdier og
+inntastingsgrunnlag bevares lokalt. Bytte av grunnlag etter inntasting krever
+bekreftelse og tømmer næringsfeltene. Kcal eller g er synlig i feltetiketten
+også etter inntasting. «Lagre og velg mengde» lagrer
 produktet lokalt før mengdevalget åpnes.
 
 ### Loggfør

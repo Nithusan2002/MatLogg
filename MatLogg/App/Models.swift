@@ -137,6 +137,7 @@ struct Product: Codable, Identifiable {
     let isVerified: Bool
     let createdAt: Date
     let externalID: String?
+    let manualNutritionInput: ManualNutritionInput?
     let nutritionBasis: NutritionBasis?
     let sourceUpdatedAt: Date?
     let sourceRevision: Int?
@@ -173,6 +174,7 @@ struct Product: Codable, Identifiable {
         isVerified: Bool = false,
         createdAt: Date = Date(),
         externalID: String? = nil,
+        manualNutritionInput: ManualNutritionInput? = nil,
         nutritionBasis: NutritionBasis? = nil,
         sourceUpdatedAt: Date? = nil,
         sourceRevision: Int? = nil,
@@ -205,6 +207,7 @@ struct Product: Codable, Identifiable {
         self.isVerified = isVerified
         self.createdAt = createdAt
         self.externalID = externalID
+        self.manualNutritionInput = manualNutritionInput
         self.nutritionBasis = nutritionBasis
         self.sourceUpdatedAt = sourceUpdatedAt
         self.sourceRevision = sourceRevision
@@ -247,7 +250,31 @@ struct Product: Codable, Identifiable {
     }
 }
 
-enum NutritionBasis: String, Codable {
+// Preserve original input alongside normalized values locally and in product sync.
+nonisolated struct ManualNutritionInput: Codable, Sendable {
+    let basis: ManualNutritionBasis
+    let amount: Double
+    let unit: AmountUnit
+    let label: String?
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+}
+
+nonisolated enum ManualNutritionBasis: String, Codable, CaseIterable, Sendable {
+    case per100g, per100ml, serving
+
+    var title: String {
+        switch self {
+        case .per100g: "100 g"
+        case .per100ml: "100 ml"
+        case .serving: "Porsjon/stykk"
+        }
+    }
+}
+
+nonisolated enum NutritionBasis: String, Codable, Sendable {
     case per100g
     case per100ml
 
@@ -259,7 +286,7 @@ enum NutritionBasis: String, Codable {
     }
 }
 
-enum AmountUnit: String, Codable, CaseIterable {
+nonisolated enum AmountUnit: String, Codable, CaseIterable, Sendable {
     case grams = "g"
     case milliliters = "ml"
 

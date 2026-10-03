@@ -445,3 +445,13 @@ Acceptance Criteria:
 | **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
 | (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
 | **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
+
+### Manuell registrering: næringsgrunnlag (2026-10-03)
+
+- Velg 100 g, 100 ml eller porsjon/stykk før næringsverdier fylles inn.
+- Porsjon/stykk krever navn og størrelse i g/ml og kan brukes som antall i produktkortet.
+- Bytte av grunnlag med utfylte næringsfelt krever bekreftelse og ny inntasting.
+- Registreringen fungerer offline og beholder brukerkilde og originalinput lokalt og i synkpayload.
+
+Dette utvider tidligere avgrensning om ingen egne nye porsjoner for manuelt
+opprettede produkter; generell porsjonseditor for andre produkter er fortsatt utenfor scope.

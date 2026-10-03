@@ -1668,6 +1668,9 @@ private struct ProductSyncPayload: Codable {
     let nutrientsPer100g: [String: Double]
     let imageUrl: String?
     let source: String
+    let nutritionBasis: NutritionBasis
+    let servings: [ServingOption]?
+    let manualNutritionInput: ManualNutritionInput?
 
     init(product: Product) {
         id = product.id.uuidString
@@ -1682,6 +1685,9 @@ private struct ProductSyncPayload: Codable {
         ]
         imageUrl = product.imageUrl
         source = product.source
+        nutritionBasis = product.nutritionBasis ?? .per100g
+        servings = product.servings
+        manualNutritionInput = product.manualNutritionInput
     }
 }
 
