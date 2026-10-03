@@ -11,6 +11,9 @@ enum AppColors {
     static let accent = Color(UIColor.appAccent)
     static let success = Color(UIColor.appSuccess)
     static let info = Color(UIColor.appInfo)
+    // Nutri-Score calculation contributions; not food safety or technical status.
+    static let nutritionPositiveContribution = Color(UIColor.appNutritionPositiveContribution)
+    static let nutritionNegativeContribution = Color(UIColor.appNutritionNegativeContribution)
     static let warmSurface = Color(UIColor.appWarmSurface)
     static let mutedSurface = Color(UIColor.appMutedSurface)
     static let deepInk = Color(UIColor.appDeepInk)
@@ -55,6 +58,8 @@ private extension UIColor {
     static let appAccent = UIColor.dynamic(light: 0xFFBF3F, dark: 0xFFD06D)
     static let appSuccess = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)
     static let appInfo = UIColor.dynamic(light: 0x35B8F4, dark: 0x62C9FA)
+    static let appNutritionPositiveContribution = UIColor.dynamic(light: 0x16844A, dark: 0x63D493)
+    static let appNutritionNegativeContribution = UIColor.dynamic(light: 0xC83E47, dark: 0xFF8790)
     static let appProteinTint = UIColor.dynamic(light: 0xFF5268, dark: 0xFF7182)
     static let appCarbTint = UIColor.dynamic(light: 0xFFBF3F, dark: 0xFFD06D)
     static let appFatTint = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)

@@ -895,6 +895,7 @@ nonisolated struct ProductProcessingInfo: Codable, Sendable, Equatable {
 nonisolated struct ProductNutriScoreInfo: Codable, Sendable, Equatable {
     let grade: String
     let version: String?
+    let calculation: NutriScoreCalculation?
 
     /// Only recognized source algorithm versions select a logo variant.
     var imageAssetName: String? {
@@ -903,11 +904,33 @@ nonisolated struct ProductNutriScoreInfo: Codable, Sendable, Equatable {
         return "NutriScore-\(version)-\(grade)"
     }
 
-    init?(grade: String?, version: String?) {
+    init?(grade: String?, version: String?, calculation: NutriScoreCalculation? = nil) {
         guard let normalized = grade?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
               ["A", "B", "C", "D", "E"].contains(normalized) else { return nil }
         self.grade = normalized
+        self.calculation = calculation
         let trimmedVersion = version?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.version = trimmedVersion?.isEmpty == false ? trimmedVersion : nil
     }
+}
+
+nonisolated struct NutriScoreCalculation: Codable, Sendable, Equatable {
+    var nutritionBasis: NutritionBasis? = nil
+    let positive: [NutriScoreComponent]
+    let negative: [NutriScoreComponent]
+    let positivePoints: Int?
+    let positiveMaximum: Int?
+    let negativePoints: Int?
+    let negativeMaximum: Int?
+    let estimated: Bool
+    let preparation: String?
+    let proteinExclusionReason: String?
+}
+
+nonisolated struct NutriScoreComponent: Codable, Sendable, Equatable {
+    let id: String
+    let value: Double?
+    let unit: String?
+    let points: Int?
+    let points_max: Int?
 }

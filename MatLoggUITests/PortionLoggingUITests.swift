@@ -27,8 +27,16 @@ final class PortionLoggingUITests: XCTestCase {
         let originalTotal = total.label
         let nutriScore = app.buttons["productNutriScoreInfo"]
         reveal(nutriScore, in: app)
+        XCTAssertFalse(app.staticTexts["398 kJ"].exists)
         nutriScore.tap()
         XCTAssertTrue(app.images["nutriscore-logo"].waitForExistence(timeout: 5))
+        reveal(app.staticTexts["nutriscore-estimated"], in: app)
+        reveal(app.staticTexts["398 kJ"], in: app)
+        let proteinInfo = app.buttons["nutriscore-protein-explanation"]
+        reveal(proteinInfo, in: app)
+        proteinInfo.tap()
+        XCTAssertTrue(app.alerts["Protein i Nutri-Score"].waitForExistence(timeout: 5))
+        app.alerts["Protein i Nutri-Score"].buttons["Lukk"].tap()
         let logoAttachment = XCTAttachment(screenshot: app.screenshot())
         logoAttachment.name = "Nutri-Score – offisiell grafikk"
         logoAttachment.lifetime = .keepAlways

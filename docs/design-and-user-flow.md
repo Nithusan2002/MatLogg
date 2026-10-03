@@ -599,3 +599,43 @@ https://static.openfoodfacts.org/images/attributes/dist/nutriscore-{a-e}.svg
 og `nutriscore-{a-e}-new-en.svg`. Bruk av offisiell merking følger
 https://www.santepubliquefrance.fr/en/nutrition-and-physical-activity/nutri-score
 og OFFs veiledning om offisielle assets.
+
+### Forklaring av Nutri-Score (2026-10-03)
+
+Kun Nutri-Score-arket viser kildeoppgitte komponenter og poeng fra samme
+2023-beregning som karakteren. Plusspoeng/minuspoeng vises med verdier,
+originale enheter og «x av y», uten egne poengberegninger. Estimater og
+utelatt proteinbidrag forklares; manglende verdier blir aldri null. Ukjent
+versjon eller karakteravvik gir generell forklaring uten beregningsdetaljer.
+
+### Visuelle poengbidrag (2026-10-03)
+
+Nutri-Score-arket viser kompakte komponentrader med navn/verdi, kildepoeng
+og segmentbokser. Totalen står ved seksjonstittelen. Lange navn og stor
+tilgjengelighetstekst får stablet layout; segmentene brytes etter tilgjengelig
+bredde. Plussbidrag bruker grønn nutritionPositiveContribution, minusbidrag rød
+nutritionNegativeContribution; farge er aldri eneste
+forklaring. VoiceOver leser tekstverdiene, ikke hver boks. Bokser viser bidrag
+til Nutri-Score, ikke daglige anbefalinger. Ugyldige/manglende poengtall
+eller maksimum over 100 gir ingen segmentillustrasjon.
+
+### Protein som ikke er medregnet
+
+Ved utelatt proteinbidrag vises en proteinrad nederst i plusspoengkortet,
+uten poengsegmenter eller nullpoeng. «Teller ikke med i Nutri-Score» åpner
+en kort forklaring via infoikon. Mengden vises bare når dokumentert
+næringsgrunnlag matcher beregningen og begge gjelder varen som solgt.
+Plusspoengtotalen endres ikke.
+
+
+### Tydeligere språk om ultraprosessering (2026-10-03)
+
+NOVA-raden heter «Er maten ultraprosessert?» og viser kildebasert status:
+«Ikke klassifisert som ultraprosessert» for NOVA 1–3, «Klassifisert som
+ultraprosessert» for NOVA 4 og «Klassifisering mangler» for ukjent/ugyldig gruppe.
+Nøytral farge, fleksibel høyde og full tekst bevarer ro og tilgjengelighet.
+Arket «Ultraprosessert mat» viser produkt, status, gruppeforklaring, avgrensning
+mot næringskvalitet, «Hva bygger vurderingen på?», ingredienser, utfellbar
+NOVA-forklaring, kilde, hentetidspunkt og produktlenke. Markører knyttes til
+aktuell gruppe; ukjent grunnlag gjettes aldri. Gyldig gruppe beholdes selv om
+forklarende markører mangler. Åpning krever ingen IO og bevarer loggingstilstand.

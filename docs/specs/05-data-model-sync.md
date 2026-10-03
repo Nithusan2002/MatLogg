@@ -813,3 +813,7 @@ og lokalt beregnet NOVA inngår ikke.
 original beregningsversjon når tilgjengelig. Feltet lagres i eksisterende
 produkt-JSON og bevares ved produktkopiering. Eldre JSON er kompatibel;
 ingen database- eller synkkontraktsendring.
+
+Nutri-Score-metadata inkluderer valgfritt beregningsgrunnlag: komponent-ID,
+verdi/enhet, poeng/maksimum, kildesummer, estimatstatus, tilberedningsgrunnlag
+og årsak til utelatt protein. Bevares i produkt-JSON uten kontraktsmigrasjon.

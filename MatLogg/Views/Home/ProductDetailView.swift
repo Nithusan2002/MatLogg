@@ -192,7 +192,7 @@ private struct ProductDetailContent: View {
                                             Text("Nutri-Score").font(AppTypography.bodyEmphasis)
                                             Spacer(minLength: 8)
                                             if let info = detailModel.nutriScoreInfo {
-                                                NutriScoreLogo(info: info, width: 104)
+                                                NutriScoreLogo(info: info, width: 72)
                                             } else {
                                                 Text("Ikke tilgjengelig").font(AppTypography.secondary)
                                             }
@@ -200,7 +200,7 @@ private struct ProductDetailContent: View {
                                                 .foregroundColor(AppColors.textSecondary)
                                         }
                                         .foregroundColor(AppColors.ink)
-                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                        .frame(maxWidth: .infinity, minHeight: 56)
                                         .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
@@ -210,10 +210,10 @@ private struct ProductDetailContent: View {
                                 Button { showProcessingInfo = true } label: {
                                     HStack(spacing: 12) {
                                         VStack(alignment: .leading, spacing: 6) {
-                                            Text("Bearbeidingsgrad")
+                                            Text("Er maten ultraprosessert?")
                                                 .font(AppTypography.caption)
                                                 .foregroundColor(AppColors.textSecondary)
-                                            Text(info.groupTitle)
+                                            Text(detailModel.processingPresentation?.status ?? "Klassifisering mangler")
                                                 .font(AppTypography.bodyEmphasis)
                                                 .foregroundColor(AppColors.ink)
                                         }
@@ -221,7 +221,7 @@ private struct ProductDetailContent: View {
                                         Image(systemName: "chevron.right")
                                             .foregroundColor(AppColors.textSecondary)
                                     }
-                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -385,12 +385,14 @@ private struct ProductDetailContent: View {
         }
         .sheet(isPresented: $showNutriScoreInfo) {
             ProductNutriScoreSheet(productName: product.name, info: detailModel.nutriScoreInfo,
-                                  sourceURL: detailModel.processingSourceURL, fetchedAt: product.fetchedAt)
+                                  sourceURL: detailModel.processingSourceURL, fetchedAt: product.fetchedAt,
+                                  excludedProteinValue: detailModel.excludedProteinValue)
         }
         .sheet(isPresented: $showProcessingInfo) {
-            if let info = detailModel.processingInfo {
+            if let info = detailModel.processingInfo, let presentation = detailModel.processingPresentation {
                 ProductProcessingInfoSheet(productName: product.name, info: info,
-                                           sourceURL: detailModel.processingSourceURL)
+                                           sourceURL: detailModel.processingSourceURL,
+                                           presentation: presentation, fetchedAt: product.fetchedAt)
             }
         }
     }
@@ -714,6 +716,8 @@ private struct ProductProcessingInfoSheet: View {
     let productName: String
     let info: ProductProcessingInfo
     let sourceURL: URL?
+    let presentation: ProductProcessingPresentation
+    let fetchedAt: Date?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -725,28 +729,21 @@ private struct ProductProcessingInfoSheet: View {
                         .accessibilityAddTraits(.isHeader)
                     CardContainer {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(info.groupTitle).font(AppTypography.sectionTitle)
-                            Text(info.classificationText ?? "Open Food Facts har ingen tilgjengelig klassifisering for dette produktet.")
+                            Text(presentation.status).font(AppTypography.sectionTitle)
+                            Text(presentation.explanation)
                                 .font(AppTypography.secondary)
                                 .foregroundColor(AppColors.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    Text("Dette beskriver hvordan maten er bearbeidet. Nutri-Score gir informasjon om næringskvaliteten.")
+                        .font(AppTypography.secondary)
+                        .foregroundColor(AppColors.textSecondary)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Grunnlag for klassifiseringen")
+                        Text("Hva bygger vurderingen på?")
                             .font(AppTypography.sectionTitle)
                             .accessibilityAddTraits(.isHeader)
-                        if info.markerNames.isEmpty {
-                            Text("Forklarende grunnlag ikke tilgjengelig.")
-                        } else {
-                            ForEach(info.markerNames, id: \.self) { name in
-                                Text(name.capitalized)
-                            }
-                            if info.hasUntranslatedMarkers {
-                                Text("Bare tilgjengelig, forståelig grunnlag vises.")
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                        }
+                        Text(presentation.basis)
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Ingredienser")
@@ -758,10 +755,16 @@ private struct ProductProcessingInfoSheet: View {
                             .foregroundColor(AppColors.textSecondary)
                     }
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Om NOVA")
-                            .font(AppTypography.sectionTitle)
-                            .accessibilityAddTraits(.isHeader)
-                        Text("NOVA deler matvarer i fire grupper etter bearbeiding. Klassifiseringen bygger på registrerte produktopplysninger og kan være ufullstendig. NOVA beskriver ikke produktets samlede næringskvalitet.")
+                        DisclosureGroup("Hva betyr NOVA?") {
+                            Text("NOVA deler matvarer i fire grupper etter bearbeiding. Klassifiseringen bygger på registrerte produktopplysninger og kan være ufullstendig. NOVA beskriver ikke produktets samlede næringskvalitet.")
+                        }
+                        Text("Kilde: Open Food Facts")
+                            .font(AppTypography.secondary)
+                        if let fetchedAt {
+                            Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
                         if let sourceURL {
                             Link("Se produktet hos Open Food Facts", destination: sourceURL)
                                 .foregroundColor(AppColors.action)
@@ -775,7 +778,7 @@ private struct ProductProcessingInfoSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(AppColors.background)
-            .navigationTitle("Bearbeidingsgrad")
+            .navigationTitle("Ultraprosessert mat")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -795,6 +798,7 @@ private struct ProductNutriScoreSheet: View {
     let info: ProductNutriScoreInfo?
     let sourceURL: URL?
     let fetchedAt: Date?
+    let excludedProteinValue: String?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -820,7 +824,15 @@ private struct ProductNutriScoreSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    if let calculation = info?.calculation {
+                        NutriScoreCalculationView(calculation: calculation, excludedProteinValue: excludedProteinValue)
+                    } else if info != nil {
+                        Text("Detaljert beregningsgrunnlag ikke tilgjengelig.")
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    DisclosureGroup("Om Nutri-Score") {
                     Text("Nutri-Score oppsummerer produktets næringsprofil fra A til E og kan brukes til å sammenligne lignende produkter. Den beskriver ikke bearbeidingsgrad eller hele kostholdet.")
+                    }
                     if let info {
                         Text(info.version.map { "Beregningsversjon: \($0)" } ?? "Beregningsversjon ikke oppgitt.")
                             .font(AppTypography.secondary)
@@ -876,6 +888,150 @@ private struct NutriScoreLogo: View {
         } else {
             Text("Nutri-Score \(info.grade)")
                 .font(AppTypography.bodyEmphasis)
+        }
+    }
+}
+
+private struct NutriScoreCalculationView: View {
+    let calculation: NutriScoreCalculation
+    let excludedProteinValue: String?
+    @State private var showProteinExplanation = false
+    private var presentation: NutriScoreCalculationPresentation {
+        NutriScoreCalculationPresentation(calculation: calculation)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(calculation.nutritionBasis.map { "Grunnlag per 100 \($0.amountUnit.rawValue)" } ?? "Beregningsgrunnlag")
+                .font(AppTypography.sectionTitle)
+            if calculation.preparation == "as_sold" {
+                Text("For varen som solgt").font(AppTypography.secondary)
+            } else if calculation.preparation == "prepared" {
+                Text("For tilberedt vare").font(AppTypography.secondary)
+            }
+            if calculation.estimated {
+                Text("Beregningen inneholder estimerte opplysninger.")
+                    .foregroundColor(AppColors.textSecondary)
+                    .accessibilityIdentifier("nutriscore-estimated")
+            }
+            Text("Boksene viser bidrag til Nutri-Score, ikke en daglig anbefaling.")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+            componentGroup("Plusspoeng", components: calculation.positive,
+                           points: calculation.positivePoints, maximum: calculation.positiveMaximum, tint: AppColors.nutritionPositiveContribution)
+            componentGroup("Minuspoeng", components: calculation.negative,
+                           points: calculation.negativePoints, maximum: calculation.negativeMaximum, tint: AppColors.nutritionNegativeContribution)
+            if presentation.incomplete {
+                Text("Ikke hele beregningsgrunnlaget kan vises.")
+                    .foregroundColor(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private func componentGroup(_ title: String, components: [NutriScoreComponent], points: Int?, maximum: Int?, tint: Color) -> some View {
+        let rows = presentation.rows(components)
+        return CardContainer {
+            VStack(alignment: .leading, spacing: 12) {
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text(title).font(AppTypography.sectionTitle).fixedSize()
+                        Spacer(minLength: 12)
+                        if let total = NutriScoreCalculationPresentation.points(points, maximum: maximum) {
+                            Text(total).font(AppTypography.secondary).fixedSize()
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(AppTypography.sectionTitle)
+                        if let total = NutriScoreCalculationPresentation.points(points, maximum: maximum) {
+                            Text(total).font(AppTypography.secondary)
+                        }
+                    }
+                }
+                .accessibilityAddTraits(.isHeader)
+                ForEach(rows) { row in
+                    Divider()
+                    NutriScoreComponentRow(row: row, tint: tint)
+                }
+                if title == "Plusspoeng", let explanation = presentation.proteinExplanation {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack {
+                                Text("Protein").font(AppTypography.bodyEmphasis)
+                                Spacer(minLength: 12)
+                                if let excludedProteinValue { Text(excludedProteinValue).font(AppTypography.secondary) }
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Protein").font(AppTypography.bodyEmphasis)
+                                if let excludedProteinValue { Text(excludedProteinValue).font(AppTypography.secondary) }
+                            }
+                        }
+                        Button { showProteinExplanation = true } label: {
+                            HStack(spacing: 8) {
+                                Text("Teller ikke med i Nutri-Score")
+                                    .font(AppTypography.caption)
+                                Image(systemName: "info.circle")
+                            }
+                            .foregroundColor(AppColors.textSecondary)
+                            .frame(minHeight: 44, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("nutriscore-protein-explanation")
+                        .accessibilityHint("Forklarer hvorfor protein ikke er medregnet")
+                        .alert("Protein i Nutri-Score", isPresented: $showProteinExplanation) {
+                            Button("Lukk", role: .cancel) { }
+                        } message: { Text(explanation) }
+                    }
+                }
+                if rows.isEmpty, title != "Plusspoeng" || presentation.proteinExplanation == nil {
+                    Text("Komponentdetaljer ikke tilgjengelig.")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct NutriScoreComponentRow: View {
+    let row: NutriScoreCalculationPresentation.Row
+    let tint: Color
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.title).font(AppTypography.bodyEmphasis)
+                    Text(row.value).font(AppTypography.secondary)
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(row.title).font(AppTypography.bodyEmphasis).fixedSize()
+                        Spacer(minLength: 0)
+                        Text(row.value).font(AppTypography.secondary).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(row.title).font(AppTypography.bodyEmphasis)
+                        Text(row.value).font(AppTypography.secondary)
+                    }
+                }
+            }
+            if let segments = row.segments {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 8, maximum: 12), spacing: 3)], alignment: .leading, spacing: 3) {
+                    ForEach(0..<segments.count, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(index < segments.filled ? tint : AppColors.separator)
+                            .frame(height: 7)
+                    }
+                }
+                .accessibilityHidden(true)
+            }
+            if let points = row.points {
+                Text("\(points) poeng")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
         }
     }
 }

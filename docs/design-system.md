@@ -289,3 +289,11 @@ Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;
 ingen separat Endre-knapp vises. Et kompakt warmSurface-
 felt rett under måltidsnavn og antall varer viser måltidets næring. Rader beholder systemets List-
 sveiping, skalerbar typografi og matLoggTabBarScrollClearance().
+
+### Farge for Nutri-Score-bidrag
+
+`nutritionPositiveContribution` (grønn) og `nutritionNegativeContribution`
+(rød) brukes bare på fylte poengsegmenter i beregningsforklaringen. De betyr
+pluss-/minusbidrag til Nutri-Score, ikke matens trygghet eller teknisk status.
+Tekst, poengtall og kortbakgrunn forblir nøytrale. Begge tokens har egne
+lys-/mørkmodusverdier; teksten forklarer alltid signalet uten farge.

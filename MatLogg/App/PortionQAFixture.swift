@@ -11,7 +11,10 @@ enum PortionQAFixture {
             label: "1 Polarbrød (37,5 g)", grams: 37.5, source: .openFoodFacts,
             isDefaultSuggestion: true, kind: .piece, shortLabel: "Polarbrød")],
         nutritionSource: .openFoodFacts, imageSource: .none,
-        nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023"),
+        nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023", calculation:
+            NutriScoreCalculation(positive: [], negative: [NutriScoreComponent(id: "energy", value: 398, unit: "kJ", points: 1, points_max: 10)],
+                positivePoints: 0, positiveMaximum: 10, negativePoints: 1, negativeMaximum: 55,
+                estimated: true, preparation: "as_sold", proteinExclusionReason: "negative_points_greater_than_or_equal_to_11")),
         processingInfo: ProductProcessingInfo(novaGroup: 4,
             markers: ["4": [["ingredients", "en:salt"], ["ingredients", "en:unknown"]]],
             ingredients: "Syntetisk ingrediensliste for UI-test."))

@@ -391,7 +391,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -407,7 +407,7 @@ class APIService {
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
         let fields = [
             "code", "product_name", "brands", "categories", "image_front_url",
-            "nutriscore_grade", "nutriscore_version", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
+            "nutriscore_grade", "nutriscore_version", "nutriscore", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
             "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
             "nutrition_data_per", "nutriments", "last_modified_t", "rev", "schema_version",
             "data_quality_errors_tags", "data_quality_warnings_tags"
@@ -814,6 +814,7 @@ private struct OpenFoodFactsProduct: Codable {
     // Optional enrichment must never prevent decoding a usable product.
     private var nutriScoreGrade: String? = nil
     private var nutriScoreVersion: String? = nil
+    private var nutriScoreCalculations: [String: OFFNutriScoreCalculation]? = nil
     private var novaGroup: Int? = nil
     private var novaMarkers: [String: [[String]]] = [:]
     private var ingredientsText: String? = nil
@@ -821,7 +822,10 @@ private struct OpenFoodFactsProduct: Codable {
     private var ingredientsNO: String? = nil
 
     var nutriScoreInfo: ProductNutriScoreInfo? {
-        ProductNutriScoreInfo(grade: nutriScoreGrade, version: nutriScoreVersion)
+        let selected = nutriScoreVersion == "2023" ? nutriScoreCalculations?["2023"] : nil
+        let matches = selected?.grade?.uppercased() == nutriScoreGrade?.uppercased()
+        return ProductNutriScoreInfo(grade: nutriScoreGrade, version: nutriScoreVersion,
+                                    calculation: matches ? selected?.mapped : nil)
     }
 
     var processingInfo: ProductProcessingInfo {
@@ -852,6 +856,7 @@ private struct OpenFoodFactsProduct: Codable {
         dataQualityWarnings = try c.decodeIfPresent([String].self, forKey: .dataQualityWarnings)
         nutriScoreGrade = try? c.decode(String.self, forKey: .nutriScoreGrade)
         nutriScoreVersion = try? c.decode(String.self, forKey: .nutriScoreVersion)
+        nutriScoreCalculations = try? c.decode([String: OFFNutriScoreCalculation].self, forKey: .nutriScoreCalculations)
         novaGroup = try? c.decode(Int.self, forKey: .novaGroup)
         novaMarkers = (try? c.decode([String: [[String]]].self, forKey: .novaMarkers)) ?? [:]
         ingredientsText = try? c.decode(String.self, forKey: .ingredientsText)
@@ -863,6 +868,7 @@ private struct OpenFoodFactsProduct: Codable {
         case code
         case nutriScoreGrade = "nutriscore_grade"
         case nutriScoreVersion = "nutriscore_version"
+        case nutriScoreCalculations = "nutriscore"
         case novaGroup = "nova_group"
         case novaMarkers = "nova_groups_markers"
         case ingredientsText = "ingredients_text"
@@ -942,5 +948,40 @@ private struct FlexibleDouble: Codable {
         } else {
             value = nil
         }
+    }
+}
+
+private struct OFFNutriScoreCalculation: Codable {
+    let grade: String?
+    let estimated: Int?
+    let preparation: String?
+    let nutriscore_computed: Int?
+    let data: Details?
+
+    struct Details: Codable {
+        let components: Components?
+        let positive_points: Int?
+        let positive_points_max: Int?
+        let negative_points: Int?
+        let negative_points_max: Int?
+        let is_beverage: Int?
+        let count_proteins: Int?
+        let count_proteins_reason: String?
+    }
+    struct Components: Codable {
+        let positive: [NutriScoreComponent]?
+        let negative: [NutriScoreComponent]?
+    }
+
+    var mapped: NutriScoreCalculation? {
+        guard nutriscore_computed == 1, let data, let components = data.components else { return nil }
+        var result = NutriScoreCalculation(positive: components.positive ?? [], negative: components.negative ?? [],
+            positivePoints: data.positive_points, positiveMaximum: data.positive_points_max,
+            negativePoints: data.negative_points, negativeMaximum: data.negative_points_max,
+            estimated: estimated == 1, preparation: preparation,
+            proteinExclusionReason: data.count_proteins == 0 ? data.count_proteins_reason : nil)
+        if data.is_beverage == 1 { result.nutritionBasis = .per100ml }
+        else if data.is_beverage == 0 { result.nutritionBasis = .per100g }
+        return result
     }
 }

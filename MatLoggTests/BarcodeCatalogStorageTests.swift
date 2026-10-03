@@ -11,7 +11,10 @@ struct BarcodeCatalogStorageTests {
         let url = directory.appendingPathComponent("test.sqlite")
         let info = ProductProcessingInfo(novaGroup: 3, markers: ["3": [["ingredients", "en:salt"]]], ingredients: "Tomat, salt")
         let item = Product(name: "Tomatketchup", source: "openfoodfacts", caloriesPer100g: 95,
-                           proteinGPer100g: 1.7, carbsGPer100g: 21, fatGPer100g: 0, nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023"), processingInfo: info)
+                           proteinGPer100g: 1.7, carbsGPer100g: 21, fatGPer100g: 0, nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023", calculation:
+                               NutriScoreCalculation(positive: [], negative: [], positivePoints: 5, positiveMaximum: 10,
+                                   negativePoints: 13, negativeMaximum: 55, estimated: true, preparation: "as_sold",
+                                   proteinExclusionReason: nil)), processingInfo: info)
         do {
             let store = try LocalStore(databaseURL: url)
             try store.cacheCatalogProduct(item)
