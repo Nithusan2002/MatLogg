@@ -37,6 +37,12 @@ når inbox-raden eies av samme innloggede bruker; kryssbruker-kollisjon avvises.
 Oppdatering av logger, vekt og brukeropprettede produkter krever at eksisterende
 rad eies av innlogget bruker.
 
+Ved delvis batch-svar bekreftes bare event-ID-er fra den sendte batchen.
+Avvisning med `SERVER_ERROR` eller `SYNC_DISABLED` er midlertidig og følger vanlig retry/backoff;
+øvrige eksplisitte avvisninger går til `deadLetter`. Manglende ACK prøves igjen
+med samme event-ID. Etter fem automatiske forsøk beholdes hendelsen for
+manuelt nytt forsøk. Dupliserte avvisninger skal ikke krasje klienten.
+
 Hver lokal køhendelse har i tillegg `ownerUserId`, som brukes til å velge bare
 hendelser for den aktive autentiserte brukeren. Feltet er lokal rutingmetadata
 og inngår ikke i wire-formatet; backend fortsetter å hente identitet fra tokenet.
@@ -86,6 +92,28 @@ inneholder `id`. Eier hentes fra tokenet, og inbox og glass skrives atomisk.
 Servermigrasjon og Edge Function må oppdateres før klienten sender vannevents.
 Eldre servere avviser den nye typen; aktiver derfor ikke synk før utrulling og
 kontrakt-/integrasjonstester er godkjent. Opplasting gir ingen toveis synk.
+
+## Porsjonsmetadata (additiv v1-utvidelse, 2026-10-02)
+
+`log.upsert` og elementer i `saved_meal.upsert` kan ha `portionSelection`:
+`{servingId, label, count, amountPerServing, unit, source, kind}`. Antall og
+porsjonsmengde er positive, endelige desimaltall; enheten er `g` eller `ml`.
+Kilde er `openFoodFacts`, `heuristic` eller `user`; type er `portion`, `piece`
+eller `package`. Label er 1–200 tegn. Beregnet total er ≤10 000 og må samsvare
+med mengdefeltet innen `max(0.0001, abs(amount) * 0.000001)` for Float-grensen.
+Metadata er et historisk snapshot, ikke et oppslag mot gjeldende katalog.
+
+Ny klient sender eksplisitt null ved direkte mengde. Null fjerner snapshot;
+manglende felt fra eldre klient bevarer det bare når mengde/enhet er uendret
+(og produktreferansen er uendret). Endret total fra
+en eldre klient fjerner foreldet snapshot. Inbox og snapshot lagres atomisk.
+Migrasjon `20261002120000_portion_logging.sql` og oppdatert `sync-events` må
+være på plass før klientens nye payloads tas i bruk. Produksjonssynk forblir av.
+Toveis synk er fortsatt ikke implementert.
+
+Serverens nødstopp gjelder både Edge-mottak og direkte apply_sync_event_v1.
+RPC returnerer status=rejected og code=SYNC_DISABLED før domenedata/inbox
+endres. Backendmigrasjonen må deployes før dette regnes som operativt vern.
 
 ## Produktets næringsgrunnlag (2026-10-03)
 

@@ -54,7 +54,7 @@ struct MatLoggTabBar: View {
                                 .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
                         }
                         .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
-                    Text("Logg")
+                    Text("Loggfør")
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.deepInk)
                 }
@@ -63,6 +63,7 @@ struct MatLoggTabBar: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Loggfør mat")
+            .accessibilityIdentifier("tab-log-food")
             .padding(.top, -4)
             tabButton(tabs[2])
             tabButton(tabs[3])

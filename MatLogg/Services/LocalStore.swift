@@ -2,9 +2,10 @@ import Foundation
 import OSLog
 import SQLite3
 
-private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+nonisolated(unsafe) private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-final class LocalStore {
+// SQLite and diagnostic callbacks are serialized by queue; codecs are per-call.
+nonisolated final class LocalStore: @unchecked Sendable {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
@@ -16,13 +17,13 @@ final class LocalStore {
     private let configuredDatabaseURL: URL?
     private let diagnosticHandler: (LocalStoreDiagnostic) -> Void
     private var db: OpaquePointer?
-    private let encoder = JSONEncoder()
-    private let decoder = JSONDecoder()
-    private let syncEncoder: JSONEncoder = {
+    private var encoder: JSONEncoder { JSONEncoder() }
+    private var decoder: JSONDecoder { JSONDecoder() }
+    private var syncEncoder: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return encoder
-    }()
+    }
     
     init(
         databaseURL: URL?,
@@ -130,6 +131,66 @@ final class LocalStore {
     }
     
     // MARK: - Goals
+
+    /// Export owned rows strictly: corrupt or unreadable data must not yield a partial success.
+    func exportProfileRecords(ownerId: UUID) throws -> [String: [Data]] {
+        try queue.sync {
+            var result: [String: [Data]] = [:]
+            let tables = [("goal_history", "goals", "userId"),
+                          ("owned_products", "products", "ownerUserId"),
+                          ("product_drafts", "product_drafts", "ownerUserId"),
+                          ("catalog_submissions", "catalog_submissions", "ownerUserId")]
+            let exportEncoder = JSONEncoder()
+            exportEncoder.dateEncodingStrategy = .iso8601
+            for (category, table, ownerColumn) in tables {
+                var statement: OpaquePointer?
+                guard sqlite3_prepare_v2(db, "SELECT json FROM \(table) WHERE \(ownerColumn) = ? ORDER BY id", -1, &statement, nil) == SQLITE_OK else {
+                    throw databaseError()
+                }
+                defer { sqlite3_finalize(statement) }
+                sqlite3_bind_text(statement, 1, ownerId.uuidString, -1, SQLITE_TRANSIENT)
+                var rows: [Data] = []
+                var status = sqlite3_step(statement)
+                while status == SQLITE_ROW {
+                    guard let data = readBlob(statement, index: 0) else { throw databaseError() }
+                    if table == "goals" {
+                        rows.append(try exportEncoder.encode(decoder.decode(Goal.self, from: data)))
+                    } else if table == "products" {
+                        rows.append(try exportEncoder.encode(decoder.decode(Product.self, from: data)))
+                    } else {
+                        _ = try JSONSerialization.jsonObject(with: data)
+                        rows.append(data)
+                    }
+                    status = sqlite3_step(statement)
+                }
+                guard status == SQLITE_DONE else { throw databaseError() }
+                result[category] = rows
+            }
+            var scanStatement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "SELECT id, productId, scannedAt FROM scans WHERE userId = ? ORDER BY scannedAt, id", -1, &scanStatement, nil) == SQLITE_OK else {
+                throw databaseError()
+            }
+            defer { sqlite3_finalize(scanStatement) }
+            sqlite3_bind_text(scanStatement, 1, ownerId.uuidString, -1, SQLITE_TRANSIENT)
+            var scans: [Data] = []
+            var scanStatus = sqlite3_step(scanStatement)
+            while scanStatus == SQLITE_ROW {
+                guard let idText = sqlite3_column_text(scanStatement, 0),
+                      let productText = sqlite3_column_text(scanStatement, 1),
+                      let id = UUID(uuidString: String(cString: idText)),
+                      let productId = UUID(uuidString: String(cString: productText)) else {
+                    throw LocalStoreError.sqlite("Uleselig skannhistorikk i dataeksport.")
+                }
+                let scan = ScanHistory(id: id, userId: ownerId, productId: productId,
+                                       scannedAt: Date(timeIntervalSince1970: sqlite3_column_double(scanStatement, 2)))
+                scans.append(try exportEncoder.encode(scan))
+                scanStatus = sqlite3_step(scanStatement)
+            }
+            guard scanStatus == SQLITE_DONE else { throw databaseError() }
+            result["scan_history"] = scans
+            return result
+        }
+    }
     
     func saveGoal(_ goal: Goal) throws {
         let data = try encoder.encode(goal)
@@ -182,6 +243,10 @@ final class LocalStore {
         guard !logs.isEmpty else { return }
         try performTransaction {
             for log in logs {
+                if let portion = log.portionSelection,
+                   !portion.matches(amount: Double(log.amountG), unit: log.resolvedAmountUnit) {
+                    throw LocalStoreError.invalidStoredData("Porsjonen samsvarer ikke med loggens mengde")
+                }
                 let data = try encoder.encode(log)
                 let payload = try syncEncoder.encode(LogSyncPayload(log: log))
                 try saveLogLocked(log, data: data)
@@ -350,6 +415,12 @@ final class LocalStore {
     // MARK: - Saved Meals
 
     func saveSavedMeal(_ meal: SavedMeal) throws {
+        for item in meal.items {
+            if let portion = item.portionSelection,
+               !portion.matches(amount: Double(item.amountG), unit: item.resolvedAmountUnit) {
+                throw LocalStoreError.invalidStoredData("Porsjonen samsvarer ikke med måltidets mengde")
+            }
+        }
         let data = try encoder.encode(meal)
         let payload = try syncEncoder.encode(SavedMealSyncPayload(meal: meal))
         try performAtomicWrite(ownerUserId: meal.userId, type: .savedMealUpsert, entityId: meal.id.uuidString, payload: payload) {
@@ -1139,8 +1210,20 @@ final class LocalStore {
     
     private func openDatabase() throws {
         let url = databaseFileURL()
+        // The app-owned directory gives newly created SQLite journals the same
+        // protection while permitting local access after the first device unlock.
+        let protection: [FileAttributeKey: Any] = [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication]
+        if configuredDatabaseURL == nil {
+            try FileManager.default.setAttributes(protection, ofItemAtPath: url.deletingLastPathComponent().path)
+        }
         guard sqlite3_open(url.path, &db) == SQLITE_OK else {
             throw databaseError()
+        }
+        for suffix in ["", "-journal", "-wal", "-shm"] {
+            let path = url.path + suffix
+            if FileManager.default.fileExists(atPath: path) {
+                try FileManager.default.setAttributes(protection, ofItemAtPath: path)
+            }
         }
     }
 
@@ -1608,11 +1691,11 @@ final class LocalStore {
     }
 }
 
-private struct SyncEventIdPayload: Codable {
+private nonisolated struct SyncEventIdPayload: Codable {
     let id: String
 }
 
-private struct GoalSyncPayload: Codable {
+private nonisolated struct GoalSyncPayload: Codable {
     let kcalTarget: Int
     let proteinTarget: Float
     let carbTarget: Float
@@ -1626,7 +1709,8 @@ private struct GoalSyncPayload: Codable {
     }
 }
 
-private struct LogSyncPayload: Codable {
+private nonisolated struct LogSyncPayload: Codable {
+    let portionSelection: PortionSelection?
     let id: String
     let date: Date
     let meal: String
@@ -1639,6 +1723,7 @@ private struct LogSyncPayload: Codable {
     let productRef: String?
 
     init(log: FoodLog) {
+        portionSelection = log.portionSelection
         id = log.id.uuidString
         date = log.loggedTime
         meal = log.mealType
@@ -1650,17 +1735,33 @@ private struct LogSyncPayload: Codable {
         fat = log.fatG
         productRef = log.productId.uuidString
     }
+
+    private enum CodingKeys: String, CodingKey { case portionSelection, id, date, meal, grams, unit, kcal, protein, carbs, fat, productRef }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(portionSelection, forKey: .portionSelection)
+        try container.encode(id, forKey: .id)
+        try container.encode(date, forKey: .date)
+        try container.encode(meal, forKey: .meal)
+        try container.encode(grams, forKey: .grams)
+        try container.encode(unit, forKey: .unit)
+        try container.encode(kcal, forKey: .kcal)
+        try container.encode(protein, forKey: .protein)
+        try container.encode(carbs, forKey: .carbs)
+        try container.encode(fat, forKey: .fat)
+        try container.encode(productRef, forKey: .productRef)
+    }
 }
 
-private struct FavoriteSyncPayload: Codable { let productId: String }
-private struct WeightSyncPayload: Codable {
+private nonisolated struct FavoriteSyncPayload: Codable { let productId: String }
+private nonisolated struct WeightSyncPayload: Codable {
     let id: String
     let date: Date
     let weightKg: Double
     init(entry: WeightEntry) { id = entry.id.uuidString; date = entry.date; weightKg = entry.weightKg }
 }
 
-private struct ProductSyncPayload: Codable {
+private nonisolated struct ProductSyncPayload: Codable {
     let id: String
     let name: String
     let brand: String?
@@ -1691,7 +1792,7 @@ private struct ProductSyncPayload: Codable {
     }
 }
 
-private struct SavedMealSyncPayload: Codable {
+private nonisolated struct SavedMealSyncPayload: Codable {
     let id: String
     let name: String
     let suggestedMealType: String?
@@ -1707,7 +1808,8 @@ private struct SavedMealSyncPayload: Codable {
     }
 }
 
-private struct SavedMealItemSyncPayload: Codable {
+private nonisolated struct SavedMealItemSyncPayload: Codable {
+    let portionSelection: PortionSelection?
     let id: String
     let productId: String
     let productName: String
@@ -1721,6 +1823,7 @@ private struct SavedMealItemSyncPayload: Codable {
     let sortIndex: Int
 
     nonisolated init(item: SavedMealItem) {
+        portionSelection = item.portionSelection
         id = item.id.uuidString
         productId = item.productId.uuidString
         productName = item.productName
@@ -1733,13 +1836,30 @@ private struct SavedMealItemSyncPayload: Codable {
         nutritionSource = item.nutritionSource.rawValue
         sortIndex = item.sortIndex
     }
+
+    private enum CodingKeys: String, CodingKey { case portionSelection, id, productId, productName, amountG, amountUnit, calories, protein, carbs, fat, nutritionSource, sortIndex }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(portionSelection, forKey: .portionSelection)
+        try container.encode(id, forKey: .id)
+        try container.encode(productId, forKey: .productId)
+        try container.encode(productName, forKey: .productName)
+        try container.encode(amountG, forKey: .amountG)
+        try container.encode(amountUnit, forKey: .amountUnit)
+        try container.encode(calories, forKey: .calories)
+        try container.encode(protein, forKey: .protein)
+        try container.encode(carbs, forKey: .carbs)
+        try container.encode(fat, forKey: .fat)
+        try container.encode(nutritionSource, forKey: .nutritionSource)
+        try container.encode(sortIndex, forKey: .sortIndex)
+    }
 }
 
-enum LocalStoreDiagnostic: Equatable {
+nonisolated enum LocalStoreDiagnostic: Equatable {
     case decodingFailed(entity: String, reason: String)
 }
 
-enum LocalStoreError: LocalizedError {
+nonisolated enum LocalStoreError: LocalizedError {
     case sqlite(String)
     case unsupportedSchema(Int)
     case ownershipMismatch
@@ -1753,7 +1873,7 @@ enum LocalStoreError: LocalizedError {
     }
 }
 
-private enum SyncEventType: String {
+private nonisolated enum SyncEventType: String {
     case goalSet = "goal.set"
     case logUpsert = "log.upsert"
     case logDelete = "log.delete"

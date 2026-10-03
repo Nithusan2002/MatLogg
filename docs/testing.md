@@ -89,6 +89,27 @@ xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
 ```
 
+### Første logging
+
+Kjør på en dedikert QA-simulator. UI-testene overstyrer lokal profiloppslag
+ved første launch for å opprette en ny testprofil; ved gjenåpning fjernes
+overstyringen og den lagrede profilen brukes. De sletter ikke domeneinnhold.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<QA-simulator>' \
+  -derivedDataPath /tmp/MatLoggFirstLogQA \
+  -only-testing:MatLoggTests/AuthViewModelTests \
+  -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch \
+  -only-testing:MatLoggUITests/MatLoggUITests/testFirstLogCanBeSkippedWithLargeText \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Testene dekker direkte lokalt søk med tastatur, lagring, Angre og omstart,
+samt rullbare alternativer med stor tekst og eksplisitt «Gå til Hjem».
+Sesjonstestene dekker også mislykket gjenoppretting av kjent konto, bevart
+lokal profil ved innloggingsfeil og valgfri innlogging før første logging.
+
 ## Supabase
 
 Fra repo-roten:
@@ -232,3 +253,51 @@ dekker inngang fra Hjem, måltidsvalg og datobytte med stor tekst.
 `MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay`
 dekker registrering på tidligere dato og flytting til et annet måltid.
 Begge UI-testene lagrer skjermbilder i testresultatet.
+
+### Navigasjonsforenkling
+
+`QuickLogTests` dekker lokal henting av favoritter/nylig brukt uten katalog-
+eller nettsøk, retry og forkasting av et profilsvar etter reset. Testene dekker
+også lokal manuell produktlagring, mengdevalg etter at skjemaet er lukket,
+og forkasting av ventende produktvalg ved profilreset.
+`testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu` dekker direkte
+åpning uten søkeskjerm, avbryt til hurtigmenyen og bevart dato.
+`testDailyLogIsDirectAndSavedMealsRemainDiscoverable` dekker direkte dagslogg
+uten filter og bibliotekinngangen fra bunnmenyen.
+`testQuickLogManualRegistrationAndDirectHomeEditingKeepPastDate` dekker
+manuell produktregistrering fra Loggfør, logging på tidligere dato og direkte
+redigering fra Hjem med kontroll av flytting til Lunsj.
+Testene bruker egne kontroll-ID-er slik at favoritt- og lagreknapper ikke
+forveksles. Fysisk skanning og VoiceOver kontrolleres før pilot.
+
+### Porsjonslogging
+
+`PortionLoggingTests` og `PortionImportTests` dekker antall/desimaler, nøyaktig
+omregning, enhetsbytte, inkompatible og eldre heuristiske porsjoner, cache-ID-er,
+historisk snapshot, JSON-bakoverkompatibilitet, atomisk rollback/retry, angre,
+kopiering, måltidsgjenbruk, lagrede måltider, sist brukt og eksport.
+`PortionLoggingUITests` logger to brød, gjenåpner appen og redigerer til tre med
+stor tekst. Det syntetiske produktet aktiveres bare i Debug med `--portion-qa`.
+
+Målrettet iOS-kjøring, med en installert QA-simulator:
+
+```sh
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<QA-simulator>' \
+  -only-testing:MatLoggTests/PortionLoggingTests \
+  -only-testing:MatLoggTests/PortionImportTests \
+  -only-testing:MatLoggTests/ProductSearchTests \
+  -only-testing:MatLoggTests/LogViewModelTests \
+  -only-testing:MatLoggTests/MealReuseTests \
+  -only-testing:MatLoggTests/SavedMealsTests \
+  -only-testing:MatLoggTests/SavedMealStorageTests \
+  -only-testing:MatLoggUITests/PortionLoggingUITests \
+  -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Backend: `functions:test` og `supabase:test` dekker porsjonssnapshot, UTF-8,
+legacy/null-semantikk, logg og måltid, eierskap, retry og rollback.
+Bruk en separat lokal testdatabase for migrasjonsreset; ikke reset utviklerens
+eller staging-/produksjonsdata. Migrasjon og Edge Function må være på plass
+før klienten sender det nye valgfrie v1-feltet. Produksjonssynk forblir av.

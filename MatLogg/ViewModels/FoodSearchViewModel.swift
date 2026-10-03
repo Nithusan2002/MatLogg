@@ -11,6 +11,7 @@ final class FoodSearchViewModel: ObservableObject {
     @Published private(set) var favorites: [Product] = []
     @Published private(set) var suggestions: [Product] = []
     @Published private(set) var isLoading = true
+    @Published private(set) var isLoadingCatalog = false
     @Published private(set) var phase: Phase = .local
     @Published private(set) var loadError: String?
     @Published private(set) var searchError: String?
@@ -39,19 +40,29 @@ final class FoodSearchViewModel: ObservableObject {
         }
         loadID = request
         loadError = nil
+        isLoadingCatalog = true
         do {
+            let local = try await repository.loadLocalLibrary(owner: owner)
+            guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
+            apply(local)
+            isLoading = false
             let loaded = try await repository.loadLibrary(owner: owner)
             guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
-            library = loaded.products
-            recent = loaded.recent
-            favorites = loaded.favorites
-            suggestions = loaded.suggestions
-            updateResults()
+            apply(loaded)
         } catch {
             guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
             loadError = "Kunne ikke hente lagrede matvarer. Prøv igjen."
         }
         isLoading = false
+        isLoadingCatalog = false
+    }
+
+    private func apply(_ loaded: FoodSearchLibrary) {
+        library = loaded.products
+        recent = loaded.recent
+        favorites = loaded.favorites
+        suggestions = loaded.suggestions
+        updateResults()
     }
 
     func reset(owner: UUID?) {
@@ -68,6 +79,7 @@ final class FoodSearchViewModel: ObservableObject {
         isPreparing = false
         loadError = nil
         isLoading = true
+        isLoadingCatalog = false
     }
 
     func setQuery(_ value: String) {

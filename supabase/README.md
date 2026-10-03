@@ -61,3 +61,12 @@ where key = 'sync_enabled';
 Ved hendelser settes verdien tilbake til `false`. Edge Function returnerer da
 `503` med `Retry-After`; lokale hendelser beholdes for retry. NestJS/Prisma
 fjernes først etter stabil produksjonspilot.
+
+## Lokal restore-kontroll
+
+`scripts/verify-local-backup-restore.sh` bruker bare den isolerte
+`supabase_db_matlogg-sync-readiness`-containeren med syntetiske QA-data.
+Den dumper `auth`, `public` og `private`, gjenoppretter til en ny database,
+sammenligner radkontrollsummer og rydder opp i restore-databasen og dumpen.
+Hosted backup/PITR og recovery skal i tillegg verifiseres etter
+`docs/production-readiness.md` før pilot.

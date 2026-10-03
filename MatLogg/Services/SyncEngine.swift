@@ -1,5 +1,23 @@
 import Foundation
 
+/// Domain uploads require a separate launch policy, regardless of backend flags.
+/// Release builds deliberately have no upload-enabled policy yet.
+enum DomainUploadPolicy {
+    case localOnly
+    #if DEBUG
+    case integrationTesting
+    #endif
+
+    var allowsUpload: Bool {
+        switch self {
+        case .localOnly: return false
+        #if DEBUG
+        case .integrationTesting: return true
+        #endif
+        }
+    }
+}
+
 enum SyncReason {
     case userInitiated
     case appLaunch
@@ -48,6 +66,9 @@ final class SyncEngine {
     private let databaseService: any SyncQueueStore
     private let apiService: any SyncAPIClient
     private let syncEnabled: () -> Bool
+    private let uploadPolicy: DomainUploadPolicy
+
+    var isUploadAvailable: Bool { uploadPolicy.allowsUpload && syncEnabled() }
     private var isSyncing = false
     private var scheduledRetry: Task<Void, Never>?
     private var activeOwnerUserId: UUID?
@@ -57,11 +78,13 @@ final class SyncEngine {
         databaseService: any SyncQueueStore,
         apiService: any SyncAPIClient,
         syncEnabled: @escaping () -> Bool,
+        uploadPolicy: DomainUploadPolicy = .localOnly,
         maximumAutomaticAttempts: Int = 5
     ) {
         self.databaseService = databaseService
         self.apiService = apiService
         self.syncEnabled = syncEnabled
+        self.uploadPolicy = uploadPolicy
         self.maximumAutomaticAttempts = max(1, maximumAutomaticAttempts)
     }
 
@@ -82,8 +105,8 @@ final class SyncEngine {
         isSyncing = true
         defer { isSyncing = false }
         
-        guard syncEnabled() else {
-            return SyncResult(success: false, errorMessage: "Backend ikke aktiv")
+        guard isUploadAvailable else {
+            return SyncResult(success: false, errorMessage: "Matloggene lagres bare på denne enheten")
         }
         
         while true {
@@ -104,16 +127,16 @@ final class SyncEngine {
                     return SyncResult(success: false, errorMessage: "Brukeren ble byttet under synkronisering")
                 }
                 let result = try await apiService.uploadEvents(pending)
-                let acked = Set(result.ackedEventIds)
+                let acked = Set(result.ackedEventIds).intersection(ids)
                 if !acked.isEmpty {
                     await databaseService.markEventsAcked(Array(acked))
                 }
 
-                let rejectedMap = Dictionary(uniqueKeysWithValues: result.rejected.map { ($0.eventId, $0) })
+                let rejectedMap = Dictionary(result.rejected.map { ($0.eventId, $0) }, uniquingKeysWith: { first, _ in first })
                 var failedCount = 0
                 let unresolved = pending.filter { !acked.contains($0.eventId) }
                 for event in unresolved {
-                    if let rejected = rejectedMap[event.eventId] {
+                    if let rejected = rejectedMap[event.eventId], !["SERVER_ERROR", "SYNC_DISABLED"].contains(rejected.code) {
                         failedCount += 1
                         await databaseService.markEventDeadLetter(event.eventId, error: rejected.message)
                         continue
@@ -172,7 +195,7 @@ final class SyncEngine {
     private func scheduleNextRetryIfNeeded(ownerUserId: UUID) async {
         scheduledRetry?.cancel()
         scheduledRetry = nil
-        guard syncEnabled(),
+        guard isUploadAvailable,
               let retryDate = await databaseService.nextPendingRetryDate(ownerUserId: ownerUserId) else { return }
 
         let delay = max(0.1, retryDate.timeIntervalSinceNow)

@@ -52,7 +52,7 @@ final class LogViewModel: ObservableObject {
         // Fresh IDs prevent a delayed delete retry from deleting restored entries.
         let restored = deletedLogs.map { log in
             FoodLog(userId: log.userId, productId: log.productId, mealType: log.mealType,
-                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit,
+                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
                     loggedDate: log.loggedDate, loggedTime: log.loggedTime,
                     calories: log.calories, proteinG: log.proteinG,
                     carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
@@ -75,8 +75,14 @@ final class LogViewModel: ObservableObject {
         self.repository = repository
     }
 
+    private var todayRequestID = UUID()
+
     func loadTodaysSummary(userId: UUID) async {
-        todaysSummary = await repository.getTodaysSummary(userId: userId)
+        let requestID = UUID()
+        todayRequestID = requestID
+        let summary = await repository.getTodaysSummary(userId: userId)
+        guard todayRequestID == requestID, !Task.isCancelled else { return }
+        todaysSummary = summary
     }
 
     func fetchSummary(userId: UUID, date: Date) async -> DailySummary {
@@ -156,8 +162,13 @@ final class LogViewModel: ObservableObject {
         amountG: Float,
         mealType: String,
         userId: UUID,
-        date: Date = Date()
+        date: Date = Date(),
+        portionSelection: PortionSelection? = nil
     ) async -> Bool {
+        guard portionSelection == nil || portionSelection?.matches(amount: Double(amountG), unit: product.amountUnit) == true else {
+            errorMessage = "Porsjonen samsvarer ikke med mengden."
+            return false
+        }
         guard let nutrition = NutritionCalculator.validatedCalculation(
             per100: NutritionBreakdown(
                 calories: product.caloriesPer100g,
@@ -176,6 +187,7 @@ final class LogViewModel: ObservableObject {
             mealType: mealType,
             amountG: amountG,
             amountUnit: product.amountUnit,
+            portionSelection: portionSelection,
             loggedDate: Calendar.current.startOfDay(for: date),
             loggedTime: date,
             calories: nutrition.calories,
@@ -226,9 +238,14 @@ final class LogViewModel: ObservableObject {
     }
 
     @discardableResult
-    func updateLog(_ log: FoodLog, amountG: Float, mealType: String, userId: UUID) async -> Bool {
+    func updateLog(_ log: FoodLog, amountG: Float, mealType: String, userId: UUID, portionSelection: PortionSelection? = nil, clearPortion: Bool = false) async -> Bool {
         guard log.userId == userId else {
             errorMessage = "Kunne ikke oppdatere logging: Loggen tilhører en annen bruker"
+            return false
+        }
+        let portion = clearPortion ? nil : (portionSelection ?? log.portionSelection?.scaled(to: amountG))
+        guard portion == nil || portion?.matches(amount: Double(amountG), unit: log.resolvedAmountUnit) == true else {
+            errorMessage = "Porsjonen samsvarer ikke med mengden."
             return false
         }
         guard let nutrition = NutritionCalculator.scaledSnapshot(
@@ -248,7 +265,7 @@ final class LogViewModel: ObservableObject {
             productId: log.productId,
             mealType: mealType,
             amountG: amountG,
-            amountUnit: log.resolvedAmountUnit,
+            amountUnit: log.resolvedAmountUnit, portionSelection: portion,
             loggedDate: log.loggedDate,
             loggedTime: log.loggedTime,
             calories: nutrition.calories,
@@ -276,7 +293,7 @@ final class LogViewModel: ObservableObject {
                     productId: log.productId,
                     mealType: log.mealType,
                     amountG: log.amountG,
-                    amountUnit: log.resolvedAmountUnit,
+                    amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
                     loggedDate: targetDay,
                     loggedTime: Date(),
                     calories: log.calories,

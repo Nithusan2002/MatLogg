@@ -131,6 +131,7 @@ final class SavedMealsViewModel: ObservableObject {
                 productName: product.name,
                 amountG: log.amountG,
                 amountUnit: log.resolvedAmountUnit,
+                portionSelection: log.portionSelection,
                 calories: log.calories,
                 proteinG: log.proteinG,
                 carbsG: log.carbsG,
@@ -181,6 +182,7 @@ final class SavedMealsViewModel: ObservableObject {
                 to: amount
             ) else { return false }
             var item = original
+            item.portionSelection = original.portionSelection?.scaled(to: amount)
             item.amountG = amount
             item.calories = nutrition.calories
             item.proteinG = nutrition.protein
@@ -258,6 +260,7 @@ final class SavedMealsViewModel: ObservableObject {
                 mealType: mealType,
                 amountG: amount,
                 amountUnit: item.resolvedAmountUnit,
+                portionSelection: item.portionSelection?.scaled(to: amount),
                 loggedDate: targetDate,
                 loggedTime: timestamp,
                 calories: nutrition.calories,

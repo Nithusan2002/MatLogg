@@ -1,21 +1,13 @@
 import SwiftUI
 
 struct QuickLogSheet: View {
-    private enum LoadState: Equatable {
-        case loading
-        case content
-        case empty
-        case unavailable
-    }
-
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var productViewModel: ProductViewModel
+    @EnvironmentObject private var viewModel: QuickLogViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
-    @State private var products: [Product] = []
     @State private var selectedProduct: Product?
-    @State private var loadState: LoadState = .loading
     @State private var selectedSavedMeal: SavedMeal?
     @State private var showAllSavedMeals = false
 
@@ -45,11 +37,20 @@ struct QuickLogSheet: View {
 
                 QuickSearchBar(onSearch: onSearch, onScan: onScan)
 
+                Button(action: onManualAdd) {
+                    Label("Registrer manuelt", systemImage: "square.and.pencil")
+                        .font(AppTypography.bodyEmphasis)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .foregroundStyle(AppColors.action)
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
+                .accessibilityIdentifier("quick-log-manual")
+
                 mealPicker
 
                 savedMealsSection
 
-                if loadState == .loading {
+                if viewModel.isLoading {
                     HStack(spacing: 10) {
                         ProgressView()
                         Text("Henter hurtigvalg …")
@@ -58,7 +59,7 @@ struct QuickLogSheet: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 120)
                     .accessibilityElement(children: .combine)
-                } else if loadState == .unavailable {
+                } else if viewModel.errorMessage != nil {
                     VStack(spacing: 10) {
                         Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
                             .font(AppTypography.bodyEmphasis)
@@ -68,7 +69,7 @@ struct QuickLogSheet: View {
                             .frame(minHeight: 44)
                     }
                     .frame(maxWidth: .infinity, minHeight: 120)
-                } else if loadState == .empty {
+                } else if viewModel.products.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         quickProductsHeading
                         VStack(spacing: 10) {
@@ -79,10 +80,6 @@ struct QuickLogSheet: View {
                                 .font(AppTypography.body)
                                 .foregroundColor(AppColors.textSecondary)
                                 .multilineTextAlignment(.center)
-                            Button("Legg til manuelt", action: onManualAdd)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 28)
@@ -91,7 +88,7 @@ struct QuickLogSheet: View {
                     VStack(alignment: .leading, spacing: 10) {
                         quickProductsHeading
                         LazyVStack(spacing: 10) {
-                            ForEach(products) { product in
+                            ForEach(viewModel.products) { product in
                                 Button { selectedProduct = product } label: {
                                     HStack(spacing: 12) {
                                         Text(String(product.name.prefix(1)).uppercased())
@@ -127,7 +124,7 @@ struct QuickLogSheet: View {
             .padding(.bottom, 28)
         }
         .background(AppColors.background.ignoresSafeArea())
-        .task { await loadContent() }
+        .task(id: authViewModel.currentUser?.id) { await loadContent() }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(product: product, appState: appState) { payload in
                 dismiss()
@@ -151,31 +148,35 @@ struct QuickLogSheet: View {
     }
 
     @ViewBuilder private var savedMealsSection: some View {
-        if !savedMealsViewModel.meals.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Lagrede måltider")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundStyle(AppColors.deepInk)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                    Button("Se alle") { showAllSavedMeals = true }
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundStyle(AppColors.action)
-                        .frame(minHeight: 44)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Lagrede måltider")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundStyle(AppColors.deepInk)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button(savedMealsViewModel.meals.isEmpty ? "Åpne" : "Se alle") { showAllSavedMeals = true }
+                    .accessibilityIdentifier("quick-log-saved-meals")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundStyle(AppColors.action)
+                    .frame(minHeight: 44)
+            }
+            if savedMealsViewModel.meals.isEmpty {
+                Text("Lagre et registrert måltid fra Gjenbruk-menyen i dagsloggen.")
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            ForEach(savedMealsViewModel.meals.prefix(3)) { meal in
+                Button { selectedSavedMeal = meal } label: {
+                    SavedMealRow(meal: meal)
+                        .padding(12)
+                        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
+                        }
                 }
-                ForEach(savedMealsViewModel.meals.prefix(3)) { meal in
-                    Button { selectedSavedMeal = meal } label: {
-                        SavedMealRow(meal: meal)
-                            .padding(12)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -197,7 +198,10 @@ struct QuickLogSheet: View {
                 .font(AppTypography.secondary)
                 .foregroundColor(AppColors.textSecondary)
 
-            HStack(spacing: 8) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))
+            layout {
                 ForEach(MealPresentation.all) { meal in
                     Button {
                         appState.selectedMealType = meal.key
@@ -230,21 +234,60 @@ struct QuickLogSheet: View {
     }
 
     private func loadContent() async {
-        loadState = .loading
-        guard let userId = authViewModel.currentUser?.id else {
-            loadState = .unavailable
-            return
+        await viewModel.load(userId: authViewModel.currentUser?.id)
+        if let userId = authViewModel.currentUser?.id {
+            await savedMealsViewModel.load(userId: userId)
         }
-        await savedMealsViewModel.load(userId: userId)
-        let favorites = await productViewModel.favoriteProducts(userId: userId)
-        let recents = await productViewModel.recentProducts(userId: userId, limit: 8)
-        var seen = Set<UUID>()
-        products = (favorites + recents).filter { seen.insert($0.id).inserted }.prefix(8).map { $0 }
-        loadState = products.isEmpty ? .empty : .content
     }
 
     private func productSubtitle(_ product: Product) -> String {
         let brand = product.brand.map { "\($0) · " } ?? ""
         return "\(brand)\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)"
+    }
+}
+
+/// Every entry point keeps the same date and meal context throughout logging.
+struct LoggingFlowView: View {
+    private enum Destination: String, Identifiable {
+        case search, scan, manual
+        var id: String { rawValue }
+    }
+
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var viewModel: QuickLogViewModel
+    @EnvironmentObject private var appState: AppState
+    @State private var destination: Destination?
+    let onLogComplete: (ReceiptPayload) -> Void
+    let onSavedMealLogComplete: () -> Void
+
+    var body: some View {
+        QuickLogSheet(
+            onSearch: { destination = .search },
+            onScan: { destination = .scan },
+            onManualAdd: { destination = .manual },
+            onLogComplete: complete,
+            onSavedMealLogComplete: {
+                dismiss()
+                onSavedMealLogComplete()
+            }
+        )
+        .fullScreenCover(item: $destination, onDismiss: viewModel.finishManualCreation) { route in
+            switch route {
+            case .search:
+                RawMaterialsSearchView(onLogComplete: complete)
+            case .manual:
+                ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+            case .scan:
+                CameraView(onLogComplete: complete, onSearch: { destination = .search })
+            }
+        }
+        .sheet(item: $viewModel.selectedManualProduct) { product in
+            ProductDetailView(product: product, appState: appState, onLogComplete: complete)
+        }
+    }
+
+    private func complete(_ payload: ReceiptPayload) {
+        dismiss()
+        onLogComplete(payload)
     }
 }

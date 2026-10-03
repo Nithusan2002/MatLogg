@@ -4,6 +4,61 @@ import Testing
 @testable import MatLogg
 
 struct MealBatchStorageTests {
+    @MainActor
+    @Test func asynchronousStorageYieldsToUIAndCommitsBeforeReturning() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("async.sqlite"))
+        let queue = DispatchQueue(label: "matlogg.test.io")
+        let database = DatabaseService(store: store, ioQueue: queue)
+        let owner = UUID()
+        let logs = [makeLog(owner), makeLog(owner)]
+        queue.suspend()
+        var started = false
+        let save = Task {
+            started = true
+            try await database.saveLogs(logs)
+        }
+        for _ in 0..<1_000 {
+            if started { break }
+            await Task.yield()
+        }
+        // MainActor can inspect state even while the database worker is paused.
+        #expect(started)
+        #expect(store.getAllLogs(userId: owner).isEmpty)
+        queue.resume()
+        try await save.value
+        #expect(await database.getAllLogs(userId: owner).count == 2)
+        #expect(await database.pendingSyncCount() == 2)
+        #expect(store.fetchPendingEvents(limit: 10).allSatisfy { $0.type == "log.upsert" && $0.schemaVersion == 1 })
+    }
+
+    @MainActor
+    @Test func asynchronousStoragePropagatesFailureAndRollsBackMeal() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("async-failure.sqlite")
+        let store = try LocalStore(databaseURL: url)
+        let database = DatabaseService(store: store)
+        let owner = UUID()
+        let logs = [makeLog(owner), makeLog(owner)]
+        try installEventFailure(url, entityId: logs[1].id, type: "log.upsert")
+        do {
+            try await database.saveLogs(logs)
+            Issue.record("Expected local save to fail")
+        } catch {
+            #expect(error is LocalStoreError)
+        }
+        #expect(await database.getAllLogs(userId: owner).isEmpty)
+        #expect(await database.pendingSyncCount() == 0)
+        try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
+        try await database.saveLogs(logs)
+        #expect(await database.getAllLogs(userId: owner).count == 2)
+        #expect(await database.pendingSyncCount() == 2)
+    }
+
     @Test func savesMealAndUndoWithCanonicalEvents() throws {
         try withStore { store, _ in
             let userId = UUID()

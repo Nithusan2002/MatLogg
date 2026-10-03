@@ -19,6 +19,10 @@ For å skille faktisk implementasjon fra planlagt scope, start med
 i [testveiledningen](testing.md).
 Operative krav for staging, pilot og produksjon finnes i
 [produksjonsberedskap](production-readiness.md).
+Prioriterte leveranser for norsk personvern- og sikkerhetsetterlevelse finnes i
+[forbedringsplanen](privacy-security-improvement-plan.md).
+Faktiske dataflyter og åpne funn er samlet i
+[datakart og kontrollstatus](privacy-data-inventory.md).
 
 ## Leserekkefølge
 

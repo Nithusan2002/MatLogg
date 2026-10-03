@@ -1,5 +1,23 @@
 # MatLogg iOS – Spesifikasjon
 
+## Gjeldende lanseringsscope – 3. oktober 2026
+
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
+
 ## 1. MVP-Scope & Suksessmetrikker
 
 ### MVP-Fase: "Core Logging"
@@ -15,10 +33,10 @@
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
 | **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
-| **Onboarding** | P0 | Måltype (weght loss/maintain/gain), kalorimål, makromål, valgfri vektlogg |
+| **Onboarding** | P0 | Direkte første logging med automatisk lokal profil. Konto og mål er valgfrie; mål settes under Profil. |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
 | **Strekkode-skanning** | P0 | EAN- eller GS1 Data Matrix-skann → GTIN-oppslag → produktkort → logging |
-| **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser, mengdevelger (prefill: 100g), "Legg til"-knapp |
+| **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser med antall og historisk grunnlag, mengdevelger (prefill: 100g), "Legg til"-knapp |
 | **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid og valgt dato, inkludert fremtidig dato |
 | **Kompakt loggbekreftelse** | P0 | Etter logging: vare, mengde og måltid + «Angre», uten å blokkere videre logging |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
@@ -28,7 +46,7 @@
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |
-| **Offline-funksjonalitet** | P0 | Lokal SQLite DB, event-kø, synk når nett tilbake |
+| **Offline-funksjonalitet** | P0 | Lokal SQLite DB og hvilende event-kø; ingen opplasting |
 
 ---
 
@@ -58,7 +76,7 @@
 ### Teknisk Performance
 - **App-start tid:** <2s (cold), <500ms (warm)
 - **Skann-til-produktkort:** <1.5s (lokal cache), <3s (API-oppslag)
-- **Offline-funksjonalitet:** 100% loggbar når offline; synker når nett tilbake
+- **Offline-funksjonalitet:** lokal logging uten nett; ingen opplasting når nett kommer tilbake
 - **Crash-rate:** <0.5% (iOS standard)
 
 ### Brukergenerert Innhold
@@ -102,7 +120,7 @@
 
 ### Ny bruker:
 ```
-Åpne app → Fortsett lokalt eller logg inn → Onboarding (mål) → Home → Skann/Legg til
+Åpne app → Søk/skann/manuell registrering → Kontroller mengde og måltid → Lagre lokalt → Hjem med Angre
 ```
 
 ### Aktiv bruker:

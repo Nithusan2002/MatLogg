@@ -60,7 +60,7 @@ struct SaveMealFromLogsView: View {
                                                 .font(AppTypography.bodyEmphasis)
                                                 .foregroundStyle(AppColors.deepInk)
                                             Spacer(minLength: 8)
-                                            Text("\(format(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+                                            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
                                                 .font(AppTypography.body)
                                                 .foregroundStyle(AppColors.textSecondary)
                                                 .fixedSize(horizontal: true, vertical: false)
@@ -151,15 +151,27 @@ struct SavedMealsListView: View {
                     ContentUnavailableView {
                         Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
                     } description: {
-                        Text("Åpne et måltid i loggen og velg «Lagre som måltid».")
+                        Text("Åpne dagsloggen på Hjem og velg Gjenbruk → Lagre som måltid.")
                     }
                 } else {
                     List {
                         ForEach(viewModel.meals) { meal in
-                            Button { selectedMeal = meal } label: {
-                                SavedMealRow(meal: meal)
+                            HStack {
+                                Button { selectedMeal = meal } label: {
+                                    SavedMealRow(meal: meal)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                Menu {
+                                    Button("Rediger") { editingMeal = meal }
+                                    Button("Slett", role: .destructive) { deleteCandidate = meal }
+                                } label: {
+                                    Image(systemName: "ellipsis.circle")
+                                        .frame(width: 44, height: 44)
+                                }
+                                .accessibilityLabel("Valg for \(meal.name)")
                             }
-                            .buttonStyle(.plain)
                             .swipeActions(edge: .trailing) {
                                 Button("Slett", role: .destructive) { deleteCandidate = meal }
                                 Button("Rediger") { editingMeal = meal }.tint(AppColors.action)

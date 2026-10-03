@@ -6,6 +6,8 @@ final class ProductDetailViewModel: ObservableObject {
     @Published private(set) var product: Product
     @Published private(set) var isRefreshing = false
     @Published private(set) var refreshMessage: String?
+    @Published private(set) var isLogging = false
+    @Published private(set) var logError: String?
     private let repository: any BarcodeLookupRepository
 
     init(product: Product, repository: any BarcodeLookupRepository) {
@@ -14,6 +16,22 @@ final class ProductDetailViewModel: ObservableObject {
     }
 
     var canRefresh: Bool { product.canRefreshCatalogData }
+
+    func nutrition(for amount: Double?) -> NutritionBreakdown {
+        guard let amount else { return NutritionBreakdown(calories: 0, protein: 0, carbs: 0, fat: 0) }
+        return product.calculateNutrition(forAmount: Float(amount))
+    }
+
+    func log(amount: AmountSelectionViewModel,
+             operation: (Product, Double, PortionSelection?) async -> Bool) async -> Bool {
+        guard !isLogging, amount.isValid, let total = amount.amount else { return false }
+        isLogging = true
+        logError = nil
+        defer { isLogging = false }
+        let success = await operation(product, total, amount.portion)
+        if !success { logError = "Kunne ikke lagre på enheten. Prøv igjen." }
+        return success
+    }
 
     func refresh(manually: Bool) async {
         guard !isRefreshing, canRefresh else { return }
@@ -27,8 +45,11 @@ final class ProductDetailViewModel: ObservableObject {
                     refreshMessage = "Produktets måleenhet er endret hos kilden. Åpne produktet på nytt for å bruke de nye dataene."
                     return
                 }
+                let portionsChanged = updated.servings != product.servings
                 product = updated
-                if manually { refreshMessage = "Produktdata er oppdatert." }
+                if portionsChanged {
+                    refreshMessage = "Porsjonsdata er oppdatert. Aktivt porsjonsvalg beholder sitt grunnlag til du velger på nytt."
+                } else if manually { refreshMessage = "Produktdata er oppdatert." }
             }
         } catch {
             if manually { refreshMessage = BarcodeLookupFailure.classify(error).message }

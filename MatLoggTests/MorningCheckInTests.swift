@@ -90,9 +90,29 @@ struct MorningCheckInTests {
         let events = await database.fetchPendingEvents(ownerUserId: owner, limit: 10)
         #expect(events.count == 2)
         #expect(events.allSatisfy { $0.type == "weight.upsert" })
+        let otherOwner = UUID()
+        let product = UUID()
+        let ownerAmountKey = "lastAmount.\(owner.uuidString).\(product.uuidString)"
+        let ownerUseKey = "useLastAmount.\(owner.uuidString).\(product.uuidString)"
+        let otherAmountKey = "lastAmount.\(otherOwner.uuidString).\(product.uuidString)"
+        let otherUseKey = "useLastAmount.\(otherOwner.uuidString).\(product.uuidString)"
+        defaults.set(125.0, forKey: ownerAmountKey)
+        defaults.set(Data([1, 2]), forKey: ownerAmountKey + ".portion")
+        defaults.set(true, forKey: ownerUseKey)
+        defaults.set(250.0, forKey: otherAmountKey)
+        defaults.set(Data([3, 4]), forKey: otherAmountKey + ".portion")
+        defaults.set(true, forKey: otherUseKey)
+        defaults.set(true, forKey: "hapticsFeedbackEnabled")
         try await database.deleteLocalData(ownerId: owner)
         #expect(await database.getWeightEntries(userId: owner).isEmpty)
         #expect(defaults.object(forKey: UserDefaultsMorningCheckInStore.key(owner)) == nil)
+        #expect(defaults.object(forKey: ownerAmountKey) == nil)
+        #expect(defaults.object(forKey: ownerAmountKey + ".portion") == nil)
+        #expect(defaults.object(forKey: ownerUseKey) == nil)
+        #expect(defaults.double(forKey: otherAmountKey) == 250.0)
+        #expect(defaults.data(forKey: otherAmountKey + ".portion") == Data([3, 4]))
+        #expect(defaults.bool(forKey: otherUseKey))
+        #expect(defaults.bool(forKey: "hapticsFeedbackEnabled"))
     }
 }
 

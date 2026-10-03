@@ -1,4 +1,6 @@
-import { createClient, SupabaseClient, User } from "@supabase/supabase-js";
+// Keep Edge bundles self-contained; versions match the root deno.json import map.
+// deno-lint-ignore no-import-prefix
+import { createClient, SupabaseClient, User } from "npm:@supabase/supabase-js@2.117.2";
 
 function requiredEnvironment(name: string): string {
   const value = Deno.env.get(name);

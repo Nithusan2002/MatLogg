@@ -18,7 +18,7 @@ struct LoginView: View {
                         .font(AppTypography.hero)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Konto er valgfritt. Synkronisering mellom enheter er ikke tilgjengelig ennå.")
+                    Text("Konto er valgfritt og brukes til innlogging. Matloggene dine lagres bare på denne enheten, uten skybackup.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -112,7 +112,7 @@ struct LoginView: View {
 
     private var localDataSummaryText: String {
         guard let summary = authViewModel.pendingLocalDataSummary else { return "" }
-        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider, \(summary.products) egne produkter og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter."
+        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider, \(summary.products) egne produkter og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter, og blir fortsatt lagret bare på denne enheten. Dette gir ingen skybackup."
     }
 
     private func authLabel(_ title: String) -> some View {

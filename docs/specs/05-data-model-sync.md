@@ -724,6 +724,25 @@ Updates:
 
 ## 5.9 Data Retention & Privacy
 
+**Statusavklaring 2. oktober 2026:** Blokken nedenfor er et eldre målbilde,
+ikke dokumentasjon av dagens adferd. Aktiv lokal lagring er SQLite.
+Serverinbox beholdes til purge i undersøkt Supabase-migrasjon; ett års
+serverlagring og automatisk kassering av usynkede hendelser er ikke verifisert.
+Usynkede hendelser skal ikke kasseres på grunnlag av denne teksten.
+Fjerning av eier-ID fra produktbidrag er ikke dokumentert anonymisering.
+Se [datakart og kontrollstatus](../privacy-data-inventory.md) før endringer i
+sletting, eksport eller lagringstid.
+
+**Lokal eksport 3. oktober 2026:** JSON-eksporten har `export_schema_version: 2`
+og beholder eksisterende felt. Tillegg er `owned_products` (med base64-bilder),
+`goal_history`, `scan_history`, `profile_preferences`, `product_drafts` og
+`catalog_submissions`. Alle tillegg filtreres på profileier; rå katalogcache og
+andre profilers data inngår ikke. Mål/produkter/skannhistorikk har ISO 8601-datoer;
+utkast og innsendinger beholder lagret JSON-format. Profilpreferanser angir
+`encoding` (`json` eller `base64`). Eksportfilen skrives med iOS Complete Data
+Protection og fjernes gjennom eksisterende delingsopprydding. Dette er ikke
+en endring i synkkontrakten eller en ferdig godkjenning av GDPR-rettighetsflyten.
+
 ```
 User Data Deletion (GDPR):
 1. User initiates: Settings → [Slett konto]
@@ -761,6 +780,17 @@ leses. Sletting av produktets lokale rad fjerner også bildet.
 Bildet lagres atomisk med malen og slettes med malen/profildata. Eldre rader
 uten feltet støttes. Feltet utelates fra `SavedMealSyncPayload`; synkkontrakt v1
 og backend er uendret. Se [lagrede måltider](../saved-meals.md) for importgrenser.
+
+## Historisk porsjonsvalg (2026-10-02)
+
+`FoodLog` og `SavedMealItem` har valgfritt `portionSelection` med porsjons-ID,
+label, antall, mengde per porsjon, enhet, kilde og type. Eksisterende total og
+næringssnapshot brukes fortsatt til summering. Gamle logger uten metadata
+åpnes som direkte gram/ml; metadata utledes ikke fra dagens produktdata.
+Redigering, angre og kopiering bevarer historisk grunnlag. Skalering endrer
+antall i samme forhold som mengden. Bytte til direkte mengde fjerner valget.
+Lokal JSON-lagring trenger ingen ny SQL-kolonne. Synkformat og null-/legacy-
+semantikk er beskrevet i `docs/sync-contract-v1.md`.
 
 ## Manuelt næringsgrunnlag (2026-10-03)
 

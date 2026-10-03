@@ -87,10 +87,14 @@ final class AuthViewModel: ObservableObject {
             show(user: user, account: true)
         } else if let localUser = localStore.getActiveLocalProfile() {
             show(user: localUser, account: false)
-        } else {
+        } else if localStore.getStoredUser() != nil {
+            // A failed account restore must not silently replace its owner
+            // with a fresh local profile and an apparently empty log.
             currentUser = nil
             isOnboarding = false
             authState = .notAuthenticated
+        } else {
+            continueLocally()
         }
     }
 
@@ -195,8 +199,8 @@ final class AuthViewModel: ObservableObject {
         pendingAccountSession = nil
         pendingLocalDataSummary = nil
         currentUser = pending.localUser
-        isOnboarding = false
-        authState = .local(user: pending.localUser)
+        isOnboarding = !localStore.hasCompletedOnboarding(userId: pending.localUser.id)
+        authState = isOnboarding ? .onboarding(user: pending.localUser) : .local(user: pending.localUser)
     }
 
     func finishOnboarding() {
@@ -275,12 +279,14 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func authenticate(operation: () async throws -> User) async {
+        let startedInFirstLogging = isOnboarding
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
             let user = try await operation()
-            try await prepareAccountSession(user: user, shouldOnboard: false)
+            let shouldOnboard = startedInFirstLogging && !localStore.hasCompletedOnboarding(userId: user.id)
+            try await prepareAccountSession(user: user, shouldOnboard: shouldOnboard)
         } catch {
             present(error)
         }

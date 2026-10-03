@@ -86,7 +86,7 @@ struct PersonalDetailsView: View {
                         }
                     }
 
-                    Text("Vekten her legges ikke til i vekthistorikken.")
+                    Text("Vekten her brukes bare som grunnlag for målforslag. Registrer vekt i Sjekk inn eller Oversikt for å legge den til i vekthistorikken.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -249,7 +249,7 @@ struct PersonalDetailsView: View {
                 focusedField = nil
                 showMeasurement = measurement
             } label: {
-                detailRow(measurement.title) {
+                detailRow(measurement == .weight ? "Vekt brukt i målforslag" : measurement.title) {
                     selectionValue(text.wrappedValue.isEmpty
                                    ? "Ikke oppgitt"
                                    : text.wrappedValue + " " + measurement.unit)

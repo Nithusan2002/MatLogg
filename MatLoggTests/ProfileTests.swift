@@ -118,6 +118,24 @@ struct ProfileTests {
         #expect(store.details.heightCm == details.heightCm)
     }
 
+    @Test func expiredExportCleanupPreservesFreshAndUnrelatedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let stale = directory.appendingPathComponent("matlogg-export-old.json")
+        let fresh = directory.appendingPathComponent("matlogg-export-new.json")
+        let unrelated = directory.appendingPathComponent("other.json")
+        for file in [stale, fresh, unrelated] { try Data("{}".utf8).write(to: file) }
+        let now = Date()
+        for file in [stale, unrelated] {
+            try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-90_000)], ofItemAtPath: file.path)
+        }
+        UserDataExportService.cleanupExpiredExports(in: directory, now: now)
+        #expect(!FileManager.default.fileExists(atPath: stale.path))
+        #expect(FileManager.default.fileExists(atPath: fresh.path))
+        #expect(FileManager.default.fileExists(atPath: unrelated.path))
+    }
+
     @Test func profileChangeDiscardsAnExportThatFinishesLater() async {
         let exporter = ProfileExporterStub()
         exporter.shouldSuspend = true
@@ -155,7 +173,10 @@ struct ProfileTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("profile.sqlite")))
+        let suite = "PrivacyExportTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("profile.sqlite")), defaults: defaults)
         let user = User.local(id: UUID())
         let other = UUID()
         let detailsStore = ProfileDetailsStoreStub()
@@ -167,15 +188,40 @@ struct ProfileTests {
         let product = Product(name: "Testvare", caloriesPer100g: 100, proteinGPer100g: 5,
                               carbsGPer100g: 10, fatGPer100g: 4)
         try await database.saveProduct(product, ownerUserId: user.id)
+        let image = Data([7, 8, 9])
+        let ownProduct = Product(name: "Egen bildevare", caloriesPer100g: 10, proteinGPer100g: 1,
+                                 carbsGPer100g: 1, fatGPer100g: 1, localImageData: image)
+        try await database.saveProduct(ownProduct, ownerUserId: user.id)
+        try await database.saveProduct(Product(name: "Privat annen vare", caloriesPer100g: 20,
+                                                proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1), ownerUserId: other)
+        try await database.saveGoal(Goal(userId: user.id, goalType: "maintain", dailyCalories: 2100,
+                                         proteinTargetG: 110, carbsTargetG: 250, fatTargetG: 70))
+        try await database.saveGoal(Goal(userId: other, goalType: "maintain", dailyCalories: 2500,
+                                         proteinTargetG: 100, carbsTargetG: 250, fatTargetG: 70))
+        try await database.saveScanHistory(userId: user.id, productId: ownProduct.id)
+        try await database.saveScanHistory(userId: other, productId: product.id)
+        let ownPreferenceKey = "lastAmount.\(user.id.uuidString).\(ownProduct.id.uuidString)"
+        defaults.set(100.0, forKey: ownPreferenceKey)
+        defaults.set(200.0, forKey: "lastAmount.\(other.uuidString).\(product.id.uuidString)")
         try await database.toggleFavorite(userId: user.id, productId: product.id)
         let photo = Data([1, 2, 3])
         let meal = SavedMeal(userId: user.id, name: "Testmåltid", items: [], localImageData: photo)
         try await database.saveSavedMeal(meal)
         try await database.saveSavedMeal(SavedMeal(userId: other, name: "Annen profil", items: [], localImageData: Data([9])))
+        let ownWater = WaterGlass(userId: user.id, date: Date())
+        try await database.saveWaterGlass(ownWater)
+        try await database.saveWaterGlass(WaterGlass(userId: other, date: Date()))
         let exporter = UserDataExportService(logRepository: database, savedMealRepository: database,
             waterRepository: database, healthRepository: database, productRepository: database,
-            personalDetailsStore: detailsStore)
+            personalDetailsStore: detailsStore, profileDataRepository: database)
         let url = try #require(await exporter.export(for: user))
+        #if !targetEnvironment(simulator)
+        // Simulator host files do not expose iOS Data Protection attributes.
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        #expect(attributes[.protectionKey] as? FileProtectionType == .complete)
+        let databaseAttributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("profile.sqlite").path)
+        #expect(databaseAttributes[.protectionKey] as? FileProtectionType == .completeUntilFirstUserAuthentication)
+        #endif
         defer { try? FileManager.default.removeItem(at: url) }
         let json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         let exportedMeals = try #require(json["saved_meals"] as? [[String: Any]])
@@ -185,11 +231,50 @@ struct ProfileTests {
         #expect((json["weight_entries"] as? [[String: Any]])?.count == 1)
         #expect((json["personal_details"] as? [String: Any])?["weightKg"] as? Int == 72)
         #expect((json["favorites"] as? [[String: Any]])?.count == 1)
+        let ownedProducts = try #require(json["owned_products"] as? [[String: Any]])
+        #expect(ownedProducts.count == 2)
+        #expect(ownedProducts.contains { ($0["localImageData"] as? String) == image.base64EncodedString() })
+        #expect(!ownedProducts.contains { ($0["name"] as? String) == "Privat annen vare" })
+        #expect((json["goal_history"] as? [[String: Any]])?.count == 2)
+        #expect((json["scan_history"] as? [[String: Any]])?.count == 1)
+        let preferences = try #require(json["profile_preferences"] as? [[String: Any]])
+        #expect(preferences.count == 1)
+        #expect(preferences.first?["key"] as? String == ownPreferenceKey)
+        #expect(json["export_schema_version"] as? Int == 2)
+        let water = try #require(json["water_glasses"] as? [[String: Any]])
+        #expect(water.count == 1)
+        #expect(water.first?["id"] as? String == ownWater.id.uuidString)
+        exporter.removeExport(at: url)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+        let failingExporter = UserDataExportService(logRepository: database, savedMealRepository: database,
+            waterRepository: database, healthRepository: database, productRepository: database,
+            personalDetailsStore: detailsStore, profileDataRepository: FailingProfileExportRepository())
+        #expect(await failingExporter.export(for: user) == nil)
         let vm = ProfileFavoritesViewModel(repository: database)
         await vm.load(userId: user.id)
         #expect(vm.products.count == 1)
         await vm.load(userId: other)
         #expect(vm.products.isEmpty)
+        try await database.deleteLocalData(ownerId: user.id)
+        let deletedRecords = try await database.exportProfileRecords(ownerId: user.id)
+        #expect(deletedRecords.values.allSatisfy { $0.isEmpty })
+        let preservedRecords = try await database.exportProfileRecords(ownerId: other)
+        #expect(preservedRecords["owned_products"]?.count == 1)
+        #expect(preservedRecords["goal_history"]?.count == 1)
+        #expect(preservedRecords["scan_history"]?.count == 1)
+        #expect(preservedRecords["profile_preferences"]?.count == 1)
+        #expect(await database.getWeightEntries(userId: user.id).isEmpty)
+        #expect(await database.getWeightEntries(userId: other).count == 1)
+        #expect(await database.getSavedMeals(userId: user.id).isEmpty)
+        #expect(await database.getSavedMeals(userId: other).count == 1)
+        #expect(await database.fetchPendingEvents(ownerUserId: user.id, limit: 100).isEmpty)
+        #expect(!(await database.fetchPendingEvents(ownerUserId: other, limit: 100)).isEmpty)
+    }
+}
+
+private struct FailingProfileExportRepository: ProfileDataExportRepository {
+    func exportProfileRecords(ownerId: UUID) async throws -> [String: [Data]] {
+        throw CocoaError(.fileReadCorruptFile)
     }
 }
 

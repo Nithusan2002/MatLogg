@@ -22,27 +22,27 @@ SOM: ny bruker
 SÅ AT: jeg kan prøve kjerneverdien uten å dele unødvendige persondata
 
 Acceptance Criteria:
-□ «Fortsett på denne iPhonen» er primær handling; lokal bruk er tidsubegrenset
+□ Ny installasjon oppretter lokal profil automatisk etter sesjonsgjenoppretting; lokal bruk er tidsubegrenset
 □ Apple Sign in og e-post/passord er tilgjengelig; Google er senere scope
 □ E-postregistrering krever bare e-post og passord; navn er ikke påkrevd
 □ Validering: e-post format, passord >8 tegn
-□ Ny lokal profil og ny konto sendes til onboarding
+□ Ny lokal profil åpner første logging direkte; konto er en sekundær inngang
 □ Eksisterende lokale data knyttes aldri til konto uten eksplisitt bekreftelse
 □ Sessionstoken lagres sikkert i Keychain (iOS)
 □ Ingen cookies; kun JWT-bearer-token i Authorization-header
 ```
 
-#### US-1.2: Bruker setter opp mål
+#### US-1.2: Første logging og valgfrie mål
 ```
 SOM: ny bruker
 ØNSKER: raskt kunne velge loggføring med eller uten mål
 SÅ AT: jeg kan begynne på en måte som passer meg
 
 Acceptance Criteria:
-□ Velkomstens budskap og handlinger er synlige uten scrolling på standard iPhone og standard tekststørrelse
+□ Første logging åpner søk med fokus, skann/manuell som alternativer og kort personverntekst
 □ Små skjermer, liggende retning og store tekststørrelser kan scrolle som tilgjengelighetsfallback
-□ Brukeren velger kun loggføring eller et valgfritt mål
-□ «Start uten mål» og «Kun loggføring» oppretter ikke et skjult mål
+□ Første logging krever ikke mål; mål settes senere under Profil → Daglige mål
+□ Automatisk lokal oppstart oppretter ikke et skjult mål
 □ Kalorier og tilgjengelige makroverdier vises også uten mål
 □ Måltype: rolig nedgang / stabil vekt / rolig oppgang (bestemmer beregningsretning)
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
@@ -51,7 +51,7 @@ Acceptance Criteria:
 □ Automatisk estimat krever alder 18+, gyldig vekt/høyde og eksplisitt valg av kvinne- eller mannvarianten i voksenformelen
 □ Manglende eller annet formelgrunnlag gir ikke et gjettet standardestimat; brukeren angir eget mål eller supplerer opplysningene
 □ Makroprofilene følger NNR 2023-intervallene for voksne og omtales som generelle fordelinger, ikke individuelle råd
-□ Oppsummering vises før eksplisitt lokal lagring; eksisterende local-first synkhendelse brukes når et mål lagres
+□ Målskjermen viser utkast før eksplisitt lokal lagring; eksisterende local-first synkhendelse brukes når et mål lagres
 □ Input beholdes ved lagringsfeil, og brukeren kan prøve igjen
 ```
 
@@ -147,7 +147,7 @@ Acceptance Criteria:
 □ Ukjent strekkode og ufullstendig kcal-/makrogrunnlag vises som separate tilstander, begge med manuell registrering (se US-3.3)
 □ Nettverksfeil tilbyr «Prøv igjen» og «Registrer manuelt»; ratebegrensning viser ventetid
 □ Eksisterende OFF-produkter kan oppdateres manuelt fra produktkortet; lagrede data beholdes ved feil
-□ Maksimal latency: 3 sekunder (nett), fra skann til produktkort
+□ Lagrede treff åpnes direkte. Nye oppslag viser ventestatus, og etter 3 sekunder vises en forklaring. Søk og manuell registrering er tilgjengelig under oppslaget; gamle svar forkastes når brukeren går videre.
 □ Scannings-historikk lagres lokalt (evt. uten nett)
 ```
 
@@ -445,6 +445,24 @@ Acceptance Criteria:
 | **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
 | (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
 | **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
+
+## Navigasjonsforenkling (2026-10-02)
+
+- Hjem → Se dagslogg åpner hele valgt dag med ett trykk. Måltidsnavn åpner valgt måltid.
+- Synlige varer på Hjem åpner redigering direkte; mengdefelt og lagring gir tre trykk utenom skriving.
+- Hjem, bunnmeny og dagslogg bruker samme Loggfør-ark og beholder dato/måltid.
+- Registrer manuelt er alltid tilgjengelig og leder til lokal produktlagring og mengdevalg.
+- Lagrede måltider har fast inngang også ved tom liste, og maler har synlig handlingsmeny.
+- Gjenbruk i dagsloggen samler maloppretting og kopiering fra i går.
+- Energi på Hjem krever ikke mål; eksisterende skjulvalg beholdes. Ingen ny datainnsamling.
+
+### US-3.2 tillegg: antall porsjoner (2026-10-02)
+
+- Velg en dokumentert porsjon eller hel pakke og angi antall med felt eller −/+.
+- Eksempel: 2 × 37,5 g vises som 75 g og lagres med antall og historisk grunnlag.
+- Antall, kilde/enhet og næring bevares etter omstart og ved redigering.
+- Direkte gram/ml fungerer for varer uten egnet porsjonsgrunnlag.
+- Egne nye porsjoner er utenfor dette leveransescope-et.
 
 ### Manuell registrering: næringsgrunnlag (2026-10-03)
 

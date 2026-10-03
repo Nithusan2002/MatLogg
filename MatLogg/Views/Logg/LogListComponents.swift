@@ -93,7 +93,7 @@ struct LogRowView: View {
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
                 .font(AppTypography.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }

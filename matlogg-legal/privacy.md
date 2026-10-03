@@ -1,18 +1,17 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 1. oktober 2026
+Sist oppdatert: 3. oktober 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
 1. Hvem er ansvarlig?
 
-Behandlingsansvarlig: Matlogg
+Behandlingsansvarlig: Nithusan Krishnasamymudali (MatLogg)
 Kontakt: nithusank.2002@gmail.com
-
-(Fyll inn dette for publisering.)
 
 2. Hvilke data behandler vi?
 
 Konto og innlogging
+  - Matlogger, vann, mål, vekt, favoritter, egne produkter, lagrede måltider og bilder lagres foreløpig bare på enheten, også når du har konto. Ingen skybackup eller gjenoppretting fra konto tilbys.
   - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
   - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
   - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
@@ -31,7 +30,7 @@ Det du logger i appen
 Produktdata
   - Nar du skanner, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
   - Ravaredelen fra Matvaretabellen folger med appen og sokes lokalt pa enheten. Nar du aktivt sender inn et navnesok etter merkevarer, sendes soketeksten til Open Food Facts. Sok sendes ikke for hvert tastetrykk.
-  - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter kan lagres og synkroniseres separat nar synk er aktivert.
+  - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter lagres lokalt og lastes ikke opp i denne versjonen.
 
 Deling
   - Hvis du deler et produkt, genererer vi en delingslenke (token) som gjor at mottaker kan se en forhandsvisning og importere produktet i appen.
@@ -42,7 +41,7 @@ Vi bruker data for a:
   - La deg logge mat og se historikk over tid.
   - La deg lagre og gjenbruke egne maltider uten a velge hver matvare pa nytt.
   - Vise garsdagens maltid som et valgfritt forslag til raskere logging. Dette beregnes lokalt pa enheten, uten a sende spisehistorikk til en ekstern AI-tjeneste. Et forslag lagres som et nytt maltid bare nar du velger a loggfore det.
-  - Knytte lokale data til kontoen etter at du bekrefter det. Dagens synk støtter bare opplasting fra denne enheten; gjenoppretting og synk mellom enheter er ikke tilgjengelig ennå.
+  - Knytte lokale data til kontoen etter at du bekrefter det. Kontokobling gir ikke opplasting eller skybackup. Gjenoppretting og synk mellom enheter er ikke tilgjengelig.
   - Gi raskere oppslag ved skanning (cache/historikk).
   - Forbedre datakvalitet (f.eks. markere kilde og handtere “ikke funnet”/brukeropprettede produkter).
   - Gjore appen stabil og sikker.
@@ -77,7 +76,7 @@ Før en eventuell tjeneste tas i bruk, skal leverandør, datatyper, formål, lag
 8. Kamera og andre tillatelser
   - Kamera brukes når du selv starter skanning eller velger «Ta bilde» ved manuell produktregistrering. iOS spør om kameratilgang før første bruk.
   - Måltidsbilder er valgfrie og velges gjennom iOS sin bildevelger uten tilgang til hele biblioteket. Bildet komprimeres uten original fotometadata og lagres bare lokalt med det lagrede måltidet. Det lastes ikke opp eller synkroniseres. Bildet er med i lokal dataeksport og fjernes ved sletting av måltidet eller lokale profildata.
-  - Produktbilder er valgfrie. Du kan ta et bilde eller velge ett bilde gjennom iOS sin bildevelger uten å gi tilgang til hele bildebiblioteket. Bildet komprimeres uten original fotometadata og lagres med produktet i den lokale databasen. Det lastes ikke opp eller synkroniseres. Ved sletting av lokale profildata fjernes også de lagrede produktbildene.
+  - Produktbilder er valgfrie. Du kan ta et bilde eller velge ett bilde gjennom iOS sin bildevelger uten å gi tilgang til hele bildebiblioteket. Bildet komprimeres uten original fotometadata og lagres med produktet i den lokale databasen. Det lastes ikke opp eller synkroniseres. Egne produkter og tilhørende produktbilder inngår i lokal dataeksport. Ved sletting av lokale profildata fjernes også de lagrede produktbildene.
 
 9. Hvor lenge lagrer vi data?
 
@@ -100,3 +99,7 @@ Du kan gjore dette i appen (Profil) eller ved a kontakte oss pa e-post.
 
 Kontakt oss pa nithusank.2002@gmail.com.
 Du kan ogsa klage til Datatilsynet hvis du mener behandlingen bryter regelverket.
+
+Lokal lagring og eksport
+  - Data kan gå tapt hvis du sletter appen eller mister telefonen. Enhetens eventuelle sikkerhetskopier styres av Apple-/iOS-innstillingene dine; MatLogg har ikke demonstrert gjenoppretting fra dem.
+  - Du kan eksportere data som JSON under Profil. Eksportfilen kan inneholde sensitive opplysninger og bilder. Du velger delingsmottaker. Appen støtter ikke import av filen.

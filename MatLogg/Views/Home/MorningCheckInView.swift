@@ -48,7 +48,7 @@ struct MorningCheckInView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Dagens vekt er valgfri. Du kan sjekke inn uten å veie deg.")
                             .foregroundStyle(AppColors.textSecondary)
-                        Text("Vekt (kg)").font(AppTypography.bodyEmphasis)
+                        Text("Registrer vekt (kg)").font(AppTypography.bodyEmphasis)
                         Button { showWeightPicker = true } label: {
                             HStack(spacing: 12) {
                                 Text(viewModel.weightText.isEmpty ? "Velg vekt (valgfritt)" : viewModel.weightText + " kg")

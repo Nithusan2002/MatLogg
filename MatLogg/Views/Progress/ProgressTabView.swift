@@ -243,7 +243,7 @@ private struct WeightEntryContent: View {
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showWeightEntry.toggle() }
             } label: {
-                Label(showWeightEntry ? "Skjul registrering" : "Loggfør vekt", systemImage: showWeightEntry ? "chevron.up" : "plus")
+                Label(showWeightEntry ? "Skjul registrering" : "Registrer vekt", systemImage: showWeightEntry ? "chevron.up" : "plus")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.action)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

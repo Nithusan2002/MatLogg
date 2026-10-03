@@ -13,6 +13,7 @@ struct MatLoggContent: View {
     @StateObject private var mealReuseViewModel: MealReuseViewModel
     @StateObject private var waterViewModel: WaterViewModel
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
+    @StateObject private var quickLogViewModel: QuickLogViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var morningCheckInViewModel: MorningCheckInViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
@@ -29,13 +30,21 @@ struct MatLoggContent: View {
     private let databaseStartupFailed: Bool
     private let databaseStartupDetail: String?
 
+    #if DEBUG
+    private let portionQARepository: any ProductRepository
+    #endif
     private let isDemo: Bool
 
     init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false) {
         self.isDemo = isDemo
-        foodSearchRepository = DefaultFoodSearchRepository(
+        #if DEBUG
+        portionQARepository = databaseService
+        #endif
+        let searchRepository = DefaultFoodSearchRepository(
             products: databaseService, catalog: MatvaretabellenService(), remote: APIService()
         )
+        foodSearchRepository = searchRepository
+        _quickLogViewModel = StateObject(wrappedValue: QuickLogViewModel(repository: searchRepository))
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
@@ -50,7 +59,8 @@ struct MatLoggContent: View {
         let syncEngine = SyncEngine(
             databaseService: databaseService,
             apiService: syncAPIClient,
-            syncEnabled: { !isDemo && FeatureFlags.backendSyncEnabled }
+            syncEnabled: { !isDemo && FeatureFlags.backendSyncEnabled },
+            uploadPolicy: .localOnly
         )
         databaseStartupFailed = !databaseService.isAvailable
         if let error = databaseService.startupError,
@@ -105,7 +115,8 @@ struct MatLoggContent: View {
             waterRepository: databaseService,
             healthRepository: databaseService,
             productRepository: databaseService,
-            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults)
+            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults),
+            profileDataRepository: databaseService
         )))
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
@@ -136,6 +147,7 @@ struct MatLoggContent: View {
             }
             .onDisappear { appState.updateAuthenticatedUser(nil) }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
+                quickLogViewModel.reset()
                 profileExportViewModel.reset()
                 personalDetailsViewModel.begin(details: .empty, userId: nil)
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
@@ -167,6 +179,12 @@ struct MatLoggContent: View {
                 Task { await appState.triggerSync(reason: .appLaunch) }
             }
             .task {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--portion-qa") {
+                    do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.product) }
+                    catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }
+                }
+                #endif
                 guard !isDemo && !skipAuthForDev else { return }
                 await authViewModel.restoreSession()
             }
@@ -213,11 +231,7 @@ struct MatLoggContent: View {
             } else if authViewModel.isRestoringSession {
                 ProgressView("Åpner MatLogg …")
             } else if authViewModel.currentUser != nil {
-                if authViewModel.isOnboarding {
-                    OnboardingView()
-                } else {
-                    HomeView()
-                }
+                HomeView()
             } else {
                 WelcomeView()
             }
@@ -228,6 +242,7 @@ struct MatLoggContent: View {
         .environmentObject(savedMealsViewModel)
         .environmentObject(waterViewModel)
         .environmentObject(productViewModel)
+        .environmentObject(quickLogViewModel)
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
         .environmentObject(healthProfileViewModel)

@@ -638,6 +638,68 @@ prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
 av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
 beholdes. Ingen endringer i lagring eller synkkontrakt.
 
+## 2026-10-02 – Første logging før oppsett
+
+Førstegangsbruk starter direkte i søk med automatisk lokal profil etter
+sesjonsgjenoppretting. Konto forblir valgfri. Introduksjon, personvernside,
+måloppsett og oppsummering fjernes fra inngangsveien; eksisterende daglige
+mål under Profil gjenbrukes. Første bekreftede lagring eller eksplisitt
+«Gå til Hjem» avslutter onboarding. Eksisterende fullføringsstatus bevares.
+Lagring, eierskap og synkkontrakt endres ikke.
+
+## 2026-10-02 – Respons ved lokal logging og innlasting
+
+Asynkrone DatabaseService-kall kjører det synkrone LocalStore-arbeidet på en
+seriell IO-kø uten å blokkere MainActor. SQLite-transaksjonene og synkkontrakten
+beholdes. Rene domeneverdier er eksplisitt nonisolated/Sendable; LocalStore
+serialiserer SQLite-tilgang og bruker codecs per kall. Synkrone cacheoppslag
+beholdes for eksisterende API-er og er fortsatt mulige korte UI-blokkeringer.
+
+Logging bekreftes etter lokal commit, før oppsummering og synkstatus lastes
+på nytt. Søk publiserer lagrede varer før den medfølgende Matvaretabellen
+lastes og dekodes på egen kø. Skanning tilbyr søk/manuell registrering under
+oppslag og forkaster gamle svar når brukeren går videre. Ingen ny datainnsamling,
+endring av kilde/enhet eller aktivering av produksjonssynk.
+
+## 2026-10-02 – Direkte dagslogg og felles loggeinnganger
+
+De fire hovedfanene beholdes. «Loggfør» er en handling; «Se dagslogg» på
+Hjem åpner valgt dag uten filter, mens måltidsnavn beholder filtrerte snarveier.
+Synlige varer åpner eksisterende redigering direkte. Alle Legg til-innganger
+bruker samme ark og fungerende manuell produktregistrering. Lagrede måltider
+har fast inngang og synlige valg, og dagsloggen har tekstmerket Gjenbruk-meny.
+Hjem viser registrert energi uten krav om mål når eksisterende visningsvalg
+er på. Hurtigvalg deles via en root-injisert ViewModel med lokalt repository
+og forkasting av gamle forespørsler. Ingen ny lagring, synkformat eller datainnsamling.
+
+## 2026-10-02 – Antall med historisk porsjonsgrunnlag
+
+Porsjonslogging bruker eksisterende dokumentert grunnlag og bevarer et valgfritt
+snapshot på logg og lagret måltid. Totalmengde og næringssnapshot beholdes, slik
+at katalogoppdateringer ikke endrer historikk. Pakkevekt brukes som hel pakke;
+produktnavn og eldre heuristikk brukes ikke til å fastslå stykkvekt. Ny synk er
+et additivt v1-felt med eksplisitt null ved direkte mengde. Egne porsjoner og
+toveis synk inngår ikke. Serverstøtte må være på plass før ny payload sendes.
+
+## 2026-10-02 – Synknødstopp ved databasegrensen
+
+Direkte authenticated RPC kunne omgå Edge-nødstoppen. Samme eksisterende
+app_config-kontroll håndheves derfor også i apply_sync_event_v1, før
+inbox-/domeneskriving. SYNC_DISABLED er retrybar på klienten. Auth/grants og
+v1-format er uendret. Migrasjonen er testet lokalt og deployet til staging;
+produksjonssynk forblir av til resterende releaseporter er verifisert.
+
+## 2026-10-03 – lokale domenedata ved første lansering
+
+Brukeren velger lokal lagring fram til senere skalering. SwiftUI/SQLite og
+Supabase Auth beholdes; ingen Flutter/Node/Mongo-migrasjon eller betalt backup.
+App-roten og alle SyncEngine-defaults bruker localOnly, uavhengig av backendflagget.
+Releasebygg har ingen opplastingspolicy som kan aktiveres med flagg. Synkkøen
+beholdes atomisk og hvilende. Framtidig historikkopplasting krever separat
+brukervalg og servergrense; kontokobling autoriserer ikke opplasting.
+JSON-eksport er ingen apprestore. Hosted recovery-krav gjelder framtidig skyport;
+aktive auth-/personvernkrav består. Full enhetsrestore er ikke autorisert.
+
 ## 2026-10-03 – Næringsgrunnlag ved manuell registrering
 
 Manuelle produkter kan registreres per 100 g, 100 ml eller navngitt porsjon med

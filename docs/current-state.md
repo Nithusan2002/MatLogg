@@ -1,10 +1,28 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert mot kode: 2026-10-01.
+## Gjeldende lanseringsscope – 3. oktober 2026
 
-Denne kontrollen omfatter kode og Git-historikk, ikke nye testkjøringer eller
-ekstern kontroll av staging/produksjon. Verifiseringsresultater nedenfor er
-historiske og gjelder datoen og omfanget som er oppgitt.
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
+
+Sist kontrollert mot kode: 2026-10-02.
+
+Synk-/recovery-oppfølgingen 2026-10-02 inkluderer nye målrettede tester og
+faktisk staging-kontroll. Øvrige resultater gjelder datoen og omfanget som er
+oppgitt; se produksjonsberedskap for full avgrensning.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
@@ -19,17 +37,52 @@ Apple-secret/provider, eget SMTP-oppsett, backup/restore, fysisk iPhone,
 TestFlight og separat produksjonsprosjekt gjenstår. NestJS/Prisma beholdes fram
 til disse portene og stabil pilot er godkjent.
 
+Oppfølging 2026-10-02: staging har vann-, porsjons- og RPC-nødstoppmigrasjonene
+og sync-events v3. Siste relevante iOS-suiter gir 59 grønne tester, lokal DB
+71 grønne tester, og staging-HTTP kontrollerer auth, replay, eierskap og delvis
+batch. Direkte RPC respekterer nå serverens synk-kill-switch. Hosted backup,
+varsler, direkte-RPC rate limiting og øvrige pilotporter gjenstår;
+produksjonssynk forblir av. Se [resultatene](production-readiness.md).
+
+Oppfølging 2026-10-03: fysisk iPhone 17/iOS 27.0 bestod 40 lagrings-/synktester
+og én UI-test for lokal logging, Angre og gjenåpning, i separat QA-app.
+Innlogget dashboard bekrefter at Free-planen ikke har hosted backup;
+backup/PITR krever et budsjett-/scopevalg før hosted restore. Ingen
+abonnement eller synkinnstillinger ble endret. Se produksjonsberedskap.
+
 App-roten bruker `SupabaseService` for konto og synk når konfigurasjon finnes.
 Uten konfigurasjon brukes eksplisitt utilgjengelige kontotjenester; lokal profil
 fungerer fortsatt. NestJS er ikke appens aktive synktransport.
 
-Debug bruker ordinær velkomst-/sesjonsflyt som standard. Launch-argumentet
-`--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Brukeren kan
-fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
+Debug bruker ordinær sesjonsflyt og direkte første logging som standard. Launch-argumentet
+`--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Lokal profil opprettes automatisk ved første åpning; brukeren kan
+velge Apple/e-postkonto som sekundær handling. Demo har eget lager.
 
 ## Implementert
 
+### Porsjonslogging, avgrenset oppdatering 2026-10-02
+
+Lokalt implementert støtte for antall basert på eksisterende, dokumenterte
+porsjoner og pakningsmengder. Gram/ml er tilgjengelig når porsjon mangler.
+Antall, navn, kilde, enhet og mengde per porsjon lagres som historisk snapshot
+og bevares ved redigering, gjenbruk, lagrede måltider og eksport. Egne nye
+porsjoner inngår ikke i første versjon. Ingen stykkvekt utledes fra varenavn.
+
+Tillegg i synkkontrakt v1 og migrasjon `20261002120000_portion_logging.sql`
+er verifisert lokalt med 69 databasetester, SQL-lint og 10 Deno-kontrakttester.
+77 målrettede Swift-tester var grønne før pause. UI-testene for porsjonslogging
+med omstart/redigering ved største tilgjengelighetstekst og logging på tidligere
+dag er grønne. Manuell VoiceOver-kontroll og fysisk iPhone gjenstår før release.
+Ingen serverdeploy eller produksjonsmigrasjon er utført. Produksjonssynk
+forblir deaktivert. Se [implementeringsplanen](portion-logging-implementation-plan.md).
+
 ### iOS
+
+- Førstegangsbruk åpner matvaresøk direkte med automatisk lokal profil, kort
+  personverninformasjon og valgfri innlogging. Skann/manuell finnes på samme
+  flate. Bekreftet lokal logging eller «Gå til Hjem» avslutter onboarding;
+  måloppsett finnes under Profil → Daglige mål. Tidligere fullført onboarding
+  bevares. Ingen nye mål opprettes automatisk.
 
 - Morgensjekk på Hjem for dagens dato: valgfri vekt i eksisterende historikk,
   fullfør uten vekt, endre og hopp over. Siste kortstatus er lokal per profil;
@@ -339,3 +392,30 @@ Manuell produktregistrering støtter valgfritt kamera-/bibliotekbilde.
 `Product.localImageData` lagres lokalt og inngår ikke i `ProductSyncPayload`.
 Eksisterende produktbilder bruker separat cache via `ProductImageRepository`.
 Dette er kodekontroll, ikke en ny funksjons- eller enhetstest.
+
+### Første logging – verifisert 2026-10-02
+
+- Simulatorbuild og 18 målrettede AuthViewModelTests består, inkludert
+  automatisk lokal oppstart, gjenåpning, kjent konto med mislykket restore,
+  valgfri innlogging og avbrutt lokal datatilknytning.
+- 14 LogViewModelTests består, inkludert repositoryfeil og Angre.
+- testFirstLoggingWithoutAccountAndRelaunch og
+  testFirstLogCanBeSkippedWithLargeText består på en dedikert iPhone 17 Pro
+  med iOS 26.5. Lokalt treff er trykkbart med tastatur åpent; veien bruker
+  to trykk pluss tekstinntasting med foreslått mengde og måltid. Stor tekst
+  bruker rullbar, vertikal layout; tastaturet kan lukkes med Ferdig.
+- Kontrollert mot arkitekturprinsippene: ingen ny IO i views/AppState,
+  eksisterende injiserte søke- og lagringsgrenser gjenbrukes, og lokal
+  domeneskriving/synkhendelse, kilde/enhet og eierskap er bevart. Ingen
+  arkitekturavvik eller endring i synkkontrakten.
+- Ekte Apple-innlogging, fysisk kamera og manuell VoiceOver-gjennomgang
+  er ikke verifisert i denne endringen. Dette er ikke en produksjonsgodkjenning.
+
+## Lokal lansering: verifisert 3. oktober 2026
+
+Explicit localOnly-policy sperrer domenesynk uavhengig av backendflagget.
+Status, datatapsinformasjon og eksporttekst er samordnet. Filbeskyttelse er
+verifisert fysisk, og gamle eksporttempfiler ryddes best-effort etter 24 timer.
+76 målrettede enhetstester og tre fysiske UI-flyter bestod. Ingen backenddeploy,
+kjøp eller produksjonsutrulling. Restore, aktive konto-/personvernporter og
+visuell runtime-advarsel gjenstår; se [QA-resultater](production-readiness.md).

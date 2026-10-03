@@ -10,7 +10,7 @@ struct LogToastView: View {
 
     init(payload: ReceiptPayload, isUndoing: Bool, onUndo: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.init(id: payload.id,
-                  title: "\(payload.amountG.formatted(.number.precision(.fractionLength(0...1)))) \(payload.amountUnit.rawValue) \(payload.product.name) lagt til \(LogSummaryService.title(for: payload.mealType))",
+                  title: "\(PortionDisplay.amount(payload.amountG, unit: payload.amountUnit, portion: payload.portionSelection)) \(payload.product.name) lagt til \(LogSummaryService.title(for: payload.mealType))",
                   isUndoing: isUndoing, onUndo: onUndo, onDismiss: onDismiss)
     }
 

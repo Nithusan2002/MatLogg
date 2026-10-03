@@ -1,5 +1,10 @@
 # MatLogg – Edge Cases & Exception Handling
 
+Gjeldende lansering (2026-10-03): domenedata er lokale. Scenarioer nedenfor
+som laster opp data, retryer backend eller beskriver flerenheter gjelder
+framtidig skyscope. Nett tilbake og kontokobling skal ikke sende historikken.
+Se [normativ offline-adferd](../offline-behavior.md).
+
 ## 7.1 Network & Connectivity Edge Cases
 
 ### **EC-1: Sudden Offline During Logging**

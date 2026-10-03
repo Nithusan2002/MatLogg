@@ -52,16 +52,19 @@ Prioritet:
 2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
 3. kompakt vannrad med valgt dato, antall glass og minus/pluss
 4. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
-5. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+5. «Se dagslogg» og alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
 6. personlige hurtigvalg
 
 Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
 sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
-Eksisterende visningsvalg for målstatus beholdes.
+Næringsfeltet viser registrerte verdier også uten mål; måltekst vises bare når mål finnes.
+Eksisterende visningsvalg beholdes og heter «Vis energi og mål på Hjem».
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidsseksjoner viser et begrenset sammendrag; trykk åpner valgt måltid for valgt dato.
+Måltidsnavnet åpner valgt måltid for valgt dato. Synlige varerader åpner
+redigering direkte. «Se dagslogg» åpner alle måltider for valgt dato.
+Hurtigvalg viser favoritter og nylig loggede varer, med mengdevalg før logging.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
 måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
@@ -98,8 +101,9 @@ VoiceOver-tekst med enhet. Lagringsfeil beholder input og tilbyr nytt forsøk.
 
 ### Dagslogg
 
-Dagsloggen åpnes fra Hjem med alle måltider som standard, også ved trykk på
-et bestemt måltidskort. Måltidsfilter aktiveres kun eksplisitt av brukeren.
+«Se dagslogg» på Hjem åpner dagsloggen uten måltidsfilter. Måltidsnavnene
+er egne snarveier til filtrert visning. Brukeren kan velge «Se hele dagen»
+eller bytte måltid eksplisitt uten å endre dato.
 Skjermen viser valgt dato, en kompakt dagsoppsummering og
 varer samlet i én flate per måltid. Varerader viser navn, mengde med lagret
 enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
@@ -111,7 +115,8 @@ vises med en eksplisitt handling for å vise alle måltider. Ingen søke- eller
 filtertreff skilles fra en tom dag, og tilbyr nullstilling uten å endre dato.
 Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
 «Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen.
-«Kopier fra i går» ligger i dagsmenyen når handlingen er tilgjengelig.
+Den tekstmerkede «Gjenbruk»-menyen samler «Lagre som måltid»,
+«Kopier hele dagen fra i går» når tilgjengelig, og «Gå til i dag».
 Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
 ### Vann på Hjem
@@ -180,18 +185,24 @@ produktet lokalt før mengdevalget åpnes.
 ### Loggfør
 
 Den sentrale faneknappen heter «Loggfør» og åpner et bunnark uten å endre valgt
-hovedfane. Arket viser alltid «Logg til: [måltid]» og tilbyr:
+hovedfane. Samme ark brukes fra Hjem, bunnmenyen og dagsloggen.
+«Registrer manuelt» er alltid synlig og bruker det samme fungerende
+produktskjemaet som Søk-fanen, etterfulgt av mengdevalg. Skjemaet åpnes direkte
+uten en søkeskjerm som mellomsteg. Avbryt går tilbake til Loggfør-arket;
+lagring åpner mengdevalg med valgt dato og måltid bevart. Arket viser alltid «Logg til: [måltid]» og tilbyr:
 
 1. søk etter matvare
 2. skann strekkode
 3. manuell registrering
 4. hurtigvalg fra favoritter og nylig brukt
 
-Lagrede måltider vises før enkeltvarer når de finnes. De to innholdstypene har
+Inngangen til «Lagrede måltider» er alltid synlig, også uten maler.
+Tomtilstanden forklarer oppretting fra dagsloggens Gjenbruk-meny. Inntil tre
+maler vises før enkeltvarer; hele listen har synlig meny for redigering/sletting. De to innholdstypene har
 egne seksjonsoverskrifter, og en måltidsrad viser antall varer i tillegg til
 måltidsikon og innholdsoppsummering. En lagret mal åpnes i en forhåndsvisning
 med matvarer, mengder, valgt dato og måltidskategori før den loggføres.
-Oppretting skjer fra menyen til et allerede registrert måltid. Se [lagrede
+Oppretting skjer fra Gjenbruk-menyen i dagsloggen eller menyen til et registrert måltid. Se [lagrede
 måltider](saved-meals.md).
 
 Tidspunkt kan foreslå et måltid. Inngang fra et måltidskort overstyrer forslaget.
@@ -245,7 +256,8 @@ valgfrie, og brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
 foran eventuelt navn fra kontoen. Eksisterende profiler uten fødselsdato
 beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldige tall avvises ved feltet, og lagringsfeil beholder
-utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
+utkastet på skjermen. «Vekt brukt i målforslag» er beregningsgrunnlag, ikke en vektregistrering.
+Sjekk inn og Oversikt bruker «Registrer vekt» for vekthistorikken.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
 
@@ -331,7 +343,7 @@ høyde, alder 18+ og valg av kvinne- eller mannvarianten i voksenformelen.
 Ved manglende eller annet formelgrunnlag skal appen ikke gjette et generelt
 kaloritall; brukeren kan oppdatere Personlige detaljer eller angi eget mål.
 «Bruk forslaget» endrer bare utkastet; vanlig lagring kreves etterpå. Veiviseren
-oppdaterer ikke personopplysninger. Førstegangsoppsett bruker fortsatt onboarding.
+oppdaterer ikke personopplysninger. Førstegangsbruk åpner logging direkte; mål settes valgfritt under Profil.
 
 Forslaget omtales som et «estimert startpunkt», ikke som en anbefaling eller
 fasit. Standardprofilene for makroer ligger innenfor NNR 2023-intervallene for
@@ -498,3 +510,47 @@ tilpasset onboarding. «Bruk verdi» oppdaterer bare onboarding-utkastet.
 Avbryt beholder tidligere input; tomme felt fylles ikke automatisk med
 linjalens startverdi. Direkte inntasting og fjerning er tilgjengelig.
 Eksisterende validering avgjør om opplysningene kan brukes i beregningen.
+
+### Første logging (2026-10-02)
+
+Etter forsøk på sesjonsgjenoppretting opprettes lokal profil automatisk ved
+første åpning uten lagret konto. Mislykket gjenoppretting av en kjent konto
+beholder eksplisitt innloggingsinngang, uten å bytte eier automatisk. Førstegangsvisningen åpner søk med fokus, skanning og manuell
+registrering på samme flate. Kort informasjon om lokal lagring, valgfri konto
+og mål samt personvernlenke følger søket. Innlogging er sekundær.
+
+Ingen introduksjon, målberegning, personvernside eller oppsummering blokkerer
+logging. Måloppsett gjenbruker Profil → Daglige mål. Kamera etterspørres først
+etter valgt skanning. Produktkortet beholder mengde, enhet, kilde og måltid.
+
+Bekreftet lokal lagring åpner Hjem med eksisterende kvittering og Angre.
+«Gå til Hjem» avslutter også førstegangsvisningen; ellers gjenopptas den ved
+neste åpning. Angre starter ikke onboarding på nytt. Tidligere fullført
+onboarding bevares. Målet er to skjermer og to trykk pluss tekstinntasting
+for lokalt treff med passende foreslått mengde og måltid.
+
+## Antall og porsjonslogging (2026-10-02)
+
+Produktkortet har én mengdevelger med gram/ml og tilgjengelige porsjoner.
+Porsjonsvalg viser antallsfelt, −/+, mengde per porsjon, kilde og beregnet total.
+Desimalantall er tillatt, og næringsoversikten følger totalen. Første eksplisitte
+porsjonsvalg starter på 1; senere enhetsbytter bevarer totalen. Sist brukte
+antall gjenbrukes bare når porsjonsgrunnlaget fortsatt matcher.
+
+Logg og redigering viser eksempelvis «2 Polarbrød · 75 g». Historisk grunnlag
+bevares ved katalogoppdatering. Basismengde er alltid tilgjengelig. Ugyldig
+input deaktiverer lagring, og mislykket redigering beholder utkastet for retry.
+Pakkevekt vises som hel pakke; navn alene bestemmer ikke stykkvekt.
+Ingen gram/ml-konvertering uten dokumentert grunnlag, og ingen porsjonseditor
+inngår i denne versjonen. Produktkortet brukes likt fra skanning og søk.
+
+## Lokal lansering – 3. oktober 2026
+
+Hjem og Profil bruker «Lagret på denne enheten» uavhengig av nettstatus eller
+hvilende kø. Ingen ventende opplasting/retry presenteres i lokal modus.
+Konto beskrives som innlogging uten skybackup, også ved bekreftet kontokobling.
+Første logging viser kort informasjon om datatap og eksport i den scrollbare
+listen, før søket er startet. Informasjonen skal ikke låses til bunnen og
+fortrenge handlinger ved store tilgjengelighetsstørrelser. Profil → Innstillinger
+har samme forklaring og «Eksporter data», med tydelig tekst om manglende import.
+Eksisterende tokens, tabbar-clearance og systemdeling beholdes.

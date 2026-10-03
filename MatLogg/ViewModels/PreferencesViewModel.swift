@@ -45,6 +45,17 @@ final class PreferencesViewModel: ObservableObject {
         defaults.set(amount, forKey: lastAmountKey(productId: productId, userId: userId))
     }
 
+    func lastUsedPortion(for productId: UUID, userId: UUID?) -> PortionSelection? {
+        guard let data = defaults.data(forKey: lastAmountKey(productId: productId, userId: userId) + ".portion") else { return nil }
+        return try? JSONDecoder().decode(PortionSelection.self, from: data)
+    }
+
+    func setLastUsedPortion(_ portion: PortionSelection?, for productId: UUID, userId: UUID?) {
+        let key = lastAmountKey(productId: productId, userId: userId) + ".portion"
+        if let portion, let data = try? JSONEncoder().encode(portion) { defaults.set(data, forKey: key) }
+        else { defaults.removeObject(forKey: key) }
+    }
+
     func shouldUseLastAmount(for productId: UUID, userId: UUID?) -> Bool {
         defaults.bool(forKey: useLastAmountKey(productId: productId, userId: userId))
     }

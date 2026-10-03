@@ -185,7 +185,7 @@ private struct ProfileSettingsView: View {
             }
             .listRowBackground(AppColors.surface)
             Section("Visning og tilbakemelding") {
-                Toggle("Vis målstatus på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
+                Toggle("Vis energi og mål på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
                 Toggle("Vibrasjon ved trykk", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
                 Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
                 Toggle("Vis hvor næringstallene kommer fra", isOn: $preferencesViewModel.showNutritionSource)
@@ -193,8 +193,11 @@ private struct ProfileSettingsView: View {
             }
             .listRowBackground(AppColors.surface)
             Section("Data og lagring") {
+                Text("Vi har ingen skybackup av matloggene dine. Data kan gå tapt hvis du sletter appen eller mister telefonen. Du kan eksportere en kopi her.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
                 LabeledContent("Status", value: syncStatusText)
-                if appState.quarantinedSyncCount > 0 {
+                if appState.isSyncAvailable && appState.quarantinedSyncCount > 0 {
                     Label(
                         "\(appState.quarantinedSyncCount) eldre endring(er) er lagret på denne iPhonen. De kan ikke lastes opp fordi vi ikke kan bekrefte hvilken konto de tilhører.",
                         systemImage: "lock.trianglebadge.exclamationmark"
@@ -219,7 +222,7 @@ private struct ProfileSettingsView: View {
                     .foregroundColor(AppColors.textSecondary)
                 }
 
-                ForEach(appState.syncFailures) { failure in
+                ForEach(appState.isSyncAvailable ? appState.syncFailures : []) { failure in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(syncTypeLabel(failure.type))
                             .font(AppTypography.bodyEmphasis)
@@ -250,7 +253,7 @@ private struct ProfileSettingsView: View {
                     Text(syncExplanationText)
                         .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
                 }
-                Button(exportViewModel.isExporting ? "Klargjør eksport …" : "Last ned data") {
+                Button(exportViewModel.isExporting ? "Klargjør eksport …" : "Eksporter data") {
                     Task { await exportViewModel.export(user: authViewModel.currentUser) }
                 }
                 .disabled(exportViewModel.isExporting)
@@ -265,6 +268,9 @@ private struct ProfileSettingsView: View {
             }
             .listRowBackground(AppColors.surface)
             Section("Konto") {
+                Text("Kontoen brukes til innlogging. Matloggene dine lagres foreløpig bare på denne enheten.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
                 if demoMode.isDemo {
                     LabeledContent("Status", value: "Demomodus – fiktiv lokal profil")
                 } else if authViewModel.isLocalMode {
@@ -277,6 +283,7 @@ private struct ProfileSettingsView: View {
                     if let email = authViewModel.currentUser?.email, !email.isEmpty { LabeledContent("E-post", value: email) }
                     Button("Logg ut", role: .destructive) { authViewModel.logout() }
                     Button("Fjern data fra denne iPhonen", role: .destructive) { showRemoveLocalConfirm = true }
+                    if authViewModel.isDeletingAccount { ProgressView("Sletter konto …") }
                     Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
                         .disabled(authViewModel.isDeletingAccount)
                 }
@@ -332,7 +339,7 @@ private struct ProfileSettingsView: View {
         }
     }
     private var syncStatusText: String {
-        if !appState.isSyncAvailable { return "Lagret bare på denne enheten" }
+        if !appState.isSyncAvailable { return "Lagret på denne enheten" }
         if appState.isSyncing || appState.inFlightSyncCount > 0 { return "Synkroniserer" }
         if appState.failedSyncCount > 0 { return "\(appState.failedSyncCount) krever handling" }
         if appState.networkAvailability == .offline, appState.unsyncedSyncCount > 0 { return "Offline – lagret på enheten" }

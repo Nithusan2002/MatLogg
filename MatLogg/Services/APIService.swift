@@ -568,9 +568,8 @@ class APIService {
         guard let completeNutrition else { return nil }
 
         let servings = buildServingOptions(
-            name: name,
+            identity: barcode ?? name,
             servingSize: product.servingSize,
-            servingQuantity: product.servingQuantity?.value,
             productQuantity: product.productQuantity?.value,
             productQuantityUnit: product.productQuantityUnit
         )
@@ -631,115 +630,44 @@ class APIService {
     }
     
     private func buildServingOptions(
-        name: String,
+        identity: String,
         servingSize: String?,
-        servingQuantity: Double?,
         productQuantity: Double?,
         productQuantityUnit: String?
     ) -> [ServingOption]? {
         var options: [ServingOption] = []
-        
+        func add(label: String, amount: Double, unit: AmountUnit, kind: ServingKind,
+                 shortLabel: String, suggested: Bool) {
+            guard amount.isFinite, amount > 0, amount <= 10_000 else { return }
+            options.append(ServingOption(
+                id: Product.catalogID(source: "off-serving", externalID: "\(identity)|\(label)|\(amount)|\(unit.rawValue)|\(kind.rawValue)"),
+                label: label, grams: amount, unit: unit, source: .openFoodFacts,
+                isDefaultSuggestion: suggested, kind: kind, shortLabel: shortLabel))
+        }
         if let servingSize, let parsed = parseAmount(from: servingSize) {
             let label = servingSize.trimmingCharacters(in: .whitespacesAndNewlines)
-            options.append(
-                ServingOption(
-                    label: label,
-                    grams: parsed.value,
-                    unit: parsed.unit,
-                    source: .openFoodFacts,
-                    isDefaultSuggestion: true
-                )
-            )
-            
-            if label.lowercased().contains("bar"), parsed.unit == .grams {
-                let half = parsed.value / 2.0
-                let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
-                options.append(
-                    ServingOption(
-                        label: halfLabel,
-                        grams: half,
-                        source: .heuristic
-                    )
-                )
-            }
-        } else if let servingQuantity, servingQuantity > 0,
-                  let unit = amountUnit(from: productQuantityUnit) {
-            let label = "1 porsjon (\(formatGrams(servingQuantity)) \(unit.rawValue))"
-            options.append(
-                ServingOption(
-                    label: label,
-                    grams: servingQuantity,
-                    unit: unit,
-                    source: .openFoodFacts,
-                    isDefaultSuggestion: true
-                )
-            )
+            let short = ServingOption.documentedLabel(label)
+            add(label: label, amount: parsed.value, unit: parsed.unit,
+                kind: short == "porsjon" ? .portion : .piece, shortLabel: short, suggested: true)
         }
-        
-        if options.isEmpty {
-            if let quantity = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
-                let isBar = name.lowercased().contains("bar")
-                let label = isBar && quantity.unit == .grams
-                    ? "1 bar (\(formatGrams(quantity.value)) g)"
-                    : "1 porsjon (\(formatGrams(quantity.value)) \(quantity.unit.rawValue))"
-                options.append(
-                    ServingOption(
-                        label: label,
-                        grams: quantity.value,
-                        unit: quantity.unit,
-                        source: .heuristic,
-                        isDefaultSuggestion: true
-                    )
-                )
-                
-                if isBar, quantity.unit == .grams {
-                    let half = quantity.value / 2.0
-                    let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
-                    options.append(
-                        ServingOption(
-                            label: halfLabel,
-                            grams: half,
-                            source: .heuristic
-                        )
-                    )
-                }
-            } else if let parsed = parseAmount(from: name), parsed.unit == .grams {
-                let isBar = name.lowercased().contains("bar")
-                let label = isBar ? "1 bar (\(formatGrams(parsed.value)) g)" : "1 porsjon (\(formatGrams(parsed.value)) g)"
-                options.append(
-                    ServingOption(
-                        label: label,
-                        grams: parsed.value,
-                        unit: .grams,
-                        source: .heuristic,
-                        isDefaultSuggestion: true
-                    )
-                )
-            }
+        // serving_quantity alone has no explicit serving unit; package units cannot establish it.
+
+        if let quantity = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
+            add(label: "Hel pakke (\(formatGrams(quantity.value)) \(quantity.unit.rawValue))",
+                amount: quantity.value, unit: quantity.unit, kind: .package,
+                shortLabel: "hel pakke", suggested: false)
         }
-        
-        if options.isEmpty {
-            return nil
-        }
-        
-        let defaultUnit = amountUnit(from: productQuantityUnit) ?? options.first?.amountUnit ?? .grams
-        let has100 = options.contains { abs($0.grams - 100.0) < 0.1 && $0.amountUnit == defaultUnit }
-        if !has100 {
-            options.append(
-                ServingOption(
-                    label: "100 \(defaultUnit.rawValue)",
-                    grams: 100.0,
-                    unit: defaultUnit,
-                    source: .heuristic
-                )
-            )
-        }
-        
+        guard !options.isEmpty else { return nil }
+        let unit = options.first?.amountUnit ?? .grams
+        options.append(ServingOption(
+            id: Product.catalogID(source: "off-serving", externalID: "100-\(unit.rawValue)"),
+            label: "100 \(unit.rawValue)", grams: 100, unit: unit,
+            source: .heuristic, kind: .baseAmount))
         return options
     }
     
     private func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
-        let pattern = #"([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
+        let pattern = #"(?<![0-9.,+\-])([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return nil
         }

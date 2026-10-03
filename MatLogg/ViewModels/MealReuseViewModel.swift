@@ -208,6 +208,7 @@ final class MealReuseViewModel: ObservableObject {
             }
             copies.append(FoodLog(userId: userId, productId: original.productId, mealType: suggestion.mealType,
                                   amountG: amount, amountUnit: original.resolvedAmountUnit,
+                                  portionSelection: original.portionSelection?.scaled(to: amount),
                                   loggedDate: day, loggedTime: timestamp,
                                   calories: nutrition.calories,
                                   proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, createdAt: timestamp))

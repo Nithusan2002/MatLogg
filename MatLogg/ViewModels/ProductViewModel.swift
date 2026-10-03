@@ -29,6 +29,8 @@ final class ProductViewModel: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var scanFailure: BarcodeLookupFailure?
     private var scanRequestID = UUID()
+    private var scanFeedbackTask: Task<Void, Never>?
+    @Published private(set) var isScanTakingLong = false
 
     static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
         FoodSearchMatcher.matches(query: query, name: name, brand: brand)
@@ -95,6 +97,8 @@ final class ProductViewModel: ObservableObject {
     }
 
     func resetScan() {
+        scanFeedbackTask?.cancel()
+        isScanTakingLong = false
         scanRequestID = UUID()
         scannedBarcode = nil
         scannedProduct = nil
@@ -103,6 +107,8 @@ final class ProductViewModel: ObservableObject {
     }
 
     func acceptManualScan(_ product: Product) {
+        scanFeedbackTask?.cancel()
+        isScanTakingLong = false
         scanRequestID = UUID()
         scannedProduct = product
         isScanning = false
@@ -118,6 +124,19 @@ final class ProductViewModel: ObservableObject {
         scannedProduct = nil
         scanFailure = nil
         isScanning = true
+        isScanTakingLong = false
+        scanFeedbackTask?.cancel()
+        scanFeedbackTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            guard let self, scanRequestID == requestID, isScanning else { return }
+            isScanTakingLong = true
+        }
+        defer {
+            if scanRequestID == requestID {
+                scanFeedbackTask?.cancel()
+                isScanTakingLong = false
+            }
+        }
         do {
             let product: Product
             if let cached = barcodeRepository.cached(barcode: barcode, owner: ownerUserId) {

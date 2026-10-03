@@ -23,6 +23,7 @@ private struct ProductDetailContent: View {
         self.appState = appState
         self.onLogComplete = onLogComplete
         _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository))
+        _amountModel = StateObject(wrappedValue: AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? []))
     }
     
     @ObservedObject var appState: AppState
@@ -33,23 +34,23 @@ private struct ProductDetailContent: View {
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
     
-    @State private var amountText: String = "100"
+    @StateObject private var amountModel: AmountSelectionViewModel
     @State private var isFavorite = false
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
     @State private var showSourceInfo = false
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
-    @State private var isLogging = false
-    @State private var logError: String?
+    private var isLogging: Bool { detailModel.isLogging }
+    private var logError: String? { detailModel.logError }
+    @State private var hasConfiguredAmount = false
     
     let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
     let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
     
     var body: some View {
-        let amount = parsedAmount ?? 0
-        let nutrition = product.calculateNutrition(forAmount: Float(amount))
-        let servings = compatibleServings
+        let amount = amountModel.amount ?? 0
+        let nutrition = detailModel.nutrition(for: amountModel.amount)
 
         ZStack {
             AppColors.background.ignoresSafeArea()
@@ -213,38 +214,9 @@ private struct ProductDetailContent: View {
                         // Amount Input Section
                         CardContainer {
                             VStack(spacing: 12) {
-                                AmountInputRow(
-                                    gramsText: amountTextBinding,
-                                    unit: product.amountUnit.rawValue,
-                                    placeholder: "0"
-                                )
-                                
-                                if !servings.isEmpty {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(servings) { option in
-                                                Button(action: {
-                                                    setAmount(option.grams)
-                                                }) {
-                                                    Text(option.label)
-                                                        .font(AppTypography.body)
-                                                        .foregroundColor(AppColors.ink)
-                                                        .lineLimit(1)
-                                                        .padding(.horizontal, 12)
-                                                        .padding(.vertical, 8)
-                                                        .background(AppColors.surface)
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 16)
-                                                                .stroke(AppColors.controlBorder, lineWidth: 1)
-                                                        )
-                                                        .cornerRadius(16)
-                                                }
-                                            }
-                                        }
-                                        .padding(.vertical, 2)
-                                    }
-                                }
-                                
+                                PortionAmountInput(model: amountModel)
+                                    .disabled(isLogging)
+
                                 Text("Din mengde")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
@@ -316,8 +288,9 @@ private struct ProductDetailContent: View {
                     action: logProduct
                 )
                 .padding()
-                .disabled(amount <= 0.0001 || isLogging)
-                .opacity(amount > 0.0001 && !isLogging ? 1.0 : 0.5)
+                .accessibilityIdentifier("product-log-save")
+                .disabled(!amountModel.isValid || isLogging)
+                .opacity(amountModel.isValid && !isLogging ? 1.0 : 0.5)
             }
         }
         .toolbar {
@@ -328,17 +301,22 @@ private struct ProductDetailContent: View {
             }
         }
         .task { await detailModel.refresh(manually: false) }
+        .onChange(of: detailModel.product.servings) { _, servings in
+            amountModel.updateServings(servings ?? [])
+        }
         .onAppear {
+            guard !hasConfiguredAmount else { return }
+            hasConfiguredAmount = true
             if let userId = authViewModel.currentUser?.id {
                 isFavorite = productViewModel.isFavorite(product, userId: userId)
             }
             if let userId = authViewModel.currentUser?.id,
                let lastUsed = preferencesViewModel.lastUsedAmount(for: product.id, userId: userId) {
-                setAmount(lastUsed)
-            } else if let suggested = compatibleServings.first(where: \.isDefaultSuggestion) {
-                setAmount(suggested.grams)
+                amountModel.restore(amount: lastUsed, portion: preferencesViewModel.lastUsedPortion(for: product.id, userId: userId))
+            } else if let suggested = amountModel.servings.first(where: \.isDefaultSuggestion) {
+                amountModel.select(suggested)
             } else {
-                setAmount(100)
+                amountModel.restore(amount: 100, portion: nil)
             }
             selectedMealType = appState.selectedMealType
             showNutritionImproving = true
@@ -354,7 +332,6 @@ private struct ProductDetailContent: View {
         }
     }
 
-    private let amountRange: ClosedRange<Double> = 0...5000
     private let summaryColumns = [
         GridItem(.flexible(), spacing: 8),
         GridItem(.flexible(), spacing: 8)
@@ -364,54 +341,28 @@ private struct ProductDetailContent: View {
         GridItem(.flexible(), spacing: 8)
     ]
 
-    private var compatibleServings: [ServingOption] {
-        product.servings?.filter { $0.amountUnit == product.amountUnit } ?? []
-    }
-
     private func logProduct() {
-        guard !isLogging, let amount = parsedAmount, amount > 0 else { return }
-        let product = detailModel.product
-        isLogging = true
-        logError = nil
+        let mealType = selectedMealType
+        let loggedDate = appState.logSelectedDate
         Task {
-            guard let userId = authViewModel.currentUser?.id else {
-                logError = "Du må være logget inn for å lagre."
-                isLogging = false
-                return
+            let success = await detailModel.log(amount: amountModel) { product, amount, portion in
+                guard let userId = authViewModel.currentUser?.id else { return false }
+                guard await logViewModel.logFood(product: product, amountG: Float(amount),
+                    mealType: mealType, userId: userId, date: loggedDate, portionSelection: portion) else { return false }
+                preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
+                preferencesViewModel.setLastUsedPortion(portion, for: product.id, userId: userId)
+                HapticFeedbackService.shared.trigger(.loggingSuccess, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
+                SoundFeedbackService.shared.play(.loggingSuccess, isEnabled: preferencesViewModel.soundFeedbackEnabled)
+                onLogComplete?(ReceiptPayload(product: product, amountG: amount,
+                    amountUnit: product.amountUnit, mealType: mealType, loggedDate: loggedDate, portionSelection: portion))
+                return true
             }
-            guard await logViewModel.logFood(
-                product: product,
-                amountG: Float(amount),
-                mealType: selectedMealType,
-                userId: userId,
-                date: appState.logSelectedDate
-            ) else {
-                logError = logViewModel.errorMessage ?? "Kunne ikke lagre på enheten. Prøv igjen."
-                isLogging = false
-                return
-            }
-            await logViewModel.loadTodaysSummary(userId: userId)
-            await appState.refreshSyncStatus()
-            preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
-            HapticFeedbackService.shared.trigger(
-                .loggingSuccess,
-                isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-            )
-            SoundFeedbackService.shared.play(
-                .loggingSuccess,
-                isEnabled: preferencesViewModel.soundFeedbackEnabled
-            )
-            onLogComplete?(
-                ReceiptPayload(
-                    product: product,
-                    amountG: amount,
-                    amountUnit: product.amountUnit,
-                    mealType: selectedMealType,
-                    loggedDate: appState.logSelectedDate
-                )
-            )
-            isLogging = false
+            guard success else { return }
             dismiss()
+            if let userId = authViewModel.currentUser?.id {
+                await logViewModel.loadTodaysSummary(userId: userId)
+                await appState.refreshSyncStatus()
+            }
         }
     }
 
@@ -426,41 +377,6 @@ private struct ProductDetailContent: View {
         return "Logges \(formattedDate)"
     }
     
-    private func setAmount(_ amount: Double) {
-        let clamped = min(max(amount, amountRange.lowerBound), amountRange.upperBound)
-        amountText = clamped > 0 ? formatAmountText(clamped) : ""
-    }
-
-    private var amountTextBinding: Binding<String> {
-        Binding(
-            get: { amountText },
-            set: { amountText = sanitizedAmountText($0) }
-        )
-    }
-
-    private var parsedAmount: Double? {
-        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value.isFinite else { return nil }
-        return min(max(value, amountRange.lowerBound), amountRange.upperBound)
-    }
-
-    private func sanitizedAmountText(_ text: String) -> String {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        let allowed = normalized.filter { $0.isNumber || $0 == "." }
-        let parts = allowed.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-        let sanitized = parts.count > 1 ? "\(parts[0]).\(parts[1])" : String(allowed)
-        guard !sanitized.isEmpty, let value = Double(sanitized), value.isFinite else { return sanitized }
-        let clamped = min(max(value, amountRange.lowerBound), amountRange.upperBound)
-        return clamped == value ? sanitized : formatAmountText(clamped)
-    }
-
-    private func formatAmountText(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
-        }
-        return String(format: "%.1f", value)
-    }
-
     @ViewBuilder private var heroView: some View {
         if let data = product.localImageData, let image = UIImage(data: data) {
             ProductHeroImageView(image: image, height: 220, cornerRadius: 18)

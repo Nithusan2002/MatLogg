@@ -4,6 +4,29 @@ import Testing
 
 @MainActor
 struct FoodSearchTests {
+    @Test func localProductsRemainUsableWhileCatalogIsLoadingAndAfterFailure() async {
+        let repository = SearchRepositoryStub()
+        let owner = UUID()
+        let oats = product("Havregryn")
+        repository.library = FoodSearchLibrary(products: [oats], recent: [oats], favorites: [oats], suggestions: [])
+        repository.delayedOwner = owner
+        let vm = FoodSearchViewModel(repository: repository)
+        let load = Task { await vm.load(owner: owner) }
+        await waitUntil { repository.libraryRequest != nil }
+        #expect(!vm.isLoading)
+        #expect(vm.isLoadingCatalog)
+        #expect(vm.favorites.map(\.id) == [oats.id])
+        vm.setQuery("havre")
+        #expect(vm.results.map(\.id) == [oats.id])
+        await vm.open(oats)
+        #expect(vm.selectedProduct?.id == oats.id)
+        repository.libraryRequest?.resume(throwing: URLError(.notConnectedToInternet))
+        await load.value
+        #expect(!vm.isLoadingCatalog)
+        #expect(vm.loadError != nil)
+        #expect(vm.results.map(\.id) == [oats.id])
+    }
+
     @Test func typingUsesLocalNamesAndBrandsWithoutNetworkAndClearRestoresLibrary() async {
         let repository = SearchRepositoryStub()
         let oats = product("Havregryn", brand: "Testmerke")
@@ -182,6 +205,7 @@ private final class SearchRepositoryStub: FoodSearchRepository {
     var libraryRequest: CheckedContinuation<FoodSearchLibrary, Error>?
     var prepareFails = false
 
+    func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary { library }
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         if let delayedOwner, delayedOwner == owner {
             return try await withCheckedThrowingContinuation { libraryRequest = $0 }

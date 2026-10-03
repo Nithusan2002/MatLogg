@@ -24,6 +24,18 @@
 
 ## 3.2 Skjermkart (Wireframes)
 
+### Første logging
+
+«Første måltid» åpner søk med fokus. Kort informasjon om lokal lagring,
+valgfri konto/mål og personvernlenke ligger sammen med søkekontrollene i
+en rullbar liste. «Søk», «Skann» og «Manuelt» står på samme flate; store
+tekststørrelser bruker vertikal layout. Lokale treff prioriteres foran
+forklaringstekst og tomme favoritt-/historikkseksjoner.
+
+«Logg inn» er sekundær. «Gå til Hjem» avslutter førstegangsvisningen uten
+mål eller logging. Produktkortet gjenbrukes, og vellykket lokal lagring
+åpner Hjem med kvittering og Angre. Ingen oppsummering krever nytt trykk.
+
 ### Profil
 
 Profil bruker den samme varme, kortbaserte retningen som Hjem. Øverst vises
@@ -594,3 +606,20 @@ Dato → rullbar måltidsvelger → måltidsnavn og antall → produktbilder, ma
 og mengder → Legg til mat. Måltidets samlede næring vises rett under
 måltidsnavn og antall, før produktlisten. Hele dagen kan velges
 sekundært. Se design-and-user-flow.md for handlinger og tilstander.
+
+### Navigasjonstillegg 2026-10-02
+
+Ved måltidsoverskriften på Hjem står «Se dagslogg»; synlige varerader åpner
+redigering. Midtknappen er merket «Loggfør». Alle Legg til-innganger bruker
+samme ark med søk, skann, Registrer manuelt, måltid/dato, Lagrede måltider
+og hurtigvarer. Arket stabler måltidsvalg ved tilgjengelighetsstørrelser.
+Hjems næringsfelt viser registrert energi uten mål når visningsvalget er på.
+Dagsloggen har tekstmerket Gjenbruk-meny; måltidsmaler har en 44-punkters
+menyknapp for redigering og sletting. Eksisterende komponenter og tokens gjenbrukes.
+
+### Produktkort: antall og porsjoner (2026-10-02)
+
+Mengdekortet har en meny for gram/ml og dokumenterte porsjoner. Porsjon viser
+Antall med −/+, mengde per porsjon, kilde og total. Ved tilgjengelighetsstørrelser
+ligger −/+ på egen rad. Loggredigering åpnes i stor sheet ved stor tekst for
+å beholde en brukbar rulleflate. Historiske logger åpner sitt lagrede grunnlag.

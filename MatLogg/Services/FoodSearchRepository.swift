@@ -9,10 +9,17 @@ struct FoodSearchLibrary {
 
 @MainActor
 protocol FoodSearchRepository {
+    func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary
     func searchRemote(query: String, owner: UUID?) async throws -> [Product]
     func saveManual(_ product: Product, owner: UUID) async throws
     func prepare(_ product: Product, owner: UUID) async throws
+}
+
+extension FoodSearchRepository {
+    func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
+        FoodSearchLibrary(products: [], recent: [], favorites: [], suggestions: [])
+    }
 }
 
 @MainActor
@@ -27,17 +34,22 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         self.remote = remote
     }
 
-    func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
+    func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         let stored = try await products.getSearchableProducts(ownerUserId: owner)
         let recent = if let owner { await products.getRecentProducts(userId: owner, kind: nil, limit: 6) } else { [Product]() }
         let favorites = if let owner { await products.getFavorites(userId: owner, kind: nil) } else { [Product]() }
+        return FoodSearchLibrary(products: stored, recent: recent, favorites: favorites, suggestions: [])
+    }
+
+    func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
+        let local = try await loadLocalLibrary(owner: owner)
         let raw: [MatvaretabellenProduct]
         do {
             raw = try await catalog.fetchCommonFoods()
         } catch {
             if let cached = products.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
                 raw = cached
-            } else if !stored.isEmpty {
+            } else if !local.products.isEmpty {
                 raw = []
             } else {
                 throw error
@@ -45,8 +57,8 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         }
         let rawProducts = raw.map(FoodSearchCatalog.product)
         return FoodSearchLibrary(
-            products: FoodSearchMatcher.unique(stored + rawProducts),
-            recent: recent, favorites: favorites,
+            products: FoodSearchMatcher.unique(local.products + rawProducts),
+            recent: local.recent, favorites: local.favorites,
             suggestions: Array(rawProducts.prefix(8))
         )
     }

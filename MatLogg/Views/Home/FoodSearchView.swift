@@ -16,12 +16,13 @@ struct FoodSearchView: View {
     @Environment(\.foodSearchRepository) private var repository
     var isTab = false
     var focusOnAppear = false
+    var isFirstLog = false
     let onScan: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
         if let repository {
-            FoodSearchContent(repository: repository, isTab: isTab, focusOnAppear: focusOnAppear,
+            FoodSearchContent(repository: repository, isTab: isTab, focusOnAppear: focusOnAppear, isFirstLog: isFirstLog,
                               onScan: onScan, onLogComplete: onLogComplete)
         } else {
             ContentUnavailableView("Søk er utilgjengelig", systemImage: "magnifyingglass")
@@ -39,23 +40,26 @@ private struct FoodSearchContent: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let isTab: Bool
     private let focusOnAppear: Bool
+    private let isFirstLog: Bool
     private let onScan: () -> Void
     private let onLogComplete: (ReceiptPayload) -> Void
 
-    init(repository: any FoodSearchRepository, isTab: Bool, focusOnAppear: Bool,
+    init(repository: any FoodSearchRepository, isTab: Bool, focusOnAppear: Bool, isFirstLog: Bool,
          onScan: @escaping () -> Void,
          onLogComplete: @escaping (ReceiptPayload) -> Void) {
         _viewModel = StateObject(wrappedValue: FoodSearchViewModel(repository: repository))
         self.isTab = isTab
         self.focusOnAppear = focusOnAppear
+        self.isFirstLog = isFirstLog
         self.onScan = onScan
         self.onLogComplete = onLogComplete
     }
 
     var body: some View {
         VStack(spacing: 16) {
-            searchControls
-                .padding(.horizontal, 16)
+            if !isFirstLog {
+                searchControls.padding(.horizontal, 16)
+            }
             if isTab {
                 searchList.matLoggTabBarScrollClearance()
             } else {
@@ -66,6 +70,7 @@ private struct FoodSearchContent: View {
         .background(AppColors.background.ignoresSafeArea())
         .task(id: authViewModel.currentUser?.id) {
             await viewModel.load(owner: authViewModel.currentUser?.id)
+            guard !Task.isCancelled else { return }
             if focusOnAppear { searchFocused = true }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -126,7 +131,13 @@ private struct FoodSearchContent: View {
             .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.controlBorder, lineWidth: 1))
 
-            if dynamicTypeSize.isAccessibilitySize {
+            if isFirstLog {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
+                } else {
+                    HStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
+                }
+            } else if dynamicTypeSize.isAccessibilitySize {
                 VStack(spacing: 8) { searchButton; scanButton }
             } else {
                 ViewThatFits(in: .horizontal) {
@@ -134,13 +145,13 @@ private struct FoodSearchContent: View {
                     VStack(spacing: 8) { searchButton; scanButton }
                 }
             }
-            manualRegistrationButton
+            if !isFirstLog { manualRegistrationButton }
         }
     }
 
     private var manualRegistrationButton: some View {
         Button { searchFocused = false; showManualProduct = true } label: {
-            actionLabel("Registrer manuelt", symbol: "square.and.pencil")
+            actionLabel(isFirstLog ? "Manuelt" : "Registrer manuelt", symbol: "square.and.pencil")
                 .font(AppTypography.bodyEmphasis)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
@@ -169,7 +180,7 @@ private struct FoodSearchContent: View {
 
     private var scanButton: some View {
         Button { searchFocused = false; onScan() } label: {
-            actionLabel("Skann strekkode", symbol: "barcode.viewfinder")
+            actionLabel(isFirstLog ? "Skann" : "Skann strekkode", symbol: "barcode.viewfinder")
                 .font(AppTypography.bodyEmphasis)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
@@ -190,9 +201,38 @@ private struct FoodSearchContent: View {
 
     private var searchList: some View {
         List {
+            if isFirstLog {
+                Section {
+                    let informationLayout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                        : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
+                    informationLayout {
+                        Text("Lagres på denne iPhonen. Konto og mål er valgfrie.")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                        if let url = PrivacyConstants.privacyPolicyURL {
+                            Link("Personvern", destination: url)
+                                .font(AppTypography.captionEmphasis)
+                                .frame(minHeight: 44)
+                        }
+                    }
+                    searchControls
+                    if !viewModel.hasQuery {
+                        Text("Matloggene lagres på denne enheten uten skybackup. Data kan gå tapt hvis du sletter appen eller mister telefonen. Du kan eksportere en kopi under Profil.")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .accessibilityIdentifier("local-storage-explanation")
+                    }
+                }
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
+            }
             if viewModel.isLoading {
                 Section { ProgressView("Henter matvarer …").frame(maxWidth: .infinity, minHeight: 80) }
             } else {
+                if viewModel.isLoadingCatalog {
+                    Section { ProgressView("Henter flere matvarer …") }
+                }
                 if let error = viewModel.loadError {
                     Section {
                         Text(error).foregroundColor(AppColors.textSecondary)
@@ -207,6 +247,9 @@ private struct FoodSearchContent: View {
                 }
                 if viewModel.hasQuery {
                     results
+                } else if isFirstLog {
+                    Section("Velg en matvare") { productRows(viewModel.suggestions) }
+                        .listRowBackground(AppColors.surface)
                 } else {
                     library
                 }
@@ -253,7 +296,7 @@ private struct FoodSearchContent: View {
             } else if let error = viewModel.searchError {
                 Text(error).font(AppTypography.body).foregroundColor(AppColors.textSecondary)
                 Button("Prøv igjen", action: submitSearch).frame(minHeight: 44)
-            } else if viewModel.phase == .local {
+            } else if viewModel.phase == .local && !isFirstLog {
                 Text("Lokale treff vises mens du skriver. Trykk Søk for flere produkter.")
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }

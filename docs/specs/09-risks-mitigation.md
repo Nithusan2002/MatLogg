@@ -320,7 +320,8 @@ GDPR violations found
    - User deletion: supported (30-day retention before purge)
 3. **Security**:
    - Encryption in transit (TLS 1.2+)
-   - Encryption at rest (CoreData + Keychain)
+   - Local storage uses SQLite, not CoreData. Verify actual iOS Data Protection
+     for database, sidecars, UserDefaults, images and export files; tokens use Keychain.
    - No unencrypted logs sent to backend
 4. **Documentation**:
    - Data retention policy (1 year default)
@@ -331,6 +332,11 @@ GDPR violations found
 - Legal review: passed before launch
 - Privacy policy: GDPR-compliant
 - Data deletion: functional, tested
+
+Status 2 October 2026: these are acceptance targets, not completed reviews or
+proof of compliance. The one-year retention and access audit trail above are
+not verified current behavior. See [privacy data inventory](../privacy-data-inventory.md)
+and [improvement plan](../privacy-security-improvement-plan.md).
 
 ---
 
@@ -551,4 +557,3 @@ Quarterly (Post-Launch):
 • New risks identified (market, product)
 • Update mitigation strategies
 ```
-

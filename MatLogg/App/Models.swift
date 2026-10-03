@@ -3,7 +3,7 @@ import Foundation
 
 // MARK: - User & Auth
 
-struct User: Codable, Identifiable {
+nonisolated struct User: Codable, Identifiable, Sendable {
     let id: UUID
     let email: String
     let firstName: String
@@ -31,7 +31,7 @@ struct User: Codable, Identifiable {
 
 // MARK: - Goals
 
-struct Goal: Codable, Identifiable {
+nonisolated struct Goal: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let goalType: String // "weight_loss", "maintain", "gain"
@@ -71,7 +71,7 @@ struct Goal: Codable, Identifiable {
     }
 }
 
-enum GoalIntent: String, Codable, CaseIterable {
+nonisolated enum GoalIntent: String, Codable, CaseIterable, Sendable {
     case lose
     case maintain
     case gain
@@ -85,7 +85,7 @@ enum GoalIntent: String, Codable, CaseIterable {
     }
 }
 
-enum GoalPace: String, Codable, CaseIterable {
+nonisolated enum GoalPace: String, Codable, CaseIterable, Sendable {
     case calm
     case standard
     case fast
@@ -108,7 +108,7 @@ enum GoalPace: String, Codable, CaseIterable {
 
 // MARK: - Products
 
-struct Product: Codable, Identifiable {
+nonisolated struct Product: Codable, Identifiable, Sendable {
     let id: UUID
     let name: String
     let brand: String?
@@ -298,18 +298,20 @@ nonisolated enum AmountUnit: String, Codable, CaseIterable, Sendable {
     }
 }
 
-struct StandardPortion: Codable, Hashable {
+nonisolated struct StandardPortion: Codable, Hashable, Sendable {
     let label: String
     let grams: Double
 }
 
-struct ServingOption: Codable, Identifiable, Hashable {
+nonisolated struct ServingOption: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let label: String
     let grams: Double
     let unit: AmountUnit?
     let source: ServingSource
     let isDefaultSuggestion: Bool
+    let kind: ServingKind?
+    let shortLabel: String?
     
     init(
         id: UUID = UUID(),
@@ -317,7 +319,9 @@ struct ServingOption: Codable, Identifiable, Hashable {
         grams: Double,
         unit: AmountUnit = .grams,
         source: ServingSource,
-        isDefaultSuggestion: Bool = false
+        isDefaultSuggestion: Bool = false,
+        kind: ServingKind? = nil,
+        shortLabel: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -325,25 +329,27 @@ struct ServingOption: Codable, Identifiable, Hashable {
         self.unit = unit
         self.source = source
         self.isDefaultSuggestion = isDefaultSuggestion
+        self.kind = kind
+        self.shortLabel = shortLabel
     }
 
     nonisolated var amountUnit: AmountUnit { unit ?? .grams }
 }
 
-enum ServingSource: String, Codable {
+nonisolated enum ServingSource: String, Codable, Sendable {
     case openFoodFacts
     case heuristic
     case user
 }
 
-struct NutritionBreakdown: Codable {
+nonisolated struct NutritionBreakdown: Codable, Sendable {
     let calories: Float
     let protein: Float
     let carbs: Float
     let fat: Float
 }
 
-struct ProductMatchMapping: Codable {
+nonisolated struct ProductMatchMapping: Codable, Sendable {
     let barcode: String
     let matvaretabellenId: String
     let matchedName: String
@@ -359,30 +365,30 @@ struct ProductMatchMapping: Codable {
     let category: String?
 }
 
-enum NutritionSource: String, Codable {
+nonisolated enum NutritionSource: String, Codable, Sendable {
     case matvaretabellen
     case openFoodFacts
     case user
 }
 
-enum ImageSource: String, Codable {
+nonisolated enum ImageSource: String, Codable, Sendable {
     case openFoodFacts
     case user
     case none
 }
 
-enum VerificationStatus: String, Codable {
+nonisolated enum VerificationStatus: String, Codable, Sendable {
     case verified
     case unverified
     case suggestedMatch
 }
 
-enum ProductKind: String, Codable {
+nonisolated enum ProductKind: String, Codable, Sendable {
     case packaged
     case genericFood
 }
 
-struct WeightEntry: Codable, Identifiable {
+nonisolated struct WeightEntry: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let date: Date // date-only
@@ -404,7 +410,7 @@ struct WeightEntry: Codable, Identifiable {
     }
 }
 
-struct PersonalDetails: Codable {
+nonisolated struct PersonalDetails: Codable, Sendable {
     var displayName: String?
     var weightKg: Double?
     var heightCm: Double?
@@ -415,7 +421,7 @@ struct PersonalDetails: Codable {
     static let empty = PersonalDetails()
 }
 
-enum GenderOption: String, Codable, CaseIterable {
+nonisolated enum GenderOption: String, Codable, CaseIterable, Sendable {
     case kvinne
     case mann
     case annet
@@ -431,7 +437,7 @@ enum GenderOption: String, Codable, CaseIterable {
     }
 }
 
-enum ActivityLevel: String, Codable, CaseIterable {
+nonisolated enum ActivityLevel: String, Codable, CaseIterable, Sendable {
     case lav
     case moderat
     case hoy
@@ -466,13 +472,14 @@ enum ActivityLevel: String, Codable, CaseIterable {
 
 // MARK: - Logs
 
-struct FoodLog: Codable, Identifiable {
+nonisolated struct FoodLog: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
     let mealType: String // "frokost", "lunsj", "middag", "snacks"
     let amountG: Float // exact, no rounding
     let amountUnit: AmountUnit?
+    let portionSelection: PortionSelection?
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp
     
@@ -492,6 +499,7 @@ struct FoodLog: Codable, Identifiable {
         mealType: String,
         amountG: Float,
         amountUnit: AmountUnit = .grams,
+        portionSelection: PortionSelection? = nil,
         loggedDate: Date,
         loggedTime: Date = Date(),
         calories: Float,
@@ -507,6 +515,7 @@ struct FoodLog: Codable, Identifiable {
         self.mealType = mealType
         self.amountG = amountG
         self.amountUnit = amountUnit
+        self.portionSelection = portionSelection
         self.loggedDate = loggedDate
         self.loggedTime = loggedTime
         self.calories = calories
@@ -523,7 +532,7 @@ struct FoodLog: Codable, Identifiable {
 // MARK: - Saved meals
 
 /// A user-owned, reusable meal template. Using it creates independent FoodLog values.
-struct SavedMeal: Codable, Identifiable, Equatable {
+nonisolated struct SavedMeal: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let userId: UUID
     var name: String
@@ -556,12 +565,13 @@ struct SavedMeal: Codable, Identifiable, Equatable {
 }
 
 /// Keeps the exact amount, nutrition basis and source that the user approved.
-struct SavedMealItem: Codable, Identifiable, Equatable {
+nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let productId: UUID
     let productName: String
     var amountG: Float
     var amountUnit: AmountUnit?
+    var portionSelection: PortionSelection?
     var calories: Float
     var proteinG: Float
     var carbsG: Float
@@ -575,6 +585,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         productName: String,
         amountG: Float,
         amountUnit: AmountUnit = .grams,
+        portionSelection: PortionSelection? = nil,
         calories: Float,
         proteinG: Float,
         carbsG: Float,
@@ -587,6 +598,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         self.productName = productName
         self.amountG = amountG
         self.amountUnit = amountUnit
+        self.portionSelection = portionSelection
         self.calories = calories
         self.proteinG = proteinG
         self.carbsG = carbsG
@@ -600,7 +612,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
 
 // MARK: - Favorites
 
-struct Favorite: Codable, Identifiable {
+nonisolated struct Favorite: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
@@ -624,7 +636,7 @@ struct Favorite: Codable, Identifiable {
 
 // MARK: - Scan History
 
-struct ScanHistory: Codable, Identifiable {
+nonisolated struct ScanHistory: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
@@ -645,7 +657,7 @@ struct ScanHistory: Codable, Identifiable {
 
 // MARK: - Daily Summary
 
-struct DailySummary {
+nonisolated struct DailySummary: Sendable {
     let date: Date
     let totalCalories: Float
     let totalProtein: Float
@@ -658,7 +670,7 @@ struct DailySummary {
     }
 }
 
-enum NutritionCalculator {
+nonisolated enum NutritionCalculator: Sendable {
     static let maximumAmount: Float = 10_000
 
     static func validatedCalculation(
@@ -730,7 +742,7 @@ enum NutritionCalculator {
     }
 }
 
-enum NutritionDisplay {
+nonisolated enum NutritionDisplay: Sendable {
     static func wholeCalories(_ value: Float) -> Int {
         Int(value.rounded())
     }
@@ -742,7 +754,7 @@ enum NutritionDisplay {
 
 // MARK: - Sync
 
-enum SyncEventStatus: String {
+nonisolated enum SyncEventStatus: String, Sendable {
     case pending
     case inFlight
     case acked
@@ -750,7 +762,7 @@ enum SyncEventStatus: String {
     case quarantined
 }
 
-struct SyncEvent {
+nonisolated struct SyncEvent: Sendable {
     let eventId: UUID
     let type: String
     let createdAt: Date
@@ -766,7 +778,7 @@ struct SyncEvent {
     let ownerUserId: UUID?
 }
 
-struct SyncQueueStatus: Equatable {
+nonisolated struct SyncQueueStatus: Equatable, Sendable {
     let pendingCount: Int
     let inFlightCount: Int
     let failedCount: Int
@@ -782,14 +794,14 @@ struct SyncQueueStatus: Equatable {
     var unsyncedCount: Int { pendingCount + inFlightCount + failedCount }
 }
 
-struct SyncFailureSummary: Identifiable, Equatable {
+nonisolated struct SyncFailureSummary: Identifiable, Equatable, Sendable {
     let id: UUID
     let type: String
     let message: String
     let createdAt: Date
 }
 
-enum NetworkAvailability: Equatable {
+nonisolated enum NetworkAvailability: Equatable, Sendable {
     case unknown
     case offline
     case online
@@ -797,7 +809,7 @@ enum NetworkAvailability: Equatable {
 
 // MARK: - Auth State
 
-enum AuthState {
+nonisolated enum AuthState: Sendable {
     case notAuthenticated
     case authenticating
     case local(user: User)
@@ -807,7 +819,7 @@ enum AuthState {
     case error(String)
 }
 
-struct LocalDataSummary: Equatable {
+nonisolated struct LocalDataSummary: Equatable, Sendable {
     let logs: Int
     let goals: Int
     let favorites: Int
@@ -824,7 +836,7 @@ struct LocalDataSummary: Equatable {
 }
 
 /// One user-recorded glass; no assumed volume or nutrition values.
-struct WaterGlass: Codable, Equatable, Identifiable {
+nonisolated struct WaterGlass: Codable, Equatable, Identifiable, Sendable {
     var id = UUID()
     var userId: UUID
     var date: Date

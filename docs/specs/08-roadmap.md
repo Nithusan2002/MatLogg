@@ -1,13 +1,15 @@
 # MatLogg – Roadmap: MVP → v1 → v2
 
-## Gjeldende ramme (2026-10-01)
+## Gjeldende ramme (2026-10-03)
 
 Prosjektet er fortsatt under MVP-utvikling; ingen ny lanseringsdato er avtalt.
 Faktisk implementasjon finnes i [gjeldende status](../current-state.md), og
 pilot-/produksjonskrav i [produksjonsberedskap](../production-readiness.md).
-Neste porter er server-/klientkompatibilitet inkludert vannmigrasjonen,
-Apple/SMTP, backup/restore, overvåkning, fysisk iPhone og TestFlight før
-synkaktivering og separat produksjonsutrulling.
+Første lansering bruker lokale domenedata uten skybackup eller opplasting.
+Valgfri konto og katalogoppslag beholdes. Neste lokale porter er aktive
+Apple/SMTP-/personvernkrav, eksport/lagring, fysisk QA og TestFlight før
+separat produksjonsutrulling. Hosted backup/restore og server-/klientporter
+for opplasting gjelder senere skyscope; kontokobling åpner ikke synk.
 
 Resten av dokumentet er en historisk plan: 2025-datoer, uketall, bemanning,
 markedsføring, bruker-/vekstmål og branchdiagram er forslag, ikke vedtatte

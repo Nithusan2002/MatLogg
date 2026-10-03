@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+protocol ProfileDataExportRepository {
+    func exportProfileRecords(ownerId: UUID) async throws -> [String: [Data]]
+}
+
 @MainActor
 final class UserDataExportService: UserDataExporting {
     private let healthRepository: any HealthProfileRepository
@@ -9,12 +13,30 @@ final class UserDataExportService: UserDataExporting {
     private let logRepository: any FoodLogRepository
     private let waterRepository: any WaterRepository
     private let savedMealRepository: any SavedMealRepository
+    private let profileDataRepository: any ProfileDataExportRepository
+
+    /// Best-effort recovery of our own abandoned exports after a process crash.
+    /// Fresh files may still be open in a share sheet and must be preserved.
+    nonisolated static func cleanupExpiredExports(in directory: URL, now: Date = Date()) {
+        let manager = FileManager.default
+        guard let files = try? manager.contentsOfDirectory(at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey]) else { return }
+        for file in files where file.lastPathComponent.hasPrefix("matlogg-export-") && file.pathExtension == "json" {
+            guard let values = try? file.resourceValues(forKeys: [.contentModificationDateKey, .isRegularFileKey]),
+                  values.isRegularFile == true,
+                  let modified = values.contentModificationDate,
+                  now.timeIntervalSince(modified) > 24 * 60 * 60 else { continue }
+            try? manager.removeItem(at: file)
+        }
+    }
 
     func removeExport(at url: URL) {
         try? FileManager.default.removeItem(at: url)
     }
 
-    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository, healthRepository: any HealthProfileRepository, productRepository: any ProductRepository, personalDetailsStore: any PersonalDetailsStore) {
+    init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository, healthRepository: any HealthProfileRepository, productRepository: any ProductRepository, personalDetailsStore: any PersonalDetailsStore, profileDataRepository: any ProfileDataExportRepository) {
+        Self.cleanupExpiredExports(in: FileManager.default.temporaryDirectory)
+        self.profileDataRepository = profileDataRepository
         self.healthRepository = healthRepository
         self.productRepository = productRepository
         self.personalDetailsStore = personalDetailsStore
@@ -45,7 +67,12 @@ final class UserDataExportService: UserDataExporting {
             favoritesJSON = try JSONSerialization.jsonObject(with: encoder.encode(favorites))
             detailsJSON = try JSONSerialization.jsonObject(with: encoder.encode(details))
         } catch { return nil }
-        let payload: [String: Any] = [
+        func portionJSON(_ portion: PortionSelection?) -> Any {
+            guard let portion, let data = try? encoder.encode(portion),
+                  let json = try? JSONSerialization.jsonObject(with: data) else { return NSNull() }
+            return json
+        }
+        var payload: [String: Any] = [
             "daily_goal": goalJSON,
             "weight_entries": weightsJSON,
             "favorites": favoritesJSON,
@@ -60,6 +87,7 @@ final class UserDataExportService: UserDataExporting {
                     "meal_type": log.mealType,
                     "amount": log.amountG,
                     "amount_unit": log.resolvedAmountUnit.rawValue,
+                    "portion_selection": portionJSON(log.portionSelection),
                     "amount_g": log.resolvedAmountUnit == .grams ? log.amountG as Any : NSNull() as Any,
                     "logged_date": ISO8601DateFormatter().string(from: log.loggedDate),
                     "calories": log.calories,
@@ -82,6 +110,7 @@ final class UserDataExportService: UserDataExporting {
                             "product_name": item.productName,
                             "amount": item.amountG,
                             "amount_unit": item.resolvedAmountUnit.rawValue,
+                            "portion_selection": portionJSON(item.portionSelection),
                             "amount_g": item.resolvedAmountUnit == .grams ? item.amountG as Any : NSNull() as Any,
                             "calories": item.calories,
                             "protein_g": item.proteinG,
@@ -95,12 +124,20 @@ final class UserDataExportService: UserDataExporting {
             }
         ]
 
+        do {
+            let records = try await profileDataRepository.exportProfileRecords(ownerId: user.id)
+            for (category, rows) in records {
+                payload[category] = try rows.map { try JSONSerialization.jsonObject(with: $0) }
+            }
+            payload["export_schema_version"] = 2
+        } catch { return nil }
+
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]) else {
             return nil
         }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export-\(UUID().uuidString).json")
         do {
-            try data.write(to: url, options: .atomic)
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
             return url
         } catch {
             return nil

@@ -8,7 +8,6 @@ struct HomeView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
     @State private var showScanCamera = false
-    @State private var showManualAdd = false
     @State private var showRawMaterials = false
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
@@ -48,7 +47,7 @@ struct HomeView: View {
 
             Color.clear
                 .tabItem {
-                    Label("Legg til", systemImage: "plus.circle.fill")
+                    Label("Loggfør", systemImage: "plus.circle.fill")
                 }
                 .tag(AppTab.add)
                 .matLoggSystemTabBarHidden()
@@ -113,6 +112,16 @@ struct HomeView: View {
                 }
             }
         }
+        .fullScreenCover(isPresented: Binding(
+            get: { authViewModel.isOnboarding },
+            set: { _ in }
+        )) {
+            OnboardingView { payload in
+                receiptPayload = payload
+                authViewModel.finishOnboarding()
+            }
+            .interactiveDismissDisabled()
+        }
         .fullScreenCover(isPresented: $showScanCamera) {
             CameraView(
                 onLogComplete: { _ in
@@ -122,13 +131,6 @@ struct HomeView: View {
                 },
                 onSearch: { showRawMaterials = true }
             )
-        }
-        .fullScreenCover(isPresented: $showManualAdd) {
-            ManualAddView(onOpenRawMaterials: {
-                showManualAdd = false
-                showRawMaterials = true
-            })
-            .environmentObject(appState)
         }
         .fullScreenCover(isPresented: $showRawMaterials) {
             RawMaterialsSearchView { payload in
@@ -147,26 +149,12 @@ struct HomeView: View {
             if newValue != .add { previousTab = newValue }
         }
         .sheet(isPresented: $showAddActions) {
-            QuickLogSheet(
-                onSearch: {
-                    showAddActions = false
-                    showRawMaterials = true
-                },
-                onScan: {
-                    showAddActions = false
-                    showScanCamera = true
-                },
-                onManualAdd: {
-                    showAddActions = false
-                    showManualAdd = true
-                },
+            LoggingFlowView(
                 onLogComplete: { payload in
-                    showAddActions = false
                     receiptPayload = payload
                     Task { await loadTodaysSummary() }
                 },
                 onSavedMealLogComplete: {
-                    showAddActions = false
                     Task {
                         await loadTodaysSummary()
                         await appState.refreshSyncStatus()
@@ -271,9 +259,11 @@ struct HomeTabView: View {
     @EnvironmentObject var waterViewModel: WaterViewModel
     @State private var selectedSummary: DailySummary?
     @State private var productNames: [UUID: String] = [:]
-    @State private var quickProducts: [Product] = []
+    @EnvironmentObject private var quickLogViewModel: QuickLogViewModel
     @State private var selectedProduct: Product?
     @State private var selectedMealForLog: MealPresentation?
+    @State private var showDailyLog = false
+    @State private var editingLog: FoodLog?
     @State private var isSummaryLoading = true
     
     var body: some View {
@@ -289,7 +279,7 @@ struct HomeTabView: View {
                     MorningCheckInView(viewModel: morningCheckInViewModel,
                                        userId: authViewModel.currentUser?.id, date: selectedDate)
 
-                    if appState.unsyncedSyncCount > 0 {
+                    if !appState.isSyncAvailable || appState.unsyncedSyncCount > 0 {
                         Label(
                             homeSyncStatusText,
                             systemImage: appState.isSyncAvailable ? "arrow.triangle.2.circlepath" : "internaldrive"
@@ -320,18 +310,18 @@ struct HomeTabView: View {
                                 .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
                             }
                             .accessibilityElement(children: .combine)
-                        } else if let summary = selectedSummary, let goal = healthProfileViewModel.currentGoal {
+                        } else if let summary = selectedSummary {
                             StatusCardView(
                                 summary: summary,
-                                goal: goal
+                                goal: healthProfileViewModel.currentGoal
                             )
                         } else {
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Label("Oversikten er ikke klar", systemImage: "chart.bar")
+                                    Label("Matloggen din er klar", systemImage: "chart.bar")
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.deepInk)
-                                    Text("Du kan fortsatt loggføre mat. Sett opp et mål i profilen for å se fremgangen her.")
+                                    Text("Logg mat uten dagsmål. Du kan sette opp mål senere under Profil → Daglige mål.")
                                         .font(AppTypography.body)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
@@ -375,6 +365,11 @@ struct HomeTabView: View {
                             .font(AppTypography.sectionTitle)
                             .foregroundColor(AppColors.ink)
                         Spacer()
+                        Button("Se dagslogg") { showDailyLog = true }
+                            .font(AppTypography.secondaryEmphasis)
+                            .foregroundStyle(AppColors.action)
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("home-daily-log")
                     }
 
                     ForEach(MealPresentation.all) { meal in
@@ -385,6 +380,7 @@ struct HomeTabView: View {
                             productImageURL: { logViewModel.mealProductImageURLs[$0] },
                             productImageData: { logViewModel.mealProductImageData[$0] },
                             onOpen: { selectedMealForLog = meal },
+                            onEdit: { editingLog = $0 },
                             onAdd: {
                                 appState.selectedMealType = meal.key
                                 onOpenQuickLog()
@@ -411,6 +407,9 @@ struct HomeTabView: View {
             .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showDailyLog) {
+                LoggView(initialDate: selectedDate)
+            }
             .navigationDestination(item: $selectedMealForLog) { meal in
                 LoggView(initialDate: selectedDate, initialMeal: meal.key)
             }
@@ -418,6 +417,23 @@ struct HomeTabView: View {
         .task(id: authViewModel.currentUser?.id) {
             appState.logSelectedDate = Date()
             await refreshSummaries()
+        }
+        .sheet(item: $editingLog) { log in
+            EditLogView(
+                log: log,
+                productName: productNames[log.productId] ?? "Rediger logging",
+                onSave: { amount, meal, portion in
+                        guard let userId = authViewModel.currentUser?.id else { return false }
+                        let success = await logViewModel.updateLog(log, amountG: amount, mealType: meal, userId: userId, portionSelection: portion, clearPortion: portion == nil)
+                        if success {
+                            await appState.refreshSyncStatus()
+                        } else {
+                            appState.errorMessage = logViewModel.errorMessage
+                        }
+                        await refreshSummaries()
+                        return success
+                }
+            )
         }
         .sheet(item: Binding(
             get: { mealReuseViewModel.draft },
@@ -456,7 +472,7 @@ struct HomeTabView: View {
         let count = appState.unsyncedSyncCount
         let noun = count == 1 ? "endring" : "endringer"
         if !appState.isSyncAvailable {
-            return "\(count) \(noun) lagret bare på denne enheten"
+            return "Lagret på denne enheten"
         }
         if appState.networkAvailability == .offline {
             return "Du er offline. \(count) \(noun) er lagret på enheten og venter på synk"
@@ -481,13 +497,7 @@ struct HomeTabView: View {
     private func refreshSummaries() async {
         await loadSelectedSummary()
         if let userId = authViewModel.currentUser?.id {
-            let scans = await productViewModel.recentScans(userId: userId, limit: 6)
-            let productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
-            var seen = Set<UUID>()
-            quickProducts = scans.compactMap { scan in
-                guard seen.insert(scan.productId).inserted else { return nil }
-                return productsByID[scan.productId]
-            }
+            await quickLogViewModel.load(userId: userId)
             await mealReuseViewModel.load(userId: userId, date: selectedDate)
         }
     }
@@ -531,11 +541,21 @@ struct HomeTabView: View {
     @ViewBuilder
     private var quickLogSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Loggfør på ett trykk")
+            Text("Hurtigvalg")
                 .font(AppTypography.title)
                 .foregroundColor(AppColors.deepInk)
 
-            if quickProducts.isEmpty {
+            if quickLogViewModel.isLoading && quickLogViewModel.products.isEmpty {
+                ProgressView("Henter hurtigvalg …")
+            } else if let error = quickLogViewModel.errorMessage {
+                Text(error)
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
+                Button("Prøv igjen") {
+                    Task { await quickLogViewModel.load(userId: authViewModel.currentUser?.id) }
+                }
+                .frame(minHeight: 44)
+            } else if quickLogViewModel.products.isEmpty {
                 Text("Favoritter og nylig brukte matvarer dukker opp her.")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
@@ -543,7 +563,7 @@ struct HomeTabView: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(quickProducts.prefix(6)) { product in
+                        ForEach(quickLogViewModel.products.prefix(6)) { product in
                             Button {
                                 selectedProduct = product
                             } label: {
@@ -659,6 +679,7 @@ struct MealOverviewCard: View {
     var productImageURL: (UUID) -> URL? = { _ in nil }
     var productImageData: (UUID) -> Data? = { _ in nil }
     let onOpen: () -> Void
+    var onEdit: (FoodLog) -> Void = { _ in }
     let onAdd: () -> Void
     var reuseSuggestion: MealReuseSuggestion? = nil
     var isReusing = false
@@ -712,18 +733,25 @@ struct MealOverviewCard: View {
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(logs.prefix(3)) { log in
-                        HStack(alignment: .top, spacing: 12) {
-                            ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 52, imagePadding: 2)
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(productName(log.productId))
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundColor(AppColors.deepInk)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
-                                    .font(AppTypography.secondary)
-                                    .foregroundColor(AppColors.textSecondary)
+                        Button { onEdit(log) } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 52, imagePadding: 2)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(productName(log.productId))
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.deepInk)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
+                                        .font(AppTypography.secondary)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
                             }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Rediger \(productName(log.productId)), \(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))")
+                        .accessibilityIdentifier("home-log-row-\(log.id.uuidString)")
                     }
                     if logs.count > 3 {
                         Text("+ \(logs.count - 3) flere")
@@ -786,10 +814,10 @@ struct MealOverviewCard: View {
 
 struct StatusCardView: View {
     let summary: DailySummary
-    let goal: Goal
+    let goal: Goal?
 
     private var calorieBalance: CalorieBalance? {
-        GoalCalculator.calorieBalance(dailyGoal: goal.dailyCalories, consumed: summary.totalCalories)
+        goal.flatMap { GoalCalculator.calorieBalance(dailyGoal: $0.dailyCalories, consumed: summary.totalCalories) }
     }
     
     var remainingCalories: Int {
@@ -812,10 +840,12 @@ struct StatusCardView: View {
                     .font(AppTypography.hero)
                     .foregroundColor(AppColors.deepInk)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                    .font(AppTypography.secondary)
-                    .foregroundColor(AppColors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let goal {
+                    Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
+                        .font(AppTypography.secondary)
+                        .foregroundColor(AppColors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .accessibilityElement(children: .combine)
 
@@ -823,9 +853,9 @@ struct StatusCardView: View {
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
                 : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
             layout {
-                nutrient(label: "Proteiner", value: summary.totalProtein, target: goal.proteinTargetG, tint: AppColors.macroProteinTint)
-                nutrient(label: "Karbohydrater", value: summary.totalCarbs, target: goal.carbsTargetG, tint: AppColors.macroCarbTint)
-                nutrient(label: "Fett", value: summary.totalFat, target: goal.fatTargetG, tint: AppColors.macroFatTint)
+                nutrient(label: "Proteiner", value: summary.totalProtein, target: goal?.proteinTargetG, tint: AppColors.macroProteinTint)
+                nutrient(label: "Karbohydrater", value: summary.totalCarbs, target: goal?.carbsTargetG, tint: AppColors.macroCarbTint)
+                nutrient(label: "Fett", value: summary.totalFat, target: goal?.fatTargetG, tint: AppColors.macroFatTint)
             }
         }
         .padding(20)
@@ -833,7 +863,7 @@ struct StatusCardView: View {
         .matLoggCardSurface(fill: AppColors.warmSurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
     }
 
-    private func nutrient(label: String, value: Float, target: Float, tint: Color) -> some View {
+    private func nutrient(label: String, value: Float, target: Float?, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Circle().fill(tint).frame(width: 6, height: 6).accessibilityHidden(true)
@@ -845,13 +875,14 @@ struct StatusCardView: View {
             Text("\(NutritionDisplay.wholeGrams(value)) g")
                 .font(AppTypography.bodyEmphasis)
                 .foregroundColor(AppColors.deepInk)
-            Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
+            if let target {
+                Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label): \(NutritionDisplay.wholeGrams(value)) gram, mål \(NutritionDisplay.wholeGrams(target)) gram")
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -882,6 +913,7 @@ struct ReceiptPayload: Identifiable {
     let amountUnit: AmountUnit
     let mealType: String
     let loggedDate: Date
+    var portionSelection: PortionSelection? = nil
 }
 
 struct ScanButtonLarge: View {
@@ -1241,6 +1273,14 @@ struct CameraView: View {
 
     private var scannerBottomControls: some View {
         VStack(spacing: 12) {
+            if productViewModel.isScanTakingLong {
+                Text("Oppslaget tar litt tid. Du kan søke eller registrere varen manuelt.")
+                    .font(AppTypography.body)
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(12)
+                    .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16))
+            }
             if showScanHelp, let scanHelpTitle {
                 VStack(spacing: 6) {
                     Text(scanHelpTitle)
@@ -1268,8 +1308,6 @@ struct CameraView: View {
                     showManualProduct = true
                 }
             }
-            .disabled(isLoading)
-            .opacity(isLoading ? 0.55 : 1)
         }
     }
 
@@ -1391,6 +1429,7 @@ struct CameraView: View {
     }
 
     private func openSearch() {
+        productViewModel.resetScan()
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             onSearch()
@@ -1398,7 +1437,7 @@ struct CameraView: View {
     }
     
     private func handleBarcodeDetected(_ scannedCode: ScannedBarcode) {
-        guard !isLoading else { return }
+        guard !isLoading, !showManualProduct, !showProductDetail, !showProductNotFound else { return }
 
         let barcode: String
         do {
@@ -1581,7 +1620,7 @@ struct SearchHubView: View {
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
         .environmentObject(WaterViewModel(repository: database))
-        .environmentObject(ProfileExportViewModel(exporter: UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database, healthRepository: database, productRepository: database, personalDetailsStore: UserDefaultsPersonalDetailsStore())))
+        .environmentObject(ProfileExportViewModel(exporter: UserDataExportService(logRepository: database, savedMealRepository: database, waterRepository: database, healthRepository: database, productRepository: database, personalDetailsStore: UserDefaultsPersonalDetailsStore(), profileDataRepository: database)))
         .environmentObject(PersonalDetailsViewModel(store: UserDefaultsPersonalDetailsStore()))
         .environmentObject(ProfileFavoritesViewModel(repository: database))
 }

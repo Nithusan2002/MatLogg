@@ -1,4 +1,6 @@
-import { z } from "zod";
+// Keep Edge bundles self-contained; versions match the root deno.json import map.
+// deno-lint-ignore no-import-prefix
+import { z } from "npm:zod@3.23.8";
 
 export const MAX_SYNC_EVENTS = 50;
 export const MAX_SYNC_PAYLOAD_BYTES = 64 * 1024;
@@ -24,6 +26,22 @@ export const syncRequestSchema = z.object({
   events: z.array(z.unknown()),
 });
 
+const portionSelection = z.object({
+  servingId: uuid,
+  label: z.string().trim().min(1).max(200),
+  count: positive,
+  amountPerServing: positive.max(10_000),
+  unit: z.enum(["g", "ml"]),
+  source: z.enum(["openFoodFacts", "heuristic", "user"]),
+  kind: z.enum(["portion", "piece", "package"]),
+});
+function portionMatches(portion: z.infer<typeof portionSelection> | null | undefined, amount: number, unit: string): boolean {
+  if (!portion) return true;
+  const total = portion.count * portion.amountPerServing;
+  return portion.unit === unit && Number.isFinite(total) && total > 0 && total <= 10_000
+    && Math.abs(total - amount) <= Math.max(0.0001, Math.abs(amount) * 0.000001);
+}
+
 const idPayload = z.object({ id: uuid });
 const logPayload = z.object({
   id: uuid,
@@ -36,7 +54,8 @@ const logPayload = z.object({
   carbs: nonNegative,
   fat: nonNegative,
   productRef: uuid.nullable().optional(),
-});
+  portionSelection: portionSelection.nullable().optional(),
+}).refine((p) => portionMatches(p.portionSelection, p.grams, p.unit), "Porsjon samsvarer ikke med mengden");
 const goalPayload = z.object({
   kcalTarget: positive,
   proteinTarget: nonNegative,
@@ -90,7 +109,8 @@ const savedMealPayload = z.object({
     fat: nonNegative,
     nutritionSource: z.enum(["matvaretabellen", "openFoodFacts", "user"]),
     sortIndex: z.number().int().nonnegative(),
-  })).min(1).max(50),
+    portionSelection: portionSelection.nullable().optional(),
+  }).refine((p) => portionMatches(p.portionSelection, p.amountG, p.amountUnit), "Porsjon samsvarer ikke med mengden")).min(1).max(50),
 });
 
 const payloadSchemas: Record<string, z.ZodType> = {

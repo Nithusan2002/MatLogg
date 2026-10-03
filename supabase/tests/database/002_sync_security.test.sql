@@ -1,5 +1,6 @@
 begin;
-select plan(15);
+update public.app_config set value = 'true'::jsonb where key = 'sync_enabled';
+select plan(17);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -11,6 +12,19 @@ insert into auth.users (
 select is((select count(*)::integer from public.profiles where id in (
   '10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002'
 )), 2, 'auth trigger creates profiles');
+
+update public.app_config set value = 'false'::jsonb where key = 'sync_enabled';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+select is(public.apply_sync_event_v1(
+  '30000000-0000-4000-8000-000000000003',
+  '91000000-0000-4000-8000-000000000001', 'water.upsert', now(),
+  '92000000-0000-4000-8000-000000000001', 1,
+  '{"id":"92000000-0000-4000-8000-000000000001","date":"2026-10-02T10:00:00Z","createdAt":"2026-10-02T10:00:00Z"}'::jsonb
+)->>'code', 'SYNC_DISABLED', 'direct RPC respects the kill switch');
+select is((select count(*)::integer from public.event_inbox where event_id='91000000-0000-4000-8000-000000000001'), 0, 'disabled RPC does not register inbox');
+reset role;
+update public.app_config set value = 'true'::jsonb where key = 'sync_enabled';
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);

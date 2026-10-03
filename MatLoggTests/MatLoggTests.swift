@@ -471,7 +471,7 @@ struct MatLoggTests {
 
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "PRAGMA user_version = 2;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
 
@@ -559,7 +559,7 @@ struct MatLoggTests {
 
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "DROP TABLE saved_meals;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "PRAGMA user_version = 0;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
@@ -580,11 +580,11 @@ struct MatLoggTests {
         store = nil
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP TABLE product_drafts; DROP TABLE catalog_submissions; PRAGMA user_version = 5;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP TABLE product_drafts; DROP TABLE catalog_submissions; DROP TABLE water_logs; PRAGMA user_version = 5;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
 
         store = try LocalStore(databaseURL: url)
-        #expect(store?.schemaVersion() == 6)
+        #expect(store?.schemaVersion() == LocalStore.latestSchemaVersion)
         store = nil
         let owner = UUID()
         let otherOwner = UUID()
@@ -594,7 +594,7 @@ struct MatLoggTests {
         sqlite3_close(db)
 
         store = try LocalStore(databaseURL: url)
-        #expect(store?.schemaVersion() == 6)
+        #expect(store?.schemaVersion() == LocalStore.latestSchemaVersion)
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
         defer { sqlite3_close(db) }
         func draftCount() throws -> Int {
@@ -1260,6 +1260,91 @@ private final class PersonalDetailsStoreSpy: PersonalDetailsStore {
 
 @MainActor
 struct AuthViewModelTests {
+    @Test func freshLaunchCreatesLocalProfileAndResumesUntilFinished() async throws {
+        let store = AuthSessionStoreSpy()
+        let model = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
+                                  localProfileManager: LocalProfileManagerSpy())
+        await model.restoreSession()
+        let owner = try #require(model.currentUser?.id)
+        #expect(model.isLocalMode)
+        #expect(model.authenticatedUser == nil)
+        #expect(model.isOnboarding)
+        #expect(store.token == nil)
+
+        let resumed = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
+                                    localProfileManager: LocalProfileManagerSpy())
+        await resumed.restoreSession()
+        #expect(resumed.currentUser?.id == owner)
+        #expect(resumed.isOnboarding)
+        resumed.finishOnboarding()
+
+        let finished = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
+                                     localProfileManager: LocalProfileManagerSpy())
+        await finished.restoreSession()
+        #expect(finished.currentUser?.id == owner)
+        #expect(!finished.isOnboarding)
+    }
+
+    @Test func failedAppleLoginRetainsFirstLoggingAndLocalOwner() async throws {
+        let store = AuthSessionStoreSpy()
+        let model = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
+                                  localProfileManager: LocalProfileManagerSpy())
+        await model.restoreSession()
+        let owner = try #require(model.currentUser?.id)
+        await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce")
+        #expect(model.currentUser?.id == owner)
+        #expect(model.isLocalMode)
+        #expect(model.isOnboarding)
+        #expect(model.errorMessage != nil)
+        #expect(store.token == nil)
+    }
+
+    @Test func optionalAppleLoginPreservesFirstLoggingButCompletedAccountGoesHome() async {
+        for alreadyCompleted in [false, true] {
+            let account = makeUser()
+            let store = AuthSessionStoreSpy()
+            if alreadyCompleted { store.setOnboardingCompleted(true, userId: account.id) }
+            let repository = AccountAuthRepositorySpy()
+            repository.callbackUser = account
+            let model = AuthViewModel(authRepository: repository, localStore: store,
+                                      localProfileManager: LocalProfileManagerSpy())
+            await model.restoreSession()
+            await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce")
+            #expect(model.authenticatedUser?.id == account.id)
+            #expect(model.isOnboarding == !alreadyCompleted)
+        }
+    }
+
+    @Test func cancelingLocalDataLinkRetainsUnfinishedFirstLogging() async throws {
+        let store = AuthSessionStoreSpy()
+        let repository = AccountAuthRepositorySpy()
+        repository.callbackUser = makeUser()
+        let manager = LocalProfileManagerSpy()
+        manager.summary = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 1)
+        let model = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await model.restoreSession()
+        let owner = try #require(model.currentUser?.id)
+        await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce")
+        #expect(model.pendingLocalDataSummary != nil)
+        model.cancelLocalDataLink()
+        #expect(model.currentUser?.id == owner)
+        #expect(model.isOnboarding)
+        #expect(model.pendingLocalDataSummary == nil)
+        #expect(manager.claimedFrom == nil)
+    }
+
+    @Test func failedRestoreDoesNotSilentlyReplaceAnExistingAccountOwner() async {
+        let account = makeUser()
+        let store = AuthSessionStoreSpy(user: account)
+        let model = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
+                                  localProfileManager: LocalProfileManagerSpy())
+        await model.restoreSession()
+        #expect(model.currentUser == nil)
+        #expect(store.localUser == nil)
+        #expect(store.user?.id == account.id)
+        #expect(!model.isOnboarding)
+    }
+
     @Test func restoreSessionPublishesOnlyAValidatedRepositoryUser() async {
         let user = makeUser()
         let repository = AccountAuthRepositorySpy()
@@ -1751,7 +1836,6 @@ struct ManualProductViewModelTests {
         #expect(model.basis == .per100ml)
         #expect(model.calories.isEmpty)
     }
-
 
     @Test @MainActor func rejectsProductNameAboveMaximumLength() async {
         var didSave = false
