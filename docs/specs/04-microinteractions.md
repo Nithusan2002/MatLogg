@@ -425,3 +425,13 @@ Første eksplisitte porsjonsvalg starter på 1; senere enhetsbytter bevarer tota
 Desimalantall støttes i feltet. Næring og total oppdateres fra samme mengdevalg.
 Lagring er deaktivert ved ugyldig input og under en pågående lagring.
 Mislykket redigering beholder utkastet for retry og lukker ikke skjermen.
+
+### Dra ned for å oppdatere
+
+Hjem, Logg og Oversikt støtter dra ned for å lese lokale data på nytt.
+Valgt dato, måltidsfilter og søketekst beholdes. Eksisterende innhold beholdes
+under oppdatering; den innebygde oppdateringsindikatoren erstatter ekstra
+indikatorer ved innholdet. Automatisk oppdatering etter logging fortsetter.
+Gesten fungerer uten nett, oppretter ingen synkhendelser og aktiverer ikke
+produksjonssynk. Hjem og Oversikt beholder eksisterende innhold ved lesefeil
+og tilbyr «Prøv igjen». Logg bruker eksisterende lokal leseflyt.

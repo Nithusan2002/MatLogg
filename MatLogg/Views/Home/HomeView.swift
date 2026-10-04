@@ -296,6 +296,7 @@ private struct HomeTabContent: View {
     let preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    @State private var isPullRefreshing = false
     @StateObject private var overviewModel: HomeOverviewViewModel
     private var selectedSummary: DailySummary? { overviewModel.overview.summary }
     private var productNames: [UUID: String] { overviewModel.overview.productNames }
@@ -341,7 +342,7 @@ private struct HomeTabContent: View {
                         Button("Prøv igjen") { Task { await refreshSummaries() } }
                             .frame(minHeight: 44)
                     }
-                    if isSummaryLoading && (selectedSummary != nil || !preferencesViewModel.showGoalStatusOnHome) {
+                    if isSummaryLoading && !isPullRefreshing && (selectedSummary != nil || !preferencesViewModel.showGoalStatusOnHome) {
                         ProgressView("Henter oversikt …")
                     }
 
@@ -461,6 +462,11 @@ private struct HomeTabContent: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
+            }
+            .refreshable {
+                isPullRefreshing = true
+                defer { isPullRefreshing = false }
+                await refreshSummaries()
             }
             .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())

@@ -27,6 +27,7 @@ private struct LoggContent: View {
         get { screen.searchText }
         nonmutating set { screen.searchText = newValue }
     }
+    @State private var isPullRefreshing = false
     @State private var showSearch = false
     @FocusState private var searchFocused: Bool
     private var mealFilter: String? {
@@ -296,7 +297,7 @@ private struct LoggContent: View {
             .listRowBackground(AppColors.background)
             .listRowSeparator(.hidden)
 
-            if loading {
+            if loading && (!isPullRefreshing || !hasCurrentSummary) {
                 ProgressView("Henter måltider …")
                     .frame(maxWidth: .infinity, minHeight: 96)
                     .listRowBackground(AppColors.background)
@@ -365,6 +366,11 @@ private struct LoggContent: View {
             }
             .listRowBackground(AppColors.background)
             .listRowSeparator(.hidden)
+        }
+        .refreshable {
+            isPullRefreshing = true
+            defer { isPullRefreshing = false }
+            await logViewModel.loadSelectedSummary(userId: authViewModel.currentUser?.id, date: selectedDate)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)

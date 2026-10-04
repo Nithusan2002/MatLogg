@@ -12,6 +12,7 @@ private struct ProgressTabContent: View {
 
     @EnvironmentObject private var appState: AppState
     let healthProfileViewModel: HealthProfileViewModel
+    @State private var isPullRefreshing = false
     @StateObject private var goalModel: ProgressGoalViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
 
@@ -43,7 +44,7 @@ private struct ProgressTabContent: View {
                         Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                         Button("Prøv igjen") { Task { await reload() } }.frame(minHeight: 44)
                     }
-                    if isLoading && !summaries.isEmpty {
+                    if isLoading && !isPullRefreshing && !summaries.isEmpty {
                         ProgressView("Oppdaterer oversikten …")
                     }
                     if isLoading && summaries.isEmpty {
@@ -73,7 +74,11 @@ private struct ProgressTabContent: View {
                 }
             }
             .task(id: authViewModel.currentUser?.id) { await reload() }
-            .refreshable { await reload() }
+            .refreshable {
+                isPullRefreshing = true
+                defer { isPullRefreshing = false }
+                await reload()
+            }
         }
     }
 
