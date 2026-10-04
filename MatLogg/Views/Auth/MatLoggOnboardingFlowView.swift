@@ -268,7 +268,7 @@ struct MatLoggOnboardingFlowView: View {
                         onboardingViewModel.useManualTarget()
                     }
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(minHeight: 44)
                 }
             } else {
@@ -438,7 +438,7 @@ struct MatLoggOnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(eyebrow)
                 .font(AppTypography.captionEmphasis)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
             Text(title)
                 .font(AppTypography.hero)
                 .foregroundColor(AppColors.deepInk)
@@ -470,9 +470,8 @@ struct MatLoggOnboardingFlowView: View {
     }
 
     private func validationText(_ text: String) -> some View {
-        Label(text, systemImage: "exclamationmark.circle")
+        ErrorMessageView(text)
             .font(AppTypography.caption)
-            .foregroundColor(AppColors.action)
             .accessibilityElement(children: .combine)
     }
 }
@@ -499,7 +498,7 @@ private struct ChoiceCard: View {
                 }
                 Spacer(minLength: 8)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? AppColors.brand : AppColors.controlBorder)
+                    .foregroundColor(isSelected ? AppColors.actionText : AppColors.controlBorder)
                     .accessibilityHidden(true)
             }
             .padding(16)
@@ -508,7 +507,7 @@ private struct ChoiceCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isSelected ? AppColors.brand : AppColors.separator, lineWidth: isSelected ? 2 : 1)
+                    .stroke(isSelected ? AppColors.actionText : AppColors.separator, lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -525,7 +524,7 @@ private struct TrustCard: View {
         CardContainer {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: systemImage)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(width: 36, height: 36)
                     .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 VStack(alignment: .leading, spacing: 4) {
@@ -583,7 +582,7 @@ private struct SummaryCard: View {
                 Spacer()
                 Button("Endre", action: edit)
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(minHeight: 44)
             }
         }
@@ -594,7 +593,7 @@ private extension View {
     func secondaryOnboardingAction() -> some View {
         self
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.action)
+            .foregroundColor(AppColors.actionText)
             .frame(maxWidth: .infinity, minHeight: 44)
     }
 }

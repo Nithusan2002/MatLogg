@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct QuickLogTests {
-    @Test func repeatChoicesKeepUnloggedFavoritesWithoutDuplicatingRecentFoods() async {
+    @Test func repeatChoicesOnlyContainLoggedFoods() async {
         let repository = QuickLibraryStub()
         let recent = product("Nylig vare"), favorite = product("Ulogget favoritt"), owner = UUID()
         let log = FoodLog(userId: owner, productId: recent.id, mealType: "frokost", amountG: 150,
@@ -14,18 +14,18 @@ struct QuickLogTests {
         let model = QuickLogViewModel(repository: repository)
         await model.load(userId: owner)
         #expect(model.recentFoods.map(\.id) == [recent.id])
-        #expect(model.additionalProducts.map(\.id) == [favorite.id])
         model.reset()
-        #expect(model.recentFoods.isEmpty && model.additionalProducts.isEmpty)
+        #expect(model.recentFoods.isEmpty && model.products.isEmpty)
     }
 
-    @Test func localQuickChoicesKeepFavoritesFirstAndDeduplicateRecentItems() async {
+    @Test func homeQuickChoicesKeepFavoritesWithoutAddingRepeatChoices() async {
         let repository = QuickLibraryStub()
         let favorite = product("Favoritt")
         let recent = product("Nylig logget")
         repository.library = FoodSearchLibrary(products: [], recent: [favorite, recent], favorites: [favorite], suggestions: [])
         let model = QuickLogViewModel(repository: repository)
         await model.load(userId: UUID())
+        #expect(model.recentFoods.isEmpty)
         #expect(model.products.map(\.id) == [favorite.id, recent.id])
         #expect(repository.fullLibraryCalls == 0)
         #expect(model.errorMessage == nil)
@@ -41,7 +41,7 @@ struct QuickLogTests {
         repository.shouldFail = false
         await model.load(userId: UUID())
         #expect(model.errorMessage == nil)
-        #expect(model.products.isEmpty)
+        #expect(model.recentFoods.isEmpty)
     }
 
     @Test func resetDiscardsAnInFlightProfileRead() async {
@@ -54,7 +54,7 @@ struct QuickLogTests {
         model.reset()
         repository.resume()
         await read.value
-        #expect(model.products.isEmpty)
+        #expect(model.recentFoods.isEmpty && model.products.isEmpty)
         #expect(!model.isLoading)
     }
 

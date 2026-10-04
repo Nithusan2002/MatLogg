@@ -256,14 +256,14 @@ Begge UI-testene lagrer skjermbilder i testresultatet.
 
 ### Navigasjonsforenkling
 
-`QuickLogTests` dekker lokal henting av favoritter/nylig brukt uten katalog-
+`QuickLogTests` dekker lokal henting av gjenloggingsgrunnlag uten katalog-
 eller nettsøk, retry og forkasting av et profilsvar etter reset. Testene dekker
 også lokal manuell produktlagring, mengdevalg etter at skjemaet er lukket,
 og forkasting av ventende produktvalg ved profilreset.
 `testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu` dekker direkte
 åpning uten søkeskjerm, avbryt til hurtigmenyen og bevart dato.
 `testDailyLogIsDirectAndSavedMealsRemainDiscoverable` dekker direkte dagslogg
-uten filter og bibliotekinngangen fra bunnmenyen.
+uten filter, bytte mellom gjenbrukslistene og bibliotekinngangen fra bunnmenyen.
 `testQuickLogManualRegistrationAndDirectHomeEditingKeepPastDate` dekker
 manuell produktregistrering fra Loggfør, logging på tidligere dato og direkte
 redigering fra Hjem med kontroll av flytting til Lunsj.

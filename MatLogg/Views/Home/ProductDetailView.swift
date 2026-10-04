@@ -62,7 +62,7 @@ private struct ProductDetailContent: View {
                             Text("Tilbake")
                         }
                         .font(AppTypography.body)
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                     }
                     Spacer()
@@ -202,7 +202,7 @@ private struct ProductDetailContent: View {
                             Link(destination: sourceURL) {
                                 Label("Data fra Open Food Facts", systemImage: "link")
                                     .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.action)
+                                    .foregroundColor(AppColors.actionText)
                             }
                             .accessibilityHint("Åpner kilden i nettleseren")
                         }
@@ -221,7 +221,7 @@ private struct ProductDetailContent: View {
                                     .font(AppTypography.body)
                                     .frame(minHeight: 44)
                             }
-                            .foregroundColor(AppColors.action)
+                            .foregroundColor(AppColors.actionText)
                             .disabled(detailModel.isRefreshing || isLogging)
                             if let message = detailModel.refreshMessage {
                                 Text(message)
@@ -250,7 +250,7 @@ private struct ProductDetailContent: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .font(AppTypography.caption)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .padding(.horizontal)
                     .accessibilityElement(children: .combine)
                 }
@@ -264,7 +264,7 @@ private struct ProductDetailContent: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { hideKeyboard() }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
             }
         }
         .task { await detailModel.refresh(manually: false) }
@@ -396,7 +396,7 @@ struct ImagePreviewView: View {
                 HStack {
                     Spacer()
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .padding(.horizontal, 16)
@@ -448,20 +448,20 @@ struct ProductSourceInfoView: View {
                         if let sourceURL = URL(string: "https://world.openfoodfacts.org") {
                             Link("Åpne Open Food Facts", destination: sourceURL)
                                 .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.action)
+                                .foregroundColor(AppColors.actionText)
                                 .frame(minHeight: 44, alignment: .leading)
                         }
                         if let licenseURL = URL(string: "https://opendatacommons.org/licenses/odbl/1-0/") {
                             Link("Database: Open Database License", destination: licenseURL)
                                 .font(AppTypography.body)
-                                .foregroundColor(AppColors.action)
+                                .foregroundColor(AppColors.actionText)
                                 .frame(minHeight: 44, alignment: .leading)
                         }
                         if product.imageSource == .openFoodFacts,
                            let imageLicenseURL = URL(string: "https://creativecommons.org/licenses/by-sa/3.0/") {
                             Link("Bilder: CC BY-SA 3.0", destination: imageLicenseURL)
                                 .font(AppTypography.body)
-                                .foregroundColor(AppColors.action)
+                                .foregroundColor(AppColors.actionText)
                                 .frame(minHeight: 44, alignment: .leading)
                         }
                     }
@@ -473,7 +473,7 @@ struct ProductSourceInfoView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -558,7 +558,7 @@ private struct ProductLoggingSection: View {
                     SummaryPill(
                         label: "Energi",
                         value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
-                        tintColor: AppColors.brand
+                        tintColor: AppColors.energyTint
                     )
                     SummaryPill(
                         label: "Proteiner",
@@ -747,7 +747,7 @@ private struct ProductProcessingInfoSheet: View {
                         }
                         if let sourceURL {
                             Link("Se produktet hos Open Food Facts", destination: sourceURL)
-                                .foregroundColor(AppColors.action)
+                                .foregroundColor(AppColors.actionText)
                                 .frame(minHeight: 44, alignment: .leading)
                         }
                     }
@@ -763,7 +763,7 @@ private struct ProductProcessingInfoSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .accessibilityIdentifier("processing-info-close")
                 }
             }
@@ -826,7 +826,7 @@ private struct ProductNutriScoreSheet: View {
                     }
                     if let sourceURL {
                         Link("Se produktet hos Open Food Facts", destination: sourceURL)
-                            .foregroundColor(AppColors.action)
+                            .foregroundColor(AppColors.actionText)
                             .frame(minHeight: 44, alignment: .leading)
                     }
                 }
@@ -841,7 +841,7 @@ private struct ProductNutriScoreSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .accessibilityIdentifier("nutriscore-info-close")
                 }
             }

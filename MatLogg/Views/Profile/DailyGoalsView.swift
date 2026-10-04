@@ -32,7 +32,7 @@ struct DailyGoalsView: View {
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("daily-goals-suggest")
                 if let error = viewModel.errorMessage {
-                    Text(error).foregroundStyle(AppColors.ink)
+                    ErrorMessageView(error)
                         .accessibilityIdentifier("daily-goals-error")
                 }
                 PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre endringer") {
@@ -115,8 +115,7 @@ struct DailyGoalsView: View {
                 .accessibilityLabel("\(title), \(unit)")
                 .accessibilityIdentifier("daily-goals-\(field)")
             if let error = viewModel.errors[field] {
-                Text(error).font(AppTypography.caption)
-                    .foregroundStyle(AppColors.ink)
+                ErrorMessageView(error).font(AppTypography.caption)
             }
         }
     }

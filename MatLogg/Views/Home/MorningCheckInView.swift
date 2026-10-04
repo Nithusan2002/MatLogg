@@ -27,7 +27,7 @@ struct MorningCheckInView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(viewModel.isLoading || viewModel.isSaving)
@@ -77,7 +77,7 @@ struct MorningCheckInView: View {
                             .font(AppTypography.caption)
                             .foregroundStyle(AppColors.textSecondary)
                         if let error = viewModel.errorMessage {
-                            Text(error).foregroundStyle(AppColors.textSecondary)
+                            ErrorMessageView(error)
                                 .accessibilityIdentifier("morning-check-in-error")
                         }
                         PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Ferdig", systemImage: "checkmark") {

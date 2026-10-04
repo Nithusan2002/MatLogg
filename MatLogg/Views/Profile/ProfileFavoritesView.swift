@@ -25,7 +25,7 @@ struct ProfileFavoritesView: View {
                     Button("Finn matvarer") {
                         appState.selectedTab = .search
                     }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                 }
                 .safeAreaPadding(.bottom, bottomMargin)
                 .accessibilityIdentifier("favorites-empty-state")

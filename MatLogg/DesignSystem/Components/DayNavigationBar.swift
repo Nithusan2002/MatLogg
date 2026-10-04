@@ -3,6 +3,8 @@ import SwiftUI
 struct DayNavigationBar: View {
     @Binding var selection: Date
     @State private var isShowingDatePicker = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     private let calendar: Calendar
 
@@ -45,6 +47,10 @@ struct DayNavigationBar: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Velg dato. Valgt dato er \(accessibilityDate)")
             .accessibilityIdentifier("day-navigation-date")
+            .popover(isPresented: $isShowingDatePicker, arrowEdge: .top) {
+                datePickerContent
+                    .presentationCompactAdaptation(.popover)
+            }
 
             Spacer(minLength: 0)
 
@@ -58,32 +64,39 @@ struct DayNavigationBar: View {
             .accessibilityLabel("Neste dag")
         }
         .foregroundColor(AppColors.ink)
-        .sheet(isPresented: $isShowingDatePicker) {
-            NavigationStack {
-                VStack(spacing: 16) {
-                    Text("Velg dato")
-                        .font(AppTypography.title)
-                        .foregroundColor(AppColors.ink)
+    }
 
-                    DatePicker(
-                        "Velg dato",
-                        selection: $selection,
-                        displayedComponents: [.date]
-                    )
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                }
-                .padding(16)
-                .background(AppColors.background.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Ferdig") { isShowingDatePicker = false }
-                            .foregroundColor(AppColors.action)
-                    }
-                }
+    @ViewBuilder
+    private var datePickerContent: some View {
+        if dynamicTypeSize.isAccessibilitySize || verticalSizeClass == .compact {
+            ScrollView {
+                calendarPicker
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
             }
-            .presentationDetents([.medium, .large])
+            .frame(width: 340, height: verticalSizeClass == .compact ? 240 : 480)
+            .presentationBackground(AppColors.background)
+        } else {
+            calendarPicker
+                .padding(12)
+                .frame(width: 340)
+                .fixedSize(horizontal: false, vertical: true)
+                .presentationBackground(AppColors.background)
         }
+    }
+
+    private var calendarPicker: some View {
+        DatePicker(
+            "Velg dato",
+            selection: $selection,
+            displayedComponents: [.date]
+        )
+        .datePickerStyle(.graphical)
+        .labelsHidden()
+        .environment(\.locale, Locale(identifier: "nb_NO"))
+        .environment(\.calendar, calendar)
+        .tint(AppColors.action)
+        .accessibilityIdentifier("day-navigation-calendar")
     }
 
     private var title: String {

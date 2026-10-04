@@ -10,6 +10,15 @@ struct QuickLogSheet: View {
     @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
     @State private var selectedSavedMeal: SavedMeal?
     @State private var showAllSavedMeals = false
+    @State private var selectedReuseList = ReuseList.recent
+    @State private var hasSelectedReuseList = false
+    @State private var initialSelectionResolved = false
+    @State private var loadID = UUID()
+
+    private enum ReuseList: String, CaseIterable {
+        case recent = "Loggfør igjen"
+        case saved = "Lagrede måltider"
+    }
 
     let onSearch: () -> Void
     let onScan: () -> Void
@@ -25,6 +34,9 @@ struct QuickLogSheet: View {
                         .font(AppTypography.title)
                         .foregroundColor(AppColors.deepInk)
                     Spacer()
+                    ActivityIndicatorSlot(isActive: (viewModel.showsLoadingFeedback && !viewModel.recentFoods.isEmpty)
+                                          || (savedMealsViewModel.showsLoadingFeedback && !savedMealsViewModel.meals.isEmpty),
+                                          label: "Oppdaterer hurtigvalg og måltider")
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
                             .font(.body.weight(.semibold))
@@ -42,97 +54,18 @@ struct QuickLogSheet: View {
                         .font(AppTypography.bodyEmphasis)
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
-                .foregroundStyle(AppColors.action)
+                .foregroundStyle(AppColors.actionText)
                 .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
                 .accessibilityIdentifier("quick-log-manual")
 
                 mealPicker
 
-                if !viewModel.recentFoods.isEmpty {
-                    repeatSection
-                }
+                reuseListPicker
 
-                if savedMealsViewModel.isLoading { ProgressView("Henter lagrede måltider …") }
-                if let error = savedMealsViewModel.loadError {
-                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                    Button("Prøv igjen") { Task { await savedMealsViewModel.load(userId: authViewModel.currentUser?.id) } }
-                        .frame(minHeight: 44)
-                }
-                savedMealsSection
-
-                if let error = viewModel.errorMessage, !viewModel.products.isEmpty {
-                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                    Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
-                }
-                if viewModel.isLoading && !viewModel.products.isEmpty { ProgressView("Oppdaterer hurtigvalg …") }
-                if (viewModel.isLoading || !viewModel.hasLoaded) && viewModel.products.isEmpty {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                        Text("Henter hurtigvalg …")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                    .accessibilityElement(children: .combine)
-                } else if viewModel.errorMessage != nil && viewModel.products.isEmpty {
-                    VStack(spacing: 10) {
-                        Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
-                            .font(AppTypography.bodyEmphasis)
-                        Button("Prøv igjen") { Task { await loadContent() } }
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.action)
-                            .frame(minHeight: 44)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                } else if viewModel.additionalProducts.isEmpty && viewModel.recentFoods.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        quickProductsHeading
-                        VStack(spacing: 10) {
-                            Text("Ingen enkeltvarer i hurtigvalg ennå")
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.deepInk)
-                            Text("Søk etter eller skann en matvare. Nylig brukte enkeltvarer og favoritter vises her neste gang.")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 28)
-                    }
+                if selectedReuseList == .recent {
+                    recentContent
                 } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        if !viewModel.additionalProducts.isEmpty { quickProductsHeading }
-                        LazyVStack(spacing: 10) {
-                            ForEach(viewModel.additionalProducts) { product in
-                                Button { viewModel.selectedQuickProduct = product } label: {
-                                    HStack(spacing: 12) {
-                                        Text(String(product.name.prefix(1)).uppercased())
-                                            .font(AppTypography.bodyEmphasis)
-                                            .foregroundColor(AppColors.deepInk)
-                                            .frame(width: 44, height: 44)
-                                            .background(AppColors.mutedSurface, in: Circle())
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(product.name)
-                                                .font(AppTypography.bodyEmphasis)
-                                                .foregroundColor(AppColors.deepInk)
-                                                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                                            Text(productSubtitle(product))
-                                                .font(AppTypography.caption)
-                                                .foregroundColor(AppColors.textSecondary)
-                                                .lineLimit(1)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(AppColors.textSecondary)
-                                    }
-                                    .padding(12)
-                                    .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(viewModel.isRepeating)
-                            }
-                        }
-                    }
+                    savedContent
                 }
             }
             .padding(.horizontal, 20)
@@ -143,7 +76,14 @@ struct QuickLogSheet: View {
         .task(id: authViewModel.currentUser?.id) { await loadContent() }
         .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
         .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
-        .onChange(of: authViewModel.currentUser?.id) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
+            viewModel.invalidateRepeatPresentation()
+            selectedReuseList = .recent
+            hasSelectedReuseList = false
+            initialSelectionResolved = false
+            selectedSavedMeal = nil
+            showAllSavedMeals = false
+        }
         .onDisappear { viewModel.invalidateRepeatPresentation() }
         .sheet(item: $viewModel.selectedQuickProduct) { product in
             ProductDetailView(product: product, appState: appState) { payload in
@@ -173,13 +113,15 @@ struct QuickLogSheet: View {
                 .font(AppTypography.sectionTitle)
                 .foregroundStyle(AppColors.deepInk)
                 .accessibilityAddTraits(.isHeader)
-            if viewModel.isRepeating { ProgressView("Lagrer på enheten …") }
             if let error = viewModel.logError {
-                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.action)
+                ErrorMessageView(error).font(AppTypography.caption)
             }
             ForEach(viewModel.recentFoods) { food in
                 VStack(alignment: .leading, spacing: 8) {
-                    Button { viewModel.selectedQuickProduct = food.product } label: {
+                    Button {
+                        guard !viewModel.isRepeating else { return }
+                        viewModel.selectedQuickProduct = food.product
+                    } label: {
                         HStack {
                             Text(food.product.name)
                                 .font(AppTypography.bodyEmphasis)
@@ -199,24 +141,37 @@ struct QuickLogSheet: View {
                         .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                         .accessibilityIdentifier("quick-log-repeat-destination-\(food.id.uuidString)")
                     Button {
+                        guard !viewModel.isRepeating else { return }
                         if food.canRepeat { repeatFood(food) }
                         else { viewModel.selectedQuickProduct = food.product }
                     } label: {
-                        Text(food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde")
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundStyle(AppColors.action)
-                            .frame(minHeight: 44, alignment: .leading)
+                        HStack(spacing: 8) {
+                            ZStack(alignment: .leading) {
+                                Text(food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde")
+                                    .opacity(viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id ? 0 : 1)
+                                Text("Lagrer …").hidden()
+                                if viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id {
+                                    Text("Lagrer …")
+                                }
+                            }
+                            ActivityIndicatorSlot(isActive: viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id,
+                                                  label: "Lagrer på enheten")
+                        }
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.actionText)
+                        .frame(minHeight: 44, alignment: .leading)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(food.canRepeat
                         ? "Loggfør \(food.product.name), \(food.amountLabel)"
                         : "Kontroller mengde for \(food.product.name)")
+                    .accessibilityValue(viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id ? "Lagrer på enheten" : "")
                     .accessibilityHint("Til \(selectedMealTitle), \(logDateLabel)")
                     .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
                 }
                 .padding(12)
                 .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
-                .disabled(viewModel.isRepeating)
+                .allowsHitTesting(!viewModel.isRepeating)
             }
         }
     }
@@ -250,7 +205,7 @@ struct QuickLogSheet: View {
                 Button(savedMealsViewModel.meals.isEmpty ? "Åpne" : "Se alle") { showAllSavedMeals = true }
                     .accessibilityIdentifier("quick-log-saved-meals")
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundStyle(AppColors.action)
+                    .foregroundStyle(AppColors.actionText)
                     .frame(minHeight: 44)
             }
             if savedMealsViewModel.meals.isEmpty {
@@ -273,11 +228,51 @@ struct QuickLogSheet: View {
         }
     }
 
-    private var quickProductsHeading: some View {
-        Text("Andre hurtigvalg")
-            .font(AppTypography.sectionTitle)
-            .foregroundStyle(AppColors.deepInk)
-            .accessibilityAddTraits(.isHeader)
+    private var reuseListPicker: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            ForEach(ReuseList.allCases, id: \.self) { list in
+                MealChip(title: list.rawValue, isSelected: selectedReuseList == list, fillsWidth: true) {
+                    hasSelectedReuseList = true
+                    selectedReuseList = list
+                }
+                .accessibilityIdentifier(list == .recent ? "quick-log-show-recent" : "quick-log-show-saved")
+            }
+        }
+        .accessibilityLabel("Velg gjenbruk")
+    }
+
+    @ViewBuilder private var recentContent: some View {
+        if let error = viewModel.errorMessage {
+            ErrorMessageView(error).font(AppTypography.caption)
+            Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
+        }
+        if !viewModel.recentFoods.isEmpty {
+            repeatSection
+        } else if viewModel.isLoading || !viewModel.hasLoaded {
+            ProgressView("Henter nylig loggede matvarer …")
+        } else if viewModel.errorMessage == nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Ingen nylig loggede matvarer")
+                    .font(AppTypography.bodyEmphasis)
+                Text("Søk etter, skann eller registrer en matvare. Etter logging kan du loggføre den igjen her.")
+                    .font(AppTypography.secondary).foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var savedContent: some View {
+        if let error = savedMealsViewModel.loadError {
+            ErrorMessageView(error).font(AppTypography.caption)
+            Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
+        }
+        if savedMealsViewModel.isLoading && savedMealsViewModel.meals.isEmpty {
+            ProgressView("Henter lagrede måltider …")
+        } else if !savedMealsViewModel.meals.isEmpty || savedMealsViewModel.loadError == nil {
+            savedMealsSection
+        }
     }
 
     private var mealPicker: some View {
@@ -298,7 +293,7 @@ struct QuickLogSheet: View {
                     Button {
                         appState.selectedMealType = meal.key
                     } label: {
-                        Text(meal.title)
+                        Text(appState.selectedMealType == meal.key ? "\(meal.title) ✓" : meal.title)
                             .font(AppTypography.captionEmphasis)
                             .foregroundColor(appState.selectedMealType == meal.key ? AppColors.onVibrant : AppColors.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -327,15 +322,21 @@ struct QuickLogSheet: View {
 
     private func loadContent() async {
         let userId = authViewModel.currentUser?.id
+        let request = UUID()
+        loadID = request
         async let quick: Void = viewModel.load(userId: userId)
         async let meals: Void = savedMealsViewModel.load(userId: userId)
         _ = await (quick, meals)
+        guard !Task.isCancelled, loadID == request,
+              authViewModel.currentUser?.id == userId,
+              !initialSelectionResolved,
+              viewModel.errorMessage == nil, savedMealsViewModel.loadError == nil else { return }
+        initialSelectionResolved = true
+        if !hasSelectedReuseList && viewModel.recentFoods.isEmpty && !savedMealsViewModel.meals.isEmpty {
+            selectedReuseList = .saved
+        }
     }
 
-    private func productSubtitle(_ product: Product) -> String {
-        let brand = product.brand.map { "\($0) · " } ?? ""
-        return "\(brand)\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)"
-    }
 }
 
 /// Every entry point keeps the same date and meal context throughout logging.

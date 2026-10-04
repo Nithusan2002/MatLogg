@@ -103,9 +103,8 @@ struct PersonalDetailsView: View {
                 }
 
                 if let error = viewModel.errorMessage {
-                    Text(error)
+                    ErrorMessageView(error)
                         .font(AppTypography.body)
-                        .foregroundStyle(AppColors.ink)
                         .accessibilityIdentifier("personal-details-error")
                 }
             }
@@ -263,7 +262,7 @@ struct PersonalDetailsView: View {
 
     @ViewBuilder private func fieldError(_ key: String) -> some View {
         if let error = viewModel.errors[key] {
-            Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
+            ErrorMessageView(error).font(AppTypography.caption)
         }
     }
 }
@@ -325,7 +324,7 @@ struct ActivityLevelSheet: View {
                     onShowHelp()
                 }
                 .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 
                 Spacer()
             }
@@ -335,7 +334,7 @@ struct ActivityLevelSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -392,7 +391,7 @@ struct ActivityLevelHelpSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }

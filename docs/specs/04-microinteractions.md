@@ -167,6 +167,24 @@ mengde og valgt måltid beholdes ved feil. Resultat vises som tekst. Endret
 måleenhet krever at kortet åpnes på nytt; mengden omtolkes ikke automatisk.
 
 
+Søketreff beholder posisjon og farger når en matvare åpnes. Lokal klargjøring
+skjer før produktarket vises; etter 180 ms vises en liten spinner i valgt rad
+på pilens plass. Raske oppslag viser ingen spinner. Gjentatte trykk ignoreres
+under klargjøring. VoiceOver får «Åpner matvare» som verdi på valgt rad.
+
+Oppdatering av ferdig innhold flytter ikke eksisterende kort eller rader:
+- Søk viser katalog- og søkestatus i et fast område ved søkekontrollene.
+- Hurtigvalg på Hjem og Oversikt bruker en fast indikatorplass ved overskriften.
+- Lagrede måltider viser oppdatering i navigasjonslinjen; dra-for-å-oppdatere
+  bruker også systemindikatoren.
+- «Loggfør igjen» viser «Lagrer …» og spinner i valgt knapp uten å endre
+  knappens størrelse eller dempe alle radene. Gjentatte trykk ignoreres.
+
+Disse diskrete indikatorene vises etter 180 ms. Førstegangslasting uten
+innhold har umiddelbar respons. Eksisterende innhold beholdes ved oppdatering
+av samme profil; profilbytte fjerner tidligere data. VoiceOver får status fra
+indikatoren eller valgt knapp. Ingen ekstra overgangsanimasjon brukes.
+
 ### **Sync Upload**
 
 ```

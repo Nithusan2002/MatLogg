@@ -14,10 +14,10 @@ final class DemoMode: ObservableObject {
     private let selectionDefaults: UserDefaults
     private let demoDefaults: UserDefaults?
     private let directory: URL
-    private let loadCatalog: () async throws -> [MatvaretabellenProduct]
+    private let loadCatalog: () async throws -> [Product]
     private let openDatabase: () async -> DatabaseService
 
-    init(selectionDefaults: UserDefaults = .standard, demoDefaults: UserDefaults?, directory: URL, loadCatalog: @escaping () async throws -> [MatvaretabellenProduct] = { try await MatvaretabellenService().fetchCommonFoods() }, openDatabase: @escaping () async -> DatabaseService = { await DatabaseService.open() }) {
+    init(selectionDefaults: UserDefaults = .standard, demoDefaults: UserDefaults?, directory: URL, loadCatalog: @escaping () async throws -> [Product] = { try await DemoProductCatalog.load() }, openDatabase: @escaping () async -> DatabaseService = { await DatabaseService.open() }) {
         self.selectionDefaults = selectionDefaults
         self.demoDefaults = demoDefaults
         self.directory = directory
@@ -44,11 +44,10 @@ final class DemoMode: ObservableObject {
         do {
             if enabled {
                 guard let demoDefaults else { throw CocoaError(.fileWriteUnknown) }
-                let catalog = try await loadCatalog()
+                let products = try await loadCatalog()
                 try Task.checkCancellation()
                 let user = AuthService(defaults: demoDefaults).activateLocalProfile()
                 let url = directory.appendingPathComponent("demo-v1.sqlite")
-                let products = try await BackgroundWork.run { catalog.map(FoodSearchCatalog.product) }
                 let store = try await DemoDataset.prepare(at: url, userId: user.id, products: products, reset: reset)
                 try Task.checkCancellation()
                 if reset {
@@ -69,6 +68,63 @@ final class DemoMode: ObservableObject {
         } catch {
             errorMessage = "Kunne ikke åpne demodata. Prøv igjen."
         }
+    }
+}
+
+/// A fixed OFF snapshot makes presentation data and images available offline.
+nonisolated enum DemoProductCatalog {
+    private struct Entry: Decodable {
+        let code: String
+        let name: String
+        let brand: String?
+        let imageURL: String
+        let calories: Float
+        let protein: Float
+        let carbs: Float
+        let fat: Float
+        let sugar: Float?
+        let fiber: Float?
+        let sodium: Float?
+    }
+
+    static func load(bundle: Bundle = .main) async throws -> [Product] {
+        try await BackgroundWork.run {
+            guard let url = bundle.url(forResource: "demo-openfoodfacts", withExtension: "json") else {
+                throw CocoaError(.fileReadNoSuchFile)
+            }
+            let entries = try JSONDecoder().decode([Entry].self, from: Data(contentsOf: url))
+            guard !entries.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
+            return try entries.map { entry in
+                guard let image = bundle.url(forResource: "demo-off-\(entry.code)", withExtension: "jpg") else {
+                    throw CocoaError(.fileReadNoSuchFile)
+                }
+                return Product(
+                    id: Product.catalogID(source: "openfoodfacts", externalID: entry.code),
+                    name: entry.name, brand: entry.brand, barcodeEan: entry.code,
+                    source: "openfoodfacts", caloriesPer100g: entry.calories,
+                    proteinGPer100g: entry.protein, carbsGPer100g: entry.carbs,
+                    fatGPer100g: entry.fat, sugarGPer100g: entry.sugar,
+                    fiberGPer100g: entry.fiber,
+                    sodiumMgPer100g: entry.sodium.map { Int(($0 * 1000).rounded()) },
+                    localImageData: try Data(contentsOf: image), imageUrl: entry.imageURL,
+                    nutritionSource: .openFoodFacts, imageSource: .openFoodFacts,
+                    externalID: entry.code, nutritionBasis: .per100g
+                )
+            }
+        }
+    }
+
+    static func amountG(for product: Product, offset: Int, index: Int) -> Float {
+        let portions: [String: Float] = [
+            "7044416013141": 60, "7038010045073": 150, "7300400129459": 36,
+            "7038010053368": 30, "7036110004785": 60, "7039010016322": 100,
+            "7039010132435": 25, "7036110008844": 20, "7038010054471": 100,
+            "7039317005470": 30, "7622210816672": 24, "4000339697908": 25
+        ]
+        guard let code = product.externalID, let portion = portions[code] else {
+            return Float(60 + (offset + index * 7) % 180)
+        }
+        return portion * (1 + Float(offset % 3) * 0.1)
     }
 }
 
@@ -98,9 +154,7 @@ nonisolated struct DemoDataset {
     private static func seed(at url: URL, userId: UUID, products: [Product], now: Date) throws {
         guard !products.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
         let store = try LocalStore(databaseURL: url)
-        let preferredIDs = ["05.003", "06.525", "05.342", "02.026", "04.342", "05.337", "03.418", "01.299", "06.620", "06.747", "06.718", "06.107"]
-        let preferred = preferredIDs.compactMap { id in products.first { $0.externalID == id } }
-        let chosen = preferred.isEmpty ? Array(products.prefix(12)) : preferred
+        let chosen = Array(products.prefix(12))
         for product in chosen { try store.cacheCatalogProduct(product) }
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2200, proteinTargetG: 110, carbsTargetG: 275, fatTargetG: 73))
         let calendar = Calendar.current
@@ -112,9 +166,9 @@ nonisolated struct DemoDataset {
             let count = offset % 9 == 4 ? 2 : 9 + offset % 3
             var logs: [FoodLog] = []
             for index in 0..<count {
-                let menu = [0, 1, 2, 3, offset % 2 == 0 ? 4 : 6, 5, 9, 7, 8, 11, 10]
+                let menu = [0, 1, 2, 3, 4, 5, 8, 9, offset % 2 == 0 ? 7 : 6, 11, 10]
                 let product = chosen[menu[index % menu.count] % chosen.count]
-                let amount = Float(60 + (offset + index * 7) % 180)
+                let amount = DemoProductCatalog.amountG(for: product, offset: offset, index: index)
                 let scale = amount / 100
                 logs.append(FoodLog(userId: userId, productId: product.id, mealType: index < 2 ? "frokost" : index < 4 ? "lunsj" : index < 7 ? "middag" : "snacks", amountG: amount, loggedDate: day, loggedTime: day.addingTimeInterval(Double(8 + index) * 3600), calories: product.caloriesPer100g * scale, proteinG: product.proteinGPer100g * scale, carbsG: product.carbsGPer100g * scale, fatG: product.fatGPer100g * scale))
             }
@@ -133,4 +187,3 @@ nonisolated struct DemoDataset {
         }
     }
 }
-

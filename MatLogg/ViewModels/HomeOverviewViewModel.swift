@@ -58,6 +58,14 @@ final class HomeOverviewViewModel: ObservableObject {
         observe(preferences.$showGoalStatusOnHome.removeDuplicates())
     }
 
+    func shouldShowEmptyDay(userId: UUID?, date: Date) -> Bool {
+        guard let userId, owner == userId,
+              day == Calendar.current.startOfDay(for: date),
+              !isLoading, errorMessage == nil,
+              let summary = overview.summary else { return false }
+        return summary.logs.isEmpty
+    }
+
     func reset() {
         requestID = UUID()
         owner = nil

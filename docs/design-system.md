@@ -24,6 +24,25 @@ tokens og komponenter.
 
 Fargene defineres semantisk i `MatLogg/DesignSystem/Colors.swift`.
 
+Sekundærtekst bruker `#70656D` i lys modus for minst 4,5:1 kontrast på
+`background`, `surface`, `warmSurface` og `mutedSurface`. `actionText` og
+`errorText` deler kontrastsikker farge, men har ulike semantiske roller.
+Feilmeldinger bruker `ErrorMessageView` med ikon og tekst; retry-handlinger
+beholdes ved meldingen der de finnes.
+
+Energi og informasjon deler blåfamilien `energyTint`/`info`. Fylte energikort
+bruker fast mørk `onVibrant` uten opacity i begge moduser. Diagramstolper bruker
+`energyChart`, en kontrastsikker blåvariant, og dagens stolpe får synlig
+«I dag»-tekst. Mållinjen er stiplet og bruker full `textSecondary`.
+Makrofargene er aliaser til `brand`, `accent` og `success`.
+
+Alle valgte måltidschips viser hake i tillegg til farge og valgt-status for
+VoiceOver. Kameraets faste svart/hvitt-flater og slør ligger i sentrale
+`scanner…`-tokens; lasting bruker `info`. Asset Catalog sin `AccentColor`
+bruker samme light/dark-verdier som `action` for arvet tint. Nutri-Score- og
+NOVA-fargene beholdes uendret.
+
+
 | Token | Formål |
 | --- | --- |
 | `background` | Sidens grunnflate. |
@@ -173,7 +192,7 @@ bruker skalerbar `hero`-typografi; balansen mot målet vises nøytralt under.
 Makroer vises i tre kolonner med verdi og sekundært mål, uten progresjonsstolper.
 Ved tilgjengelighetsstørrelser stables de vertikalt. Makrofargene brukes kun
 som små dekorative markører, mens tekst identifiserer næringsstoffet.
-En korallfarget `PrimaryButton` åpner loggingarket før måltidsseksjonene.
+Den vedvarende «Loggfør»-handlingen og måltidenes «Legg til» åpner loggingarket.
 Eksisterende krembakgrunn, plommetekst og avrundede typografi beholdes.
 
 Kortskygger legges bare på bakgrunnsformen, aldri på containeren med tekst,
@@ -275,10 +294,14 @@ på 12 % tonet bakgrunn og deepInk-tekst. Etikettene stables når bredden ikke
 rekker. VoiceOver leser totalen med fulle næringsnavn. Ingen ekstra
 progresjonsstolper eller måltidskvote introduseres.
 
-Vann på Hjem vises som en kompakt rad mellom næringsfeltet og loggknappen.
-Raden viser valgt dag, antall glass og 44 pt minus-/plussknapper uten glassrutenett.
-Ved liten bredde eller stor tekst stables innholdet. Lasting, feil med retry og
-justering beholdes; raden vises også når målstatus er skjult.
+Vann på Hjem vises nederst i samme `warmSurface`-flate som næringsfeltet,
+med felles 20 pt padding og 24 pt hjørner. En `separator`-linje skiller delene;
+ingen kort legges inni kortet. Når energi og mål er skjult, vises bare vannraden.
+Raden viser «Vann», antall glass og nøytrale 44 pt minus-/plussknapper med
+`mutedSurface` og `separator`. Bare dråpen bruker `info`; tekst bruker
+`deepInk` og `textSecondary`. Ingen glassrutenett vises på Hjem.
+Ved liten bredde eller stor tekst stables innholdet. Lasting, lokal feil med
+retry og justering beholdes uavhengig av næringsfeltets tilstand.
 
 ### Måltidsrom
 

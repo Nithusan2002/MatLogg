@@ -718,3 +718,9 @@ Open Food Facts-parsing, bildeklargjøring, eksport og database-/demoklargjørin
 utføres utenfor hovedtråden. UI-state publiseres på MainActor med kontroll av
 request-ID/kontekst. App-roten viser lastestatus fram til databasen er klar.
 Transaksjoner, eierskap, ernæringsgrunnlag og synkkontrakt endres ikke.
+
+## 2026-10-04 – Samlet dagsstatus på Hjem
+
+Vann samles med energi og makroer i én varm flate over måltidene. Vannraden
+beholdes når næring skjules og har uavhengig lasting og feilvisning. Eksisterende
+ViewModels, beregninger, lokal lagring og synkkontrakt beholdes.

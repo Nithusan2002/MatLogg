@@ -4,13 +4,25 @@ import Combine
 @MainActor
 final class QuickLogViewModel: ObservableObject {
     @Published private(set) var recentFoods: [RecentFood] = []
-    @Published private(set) var isRepeating = false
+    @Published private(set) var isRepeating = false {
+        didSet {
+            repeatFeedback.update(isActive: isRepeating) { [weak self] in self?.showsRepeatFeedback = $0 }
+        }
+    }
+    @Published private(set) var repeatingProductID: UUID?
+    @Published private(set) var showsRepeatFeedback = false
+    private let repeatFeedback = DelayedActivity()
     @Published private(set) var logError: String?
     @Published var selectedQuickProduct: Product?
     private var repeatID = UUID()
     @Published private(set) var products: [Product] = []
-    @Published private(set) var additionalProducts: [Product] = []
-    @Published private(set) var isLoading = false
+    @Published private(set) var isLoading = false {
+        didSet {
+            loadingFeedback.update(isActive: isLoading) { [weak self] in self?.showsLoadingFeedback = $0 }
+        }
+    }
+    @Published private(set) var showsLoadingFeedback = false
+    private let loadingFeedback = DelayedActivity()
     @Published private(set) var hasLoaded = false
     @Published private(set) var errorMessage: String?
     @Published var selectedManualProduct: Product?
@@ -24,7 +36,6 @@ final class QuickLogViewModel: ObservableObject {
     func reset() {
         requestID = UUID()
         products = []
-        additionalProducts = []
         recentFoods = []
         selectedQuickProduct = nil
         invalidateRepeatPresentation()
@@ -58,9 +69,10 @@ final class QuickLogViewModel: ObservableObject {
         guard !isRepeating, let owner, food.log.userId == owner else { return nil }
         let request = UUID()
         repeatID = request
+        repeatingProductID = food.id
         isRepeating = true
         logError = nil
-        defer { isRepeating = false }
+        defer { isRepeating = false; repeatingProductID = nil }
         do {
             let outcome = try await repository.logAgain(food, owner: owner, mealType: mealType, date: date)
             guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
@@ -81,7 +93,6 @@ final class QuickLogViewModel: ObservableObject {
         if owner != userId {
             hasLoaded = false
             products = []
-            additionalProducts = []
             recentFoods = []
             invalidateRepeatPresentation()
             selectedQuickProduct = nil
@@ -98,8 +109,6 @@ final class QuickLogViewModel: ObservableObject {
             guard requestID == request, !Task.isCancelled else { return }
             recentFoods = library.recentFoods
             products = Array(FoodSearchMatcher.unique(library.favorites + library.recent).prefix(8))
-            let repeatedIDs = Set(recentFoods.map(\.id))
-            additionalProducts = products.filter { !repeatedIDs.contains($0.id) }
         } catch {
             guard requestID == request, !Task.isCancelled else { return }
             errorMessage = "Kunne ikke hente hurtigvalg. Prøv igjen."

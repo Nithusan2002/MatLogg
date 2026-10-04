@@ -47,7 +47,7 @@ struct LogToastView: View {
             Button(action: onUndo) {
                 Text(isUndoing ? "Angrer …" : "Angre")
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)

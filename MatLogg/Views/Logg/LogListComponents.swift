@@ -132,7 +132,7 @@ struct CompactLogListView: View {
                                 onSeeAll(group.mealType)
                             }
                             .font(AppTypography.caption)
-                            .foregroundColor(AppColors.brand)
+                            .foregroundColor(AppColors.actionText)
                         }
                     }
                     
@@ -152,7 +152,7 @@ struct CompactLogListView: View {
                 onSeeAll(nil)
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.brand)
+            .foregroundColor(AppColors.actionText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 4)
         }

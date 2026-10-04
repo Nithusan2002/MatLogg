@@ -1,6 +1,6 @@
 # Offline-adferd og synkstatus
 
-Dato: 2026-10-03
+Dato: 2026-10-04
 Status: normativ produkt- og UX-definisjon; produksjonssynk er fortsatt deaktivert
 
 MatLogg er local-first. Nettverk skal aldri være nødvendig for å registrere,
@@ -146,10 +146,10 @@ vises bare lokal lagring/status; køens synkstatuser nedenfor er framtidig scope
 | Denne enhetens kø er tom | «Alle endringer fra denne enheten er synkronisert» | Data og synk med tidspunkt for siste bekreftelse. |
 | Automatisk retry | «X endringer er lagret på enheten og prøves igjen når appen kan synkronisere» | Data og synk; vis neste planlagte forsøk når kjent. |
 | Krever handling | «X endringer er lagret på enheten, men kunne ikke synkroniseres» | Data og synk med «Forsøk synk på nytt». |
-| Backend-synk deaktivert | «Lagret på denne enheten» | Data og synk; ikke bruk «venter» uten å forklare at synk ikke er tilgjengelig. |
+| Backend-synk deaktivert | «Lagret på denne enheten» | Profil → Innstillinger → Data og lagring. Ingen permanent status på Hjem; ikke bruk «venter» uten å forklare at synk ikke er tilgjengelig. |
 
 En vellykket lokal handling skal aldri vises som mislykket bare fordi synk
-venter. Vedvarende status vises bare når det finnes ventende eller feilede
+venter. Vedvarende status på Hjem vises bare når synk er tilgjengelig og det finnes ventende eller feilede
 hendelser; en kort suksessmelding kan vises når en tidligere kø blir tom.
 
 VoiceOver skal lese både lokal trygghet og videre status, for eksempel:

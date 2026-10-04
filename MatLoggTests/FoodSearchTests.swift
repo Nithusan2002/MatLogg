@@ -142,6 +142,57 @@ struct FoodSearchTests {
         #expect(vm.selectionError == nil)
     }
 
+    @Test func quickPreparationNeverShowsIndicator() async {
+        let repository = SearchRepositoryStub()
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        await vm.open(product("Melk"))
+        try? await Task.sleep(for: .milliseconds(240))
+        #expect(vm.selectedProduct != nil)
+        await vm.open(product("Havre"))
+        #expect(repository.prepareCount == 1)
+        #expect(vm.preparingProductID == nil)
+        #expect(!vm.isPreparing)
+    }
+
+    @Test func slowPreparationShowsOnlySelectedRowAndIgnoresDoubleTap() async {
+        let repository = SearchRepositoryStub()
+        repository.delayPreparation = true
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        let item = product("Melk")
+        let opening = Task { await vm.open(item) }
+        await repository.waitForPreparation()
+        #expect(vm.preparingProductID == nil)
+        await vm.open(product("Havre"))
+        #expect(repository.prepareCount == 1)
+        try? await Task.sleep(for: .milliseconds(240))
+        #expect(vm.preparingProductID == item.id)
+        repository.prepareRequest?.resume()
+        repository.prepareRequest = nil
+        await opening.value
+        #expect(vm.selectedProduct?.id == item.id)
+        #expect(vm.preparingProductID == nil)
+        #expect(!vm.isPreparing)
+    }
+
+    @Test func suspendedPreparationCannotOpenOrRestoreIndicator() async {
+        let repository = SearchRepositoryStub()
+        repository.delayPreparation = true
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        let opening = Task { await vm.open(product("Melk")) }
+        await repository.waitForPreparation()
+        vm.suspend()
+        try? await Task.sleep(for: .milliseconds(240))
+        repository.prepareRequest?.resume()
+        repository.prepareRequest = nil
+        await opening.value
+        #expect(vm.selectedProduct == nil)
+        #expect(vm.preparingProductID == nil)
+        #expect(!vm.isPreparing)
+    }
+
     @Test func savedSearchProductsRespectOwnerAndReadDoesNotCreateSyncEvents() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -207,6 +258,9 @@ private final class SearchRepositoryStub: FoodSearchRepository {
     var delayedOwner: UUID?
     var libraryRequest: CheckedContinuation<FoodSearchLibrary, Error>?
     var prepareFails = false
+    var delayPreparation = false
+    var prepareCount = 0
+    var prepareRequest: CheckedContinuation<Void, Never>?
 
     func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary { library }
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
@@ -220,8 +274,18 @@ private final class SearchRepositoryStub: FoodSearchRepository {
     }
     func saveManual(_ product: Product, owner: UUID) async throws {}
     func prepare(_ product: Product, owner: UUID) async throws {
+        prepareCount += 1
+        if delayPreparation { await withCheckedContinuation { prepareRequest = $0 } }
         if prepareFails { throw URLError(.cannotWriteToFile) }
     }
+    func waitForPreparation() async {
+        for _ in 0..<1_000 {
+            if prepareRequest != nil { return }
+            await Task.yield()
+        }
+        #expect(prepareRequest != nil)
+    }
+
     func waitForRequests(_ count: Int) async {
         for _ in 0..<1_000 {
             if requests.count >= count { return }

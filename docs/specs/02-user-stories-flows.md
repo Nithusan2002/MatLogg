@@ -435,16 +435,25 @@ Acceptance Criteria:
 
 ---
 
-## 2.5 Oppbygning av Onboarding (4 skjermbilder)
+## 2.5 Første logging – kontrollert mot kode 2026-10-04
 
-| Skjermbilder | Innhold |
-|--------------|---------|
-| **1. Velkommen** | "Hei, {navn}! Sett mål for i dag" + illustrasjon |
-| **2. Måltype** | [Weight loss] [Maintain] [Gain] |
-| **3. Kalorier** | Slider: 1200–3500 kcal/dag |
-| **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
-| (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
-| **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
+| Steg | Innhold og handling |
+|------|---------------------|
+| **1. Første måltid** | Søk med fokus, Skann og Manuelt. Kort informasjon om lokal lagring, valgfri konto og mål, samt personvernlenke. «Logg inn» er sekundær; «Gå til Hjem» hopper over logging. |
+| **2. Produktkort** | Kontroller mengde, enhet, kilde og måltid før eksplisitt lokal logging. |
+| **3. Hjem** | Bekreftelse og Angre etter vellykket lagring. Mål kan settes senere under Profil → Daglige mål. |
+
+Akseptansekriterier i tillegg til US-1.2:
+
+- Bekreftet lokal lagring eller «Gå til Hjem» fullfører førstegangsvisningen.
+- Avbrutt flyt gjenopptas ved neste åpning; Angre starter ikke onboarding på nytt.
+- Tidligere fullført onboarding bevares.
+- Lagringsfeil beholder input og fullfører ikke førstegangsvisningen.
+- Stor tekst gir vertikale søkehandlinger og rullbart innhold; kamera etterspørres først ved valgt skanning.
+
+Den tidligere målveiviseren er bevart i kode uten aktiv inngang. Den gamle
+flertrinnsbeskrivelsen er erstattet av denne flyten. Se også
+[gjeldende førstegangsbruk](../design-and-user-flow.md#førstegangsbruk--kontrollert-mot-kode-2026-10-04).
 
 ## Navigasjonsforenkling (2026-10-02)
 

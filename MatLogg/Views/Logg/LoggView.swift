@@ -248,7 +248,7 @@ private struct LoggContent: View {
                     mealFilter = mealFilter == nil ? "frokost" : nil
                 }
                 .font(AppTypography.secondaryEmphasis)
-                .foregroundStyle(AppColors.action)
+                .foregroundStyle(AppColors.actionText)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("meal-room-all")
                 if showSearch {
@@ -510,7 +510,7 @@ struct LoggFilterSheet: View {
                     Button("Nullstill") {
                         selected = nil
                     }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -560,7 +560,7 @@ struct EditLogView: View {
                         }
 
                         if let error = model.error {
-                            Text(error).font(AppTypography.caption).foregroundStyle(AppColors.action)
+                            ErrorMessageView(error).font(AppTypography.caption)
                         }
                     }
                     .padding(16)
@@ -582,7 +582,7 @@ struct EditLogView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
 

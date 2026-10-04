@@ -1117,6 +1117,62 @@ private enum TestRepositoryError: Error {
     case saveFailed
 }
 
+@MainActor
+struct HomeOverviewViewModelTests {
+    @Test func emptyDayFollowsSelectedDateAndOwner() async throws {
+        let repository = FoodLogRepositorySpy()
+        let model = HomeOverviewViewModel(repository: repository)
+        let owner = UUID()
+        let date = Date()
+        let nextDate = try #require(Calendar.current.date(byAdding: .day, value: 1, to: date))
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+        await model.load(userId: owner, date: date)
+        #expect(model.shouldShowEmptyDay(userId: owner, date: date))
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: nextDate))
+        #expect(!model.shouldShowEmptyDay(userId: UUID(), date: date))
+        #expect(!model.shouldShowEmptyDay(userId: nil, date: date))
+        await model.load(userId: owner, date: nextDate)
+        #expect(model.shouldShowEmptyDay(userId: owner, date: nextDate))
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+    }
+
+    @Test func firstLogHidesEmptyDayAndRemovingLastLogRestoresIt() async {
+        let repository = FoodLogRepositorySpy()
+        let model = HomeOverviewViewModel(repository: repository)
+        let owner = UUID()
+        let date = Date()
+        repository.logs = [FoodLog(userId: owner, productId: UUID(), mealType: "frokost",
+            amountG: 100, loggedDate: date, loggedTime: date,
+            calories: 0, proteinG: 0, carbsG: 0, fatG: 0)]
+        await model.load(userId: owner, date: date)
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+        repository.logs = []
+        await model.load(userId: owner, date: date)
+        #expect(model.shouldShowEmptyDay(userId: owner, date: date))
+    }
+
+    @Test func loadingFailureAndResetDoNotPresentAnEmptyDay() async {
+        let repository = FoodLogRepositorySpy()
+        let model = HomeOverviewViewModel(repository: repository)
+        let owner = UUID()
+        let date = Date()
+        await model.load(userId: owner, date: date)
+        repository.summaryDelayNanoseconds = { _ in 20_000_000 }
+        let refresh = Task { await model.load(userId: owner, date: date) }
+        while !model.isLoading { await Task.yield() }
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+        await refresh.value
+        repository.summaryError = DatabaseServiceError.unavailable
+        await model.load(userId: owner, date: date)
+        #expect(model.errorMessage != nil)
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+        model.reset()
+        #expect(!model.shouldShowEmptyDay(userId: owner, date: date))
+        await model.load(userId: nil, date: date)
+        #expect(!model.shouldShowEmptyDay(userId: nil, date: date))
+    }
+}
+
 private final class FoodLogRepositorySpy: FoodLogRepository {
     var savedLogs: [FoodLog] = []
     var deletedIds: [UUID] = []
@@ -1126,6 +1182,14 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     var deleteDelayNanoseconds: UInt64 = 0
     var saveError: Error?
     var summaryDelayNanoseconds: ((Date) -> UInt64)?
+    var summaryError: Error?
+
+    func loadSummaries(userId: UUID, dates: [Date]) async throws -> [DailySummary] {
+        if let summaryError { throw summaryError }
+        var result: [DailySummary] = []
+        for date in dates { result.append(await getSummary(userId: userId, date: date)) }
+        return result
+    }
 
     func saveLogs(_ logs: [FoodLog]) async throws {
         if let saveError { throw saveError }

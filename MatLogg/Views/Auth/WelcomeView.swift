@@ -27,7 +27,7 @@ struct WelcomeView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("EN ROLIGERE MATLOGG")
                                 .font(AppTypography.captionEmphasis)
-                                .foregroundColor(AppColors.action)
+                                .foregroundColor(AppColors.actionText)
                             Text("MatLogg")
                                 .font(AppTypography.hero)
                                 .foregroundColor(AppColors.deepInk)
@@ -69,7 +69,7 @@ struct WelcomeView: View {
                             if let url = PrivacyConstants.privacyPolicyURL {
                                 Link("Les personvernerklæringen", destination: url)
                                     .font(AppTypography.captionEmphasis)
-                                    .foregroundColor(AppColors.action)
+                                    .foregroundColor(AppColors.actionText)
                                     .frame(maxWidth: .infinity, minHeight: 44)
                                     .accessibilityIdentifier("welcome-privacy")
                             }
@@ -98,7 +98,7 @@ private struct WelcomeTrustRow: View {
                 .foregroundColor(AppColors.ink)
         } icon: {
             Image(systemName: systemImage)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 .frame(width: 36, height: 36)
                 .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         }

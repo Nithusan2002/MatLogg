@@ -5,29 +5,17 @@ struct WaterCardView: View {
     let userId: UUID?
     let date: Date
     var compact = false
+    var embedded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCorrection = false
 
     var body: some View {
-        CardContainer {
-            VStack(alignment: .leading, spacing: 14) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { summary; Spacer(minLength: 8); waterControls }
-                    VStack(alignment: .leading, spacing: 8) { summary; waterControls }
-                }
-                if viewModel.isLoaded && !compact {
-                    WaterCupGrid(count: viewModel.glasses.count, reduceMotion: reduceMotion)
-                }
-                if let message = viewModel.errorMessage {
-                    Text(message).font(AppTypography.captionEmphasis)
-                    if !viewModel.isLoaded {
-                        Button("Prøv igjen") { Task { await viewModel.load(userId: userId, date: date) } }
-                            .frame(minHeight: 44)
-                    }
-                }
+        Group {
+            if embedded {
+                content
+            } else {
+                CardContainer { content }
             }
-            .foregroundStyle(AppColors.textSecondary)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.mutationRevision)
         }
         .confirmationDialog("Juster vannloggen", isPresented: $showCorrection, titleVisibility: .visible) {
             Button("Fjern ett glass", role: .destructive) { Task { await viewModel.remove() } }
@@ -35,6 +23,27 @@ struct WaterCardView: View {
             Button("Avbryt", role: .cancel) {}
         }
         .task(id: context) { await viewModel.load(userId: userId, date: date) }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) { summary; Spacer(minLength: 8); waterControls }
+                VStack(alignment: .leading, spacing: 8) { summary; waterControls }
+            }
+            if viewModel.isLoaded && !compact {
+                WaterCupGrid(count: viewModel.glasses.count, reduceMotion: reduceMotion)
+            }
+            if let message = viewModel.errorMessage {
+                ErrorMessageView(message).font(AppTypography.captionEmphasis)
+                if !viewModel.isLoaded {
+                    Button("Prøv igjen") { Task { await viewModel.load(userId: userId, date: date) } }
+                        .frame(minHeight: 44)
+                }
+            }
+        }
+        .foregroundStyle(AppColors.textSecondary)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.mutationRevision)
     }
 
     private var waterTitle: String {
@@ -52,13 +61,13 @@ struct WaterCardView: View {
             HStack(spacing: 10) {
                 if compact {
                     Image(systemName: "drop.fill")
-                        .foregroundStyle(AppColors.deepInk)
+                        .foregroundStyle(AppColors.info)
                         .frame(width: 32, height: 32)
-                        .background(AppColors.info.opacity(0.16), in: Circle())
+                        .background(embedded ? AppColors.mutedSurface : AppColors.info.opacity(0.16), in: Circle())
                         .accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(waterTitle)
+                    Text(embedded ? "Vann" : waterTitle)
                         .font(AppTypography.captionEmphasis)
                         .foregroundStyle(AppColors.textSecondary)
                     Text(viewModel.isLoaded ? "\(viewModel.glasses.count) glass" : "Henter …")
@@ -102,8 +111,8 @@ struct WaterCardView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .frame(width: 44, height: 44)
                 .foregroundStyle(AppColors.deepInk)
-                .background(AppColors.info.opacity(0.16), in: Circle())
-                .overlay(Circle().strokeBorder(AppColors.info.opacity(0.35), lineWidth: 1))
+                .background(embedded ? AppColors.mutedSurface : AppColors.info.opacity(0.16), in: Circle())
+                .overlay(Circle().strokeBorder(embedded ? AppColors.separator : AppColors.info.opacity(0.35), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.isLoaded || viewModel.isBusy)

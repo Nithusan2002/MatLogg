@@ -35,17 +35,19 @@ private struct ProgressTabContent: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    Text("Oversikt")
-                        .font(AppTypography.hero)
-                        .foregroundColor(AppColors.deepInk)
-                        .accessibilityAddTraits(.isHeader)
+                    HStack {
+                        Text("Oversikt")
+                            .font(AppTypography.hero)
+                            .foregroundColor(AppColors.deepInk)
+                            .accessibilityAddTraits(.isHeader)
+                        Spacer()
+                        ActivityIndicatorSlot(isActive: viewModel.showsLoadingFeedback && !isPullRefreshing && !summaries.isEmpty,
+                                              label: "Oppdaterer oversikten")
+                    }
 
                     if let error = viewModel.errorMessage {
-                        Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        ErrorMessageView(error).font(AppTypography.caption)
                         Button("Prøv igjen") { Task { await reload() } }.frame(minHeight: 44)
-                    }
-                    if isLoading && !isPullRefreshing && !summaries.isEmpty {
-                        ProgressView("Oppdaterer oversikten …")
                     }
                     if isLoading && summaries.isEmpty {
                         loadingState
@@ -70,7 +72,7 @@ private struct ProgressTabContent: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
             .task(id: authViewModel.currentUser?.id) { await reload() }
@@ -103,7 +105,7 @@ private struct ProgressTabContent: View {
                     .foregroundColor(AppColors.textSecondary)
                 Button("Gå til Hjem") { appState.selectedTab = .home }
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(minHeight: 44)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -119,7 +121,8 @@ private struct ProgressTabContent: View {
                 eyebrow: "I DAG",
                 value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
                 detail: goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
-                fill: AppColors.calorieBlue
+                fill: AppColors.energyTint,
+                foreground: AppColors.onVibrant
             )
             highlightCard(
                 eyebrow: "SNITT SISTE 7 DAGER",
@@ -130,19 +133,19 @@ private struct ProgressTabContent: View {
         }
     }
 
-    private func highlightCard(eyebrow: String, value: String, detail: String, fill: Color) -> some View {
+    private func highlightCard(eyebrow: String, value: String, detail: String, fill: Color, foreground: Color = AppColors.deepInk) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(eyebrow)
                 .font(AppTypography.captionEmphasis)
-                .foregroundColor(AppColors.deepInk.opacity(0.72))
+                .foregroundColor(foreground)
                 .fixedSize(horizontal: false, vertical: true)
             Text(value)
                 .font(.system(.largeTitle, design: .rounded, weight: .heavy))
-                .foregroundColor(AppColors.deepInk)
+                .foregroundColor(foreground)
                 .contentTransition(.numericText())
             Text(detail)
                 .font(AppTypography.captionEmphasis)
-                .foregroundColor(AppColors.deepInk.opacity(0.78))
+                .foregroundColor(foreground)
         }
         .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
         .padding(18)
@@ -231,7 +234,7 @@ private struct WeightEntryContent: View {
             } label: {
                 Label(showWeightEntry ? "Skjul registrering" : "Registrer vekt", systemImage: showWeightEntry ? "chevron.up" : "plus")
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             .buttonStyle(.plain)
@@ -333,12 +336,19 @@ private struct WeeklyCaloriesCard: View {
                     x: .value("Dag", summary.date, unit: .day),
                     y: .value("Kilokalorier", summary.totalCalories)
                 )
-                .foregroundStyle(Calendar.current.isDateInToday(summary.date) ? AppColors.calorieBlue : AppColors.calorieBlue.opacity(0.42))
+                .foregroundStyle(AppColors.energyChart)
+                .annotation(position: .top) {
+                    if Calendar.current.isDateInToday(summary.date) {
+                        Text("I dag")
+                            .font(AppTypography.captionEmphasis)
+                            .foregroundStyle(AppColors.ink)
+                    }
+                }
                 .cornerRadius(6)
                 if let dailyCalories {
                     RuleMark(y: .value("Mål", dailyCalories))
-                        .foregroundStyle(AppColors.textSecondary.opacity(0.55))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 4]))
                 }
             }
             .chartXAxis {

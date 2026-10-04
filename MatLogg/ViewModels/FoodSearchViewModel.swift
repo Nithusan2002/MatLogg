@@ -11,12 +11,25 @@ final class FoodSearchViewModel: ObservableObject {
     @Published private(set) var favorites: [Product] = []
     @Published private(set) var suggestions: [Product] = []
     @Published private(set) var isLoading = true
-    @Published private(set) var isLoadingCatalog = false
-    @Published private(set) var phase: Phase = .local
+    @Published private(set) var isLoadingCatalog = false {
+        didSet {
+            catalogFeedback.update(isActive: isLoadingCatalog) { [weak self] in self?.showsCatalogFeedback = $0 }
+        }
+    }
+    @Published private(set) var showsCatalogFeedback = false
+    @Published private(set) var showsSearchFeedback = false
+    private let catalogFeedback = DelayedActivity()
+    private let searchFeedback = DelayedActivity()
+    @Published private(set) var phase: Phase = .local {
+        didSet {
+            searchFeedback.update(isActive: phase == .searching) { [weak self] in self?.showsSearchFeedback = $0 }
+        }
+    }
     @Published private(set) var loadError: String?
     @Published private(set) var searchError: String?
     @Published private(set) var selectionError: String?
     @Published private(set) var isPreparing = false
+    @Published private(set) var preparingProductID: UUID?
     @Published var selectedProduct: Product?
 
     private let repository: any FoodSearchRepository
@@ -27,6 +40,7 @@ final class FoodSearchViewModel: ObservableObject {
     private var loadID = UUID()
     private var searchID = UUID()
     private var selectionID = UUID()
+    private var preparationIndicatorTask: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
     private var resultsTask: Task<Void, Never>?
     private var resultsID = UUID()
@@ -92,6 +106,9 @@ final class FoodSearchViewModel: ObservableObject {
         selectedProduct = nil
         pendingManualProduct = nil
         selectionError = nil
+        preparationIndicatorTask?.cancel()
+        preparationIndicatorTask = nil
+        preparingProductID = nil
         isPreparing = false
         loadError = nil
         isLoading = true
@@ -157,6 +174,9 @@ final class FoodSearchViewModel: ObservableObject {
             updateResults()
         }
         selectionID = UUID()
+        preparationIndicatorTask?.cancel()
+        preparationIndicatorTask = nil
+        preparingProductID = nil
         isPreparing = false
     }
 
@@ -174,7 +194,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func open(_ product: Product) async {
-        guard !isPreparing else { return }
+        guard !isPreparing, selectedProduct == nil else { return }
         guard let owner else {
             selectionError = "Åpne en lokal profil for å loggføre mat."
             return
@@ -183,6 +203,20 @@ final class FoodSearchViewModel: ObservableObject {
         selectionID = request
         isPreparing = true
         selectionError = nil
+        preparationIndicatorTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(180)) }
+            catch { return }
+            guard let self, self.selectionID == request, !Task.isCancelled else { return }
+            self.preparingProductID = product.id
+        }
+        defer {
+            if selectionID == request {
+                preparationIndicatorTask?.cancel()
+                preparationIndicatorTask = nil
+                preparingProductID = nil
+                isPreparing = false
+            }
+        }
         do {
             try await repository.prepare(product, owner: owner)
             guard selectionID == request, self.owner == owner, !Task.isCancelled else { return }
@@ -191,7 +225,6 @@ final class FoodSearchViewModel: ObservableObject {
             guard selectionID == request, self.owner == owner, !Task.isCancelled else { return }
             selectionError = "Kunne ikke åpne matvaren. Prøv igjen."
         }
-        if selectionID == request { isPreparing = false }
     }
 
     private func updateResults() {

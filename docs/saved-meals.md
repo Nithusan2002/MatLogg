@@ -11,7 +11,7 @@ Første versjon omfatter:
 - «Lagre som måltid» fra en måltidsgruppe i Logg
 - navn, matvarer, eksakte mengder, næringssnapshot, kilde og rekkefølge
 - ett valgfritt lokalt måltidsbilde fra iOS-bildevelgeren
-- «Lagrede måltider» øverst i Loggfør-arket
+- «Lagrede måltider» i velgeren under dato/måltid i Loggfør-arket
 - «Lagrede måltider» fra «Legg til» i Logg, med valgt dato og måltidskategori
 - forhåndsvisning og mengdejustering før logging
 - logging til valgt dato og måltidskategori, også når måltidet har innhold fra før
@@ -37,8 +37,8 @@ bibliotektilgang. Bilder begrenses til 1200 piksler på lengste side og 2 MB JPE
 original fotometadata fjernes. Importer over 30 MB avvises. Et iCloud-bilde
 kan kreve nett før import, men allerede importerte bilder fungerer offline.
 
-Loggfør-arket viser inntil tre lagrede måltider før favoritter og nylig brukte
-matvarer. «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
+Loggfør-arket viser inntil tre lagrede måltider når «Lagrede måltider» er
+valgt i velgeren «Loggfør igjen / Lagrede måltider». «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
 

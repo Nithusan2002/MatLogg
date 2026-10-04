@@ -258,7 +258,7 @@ private struct ProfileSettingsView: View {
                 }
                 .disabled(exportViewModel.isExporting)
                 if let error = exportViewModel.errorMessage {
-                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
+                    ErrorMessageView(error).font(AppTypography.caption)
                 }
                 DisclosureGroup("Hva følger med?") {
                     Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")

@@ -30,9 +30,8 @@ struct ManualProductView: View {
                     nutritionFields
 
                     if let errorMessage = viewModel.errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
+                        ErrorMessageView(errorMessage)
                             .font(AppTypography.captionEmphasis)
-                            .foregroundColor(AppColors.action)
                             .accessibilityLabel("Feil: \(errorMessage)")
                     }
 
@@ -70,7 +69,7 @@ struct ManualProductView: View {
                     viewModel.showCamera = false
                 }
                 .ignoresSafeArea()
-                .background(Color.black.ignoresSafeArea())
+                .background(AppColors.imageViewerBackground.ignoresSafeArea())
             }
             .onChange(of: selectedPhoto) { _, item in
                 if let item { Task { await viewModel.loadPhoto(item) } }
@@ -102,9 +101,13 @@ struct ManualProductView: View {
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
                 Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
                     .font(AppTypography.caption)
-                    .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.brand : AppColors.textSecondary)
+                    .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.errorText : AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
+                if viewModel.name.count > ManualProductViewModel.maximumNameLength {
+                    ErrorMessageView("Produktnavnet er for langt")
+                        .font(AppTypography.caption)
+                }
             }
         }
     }
@@ -136,12 +139,12 @@ struct ManualProductView: View {
             }
             if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
             if let error = viewModel.imageError {
-                Text(error).font(AppTypography.caption).foregroundColor(AppColors.action)
+                ErrorMessageView(error).font(AppTypography.caption)
             }
             Text("Bildet lagres kun på denne enheten sammen med produktet.")
                 .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
         }
-        .foregroundColor(AppColors.action)
+        .foregroundColor(AppColors.actionText)
     }
 
     private var nutritionFields: some View {

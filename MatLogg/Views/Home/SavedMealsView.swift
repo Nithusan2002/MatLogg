@@ -82,9 +82,8 @@ struct SaveMealFromLogsView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 8) {
                     if let error = viewModel.errorMessage {
-                        Text(error)
+                        ErrorMessageView(error)
                             .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.action)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre") {
@@ -150,7 +149,7 @@ struct SavedMealsListView: View {
                     ContentUnavailableView {
                         Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
                     } description: {
-                        Text(error)
+                        ErrorMessageView(error)
                     } actions: {
                         Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
                     }
@@ -162,9 +161,8 @@ struct SavedMealsListView: View {
                     }
                 } else {
                     List {
-                        if viewModel.isLoading { ProgressView("Oppdaterer måltider …") }
                         if let error = viewModel.loadError {
-                            Text(error)
+                            ErrorMessageView(error)
                             Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
                         }
                         ForEach(viewModel.meals) { meal in
@@ -195,11 +193,16 @@ struct SavedMealsListView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .refreshable { await viewModel.load(userId: authViewModel.currentUser?.id) }
                 }
             }
             .background(AppColors.background)
             .navigationTitle("Lagrede måltider")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    ActivityIndicatorSlot(isActive: viewModel.showsLoadingFeedback && !viewModel.meals.isEmpty,
+                                          label: "Oppdaterer måltider")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Ferdig") { dismiss() }
                 }
@@ -305,7 +308,7 @@ private struct SavedMealLogContent: View {
                                     if let text = amounts[item.id], !text.isEmpty, parsedAmount(text) == nil {
                                         Text("Bruk en mengde over 0 og høyst 10 000 \(item.resolvedAmountUnit.rawValue).")
                                             .font(AppTypography.caption)
-                                            .foregroundStyle(AppColors.action)
+                                            .foregroundStyle(AppColors.actionText)
                                     }
                                 }
                             }
@@ -318,9 +321,8 @@ private struct SavedMealLogContent: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 8) {
                     if let error = formState.errorMessage {
-                        Text(error)
+                        ErrorMessageView(error)
                             .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.action)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
@@ -370,7 +372,7 @@ private struct SavedMealLogContent: View {
                         isChoosingTarget.toggle()
                     }
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundStyle(AppColors.action)
+                    .foregroundStyle(AppColors.actionText)
                     .frame(minWidth: 44, minHeight: 44)
                     .accessibilityLabel(isChoosingTarget ? "Skjul måltidsvalg" : "Endre måltid")
                 }
@@ -492,7 +494,7 @@ private struct SavedMealEditorContent: View {
                 if meal.items.count == removed.count {
                     Section { Text("Et lagret måltid må inneholde minst én matvare.") }
                 }
-                if let error = formState.errorMessage { Section { Text(error) } }
+                if let error = formState.errorMessage { Section { ErrorMessageView(error) } }
             }
             .scrollContentBackground(.hidden)
             .background(AppColors.background.ignoresSafeArea())
@@ -553,7 +555,7 @@ struct SavedMealRow: View {
                     ProductThumbnailView(url: nil, localData: data, size: 44, imagePadding: 0)
                 } else {
                     Image(systemName: "square.stack.3d.up.fill")
-                        .foregroundStyle(AppColors.action)
+                        .foregroundStyle(AppColors.actionText)
                         .frame(width: 44, height: 44)
                         .background(AppColors.mutedSurface, in: Circle())
                 }
@@ -637,7 +639,7 @@ private struct SavedMealPhotoPicker: View {
                     .font(AppTypography.bodyEmphasis)
                     .frame(minHeight: 44)
             }
-            .foregroundStyle(AppColors.action)
+            .foregroundStyle(AppColors.actionText)
             .accessibilityIdentifier("saved-meal-photo-picker")
             if viewModel.photoData != nil || viewModel.isLoadingPhoto {
                 Button("Fjern bilde", role: .destructive) {
@@ -650,7 +652,7 @@ private struct SavedMealPhotoPicker: View {
             }
             if viewModel.isLoadingPhoto { ProgressView("Åpner bilde …") }
             if let error = viewModel.photoError {
-                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.action)
+                ErrorMessageView(error).font(AppTypography.caption)
             }
             Text("Bildet lagres bare på denne enheten og synkroniseres ikke.")
                 .font(AppTypography.caption)

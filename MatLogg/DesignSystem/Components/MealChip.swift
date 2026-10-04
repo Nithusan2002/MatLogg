@@ -8,7 +8,7 @@ struct MealChip: View {
     
     var body: some View {
         Button(action: action) {
-            Text(isSelected && fillsWidth ? "\(title) ✓" : title)
+            Text(isSelected ? "\(title) ✓" : title)
                 .font(AppTypography.bodyEmphasis)
                 .multilineTextAlignment(.center)
                 .foregroundColor(AppColors.ink)

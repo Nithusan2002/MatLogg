@@ -1,8 +1,45 @@
 import Foundation
+import ImageIO
 import Testing
 @testable import MatLogg
 
 struct DemoModeTests {
+    @Test func missingBundledCatalogFailsWithoutPublishingProducts() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID()).bundle")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let info = try PropertyListSerialization.data(
+            fromPropertyList: ["CFBundleIdentifier": "app.matlogg.empty-demo-fixture"],
+            format: .xml, options: 0
+        )
+        try info.write(to: directory.appendingPathComponent("Info.plist"))
+        let bundle = try #require(Bundle(url: directory))
+        await #expect(throws: (any Error).self) {
+            _ = try await DemoProductCatalog.load(bundle: bundle)
+        }
+    }
+
+    @Test func bundledOFFCatalogHasStableIdentityNutritionAndDecodableImages() async throws {
+        let products = try await DemoProductCatalog.load()
+        let reloaded = try await DemoProductCatalog.load()
+        #expect(products.count == 12)
+        #expect(Set(products.map(\.id)).count == products.count)
+        #expect(products.map(\.id) == reloaded.map(\.id))
+        for product in products {
+            #expect(product.source == "openfoodfacts")
+            #expect(product.nutritionSource == .openFoodFacts)
+            #expect(product.imageSource == .openFoodFacts)
+            #expect(product.nutritionBasis == .per100g)
+            #expect(!product.isVerified)
+            #expect(product.externalID == product.barcodeEan)
+            #expect(product.caloriesPer100g > 0)
+            let data = try #require(product.localImageData)
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
+        }
+    }
+
     private func product() -> Product {
         Product(name: "Testmat", caloriesPer100g: 100, proteinGPer100g: 10, carbsGPer100g: 10, fatGPer100g: 2)
     }

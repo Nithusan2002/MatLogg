@@ -2,7 +2,9 @@
 
 MatLogg er en norsk iOS-app for rask matlogging, ernæringsoversikt og
 måloppfølging. SwiftUI-klienten er local-first: brukerhandlinger lagres i
-SQLite før eventuell synk mot Supabase (Auth, Edge Functions og PostgreSQL).
+SQLite. Første lansering bruker bare lokale domenedata, uten skybackup eller
+flerenhetssynk. Supabase brukes til valgfri konto (Auth); Edge Functions og
+PostgreSQL er bevart for framtidig synk.
 NestJS/Prisma-backenden beholdes som legacy under cutover.
 
 ## Status
@@ -14,12 +16,15 @@ Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
 - Produkter kan finnes via strekkode/Open Food Facts og råvaresøk i
   Matvaretabellen.
 - En versjonert synkkø, retry/backoff og backend-mottak finnes, men
-  `FeatureFlags.backendSyncEnabled` er avslått.
-- Supabase er koblet til konto og synk når appkonfigurasjon finnes; uten den
+  `DomainUploadPolicy.localOnly` sperrer opplasting og retry-timere uavhengig
+  av backendflagget. `FeatureFlags.backendSyncEnabled` er også avslått.
+- Supabase-konto er tilgjengelig når appkonfigurasjon finnes; uten den
   fungerer lokal profil fortsatt, mens kontokall er utilgjengelige.
+  Kontokobling åpner ikke opplasting.
 - Vannlogging, lagrede måltider, lokale produktbilder og DEBUG-demomodus finnes.
-- Debug bruker ordinær innloggingsflyt som standard. `--skip-auth` aktiverer
-  en lokal utviklingssesjon.
+- Førstegangsbruk oppretter lokal profil automatisk og åpner første logging
+  direkte. Innlogging er valgfri. `--skip-auth` aktiverer en lokal
+  utviklingssesjon bare i DEBUG.
 
 Se [gjeldende prosjektstatus](docs/current-state.md) for implementert, delvis
 implementert og planlagt funksjonalitet.

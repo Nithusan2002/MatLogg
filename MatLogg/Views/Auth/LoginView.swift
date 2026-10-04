@@ -70,9 +70,8 @@ struct LoginView: View {
                 }
 
                 if let error = authViewModel.errorMessage {
-                    Label(error, systemImage: "exclamationmark.circle")
+                    ErrorMessageView(error)
                         .font(AppTypography.body)
-                        .foregroundColor(AppColors.ink)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 12))
@@ -86,7 +85,7 @@ struct LoginView: View {
                 NavigationLink(destination: SignUpView()) {
                     Text("Ny i MatLogg? Opprett konto med e-post")
                         .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
             }

@@ -94,7 +94,7 @@ private struct FoodSearchContent: View {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { searchFocused = false }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
             }
         }
     }
@@ -146,6 +146,30 @@ private struct FoodSearchContent: View {
                 }
             }
             if !isFirstLog { manualRegistrationButton }
+            searchStatus
+        }
+    }
+
+    private var searchStatus: some View {
+        let message = viewModel.showsSearchFeedback ? "Henter flere produkter …"
+            : viewModel.showsCatalogFeedback ? "Henter flere matvarer …"
+            : viewModel.hasQuery && viewModel.phase == .local && !isFirstLog
+                ? "Trykk Søk for flere produkter." : ""
+        return HStack(spacing: 8) {
+            ActivityIndicatorSlot(isActive: viewModel.showsSearchFeedback || viewModel.showsCatalogFeedback,
+                                  label: "Henter matvarer")
+            ZStack(alignment: .leading) {
+                Text("Trykk Søk for flere produkter.").hidden()
+                Text("Henter flere produkter …").hidden()
+                Text("Henter flere matvarer …").hidden()
+                Text(message)
+            }
+            .font(AppTypography.caption)
+            .foregroundStyle(AppColors.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(message)
+            .accessibilityHidden(message.isEmpty)
         }
     }
 
@@ -156,7 +180,7 @@ private struct FoodSearchContent: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
         }
         .accessibilityIdentifier("food-search-manual-registration")
@@ -185,7 +209,7 @@ private struct FoodSearchContent: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
         }
     }
@@ -235,20 +259,14 @@ private struct FoodSearchContent: View {
             if viewModel.isLoading {
                 Section { ProgressView("Henter matvarer …").frame(maxWidth: .infinity, minHeight: 80) }
             } else {
-                if viewModel.isLoadingCatalog {
-                    Section { ProgressView("Henter flere matvarer …") }
-                }
                 if let error = viewModel.loadError {
                     Section {
-                        Text(error).foregroundColor(AppColors.textSecondary)
+                        ErrorMessageView(error)
                         Button("Prøv igjen") { Task { await reload() } }
                     }
                 }
                 if let error = viewModel.selectionError {
-                    Section { Text(error).foregroundColor(AppColors.textSecondary) }
-                }
-                if viewModel.isPreparing {
-                    Section { ProgressView("Åpner matvare …") }
+                    Section { ErrorMessageView(error) }
                 }
                 if viewModel.hasQuery {
                     results
@@ -292,18 +310,13 @@ private struct FoodSearchContent: View {
 
     @ViewBuilder
     private var results: some View {
-        Section {
-            if viewModel.phase == .searching {
-                ProgressView("Henter flere produkter …")
-            } else if let error = viewModel.searchError {
-                Text(error).font(AppTypography.body).foregroundColor(AppColors.textSecondary)
+        if let error = viewModel.searchError {
+            Section {
+                ErrorMessageView(error).font(AppTypography.body)
                 Button("Prøv igjen", action: submitSearch).frame(minHeight: 44)
-            } else if viewModel.phase == .local && !isFirstLog {
-                Text("Trykk Søk for flere produkter.")
-                    .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }
+            .listRowBackground(AppColors.surface)
         }
-        .listRowBackground(AppColors.surface)
         if !viewModel.results.isEmpty {
             Section(viewModel.phase == .complete ? "Resultater" : "Lagrede matvarer og råvarer") {
                 productRows(viewModel.results)
@@ -326,13 +339,14 @@ private struct FoodSearchContent: View {
     private func productRows(_ products: [Product], context: String = "result") -> some View {
         ForEach(products) { product in
             Button {
+                guard !viewModel.isPreparing, viewModel.selectedProduct == nil else { return }
                 searchFocused = false
                 Task { await viewModel.open(product) }
             } label: {
-                FoodSearchProductRow(product: product)
+                FoodSearchProductRow(product: product, isPreparing: viewModel.preparingProductID == product.id)
             }
             .buttonStyle(.plain)
-            .disabled(viewModel.isPreparing)
+            .accessibilityValue(viewModel.preparingProductID == product.id ? "Åpner matvare" : "")
             .accessibilityHint("Åpner mengdevalg og loggføring")
             .accessibilityIdentifier("food-search-\(context)-\(product.id.uuidString)")
         }
@@ -348,6 +362,7 @@ private struct FoodSearchContent: View {
 
 private struct FoodSearchProductRow: View {
     let product: Product
+    let isPreparing: Bool
 
     private var context: String {
         let source = switch product.nutritionSource {
@@ -371,10 +386,17 @@ private struct FoodSearchProductRow: View {
             }
             .multilineTextAlignment(.leading)
             Spacer(minLength: 4)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppColors.textSecondary)
-                .accessibilityHidden(true)
+            ZStack {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppColors.textSecondary)
+                    .opacity(isPreparing ? 0 : 1)
+                if isPreparing {
+                    ProgressView().controlSize(.small).tint(AppColors.action)
+                }
+            }
+            .frame(width: 20, height: 20)
+            .accessibilityHidden(true)
         }
         .frame(minHeight: 52)
         .accessibilityElement(children: .combine)

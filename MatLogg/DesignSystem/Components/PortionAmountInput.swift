@@ -3,6 +3,7 @@ import SwiftUI
 struct PortionAmountInput: View {
     @ObservedObject var model: AmountSelectionViewModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private let amountControlWidth: CGFloat = 100
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -16,13 +17,14 @@ struct PortionAmountInput: View {
                 }
             } label: {
                 HStack {
-                    Text("Mengde")
+                    Text("Enhet")
                     Spacer()
                     HStack(spacing: 8) {
                         Text(displayLabel(model.selectedServing?.portionLabel ?? model.unit.spokenName))
                         Image(systemName: "chevron.down")
                     }
                     .padding(.horizontal, 12)
+                    .frame(width: model.selectedServing == nil ? amountControlWidth : nil)
                     .frame(minHeight: 44)
                     .background(AppColors.surface)
                     .overlay {
@@ -102,7 +104,8 @@ struct PortionAmountInput: View {
 
     private var amountField: some View {
         AmountInputRow(title: model.selectedServing == nil ? "Mengde" : "Antall",
-                       gramsText: $model.text, unit: model.selectedServing == nil ? model.unit.rawValue : "")
+                       gramsText: $model.text, unit: model.selectedServing == nil ? model.unit.rawValue : "",
+                       controlWidth: amountControlWidth)
     }
 
     private var decreaseButton: some View {

@@ -337,8 +337,8 @@ private struct HomeTabContent: View {
 
                     HomeSyncBanner()
 
-                    if let error = overviewModel.errorMessage {
-                        Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    if !preferencesViewModel.showGoalStatusOnHome, let error = overviewModel.errorMessage {
+                        ErrorMessageView(error).font(AppTypography.caption)
                         Button("Prøv igjen") { Task { await refreshSummaries() } }
                             .frame(minHeight: 44)
                     }
@@ -352,9 +352,9 @@ private struct HomeTabContent: View {
                         .foregroundColor(AppColors.deepInk)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if preferencesViewModel.showGoalStatusOnHome {
-                        if isSummaryLoading && selectedSummary == nil {
-                            CardContainer {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if preferencesViewModel.showGoalStatusOnHome {
+                            if isSummaryLoading && selectedSummary == nil {
                                 HStack(spacing: 12) {
                                     ProgressView()
                                     Text("Henter oversikt …")
@@ -362,15 +362,13 @@ private struct HomeTabContent: View {
                                         .foregroundColor(AppColors.textSecondary)
                                 }
                                 .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-                            }
-                            .accessibilityElement(children: .combine)
-                        } else if let summary = selectedSummary {
-                            StatusCardView(
-                                summary: summary,
-                                goal: healthProfileViewModel.currentGoal
-                            )
-                        } else if overviewModel.errorMessage == nil {
-                            CardContainer {
+                                .accessibilityElement(children: .combine)
+                            } else if let summary = selectedSummary {
+                                StatusSummaryContent(
+                                    summary: summary,
+                                    goal: healthProfileViewModel.currentGoal
+                                )
+                            } else if overviewModel.errorMessage == nil {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Label("Matloggen din er klar", systemImage: "chart.bar")
                                         .font(AppTypography.bodyEmphasis)
@@ -381,13 +379,25 @@ private struct HomeTabContent: View {
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
+                            if let error = overviewModel.errorMessage {
+                                ErrorMessageView(error)
+                                    .font(AppTypography.caption)
+                                Button("Prøv igjen") { Task { await refreshSummaries() } }
+                                    .frame(minHeight: 44)
+                            }
                         }
+
+                        if preferencesViewModel.showGoalStatusOnHome {
+                            Rectangle()
+                                .fill(AppColors.separator)
+                                .frame(height: 1)
+                                .accessibilityHidden(true)
+                        }
+                        HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
                     }
-
-                    HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
-
-                    PrimaryButton(title: "Loggfør mat", systemImage: "plus", action: onOpenQuickLog)
-                        .accessibilityIdentifier("home-log-food")
+                    .padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .matLoggCardSurface(fill: AppColors.warmSurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -408,9 +418,8 @@ private struct HomeTabContent: View {
                     }
 
                     if mealReuseViewModel.draft == nil, let error = mealReuseViewModel.errorMessage {
-                        Text(error)
+                        ErrorMessageView(error)
                             .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
                             .accessibilityIdentifier("meal-reuse-error")
                     }
 
@@ -421,9 +430,19 @@ private struct HomeTabContent: View {
                         Spacer()
                         Button("Se dagslogg") { showDailyLog = true }
                             .font(AppTypography.secondaryEmphasis)
-                            .foregroundStyle(AppColors.action)
+                            .foregroundStyle(AppColors.actionText)
                             .frame(minHeight: 44)
                             .accessibilityIdentifier("home-daily-log")
+                    }
+
+                    if overviewModel.shouldShowEmptyDay(userId: authViewModel.currentUser?.id, date: selectedDate) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Ingen logget ennå")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+                            PrimaryButton(title: "Loggfør første måltid", systemImage: "plus", action: onOpenQuickLog)
+                                .accessibilityIdentifier("home-log-food")
+                        }
                     }
 
                     if selectedSummary != nil {
@@ -574,7 +593,7 @@ private struct HomeTabContent: View {
         HStack(spacing: 10) {
             Text("MatLogg")
                 .font(AppTypography.title)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
             Spacer()
             Button {
                 appState.selectedTab = .profile
@@ -608,10 +627,10 @@ private struct HomeTabContent: View {
 private struct HomeSyncBanner: View {
     @EnvironmentObject private var appState: AppState
     var body: some View {
-                    if !appState.isSyncAvailable || appState.unsyncedSyncCount > 0 {
+                    if appState.isSyncAvailable && appState.unsyncedSyncCount > 0 {
                         Label(
                             homeSyncStatusText,
-                            systemImage: appState.isSyncAvailable ? "arrow.triangle.2.circlepath" : "internaldrive"
+                            systemImage: "arrow.triangle.2.circlepath"
                         )
                         .font(AppTypography.captionEmphasis)
                         .foregroundColor(AppColors.textSecondary)
@@ -627,9 +646,6 @@ private struct HomeSyncBanner: View {
     private var homeSyncStatusText: String {
         let count = appState.unsyncedSyncCount
         let noun = count == 1 ? "endring" : "endringer"
-        if !appState.isSyncAvailable {
-            return "Lagret på denne enheten"
-        }
         if appState.networkAvailability == .offline {
             return "Du er offline. \(count) \(noun) er lagret på enheten og venter på synk"
         }
@@ -648,7 +664,7 @@ private struct HomeWaterSection: View {
     @EnvironmentObject private var waterViewModel: WaterViewModel
     let userId: UUID?
     let date: Date
-    var body: some View { WaterCardView(viewModel: waterViewModel, userId: userId, date: date, compact: true) }
+    var body: some View { WaterCardView(viewModel: waterViewModel, userId: userId, date: date, compact: true, embedded: true) }
 }
 
 private struct HomeQuickProductsSection: View {
@@ -667,21 +683,23 @@ private struct HomeQuickProductsSection: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Hurtigvalg")
-                .font(AppTypography.title)
-                .foregroundColor(AppColors.deepInk)
-
-            if quickLogViewModel.isLoading && !quickLogViewModel.products.isEmpty { ProgressView("Oppdaterer hurtigvalg …") }
+            HStack {
+                Text("Hurtigvalg")
+                    .font(AppTypography.title)
+                    .foregroundColor(AppColors.deepInk)
+                Spacer()
+                ActivityIndicatorSlot(isActive: quickLogViewModel.showsLoadingFeedback && !quickLogViewModel.products.isEmpty,
+                                      label: "Oppdaterer hurtigvalg")
+            }
             if let error = quickLogViewModel.errorMessage, !quickLogViewModel.products.isEmpty {
-                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                ErrorMessageView(error).font(AppTypography.caption)
                 Button("Prøv igjen") { Task { await quickLogViewModel.load(userId: userId) } }.frame(minHeight: 44)
             }
             if (quickLogViewModel.isLoading || !quickLogViewModel.hasLoaded) && quickLogViewModel.products.isEmpty {
                 ProgressView("Henter hurtigvalg …")
             } else if let error = quickLogViewModel.errorMessage, quickLogViewModel.products.isEmpty {
-                Text(error)
+                ErrorMessageView(error)
                     .font(AppTypography.secondary)
-                    .foregroundStyle(AppColors.textSecondary)
                 Button("Prøv igjen") {
                     Task { await quickLogViewModel.load(userId: userId) }
                 }
@@ -814,7 +832,7 @@ struct MealOverviewCard: View {
                 Button(action: onAdd) {
                     Text("+ Legg til")
                         .font(AppTypography.secondaryEmphasis)
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
@@ -915,7 +933,7 @@ struct MealOverviewCard: View {
 
 }
 
-struct StatusCardView: View {
+private struct StatusSummaryContent: View {
     let summary: DailySummary
     let goal: Goal?
 
@@ -961,9 +979,7 @@ struct StatusCardView: View {
                 nutrient(label: "Fett", value: summary.totalFat, target: goal?.fatTargetG, tint: AppColors.macroFatTint)
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .matLoggCardSurface(fill: AppColors.warmSurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
     }
 
     private func nutrient(label: String, value: Float, target: Float?, tint: Color) -> some View {
@@ -1054,7 +1070,7 @@ struct ScanHistoryView: View {
                     ProgressView("Henter skannehistorikk …")
                 }
                 if let error = historyViewModel.errorMessage {
-                    Text(error).foregroundStyle(AppColors.textSecondary)
+                    ErrorMessageView(error)
                     Button("Prøv igjen") { Task { await historyViewModel.load(userId: authViewModel.currentUser?.id) } }
                         .frame(minHeight: 44)
                 }
@@ -1211,7 +1227,7 @@ struct CameraView: View {
         ZStack {
             scannerContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
+                .background(AppColors.imageViewerBackground)
                 .ignoresSafeArea()
 
             if cameraAuthorization.state == .authorized {
@@ -1220,7 +1236,7 @@ struct CameraView: View {
             }
 
             LinearGradient(
-                colors: [Color.black.opacity(0.58), Color.black.opacity(0)],
+                colors: [AppColors.scannerControl, AppColors.scannerGradientClear],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -1386,10 +1402,10 @@ struct CameraView: View {
             if productViewModel.isScanTakingLong {
                 Text("Oppslaget tar litt tid. Du kan søke eller registrere varen manuelt.")
                     .font(AppTypography.body)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppColors.scannerText)
                     .multilineTextAlignment(.center)
                     .padding(12)
-                    .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16))
+                    .background(AppColors.scannerPanel, in: RoundedRectangle(cornerRadius: 16))
             }
             if showScanHelp, let scanHelpTitle {
                 VStack(spacing: 6) {
@@ -1398,14 +1414,14 @@ struct CameraView: View {
                     ForEach(scanHelpHints) { hint in
                         Text(hint.text)
                             .font(AppTypography.caption)
-                            .foregroundStyle(Color.white.opacity(0.82))
+                            .foregroundStyle(AppColors.scannerSecondaryText)
                     }
                 }
                 .multilineTextAlignment(.center)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(AppColors.scannerText)
                 .frame(maxWidth: .infinity)
                 .padding(12)
-                .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(AppColors.scannerPanel, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .accessibilityElement(children: .combine)
             }
 
@@ -1424,10 +1440,10 @@ struct CameraView: View {
     private var cameraAuthorizationProgress: some View {
         VStack(spacing: 12) {
             ProgressView()
-                .tint(.white)
+                .tint(AppColors.scannerText)
             Text(cameraAuthorization.state == .requesting ? "Venter på kameratilgang …" : "Sjekker kameratilgang …")
                 .font(AppTypography.body)
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(AppColors.scannerMutedText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -1498,7 +1514,7 @@ struct CameraView: View {
 
             Text(message)
                 .font(AppTypography.body)
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(AppColors.scannerMutedText)
                 .multilineTextAlignment(.center)
 
             if let primaryTitle {
@@ -1514,19 +1530,19 @@ struct CameraView: View {
                 showManualProduct = true
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(.white)
+            .foregroundColor(AppColors.scannerText)
             .frame(maxWidth: .infinity, minHeight: 44)
             .overlay(
-                Capsule().stroke(Color.white.opacity(0.75), lineWidth: 1)
+                Capsule().stroke(AppColors.scannerOutline, lineWidth: 1)
             )
 
             Button("Velg en annen metode") { dismiss() }
                 .font(AppTypography.bodyEmphasis)
-                .foregroundColor(.white)
+                .foregroundColor(AppColors.scannerText)
                 .frame(minHeight: 44)
                 .accessibilityHint("Lukker kameraet og går tilbake til de andre måtene å legge til mat på")
         }
-        .foregroundColor(.white)
+        .foregroundColor(AppColors.scannerText)
         .padding(24)
         .frame(maxWidth: 420, maxHeight: .infinity)
         .frame(maxWidth: .infinity)
@@ -1687,7 +1703,7 @@ struct ManualAddView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -1758,7 +1774,7 @@ private struct ScannerFocusOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.28)
+            AppColors.scannerScrim
                 .mask {
                     Rectangle()
                         .overlay {
@@ -1772,23 +1788,23 @@ private struct ScannerFocusOverlay: View {
 
             ScannerCornerFrame()
                 .stroke(
-                    isLoading ? AppColors.success : Color.white,
+                    isLoading ? AppColors.info : AppColors.scannerText,
                     style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
                 )
                 .frame(width: focusSize.width, height: focusSize.height)
-                .shadow(color: Color.black.opacity(0.35), radius: 3, y: 1)
+                .shadow(color: AppColors.scannerShadow, radius: 3, y: 1)
                 .overlay(alignment: .top) {
                     Group {
                         if isLoading {
                             HStack(spacing: 10) {
                                 ProgressView()
-                                    .tint(.white)
+                                    .tint(AppColors.scannerText)
                                 Text("Henter produkt …")
                                     .font(AppTypography.bodyEmphasis)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Color.black.opacity(0.68), in: Capsule())
+                            .background(AppColors.scannerPanel, in: Capsule())
                             .accessibilityElement(children: .combine)
                         } else {
                             VStack(spacing: 4) {
@@ -1796,15 +1812,15 @@ private struct ScannerFocusOverlay: View {
                                     .font(AppTypography.bodyEmphasis)
                                 Text("Strekkode eller Data Matrix")
                                     .font(AppTypography.caption)
-                                    .foregroundStyle(Color.white.opacity(0.82))
+                                    .foregroundStyle(AppColors.scannerSecondaryText)
                             }
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(AppColors.scannerHintPanel, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                     }
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(AppColors.scannerText)
                     .offset(y: focusSize.height + 32)
                 }
                 .offset(y: focusOffset)
@@ -1862,13 +1878,13 @@ private struct ScannerOverlayButton: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Color.white)
+                .foregroundStyle(isSelected ? AppColors.onVibrant : AppColors.scannerText)
                 .frame(width: 44, height: 44)
                 .background(
-                    isSelected ? AppColors.action.opacity(0.9) : Color.black.opacity(0.58),
+                    isSelected ? AppColors.brand : AppColors.scannerControl,
                     in: Circle()
                 )
-                .overlay(Circle().stroke(Color.white.opacity(0.24), lineWidth: 1))
+                .overlay(Circle().stroke(AppColors.scannerControlBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -1886,13 +1902,13 @@ private struct ScannerActionButton: View {
             Label(title, systemImage: systemImage)
                 .font(AppTypography.bodyEmphasis)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(Color.white)
+                .foregroundStyle(AppColors.scannerText)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .padding(.horizontal, 10)
-                .background(Color.black.opacity(0.68), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(AppColors.scannerPanel, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.28), lineWidth: 1)
+                        .stroke(AppColors.scannerPanelBorder, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

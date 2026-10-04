@@ -7,6 +7,7 @@ struct AmountInputRow: View {
     let placeholder: String
     let onFocus: (() -> Void)?
     let showsTitle: Bool
+    let controlWidth: CGFloat?
     
     init(
         title: String = "Mengde",
@@ -14,7 +15,8 @@ struct AmountInputRow: View {
         unit: String = "g",
         placeholder: String = "0",
         onFocus: (() -> Void)? = nil,
-        showsTitle: Bool = true
+        showsTitle: Bool = true,
+        controlWidth: CGFloat? = nil
     ) {
         self.title = title
         self._gramsText = gramsText
@@ -22,6 +24,7 @@ struct AmountInputRow: View {
         self.placeholder = placeholder
         self.onFocus = onFocus
         self.showsTitle = showsTitle
+        self.controlWidth = controlWidth
     }
     
     var body: some View {
@@ -33,12 +36,20 @@ struct AmountInputRow: View {
                 Spacer()
             }
             
-            SelectAllTextField(text: $gramsText, placeholder: placeholder, onFocus: onFocus)
+            HStack(spacing: 8) {
+                SelectAllTextField(text: $gramsText, placeholder: placeholder, onFocus: onFocus)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.trailing)
+                .accessibilityLabel(title)
+                .accessibilityValue("\(gramsText) \(unit)")
+
+                if controlWidth != nil && !unit.isEmpty {
+                    unitLabel
+                }
+            }
                 .padding(.horizontal, 10)
-                .frame(width: 76)
+                .frame(width: controlWidth ?? 76)
                 .frame(minHeight: 44)
                 .background(AppColors.surface)
                 .overlay(
@@ -46,15 +57,18 @@ struct AmountInputRow: View {
                         .stroke(AppColors.controlBorder, lineWidth: 1)
                 )
                 .cornerRadius(12)
-                .accessibilityLabel(title)
-                .accessibilityValue("\(gramsText) \(unit)")
             
-            if !unit.isEmpty {
-                Text(unit)
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
+            if controlWidth == nil && !unit.isEmpty {
+                unitLabel
             }
         }
+    }
+
+    private var unitLabel: some View {
+        Text(unit)
+            .font(AppTypography.bodyEmphasis)
+            .foregroundColor(AppColors.textSecondary)
+            .fixedSize()
     }
 }
 

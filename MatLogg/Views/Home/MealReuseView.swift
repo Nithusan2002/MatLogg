@@ -102,7 +102,7 @@ struct MealReuseEditorView: View {
                                 .font(AppTypography.body)
                         }
                         if let error = viewModel.errorMessage {
-                            Text(error).font(AppTypography.body)
+                            ErrorMessageView(error).font(AppTypography.body)
                                 .accessibilityIdentifier("meal-reuse-editor-error")
                         }
                         PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Loggfør måltidet") {

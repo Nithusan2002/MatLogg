@@ -70,12 +70,16 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
-viser MatLogg, dato og profil. Etter eventuell lokal synkstatus følger «Dagen din, så langt.», et valgfritt
-samlet næringsfelt, en kompakt vannrad og «Loggfør mat». Deretter følger fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
+viser MatLogg, dato og profil. Lokal lagring vises under Profil → Innstillinger → Data og lagring, uten permanent banner på Hjem. Når synk er tilgjengelig, vises eventuell status for ventende endringer og feil før «Dagen din, så langt.», et valgfritt
+samlet dagsstatusfelt med valgfri næring og vann som nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
 lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Den sentrale «Loggfør»-knappen åpner bunnarket med eksisterende loggingvalg.
+Den sentrale «Loggfør»-knappen i bunnmenyen åpner bunnarket med eksisterende loggingvalg.
+En ferdig lastet dag uten matlogger viser «Ingen logget ennå» og «Loggfør første
+måltid» under måltidsoverskriften, før de fire kortene. Handlingen bruker valgt
+dato og vises også når målstatus er skjult. Den vises ikke under lasting, ved
+feil eller på dager med matlogger. Ingen fast, stor loggknapp vises over måltidene.
 Måltidsseksjonene viser inntil tre innslag med produktbilde og mengde, samt en
 samlet næringsrad. Trykk på en fylt seksjon åpner valgt måltid for valgt dato;
 tomme seksjoner har en tydelig «Legg til»-handling. Gjenbruk og angre beholdes.
@@ -543,41 +547,28 @@ vare som ikke lenger er favoritt forsvinner med en gang. En tom liste viser
 
 ---
 
-## 3.3 Navigasjon & Navigation Stack
+## 3.3 Navigasjon og førstegangsbruk – kontrollert mot kode 2026-10-04
 
+```text
+App-rot: sesjonsgjenoppretting
+├─ Ny lokal profil → Første måltid
+│  ├─ Søk / Skann / Manuelt → produktkort → lokal logging → Hjem med Angre
+│  ├─ Gå til Hjem → Hjem
+│  └─ Logg inn → valgfri kontoflyt
+├─ Kjent konto med mislykket gjenoppretting → eksplisitt innlogging
+└─ Fullført førstegangsbruk → vedvarende bunnmeny
+   ├─ Hjem → valgt måltid eller hele dagsloggen
+   ├─ Søk → produktkort
+   ├─ Loggfør → loggingark med valgt dato og måltid
+   ├─ Oversikt → energi, makroer og vektregistrering
+   └─ Profil → daglige mål, personlige detaljer og valgfri konto
 ```
-TabView (Root)
-├─ HomeTab
-│  ├─ HomeView
-│  │  ├─→ CameraView (Full screen)
-│  │  ├─→ ProductDetailView
-│  │  │   └─→ CreateProductView (if "not found")
-│  │  ├─→ HistoryPanelView
-│  │  └─→ ManualAddView
-│  └─ (logged-in user context)
-│
-├─ LoggerTab
-│  ├─ LogHistoryView (Day view / List)
-│  │  └─→ LogDetailView (edit/delete)
-│  └─ (future: Week/Month view)
-│
-├─ FavoritesTab
-│  ├─ FavoritesListView
-│  │  └─→ ProductDetailView
-│  └─ (share, search, etc.)
-│
-└─ SettingsTab
-   ├─ SettingsView
-   │  ├─→ AccountView
-   │  │   └─→ ChangePasswordView
-   │  ├─→ NotificationPreferencesView
-   │  └─→ AboutView
-   │
-   └─ (Root: Auth/Onboarding if not logged in)
-      ├─ LoginView
-      ├─ SignUpView
-      └─ OnboardingView (4 screens)
-```
+
+Loggfør er en vedvarende handling som åpner et ark. Lokal bruk krever ingen
+konto eller målveiviser. Førstegangsvisningen heter «Første måltid» og har
+«Gå til Hjem» og «Logg inn» i navigasjonslinjen. Ved stor tekst stables
+søkehandlingene, og innholdet kan rulles. Den eldre målveiviseren er bevart i
+kode uten aktiv inngang i denne flyten.
 
 ---
 
@@ -613,8 +604,9 @@ sekundært. Se design-and-user-flow.md for handlinger og tilstander.
 
 Ved måltidsoverskriften på Hjem står «Se dagslogg»; synlige varerader åpner
 redigering. Midtknappen er merket «Loggfør». Alle Legg til-innganger bruker
-samme ark med søk, skann, Registrer manuelt, måltid/dato, Lagrede måltider
-og hurtigvarer. Arket stabler måltidsvalg ved tilgjengelighetsstørrelser.
+samme ark med søk, skann, Registrer manuelt, måltid/dato og en todelt velger
+for «Loggfør igjen» / «Lagrede måltider». Bare valgt liste vises; øvrige
+favoritter og nylig brukt er tilgjengelige i Søk. Arket stabler måltidsvalg ved tilgjengelighetsstørrelser.
 Hjems næringsfelt viser registrert energi uten mål når visningsvalget er på.
 Dagsloggen har tekstmerket Gjenbruk-meny; måltidsmaler har en 44-punkters
 menyknapp for redigering og sletting. Eksisterende komponenter og tokens gjenbrukes.

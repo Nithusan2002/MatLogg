@@ -41,6 +41,11 @@ pressende budskap.
 
 Hjem svarer på «Hva har jeg registrert i dag?» og gir rask vei til ny logging.
 Datoen kan flyttes én dag om gangen med piler eller velges fra en kalender.
+Kalenderen åpnes som en popover ved datoknappen, med norsk språk og appens
+handlingsfarge. Datovalg oppdaterer dagsoversikten umiddelbart mens kalenderen
+forblir åpen, også ved måneds- og årsnavigasjon. Trykk utenfor lukker kalenderen
+og beholder valgt dato. Ved tilgjengelighetsstørrelser for tekst eller lav
+skjermhøyde er kalenderinnholdet scrollbart i samme popover.
 Fortidige og fremtidige datoer kan velges. Valgt dato gjelder både
 dagsoversikten, måltidslisten og nye registreringer, og vises derfor også i
 loggføringsflyten. En fremtidig registrering er en vanlig datert logg; den
@@ -49,11 +54,10 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 Prioritet:
 
 1. dato og kontekst, inkludert status for lokalt lagrede endringer
-2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
-3. kompakt vannrad med valgt dato, antall glass og minus/pluss
-4. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
-5. «Se dagslogg» og alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
-6. personlige hurtigvalg
+2. «Dagen din, så langt.» og samlet dagsstatus med valgfritt næringsfelt
+3. vann som nederste rad i dagsstatusen, med antall glass og minus/pluss
+4. «Se dagslogg» og alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+5. personlige hurtigvalg
 
 Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
@@ -72,7 +76,11 @@ vises på Hjem fordi de gir en kortere flyt enn generisk søk.
 
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
-måloppnåelse.
+måloppnåelse. Under måltidsoverskriften vises da «Loggfør første måltid», som
+åpner eksisterende loggingark for valgt dato. Handlingen vises bare etter
+vellykket lasting av en dag uten matlogger, også når målstatus er skjult.
+Den skjules under lasting og ved feil. Dager med matlogger bruker den faste
+«Loggfør»-handlingen i bunnmenyen og «Legg til» på måltidene.
 
 ### Vektregistrering
 
@@ -102,25 +110,25 @@ Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
 ### Vann på Hjem
 
-Et kompakt vannkort ligger etter valgfri dagsstatus og før måltidene. «Ett
-glass» lagrer én registrering direkte for valgt dato, også uten nett og konto.
-Kortet viser dagens antall uten kvitteringstekst eller angreknapp, og tilbyr
-«Fjern ett glass» ved trykk på antallet. En synlig minusknapp ved siden av plussknappen
-fjerner siste glass med ett trykk uten dialog. Den er deaktivert ved null,
-under lasting og mens en lagring pågår. Ingen antatt ml-mengde, mål eller påminnelser.
-Ny dag viser null uten å slette historikken. Feil viser retry uten å øke telleren.
-Vannkortet bruker et tydelig antall under en liten overskrift, to like store, runde
-ikonknapper for pluss og minus. Pluss har en dempet blå bakgrunn; minus en
-nøytral bakgrunn. Begge har 44 × 44 punkters trykkflate og tydelig VoiceOver-tekst. Kopper har nøytralt omriss
-og blått gradert vann når de er fylt. Vannkortet viser ti tomme kopper fra start, fordelt på to rader med fem.
-Én kopp fylles med blått vann per registrert glass. Etter ti legges flere fylte
-kopper til, fem per rad. Minusknappen tømmer siste kopp; ekstra kopper
-fjernes når antallet faller. Ti er en startlayout, ikke et anbefalt dagsmål;
-ingen «av ti», prosent eller målfeiring vises. Fyll og teller animeres kort.
-«Reduser bevegelse» gir umiddelbar oppdatering. VoiceOver leser antallet én
-gang og hopper over dekorasjonen.
-Store tekststørrelser flytter knappen til neste rad. Vann følger aktiv profileier,
-og inngår i eksport, kontooverføring og sletting.
+Vann vises som nederste rad i samme varme flate som energi og makroer,
+skilt med en diskret linje. Når «Vis energi og mål på Hjem» er av, viser
+flaten bare vannraden. Valgt dato gjelder hele dagsstatusen; den synlige
+etiketten er «Vann», mens VoiceOver inkluderer datoen.
+
+Raden viser antall glass og nøytrale minus-/plussknapper med minst 44 × 44 pt
+trykkflate. Blått er begrenset til den dekorative dråpen. Store tekststørrelser
+eller liten bredde flytter kontrollene til neste rad. Ingen glassrutenett,
+antatt ml-mengde, mål, påminnelser eller målfeiring vises på Hjem.
+
+Pluss lagrer ett glass direkte for valgt dato, også uten nett og konto.
+Minus fjerner siste glass uten dialog og er deaktivert ved null. Trykk på
+antallet tilbyr fortsatt «Fjern ett glass». Kontroller deaktiveres under
+lasting og lagring. Telleren oppdateres først ved vellykket lagring, uten
+kvittering eller angreknapp. Feil vises lokalt i raden; lesefeil tilbyr retry.
+Næring og vann har uavhengige lastetilstander. Ny dag viser sin egen logg
+uten å slette historikken. Telleren animeres kort; redusert bevegelse gir
+umiddelbar oppdatering. VoiceOver hopper over dekorasjon og skillelinje.
+Vann følger aktiv profileier og inngår i eksport, kontooverføring og sletting.
 
 ### Søk
 
@@ -151,7 +159,7 @@ Private produkter fra andre profiler er ikke søkbare.
 «Nylig brukt» i Søk viser kompakte produktrader som åpner produktkortet.
 Hurtiglogging ligger under «Loggfør igjen» i Loggfør-menyen, med siste
 registrerte mengde/enhet og valgt måltid og dato ved hver loggeknapp.
-Disse varene gjentas ikke under «Andre hurtigvalg»; der beholdes øvrige favoritter.
+Favoritter og øvrige nylig brukte varer finnes i Søk; «Andre hurtigvalg» vises ikke i Loggfør-arket.
 Ved tilgjengelighetstekst ruller søkekontrollene sammen med listen, slik at
 kontrollene ikke skyver Nylig brukt utenfor tilgjengelig skjermplass.
 Framtidige registreringer brukes ikke som gjenloggingsgrunnlag. Ved like
@@ -196,11 +204,17 @@ lagring åpner mengdevalg med valgt dato og måltid bevart. Arket viser alltid �
 1. søk etter matvare
 2. skann strekkode
 3. manuell registrering
-4. hurtigvalg fra favoritter og nylig brukt
+4. en todelt velger: «Loggfør igjen» og «Lagrede måltider»
+
+Velgeren ligger under dato og måltidsvalg og viser bare den valgte listen.
+«Loggfør igjen» er standard; ved vellykket førstegangslasting velges lagrede
+måltider automatisk hvis historikken er tom og maler finnes. Manuelt valg
+beholdes mens arket er åpent og overstyres ikke av oppdateringer. Begge valg
+har egne laste-, feil- og tomtilstander. Ved stor tekst stables valgene.
 
 Inngangen til «Lagrede måltider» er alltid synlig, også uten maler.
 Tomtilstanden forklarer oppretting fra dagsloggens Gjenbruk-meny. Inntil tre
-maler vises før enkeltvarer; hele listen har synlig meny for redigering/sletting. De to innholdstypene har
+maler vises når «Lagrede måltider» er valgt; «Se alle» åpner hele listen med synlig meny for redigering/sletting. De to innholdstypene har
 egne seksjonsoverskrifter, og en måltidsrad viser antall varer i tillegg til
 måltidsikon og innholdsoppsummering. En lagret mal åpnes i en forhåndsvisning
 med matvarer, mengder, valgt dato og måltidskategori før den loggføres.
@@ -301,33 +315,38 @@ Enkeltlogger redigeres i samme visuelle mønster og bruker presentasjonsnavnet
 «Kveldsmat». Alle nye logger lagres atomisk og kan angres samlet. Se [lagrede
 måltider](saved-meals.md).
 
-### Førstegangsbruk
+### Førstegangsbruk – kontrollert mot kode 2026-10-04
 
 ```text
 Åpne appen
-  → fortsett på denne iPhonen, eller logg inn med Apple/e-post
-  → se kort forklaring av lokal lagring, valgfrie opplysninger og avgrensning
-  → velg kun loggføring, eller sett opp et valgfritt mål
-  → oppgi eller hopp over beregningsgrunnlag; appen gjetter aldri manglende data
-  → kontroller eventuelt estimert energi- og makromål
-  → se personvernvalg og en oppsummering
-  → Hjem
+  → forsøk å gjenopprette eksisterende sesjon
+  → opprett lokal profil automatisk når ingen konto er lagret
+  → Første måltid: søk med fokus, Skann og Manuelt
+  → velg matvare og kontroller mengde, enhet og måltid i produktkortet
+  → loggfør lokalt
+  → Hjem med bekreftelse og Angre
 ```
 
-Velkomstskjermen skal vise budskap, trygghetspunkter og primærhandling uten
-scrolling på en vanlig iPhone i standard tekststørrelse. Innholdet ligger fortsatt
-i en scrollbar beholder som tilgjengelighetsfallback for små skjermer, liggende
-retning og store tekststørrelser. «Start uten mål» og «Kun loggføring» skal ikke
-opprette et skjult kalorimål i bakgrunnen.
+«Gå til Hjem» avslutter førstegangsvisningen uten logging. «Logg inn» er en
+sekundær handling. Kort informasjon om lokal lagring og valgfrie konto/mål,
+personvernlenke og informasjon om manglende skybackup følger søket. Ved feil
+beholdes input slik at brukeren kan prøve igjen. Lokale treff og manuell
+registrering fungerer uten nett; eksterne katalogoppslag krever nett.
+
+Ingen introduksjons- eller målveiviser blokkerer første logging. Mål settes
+valgfritt under Profil → Daglige mål; oppstart oppretter ikke et skjult mål.
+Ved stor tekst stables søkehandlingene vertikalt, og innholdet kan rulles.
+Detaljer om fullføring, gjenåpning og kjent konto finnes under
+[Første logging](#første-logging-2026-10-02).
 
 Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
-velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
+førstegangsvisningen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
 flerenhetssynk før servernedlasting og gjenoppretting er implementert. Hvis en
 lokal profil med data logger inn, må brukeren bekrefte før dataene atomisk
 knyttes til kontoen. Utlogging skjuler kontodataene på enheten; de blir ikke
 synlige for en ny lokal profil.
 
-Målberegninger skal merkes som veiledende. Onboarding skal ikke love medisinsk
+Målberegninger skal merkes som veiledende. Førstegangsbruk skal ikke love medisinsk
 effekt eller gjøre vekt obligatorisk når funksjonen kan fungere uten.
 
 ### Redigere daglige mål
@@ -505,7 +524,11 @@ Søk gjelder valgt måltid eller hele dagen. Lasting skilles fra tomt måltid og
 ingen søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
 «Kopier hele dagen fra i går» beholder eksisterende dagsscope.
 
-### Linjalvelger i onboarding
+### Linjalvelger i eldre onboarding – historisk implementasjon
+
+Den eldre målveiviseren (`MatLoggOnboardingFlowView`) er bevart i kode, men
+har ingen aktiv inngang i dagens førstegangsflyt. Beskrivelsen nedenfor gjelder
+denne veiviseren; aktiv redigering skjer under Profil.
 
 Vekt og høyde bruker samme linjalvelger som Personlige detaljer, med tekst
 tilpasset onboarding. «Bruk verdi» oppdaterer bare onboarding-utkastet.

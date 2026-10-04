@@ -229,6 +229,17 @@ final class MatLoggUITests: XCTestCase {
         }
         XCTAssertTrue(app.buttons["meal-room-reuse"].exists)
         app.buttons["tab-log-food"].tap()
+        let savedTab = app.buttons["quick-log-show-saved"]
+        XCTAssertTrue(savedTab.waitForExistence(timeout: 5))
+        if !savedTab.isHittable { app.swipeUp() }
+        savedTab.tap()
+        XCTAssertTrue(savedTab.isSelected)
+        let recentTab = app.buttons["quick-log-show-recent"]
+        recentTab.tap()
+        XCTAssertTrue(recentTab.isSelected)
+        XCTAssertFalse(app.buttons["quick-log-saved-meals"].exists)
+        XCTAssertFalse(app.staticTexts["Andre hurtigvalg"].exists)
+        savedTab.tap()
         let library = app.buttons["quick-log-saved-meals"]
         XCTAssertTrue(library.waitForExistence(timeout: 5))
         if !library.isHittable { app.swipeUp() }

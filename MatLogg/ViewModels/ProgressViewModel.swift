@@ -5,7 +5,13 @@ import Combine
 final class ProgressViewModel: ObservableObject {
     @Published private(set) var summaries: [DailySummary] = []
     @Published private(set) var metrics = ProgressMetrics(summaries: [])
-    @Published private(set) var isLoading = true
+    @Published private(set) var isLoading = true {
+        didSet {
+            loadingFeedback.update(isActive: isLoading) { [weak self] in self?.showsLoadingFeedback = $0 }
+        }
+    }
+    @Published private(set) var showsLoadingFeedback = false
+    private let loadingFeedback = DelayedActivity()
     @Published private(set) var errorMessage: String?
     private let repository: any FoodLogRepository
     private var requestID = UUID()

@@ -15,7 +15,13 @@ struct SavedMealReceipt: Equatable {
 @MainActor
 final class SavedMealsViewModel: ObservableObject {
     @Published private(set) var meals: [SavedMeal] = []
-    @Published private(set) var isLoading = true
+    @Published private(set) var isLoading = true {
+        didSet {
+            loadingFeedback.update(isActive: isLoading) { [weak self] in self?.showsLoadingFeedback = $0 }
+        }
+    }
+    @Published private(set) var showsLoadingFeedback = false
+    private let loadingFeedback = DelayedActivity()
     @Published private(set) var loadError: String?
     @Published private(set) var isLoadingSource = true
     @Published private(set) var sourceProductNames: [UUID: String] = [:]

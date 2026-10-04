@@ -18,7 +18,10 @@ Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/delin
 appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
 Data kan gå tapt ved avinstallering eller tap av telefonen.
 
-Sist kontrollert mot kode: 2026-10-02.
+Lanseringspolicy og oppstartsbeskrivelse kontrollert mot kode: 2026-10-04.
+Denne kontrollen gjelder arbeidskopien, inkludert ucommittede endringer.
+Daterte test- og deployresultater nedenfor er historiske resultater for oppgitt
+omfang; de er ikke kjørt på nytt eller bekreftet mot staging i denne kontrollen.
 
 ### Loggfør igjen i hurtigmenyen – 2026-10-03
 
@@ -90,8 +93,11 @@ er verifisert lokalt med 69 databasetester, SQL-lint og 10 Deno-kontrakttester.
 77 målrettede Swift-tester var grønne før pause. UI-testene for porsjonslogging
 med omstart/redigering ved største tilgjengelighetstekst og logging på tidligere
 dag er grønne. Manuell VoiceOver-kontroll og fysisk iPhone gjenstår før release.
-Ingen serverdeploy eller produksjonsmigrasjon er utført. Produksjonssynk
-forblir deaktivert. Se [implementeringsplanen](portion-logging-implementation-plan.md).
+Ved den opprinnelige lokale verifiseringen var ingen serverdeploy utført.
+Senere staging-verifisering 2026-10-02 dokumenterer at porsjonsmigrasjonen
+er deployet der; se [produksjonsberedskap](production-readiness.md).
+Ingen produksjonsmigrasjon er dokumentert. Produksjonssynk forblir deaktivert.
+Se [implementeringsplanen](portion-logging-implementation-plan.md).
 
 ### iOS
 
@@ -184,7 +190,13 @@ forblir deaktivert. Se [implementeringsplanen](portion-logging-implementation-pl
   med angre; globale feil presenteres ved app-roten, og standardmåltid velges
   etter lokal tid.
 
-### Local-first og synk
+### Local-first og synk – lanseringspolicy kontrollert 2026-10-04
+
+Dagens app bruker `localOnly`: domenedata og hendelser lagres atomisk lokalt,
+uten opplasting eller retry-timere. Brukerstatus er «Lagret på denne enheten».
+Punktene om transport, retry og synkfeil nedenfor beskriver implementert
+kapasitet for integrasjonstesting og framtidig skyscope, ikke aktiv adferd i
+lanseringen. Konto eller backendflagg alene åpner ikke denne kapasiteten.
 
 - Normativ offline-funksjonalitet, brukerstatus og grensen mellom v1-retry og
   fremtidig flerenhetskonflikt er dokumentert i `offline-behavior.md`.
@@ -310,14 +322,17 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
 | Legacy-datamodell | `backend/prisma/schema.prisma` og `backend/prisma/migrations/` |
 | Varige valg | `docs/decisions.md` |
 
-## Nærmeste tekniske milepæl
+## Nærmeste tekniske milepæl – lokal lansering, 2026-10-04
 
-Før backend-synk aktiveres:
+Fullfør aktive konto-/personvernporter, eksport-/lagringskontroller, resterende
+fysisk QA og TestFlight før separat produksjonsutrulling. Gjeldende porter og
+daterte resultater finnes i [produksjonsberedskap](production-readiness.md).
 
-1. Etabler produksjonslignende miljø, hemmelighetsdistribusjon, rate limiting,
-   overvåkning og rollback.
-2. Kjør releaseportene i dette miljøet og hold `backendSyncEnabled` avslått til
-   de er grønne.
+Framtidig skyscope krever eget brukervalg og historikkvalg, serverautorisasjon,
+nødvendige rettsgrunnlag og godkjente synk-/restoreporter før en ny
+opplastingspolicy kan innføres. Produksjonslignende miljø, rate limiting,
+overvåkning og rollback inngår i dette arbeidet. `backendSyncEnabled` alene
+er ikke tilstrekkelig til å aktivere opplasting.
 
 Oppdater dette dokumentet når en funksjon flyttes mellom planlagt, delvis
 implementert og implementert.
@@ -382,7 +397,10 @@ implementert og implementert.
 Implementert lokalt: kompakt vannkort på Hjem, ett trykk per glass, valgt dato,
 korrigering ved å fjerne siste glass, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
 glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
-og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
+og egen migrasjon. Staging-verifisering 2026-10-02 dokumenterer deploy og
+integrasjonskontroll av migrasjonen; se [produksjonsberedskap](production-readiness.md).
+Produksjonsutrulling er ikke dokumentert, og dagens `localOnly`-policy sperrer
+opplasting av vannhendelser.
 Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.
 
 ## Demomodus for presentasjon (2026-09-30)
@@ -390,7 +408,11 @@ Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksj
 DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
 Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
 serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
-favoritter og fire lagrede måltider med næringsdata fra medfølgende Matvaretabellen.
+favoritter og fire lagrede måltider. Fra 2026-10-04 brukes et fast utvalg av 12
+Open Food Facts-produkter med medfølgende frontbilder og næringsverdier per 100 g.
+Bildene fungerer offline; kilde og uverifisert status bevares. Snapshot og bildeattribusjon
+finnes i `MatLogg/Resources/demo-openfoodfacts*`. Eksisterende demo oppdateres via
+«Tilbakestill demodata» i Profil.
 Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
 bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
 profilen ikke har registreringer fra før.
