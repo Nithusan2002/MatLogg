@@ -10,10 +10,11 @@ struct APIServiceTests {
             let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: group, markers: [:], ingredients: nil))
             switch group {
             case 1, 2, 3:
-                #expect(presentation.status == "Ikke klassifisert som ultraprosessert")
+                let titles = [1: "Minimalt bearbeidet", 2: "Bearbeidet matlagingsingrediens", 3: "Bearbeidet"]
+                #expect(presentation.status == titles[group ?? 0])
                 #expect(presentation.isUltraProcessed == false)
             case 4:
-                #expect(presentation.status == "Klassifisert som ultraprosessert")
+                #expect(presentation.status == "Ultraprosessert")
                 #expect(presentation.isUltraProcessed == true)
             default:
                 #expect(presentation.status == "Klassifisering mangler")

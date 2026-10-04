@@ -225,7 +225,7 @@ har egne laste-, feil- og tomtilstander. Ved stor tekst stables valgene.
 
 Inngangen til «Lagrede måltider» er alltid synlig, også uten maler.
 Tomtilstanden forklarer oppretting fra dagsloggens Gjenbruk-meny. Inntil tre
-maler vises når «Lagrede måltider» er valgt; «Se alle» åpner hele listen med synlig meny for redigering/sletting. De to innholdstypene har
+maler vises når «Lagrede måltider» er valgt; «Se alle» åpner hele listen. Trykk åpner detaljen med «Rediger»; sveip til venstre tilbyr «Rediger» og «Slett», med bekreftelse før sletting. De to innholdstypene har
 egne seksjonsoverskrifter, og en måltidsrad viser antall varer i tillegg til
 måltidsikon og innholdsoppsummering. En lagret mal åpnes i en forhåndsvisning
 med matvarer, mengder, valgt dato og måltidskategori før den loggføres.
@@ -665,14 +665,18 @@ Plusspoengtotalen endres ikke.
 
 Produktinformasjon viser næringsinnhold, Nutri-Score og «Bearbeidingsgrad»
 på samme kortflate med konsekvente skillelinjer (oppdatert 2026-10-04).
-Bearbeidingsgrad viser kildebasert status som sekundærtekst: «Ikke klassifisert
-som ultraprosessert» for NOVA 1–3, «Klassifisert som ultraprosessert» for NOVA 4
-og «Ikke tilgjengelig» for ukjent/ugyldig gruppe. Raden har nøytral bakgrunn.
+Bearbeidingsgrad viser den konkrete gruppen og «NOVA 1–4» i en kompakt
+brikke med mørk, halvfet tekst: «Minimalt
+bearbeidet» (NOVA 1), «Bearbeidet matlagingsingrediens» (NOVA 2), «Bearbeidet»
+(NOVA 3) og «Ultraprosessert» (NOVA 4). Ukjent/ugyldig gruppe viser «Ikke
+tilgjengelig» i samme brikkeform med nøytral grå bakgrunn, uten NOVA-nummer. «Kilde: Open Food Facts» står under.
+Brikken bruker svak rosa bakgrunn for NOVA 4 og svak grønn for NOVA 1–3,
+med samme form og flerlinjestøtte. Selve raden har nøytral bakgrunn.
 Nutri-Score beholder offisiell logo og får vertikal layout ved
 tilgjengelighetsstørrelser. Kildelenke, hentetidspunkt og «Oppdater» samles i
 kortets fot; hentestatus og feilmelding vises samme sted. Trykkflater er minst
 44 pt høye, og radene har fleksibel høyde og full tekst.
-Arket «Ultraprosessert mat» viser produkt, status, gruppeforklaring, avgrensning
+Arket «Bearbeidingsgrad» viser produkt, status, gruppeforklaring, avgrensning
 mot næringskvalitet, «Hva bygger vurderingen på?», ingredienser, utfellbar
 NOVA-forklaring, kilde, hentetidspunkt og produktlenke. Markører knyttes til
 aktuell gruppe; ukjent grunnlag gjettes aldri. Gyldig gruppe beholdes selv om
@@ -728,11 +732,36 @@ ingen ekstra tekstlinje eller animasjon legges til.
 ### Samlet detalj og redigering av lagrede måltider
 
 Et lagret måltid åpnes i én detaljflate. «Rediger» bytter samme flate til
-redigeringsmodus; menyens «Rediger» åpner denne modusen direkte. Navn, bilde,
+redigeringsmodus; sveipehandlingen «Rediger» åpner denne modusen direkte. Navn, bilde,
 mengder og fjerning av matvarer redigeres i en kladd. Dato og måltidskategori
 skjules under redigering. «Lagre endringer» lagrer lokalt og går tilbake til
 oppdatert visning. Feil beholder kladden. «Avbryt» eller lukk ber om bekreftelse
 før endrede verdier forkastes. Sveip for å lukke er deaktivert under redigering.
 Mengdejustering før logging gjelder bare aktuell loggføring; redigeringskladden
 starter alltid fra den lagrede malen. Tidligere loggføringer påvirkes ikke.
-Å legge til nye matvarer i malen er fortsatt utenfor scope.
+Nye matvarer kan legges til i redigeringskladden.
+
+Detaljflaten beholder måltidsnavnet som tittel i begge moduser. «Rediger»/
+«Avbryt» ligger fast over scrollinnholdet sammen med modusmarkeringen.
+Navnet vises i samme felt, skrivebeskyttet før logging. Eksisterende bilde har
+samme høyde (180 pt) i begge moduser; redigering viser kompakte bildehandlinger.
+Forklaringen står på samme plass før den valgfrie loggdestinasjonen.
+Matvarenes handlingsmeny ligger ved produktnavnet, med reservert plass også
+utenfor redigeringsmodus, slik at radstruktur og navnebryting beholdes.
+
+I redigeringsmodus tilbyr måltidsdetaljen «Legg til matvare». Søk og mengdevalg
+legger varen i kladden uten logging. Eksisterende vare får oppdatert mengde;
+hele kladden lagres først med «Lagre endringer» og forkastes ved avbryt.
+
+### Kildeinformasjon på produktkortet (2026-10-04)
+
+Produktkortet viser næringskilde, eventuell annen bildekilde og tilgjengelig
+oppdateringsdato fra kilden. Open Food Facts-lenken åpner produktet når gyldig
+strekkode finnes, ellers katalogens forside. Hentetidspunkt og Oppdater beholdes.
+Det separate Kilder-arket og info-knappen er fjernet. Datakilder, forbehold og
+Open Food Facts-lisenser finnes under Hjelp og støtte → Om MatLogg → Datakilder
+og lisenser. Kildedata og datoer beholdes i lagringen.
+
+«Legg til matvare» i lagret måltid bruker Loggfør-valgflaten i kladdkontekst,
+med søk, skanning og manuell registrering. Dato, kategori og måltidsgjenbruk
+skjules. Alle produkter går til kladdens mengdevalg, uten å opprette matlogger.

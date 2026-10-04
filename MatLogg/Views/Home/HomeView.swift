@@ -365,7 +365,7 @@ private struct HomeTabContent: View {
                                     ProgressView()
                                     Text("Henter oversikt …")
                                         .font(AppTypography.body)
-                                        .foregroundColor(AppColors.textSecondary)
+                                        .foregroundColor(AppColors.energyTextSecondary)
                                 }
                                 .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
                                 .accessibilityElement(children: .combine)
@@ -381,7 +381,7 @@ private struct HomeTabContent: View {
                                         .foregroundColor(AppColors.deepInk)
                                     Text("Logg mat uten dagsmål. Du kan sette opp mål senere under Profil → Daglige mål.")
                                         .font(AppTypography.body)
-                                        .foregroundColor(AppColors.textSecondary)
+                                        .foregroundColor(AppColors.energyTextSecondary)
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -403,7 +403,7 @@ private struct HomeTabContent: View {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .matLoggCardSurface(fill: AppColors.energySurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+                    .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -951,9 +951,9 @@ private struct StatusSummaryContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Registrert energi")
+                Text("Kalorier")
                     .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
+                    .foregroundColor(AppColors.energyTextSecondary)
                 Text("\(NutritionDisplay.wholeCalories(summary.totalCalories)) kcal")
                     .font(AppTypography.hero)
                     .foregroundColor(AppColors.deepInk)
@@ -965,7 +965,7 @@ private struct StatusSummaryContent: View {
                         + Text(overCalories > 0 ? "" : " av \(goal.dailyCalories)")
                             .font(AppTypography.secondary)
                     )
-                        .foregroundColor(AppColors.textSecondary)
+                        .foregroundColor(AppColors.energyTextSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -989,7 +989,7 @@ private struct StatusSummaryContent: View {
                 Circle().fill(tint).frame(width: 6, height: 6).accessibilityHidden(true)
                 Text(label)
                     .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
+                    .foregroundColor(AppColors.energyTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text("\(NutritionDisplay.wholeGrams(value)) g")
@@ -998,7 +998,7 @@ private struct StatusSummaryContent: View {
             if let target {
                 Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
                     .font(AppTypography.secondary)
-                    .foregroundColor(AppColors.textSecondary)
+                    .foregroundColor(AppColors.energyTextSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -1195,6 +1195,7 @@ struct CameraView: View {
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
+    private let productSelectionContent: ((Product) -> AnyView)?
     let onLogComplete: (ReceiptPayload) -> Void
     let onSearch: () -> Void
 
@@ -1217,8 +1218,10 @@ struct CameraView: View {
     init(
         onLogComplete: @escaping (ReceiptPayload) -> Void,
         onSearch: @escaping () -> Void = {},
-        authorizationProvider: any CameraAuthorizationProviding = CameraAuthorizationService()
+        authorizationProvider: any CameraAuthorizationProviding = CameraAuthorizationService(),
+        productSelectionContent: ((Product) -> AnyView)? = nil
     ) {
+        self.productSelectionContent = productSelectionContent
         self.onLogComplete = onLogComplete
         self.onSearch = onSearch
         _cameraAuthorization = StateObject(
@@ -1303,6 +1306,9 @@ struct CameraView: View {
             productViewModel.resetScan()
         }) {
             if let product = scannedProduct {
+                if let productSelectionContent {
+                    productSelectionContent(product)
+                } else {
                 ProductDetailView(
                     product: product,
                     appState: appState,
@@ -1311,6 +1317,7 @@ struct CameraView: View {
                         onLogComplete(payload)
                     }
                 )
+                }
             }
         }
         .fullScreenCover(isPresented: $showManualProduct, onDismiss: {

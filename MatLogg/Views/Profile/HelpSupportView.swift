@@ -59,6 +59,22 @@ struct HelpSupportView: View {
             Section("Om MatLogg") {
                 LabeledContent("Versjon", value: version)
                 LabeledContent("Build", value: build)
+                DisclosureGroup("Datakilder og lisenser") {
+                    Text("Næringsdata kommer fra Matvaretabellen, Open Food Facts eller opplysninger du legger inn selv. Tallene kan inneholde feil eller være utdaterte. Kontroller emballasjen ved behov.")
+                        .foregroundStyle(AppColors.textSecondary)
+                    if let url = URL(string: "https://www.matvaretabellen.no") {
+                        Link("Matvaretabellen", destination: url)
+                    }
+                    if let url = URL(string: "https://world.openfoodfacts.org") {
+                        Link("Open Food Facts – bidragsytere", destination: url)
+                    }
+                    if let url = URL(string: "https://opendatacommons.org/licenses/odbl/1-0/") {
+                        Link("Open Food Facts-database: ODbL", destination: url)
+                    }
+                    if let url = URL(string: "https://creativecommons.org/licenses/by-sa/3.0/") {
+                        Link("Open Food Facts-bilder: CC BY-SA 3.0", destination: url)
+                    }
+                }
             }
             .listRowBackground(AppColors.surface)
 

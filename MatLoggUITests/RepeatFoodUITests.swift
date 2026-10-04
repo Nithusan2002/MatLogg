@@ -41,9 +41,8 @@ final class RepeatFoodUITests: XCTestCase {
         let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(repeatButton, in: app)
         XCTAssertTrue(repeatButton.label.contains("37,5 g"))
-        let destination = app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-destination-'")).firstMatch
-        XCTAssertTrue(destination.exists)
-        XCTAssertTrue(destination.label.contains("Frokost"))
+        XCTAssertTrue(app.buttons["Frokost ✓"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-destination-'")).firstMatch.exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Loggfør igjen – hurtigmeny med stor tekst"
         screenshot.lifetime = .keepAlways

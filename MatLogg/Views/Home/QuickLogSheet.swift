@@ -25,13 +25,14 @@ struct QuickLogSheet: View {
     let onManualAdd: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     let onSavedMealLogComplete: () -> Void
+    var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
         GeometryReader { geometry in
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 18) {
                     HStack {
-                        Text("Loggfør mat")
+                        Text(productSelectionContent == nil ? "Loggfør mat" : "Legg til i måltidet")
                             .font(AppTypography.title)
                             .foregroundColor(AppColors.deepInk)
                         Spacer()
@@ -59,14 +60,11 @@ struct QuickLogSheet: View {
                     .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
                     .accessibilityIdentifier("quick-log-manual")
 
-                    mealPicker
-
-                    reuseListPicker
-
-                    if selectedReuseList == .recent {
-                        recentContent
-                    } else {
-                        savedContent
+                    if productSelectionContent == nil {
+                        mealPicker
+                        reuseListPicker
+                        if selectedReuseList == .recent { recentContent }
+                        else { savedContent }
                     }
                 }
                 .padding(.horizontal, 20)
@@ -87,7 +85,10 @@ struct QuickLogSheet: View {
                     .padding(.bottom, 8)
             }
         }
-        .task(id: authViewModel.currentUser?.id) { await loadContent() }
+        .task(id: authViewModel.currentUser?.id) {
+            if productSelectionContent == nil { await loadContent() }
+            else { await viewModel.load(userId: authViewModel.currentUser?.id) }
+        }
         .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
         .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
         .onChange(of: authViewModel.currentUser?.id) { _, _ in
@@ -100,9 +101,13 @@ struct QuickLogSheet: View {
         }
         .onDisappear { viewModel.invalidateRepeatPresentation() }
         .sheet(item: $viewModel.selectedQuickProduct) { product in
+            if let productSelectionContent {
+                productSelectionContent(product)
+            } else {
             ProductDetailView(product: product, appState: appState) { payload in
                 dismiss()
                 onLogComplete(payload)
+            }
             }
         }
         .sheet(item: $selectedSavedMeal) { meal in
@@ -144,9 +149,6 @@ struct QuickLogSheet: View {
                                 Text("Sist logget: \(food.amountLabel)")
                                     .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                             }
-                            Text("Til \(selectedMealTitle) · \(logDateLabel)")
-                                .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                                .accessibilityIdentifier("quick-log-repeat-destination-\(food.id.uuidString)")
                         }
                         .frame(minHeight: 44)
                         .contentShape(Rectangle())
@@ -311,7 +313,7 @@ struct QuickLogSheet: View {
 
     private var mealPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Logg til: \(selectedMealTitle)")
+            Text("Måltid")
                 .font(AppTypography.bodyEmphasis)
                 .foregroundColor(AppColors.deepInk)
 
@@ -386,6 +388,7 @@ struct LoggingFlowView: View {
     @State private var destination: Destination?
     let onLogComplete: (ReceiptPayload) -> Void
     let onSavedMealLogComplete: () -> Void
+    var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
         QuickLogSheet(
@@ -396,20 +399,36 @@ struct LoggingFlowView: View {
             onSavedMealLogComplete: {
                 dismiss()
                 onSavedMealLogComplete()
-            }
+            },
+            productSelectionContent: productSelectionContent
         )
         .fullScreenCover(item: $destination, onDismiss: viewModel.finishManualCreation) { route in
             switch route {
             case .search:
-                RawMaterialsSearchView(onLogComplete: complete)
+                if productSelectionContent == nil {
+                    RawMaterialsSearchView(onLogComplete: complete)
+                } else {
+                NavigationStack {
+                    FoodSearchView(focusOnAppear: true, onScan: { destination = .scan },
+                        onLogComplete: complete, productSelectionContent: productSelectionContent)
+                        .navigationTitle("Søk")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Avbryt") { destination = nil }
+                            }
+                        }
+                }
+                }
             case .manual:
                 ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
             case .scan:
-                CameraView(onLogComplete: complete, onSearch: { destination = .search })
+                CameraView(onLogComplete: complete, onSearch: { destination = .search },
+                           productSelectionContent: productSelectionContent)
             }
         }
         .sheet(item: $viewModel.selectedManualProduct) { product in
-            ProductDetailView(product: product, appState: appState, onLogComplete: complete)
+            if let productSelectionContent { productSelectionContent(product) }
+            else { ProductDetailView(product: product, appState: appState, onLogComplete: complete) }
         }
     }
 

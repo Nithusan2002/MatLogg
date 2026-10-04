@@ -53,7 +53,8 @@ Kveldsmat som visningsnavn.
 | `background` | Sidens grunnflate. |
 | `surface` | Kort, skjema og ordinære innholdsflater. |
 | `warmSurface` | Varm sekundær fremheving. |
-| `energySurface` | Dempet blågrå flate for energi- og vannoversikten på Hjem, med ordinær primær- og sekundærtekst. |
+| `energySurface`, `energySurfaceEnd`, `energySurfaceGradient` | Korallsol: diagonal korall–aprikos-gradering for energi- og vannoversikten på Hjem (`#FFB5B9` → `#FFD8AE` i lys modus, `#542C33` → `#443121` i mørk modus). Flaten er lik uansett målstatus; vann beholder blå detaljer. |
+| `energyTextSecondary` | Kontrastsikker sekundærtekst på Korallsol (`#594B54` i lys modus, `#C9BDC3` i mørk modus). |
 | `mutedSurface` | Diskret status, valgt bakgrunn eller sekundær informasjon. |
 | `ink` | Primær tekst og ikoner. |
 | `deepInk` | Høyere visuell vekt på overskrifter og sentrale elementer. |
@@ -328,7 +329,12 @@ Tekst, poengtall og kortbakgrunn forblir nøytrale. Begge tokens har egne
 lys-/mørkmodusverdier; teksten forklarer alltid signalet uten farge.
 
 Produktinformasjon viser bearbeidingsgrad på kortets nøytrale `surface`,
-med `bodyEmphasis` for etiketten og `secondary`/`textSecondary` for status.
-Manglende klassifisering vises som «Ikke tilgjengelig». Klassifiseringsfarger
-brukes ikke i denne oversiktsraden; full kildebasert status og detaljforklaring
-beholdes. Kilde, hentetidspunkt og oppdatering samles under en skillelinje.
+med `bodyEmphasis` for etiketten. Gyldig klassifisering vises som en brikke
+med gruppenavn og NOVA-nummer, `secondaryEmphasis`/`ink`, 12 pt horisontal
+og 8 pt vertikal padding og 12 pt hjørneradius. Bakgrunnen bruker
+`processingUltraSurface` for NOVA 4 og `processingNonUltraSurface` for NOVA 1–3.
+Teksten kan brytes over flere linjer ved lange navn og Dynamic Type.
+Manglende klassifisering vises som «Ikke tilgjengelig» uten NOVA-nummer,
+med samme brikkeform og tekststil på nøytral grå `processingUnknownSurface`
+(lys: `#EEEEEE`, mørk: `#303030`). Raden viser «Kilde: Open Food Facts» i `caption`. Kildelenke,
+hentetidspunkt og oppdatering samles under en skillelinje.

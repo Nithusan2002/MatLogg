@@ -217,7 +217,7 @@ final class SavedMealsViewModel: ObservableObject {
     }
 
     @discardableResult
-    func update(_ meal: SavedMeal, name: String, amounts: [UUID: Float], removedItemIDs: Set<UUID>) async -> Bool {
+    func update(_ meal: SavedMeal, name: String, amounts: [UUID: Float], removedItemIDs: Set<UUID>, addedItems: [SavedMealItem] = []) async -> Bool {
         guard !isSaving, !isPreparingMutation, !isLoadingPhoto else { return false }
         guard meal.userId == userId else {
             errorMessage = "Måltidet tilhører en annen bruker."
@@ -227,7 +227,7 @@ final class SavedMealsViewModel: ObservableObject {
             errorMessage = "Gi det lagrede måltidet et navn på opptil 80 tegn."
             return false
         }
-        let kept = meal.items.filter { !removedItemIDs.contains($0.id) }
+        let kept = (meal.items + addedItems).filter { !removedItemIDs.contains($0.id) }
         guard !kept.isEmpty else {
             errorMessage = "Et lagret måltid må inneholde minst én matvare."
             return false

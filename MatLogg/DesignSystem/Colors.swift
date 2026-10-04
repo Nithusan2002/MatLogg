@@ -13,6 +13,7 @@ enum AppColors {
     // Source classification only; these colors do not express nutritional quality.
     static let processingNonUltraSurface = Color(UIColor.appProcessingNonUltraSurface)
     static let processingUltraSurface = Color(UIColor.appProcessingUltraSurface)
+    static let processingUnknownSurface = Color(UIColor.appProcessingUnknownSurface)
     static let info = Color(UIColor.appInfo)
     // Nutri-Score calculation contributions; not food safety or technical status.
     static let nutritionPositiveContribution = Color(UIColor.appNutritionPositiveContribution)
@@ -22,6 +23,13 @@ enum AppColors {
     static let deepInk = Color(UIColor.appDeepInk)
     static let energyTint = info
     static let energySurface = Color(UIColor.appEnergySurface)
+    static let energySurfaceEnd = Color(UIColor.appEnergySurfaceEnd)
+    static let energyTextSecondary = Color(UIColor.appEnergyTextSecondary)
+    static let energySurfaceGradient = LinearGradient(
+        colors: [energySurface, energySurfaceEnd],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
     static let calorieBlue = energyTint
     static let energyChart = Color(UIColor.appEnergyChart)
     static let action = Color(UIColor.appAction)
@@ -68,7 +76,9 @@ private extension UIColor {
     static let appBackground = UIColor.dynamic(light: 0xFFF5E8, dark: 0x17120F)
     static let appSurface = UIColor.dynamic(light: 0xFFFCF7, dark: 0x241C18)
     static let appWarmSurface = UIColor.dynamic(light: 0xFCEBDD, dark: 0x30231D)
-    static let appEnergySurface = UIColor.dynamic(light: 0xEDF3F4, dark: 0x202B30)
+    static let appEnergySurface = UIColor.dynamic(light: 0xFFB5B9, dark: 0x542C33)
+    static let appEnergySurfaceEnd = UIColor.dynamic(light: 0xFFD8AE, dark: 0x443121)
+    static let appEnergyTextSecondary = UIColor.dynamic(light: 0x594B54, dark: 0xC9BDC3)
     static let appMutedSurface = UIColor.dynamic(light: 0xF4EDE6, dark: 0x2A2420)
     static let appInk = UIColor.dynamic(light: 0x24192E, dark: 0xFFF8F1)
     static let appDeepInk = UIColor.dynamic(light: 0x231937, dark: 0xFFF8F1)
@@ -83,6 +93,7 @@ private extension UIColor {
     static let appSuccess = UIColor.dynamic(light: 0x20B889, dark: 0x42D3A7)
     static let appProcessingNonUltraSurface = UIColor.dynamic(light: 0xE7F4EC, dark: 0x20352B)
     static let appProcessingUltraSurface = UIColor.dynamic(light: 0xFBE9E7, dark: 0x3D2728)
+    static let appProcessingUnknownSurface = UIColor.dynamic(light: 0xEEEEEE, dark: 0x303030)
     static let appInfo = UIColor.dynamic(light: 0x35B8F4, dark: 0x62C9FA)
     static let appNutritionPositiveContribution = UIColor.dynamic(light: 0x16844A, dark: 0x63D493)
     static let appNutritionNegativeContribution = UIColor.dynamic(light: 0xC83E47, dark: 0xFF8790)

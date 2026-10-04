@@ -14,8 +14,8 @@ struct CardContainer<Content: View>: View {
     }
 }
 
-private struct MatLoggCardSurface: ViewModifier {
-    let fill: Color
+private struct MatLoggCardSurface<Fill: ShapeStyle>: ViewModifier {
+    let fill: Fill
     let cornerRadius: CGFloat
     let shadowEnabled: Bool
     let borderEnabled: Bool
@@ -40,8 +40,8 @@ private struct MatLoggCardSurface: ViewModifier {
 }
 
 extension View {
-    func matLoggCardSurface(
-        fill: Color = AppColors.surface,
+    func matLoggCardSurface<Fill: ShapeStyle>(
+        fill: Fill = AppColors.surface,
         cornerRadius: CGFloat = 18,
         shadowEnabled: Bool = true,
         borderEnabled: Bool = true

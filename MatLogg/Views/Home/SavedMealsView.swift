@@ -166,29 +166,15 @@ struct SavedMealsListView: View {
                             Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
                         }
                         ForEach(viewModel.meals) { meal in
-                            HStack {
-                                Button { selectedMeal = meal } label: {
-                                    SavedMealRow(meal: meal)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                Menu {
-                                    Button("Rediger") { editingMeal = meal }
-                                    Button("Slett", role: .destructive) { deleteCandidate = meal }
-                                } label: {
-                                    Image(systemName: "ellipsis.circle")
-                                        .frame(width: 44, height: 44)
-                                }
-                                .accessibilityLabel("Valg for \(meal.name)")
+                            Button { selectedMeal = meal } label: {
+                                SavedMealRow(meal: meal)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
                             }
-                            .swipeActions(edge: .trailing) {
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Slett", role: .destructive) { deleteCandidate = meal }
                                 Button("Rediger") { editingMeal = meal }.tint(AppColors.action)
-                            }
-                            .contextMenu {
-                                Button("Rediger") { editingMeal = meal }
-                                Button("Slett", role: .destructive) { deleteCandidate = meal }
                             }
                         }
                     }
@@ -258,6 +244,7 @@ private struct SavedMealLogContent: View {
     @StateObject private var detail: SavedMealDetailViewModel
     private var meal: SavedMeal { detail.meal }
     private let startsEditing: Bool
+    @State private var showAddFood = false
     @State private var didStart = false
     @State private var showDiscard = false
     @State private var closeAfterDiscard = false
@@ -279,7 +266,7 @@ private struct SavedMealLogContent: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                MatLoggSheetHeader(title: detail.isEditing ? "Endre måltid" : meal.name,
+                MatLoggSheetHeader(title: meal.name,
                                    isCloseDisabled: formState.isSaving || formState.isLoadingPhoto) {
                     requestExit(close: true)
                 }
@@ -287,37 +274,65 @@ private struct SavedMealLogContent: View {
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
+                HStack(spacing: 12) {
+                    Text(detail.isEditing ? "Redigerer" : "Måltidsdetaljer")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
+                    Spacer()
+                    editModeButton
+                        .disabled(formState.isSaving || formState.isLoadingPhoto)
+                        .accessibilityIdentifier("saved-meal-edit-toggle")
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Spacer()
-                            Button(detail.isEditing ? "Avbryt" : "Rediger") {
-                                if detail.isEditing { requestExit(close: false) }
-                                else { beginEditing() }
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Navn")
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                TextField("Navn på måltidet", text: Binding(
+                                    get: { detail.isEditing ? detail.name : meal.name },
+                                    set: { detail.name = $0 }
+                                ))
+                                .font(AppTypography.title)
+                                .disabled(!detail.isEditing)
+                                .accessibilityIdentifier("saved-meal-edit-name")
                             }
-                            .frame(minHeight: 44)
-                            .disabled(formState.isSaving || formState.isLoadingPhoto)
-                            .accessibilityIdentifier("saved-meal-edit-toggle")
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if detail.isEditing {
-                            TextField("Navn på måltidet", text: $detail.name)
-                                .font(AppTypography.title)
-                                .accessibilityIdentifier("saved-meal-edit-name")
-                            SavedMealPhotoPicker()
-                            Text("Endringene gjelder det lagrede måltidet. Tidligere loggføringer påvirkes ikke.")
-                                .font(AppTypography.caption)
-                                .foregroundStyle(AppColors.textSecondary)
+                            SavedMealPhotoPicker(isCompact: true)
                         } else if let data = meal.localImageData {
                             ProductHeroImageView(localData: data, height: 180)
+                                .allowsHitTesting(false)
                                 .accessibilityLabel("Bilde av \(meal.name)")
                         }
 
-                        if !detail.isEditing {
-                            targetPicker
-                            Text("Mengdeendringer her gjelder bare denne loggføringen.")
-                                .font(AppTypography.caption)
-                                .foregroundStyle(AppColors.textSecondary)
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Hele måltidet")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.deepInk)
+                                if let total = activePreview.total {
+                                    SavedMealNutritionSummary(nutrition: total)
+                                        .accessibilityIdentifier("saved-meal-nutrition-total")
+                                } else {
+                                    Text("Totalen vises når alle varene har gyldig mengde og næringsgrunnlag.")
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
+
+                        Text(detail.isEditing ? "Du endrer det lagrede måltidet." : "Mengdene gjelder denne loggføringen.")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        if !detail.isEditing { targetPicker }
 
                         CardContainer {
                             let items = detail.isEditing ? detail.visibleItems : itemsModel.sortedItems
@@ -344,6 +359,19 @@ private struct SavedMealLogContent: View {
                                                         .foregroundStyle(AppColors.textSecondary)
                                                 }
                                             }
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            if detail.isEditing {
+                                                Menu {
+                                                    Button("Fjern matvare", role: .destructive) { detail.remove(item) }
+                                                } label: {
+                                                    Image(systemName: "ellipsis.circle")
+                                                        .frame(width: 44, height: 44)
+                                                }
+                                                .accessibilityLabel("Valg for \(item.productName)")
+                                            } else {
+                                                Color.clear.frame(width: 44, height: 44)
+                                                    .accessibilityHidden(true)
+                                            }
                                         }
 
                                         VStack(alignment: .leading, spacing: 8) {
@@ -364,14 +392,6 @@ private struct SavedMealLogContent: View {
                                             .accessibilityLabel(item.productName)
                                         }
 
-                                        if detail.isEditing {
-                                            Menu {
-                                                Button("Fjern matvare", role: .destructive) { detail.remove(item) }
-                                            } label: {
-                                                Label("Valg", systemImage: "ellipsis.circle").frame(minHeight: 44)
-                                            }
-                                            .accessibilityLabel("Valg for \(item.productName)")
-                                        }
                                         if let nutrition = activePreview.nutritionByItem[item.id] {
                                             SavedMealNutritionSummary(nutrition: nutrition)
                                                 .accessibilityIdentifier("saved-meal-nutrition-\(item.id)")
@@ -381,6 +401,13 @@ private struct SavedMealLogContent: View {
                                                 .foregroundStyle(AppColors.actionText)
                                         }
                                     }
+                                }
+                                if detail.isEditing {
+                                    Divider().overlay(AppColors.separator)
+                                    Button("Legg til matvare", systemImage: "plus") { showAddFood = true }
+                                        .font(AppTypography.bodyEmphasis)
+                                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                        .accessibilityIdentifier("saved-meal-add-food")
                                 }
                             }
                         }
@@ -392,22 +419,7 @@ private struct SavedMealLogContent: View {
                         if detail.isEditing && (detail.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || detail.name.count > 80) {
                             Text("Gi måltidet et navn på opptil 80 tegn.").font(AppTypography.caption)
                         }
-                        CardContainer {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Hele måltidet")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundStyle(AppColors.deepInk)
-                                if let total = activePreview.total {
-                                    SavedMealNutritionSummary(nutrition: total)
-                                        .accessibilityIdentifier("saved-meal-nutrition-total")
-                                } else {
-                                    Text("Totalen vises når alle varene har gyldig mengde og næringsgrunnlag.")
-                                        .font(AppTypography.caption)
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+
                     }
                     .padding(16)
                 }
@@ -445,6 +457,14 @@ private struct SavedMealLogContent: View {
             }
             .interactiveDismissDisabled(formState.isSaving || detail.isEditing)
         }
+        .sheet(isPresented: $showAddFood) {
+            LoggingFlowView(onLogComplete: { _ in }, onSavedMealLogComplete: {},
+                productSelectionContent: { product in
+                    AnyView(SavedMealAddAmountView(product: product, detail: detail) {
+                        showAddFood = false
+                    })
+                })
+        }
         .alert("Forkaste endringene?", isPresented: $showDiscard) {
             Button("Forkast", role: .destructive) { finishEditing(close: closeAfterDiscard) }
             Button("Fortsett å redigere", role: .cancel) {}
@@ -454,7 +474,7 @@ private struct SavedMealLogContent: View {
             didStart = true
             if startsEditing { beginEditing() }
         }
-        .onDisappear { if detail.isEditing { viewModel.beginPhotoEditing() } }
+        .onDisappear { if detail.isEditing && !showAddFood { viewModel.beginPhotoEditing() } }
         .task(id: meal) {
             nutritionModel.update(meal)
             itemsModel.update(meal)
@@ -511,6 +531,33 @@ private struct SavedMealLogContent: View {
             .frame(maxWidth: .infinity)
             .accessibilityLabel("Logg til \(option.title)")
         }
+    }
+
+    @ViewBuilder
+    private var editModeButton: some View {
+        if #available(iOS 26.0, *) {
+            editModeButtonContent
+                .glassEffect(.regular.interactive(), in: Capsule())
+        } else {
+            editModeButtonContent
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().stroke(AppColors.controlBorder, lineWidth: 1))
+        }
+    }
+
+    private var editModeButtonContent: some View {
+        Button {
+            if detail.isEditing { requestExit(close: false) }
+            else { beginEditing() }
+        } label: {
+            Text(detail.isEditing ? "Avbryt" : "Rediger")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundStyle(AppColors.ink)
+                .padding(.horizontal, 20)
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private var activePreview: SavedMealNutritionPreview {
@@ -583,7 +630,6 @@ private struct SavedMealLogContent: View {
 }
 
 private struct SavedMealNutritionSummary: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let nutrition: NutritionBreakdown
 
     var body: some View {
@@ -591,19 +637,31 @@ private struct SavedMealNutritionSummary: View {
             Text("\(nutrition.calories.formatted(.number.precision(.fractionLength(0)).locale(Locale(identifier: "nb_NO")))) kcal")
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.deepInk)
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-            layout {
-                Text("Protein \(grams(nutrition.protein)) g")
-                Text("Karbohydrat \(grams(nutrition.carbs)) g")
-                Text("Fett \(grams(nutrition.fat)) g")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { nutrientPills }
+                VStack(alignment: .leading, spacing: 8) { nutrientPills }
             }
-            .font(AppTypography.caption)
-            .foregroundStyle(AppColors.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
+
         }
         .accessibilityElement(children: .combine)
+    }
+
+    private var nutrientPills: some View {
+        Group {
+            nutrientPill("Protein", value: nutrition.protein, tint: AppColors.macroProteinTint)
+            nutrientPill("Karbohydrat", value: nutrition.carbs, tint: AppColors.macroCarbTint)
+            nutrientPill("Fett", value: nutrition.fat, tint: AppColors.macroFatTint)
+        }
+    }
+
+    private func nutrientPill(_ label: String, value: Float, tint: Color) -> some View {
+        Text("\(label) \(grams(value)) g")
+            .font(AppTypography.captionEmphasis)
+            .foregroundStyle(AppColors.deepInk)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(tint.opacity(0.12), in: Capsule())
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func grams(_ value: Float) -> String {
@@ -695,17 +753,25 @@ private func hideKeyboard() {
 }
 
 private struct SavedMealPhotoPicker: View {
+    var isCompact = false
     @EnvironmentObject private var viewModel: SavedMealsViewModel
     @State private var selection: PhotosPickerItem?
 
     var body: some View {
-        let pickerTitle = viewModel.photoData == nil ? "Legg ved bilde" : "Bytt bilde"
+        let pickerTitle = viewModel.photoData == nil ? "Legg til bilde" : "Endre bilde"
         return VStack(alignment: .leading, spacing: 8) {
-            Text("Bilde (valgfritt)")
-                .font(AppTypography.sectionTitle)
-                .foregroundStyle(AppColors.deepInk)
+            if !isCompact {
+                Text("Bilde (valgfritt)")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundStyle(AppColors.deepInk)
+            }
             if let image = viewModel.photoPreview {
-                ProductHeroImageView(image: image, height: 160)
+                ProductHeroImageView(image: image, height: isCompact ? 180 : 160)
+                    .allowsHitTesting(false)
+                    .accessibilityLabel("Valgt måltidsbilde")
+            } else if isCompact, let data = viewModel.photoData {
+                ProductHeroImageView(localData: data, height: 180)
+                    .allowsHitTesting(false)
                     .accessibilityLabel("Valgt måltidsbilde")
             }
             PhotosPicker(selection: $selection, matching: .images) {
@@ -728,12 +794,64 @@ private struct SavedMealPhotoPicker: View {
             if let error = viewModel.photoError {
                 ErrorMessageView(error).font(AppTypography.caption)
             }
-            Text("Bildet lagres bare på denne enheten og synkroniseres ikke.")
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColors.textSecondary)
+            if !isCompact {
+                Text("Bildet lagres bare på denne enheten og synkroniseres ikke.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
         }
         .onChange(of: selection) { _, item in
             if let item { Task { await viewModel.loadPhoto(item) } }
+        }
+    }
+}
+
+private struct SavedMealAddAmountView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var detail: SavedMealDetailViewModel
+    @StateObject private var amount: AmountSelectionViewModel
+    @State private var error: String?
+    let product: Product
+    let onAdded: () -> Void
+
+    init(product: Product, detail: SavedMealDetailViewModel, onAdded: @escaping () -> Void) {
+        self.product = product
+        self.detail = detail
+        self.onAdded = onAdded
+        let existing = detail.existingItem(for: product)
+        _amount = StateObject(wrappedValue: AmountSelectionViewModel(
+            unit: existing?.resolvedAmountUnit ?? product.amountUnit,
+            amount: Double(existing.flatMap { detail.nutrition.preview.validAmounts?[$0.id] } ?? 100)))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(detail.existingItem(for: product)?.productName ?? product.name)
+                        .font(AppTypography.bodyEmphasis)
+                    AmountInputRow(gramsText: $amount.text, unit: amount.unit.rawValue)
+                    if !amount.isValid { Text("Skriv en mengde over 0 og høyst 10 000 i oppgitt enhet.") }
+                    if detail.existingItem(for: product) != nil {
+                        Text("Matvaren finnes allerede. Mengden på eksisterende rad oppdateres.")
+                    }
+                    if let error { ErrorMessageView(error) }
+                }
+            }
+            .navigationTitle("Mengde")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                PrimaryButton(title: detail.existingItem(for: product) == nil ? "Legg til i måltidet" : "Oppdater mengde") {
+                    guard let value = amount.amount else { return }
+                    if detail.add(product, amount: Float(value)) { onAdded() }
+                    else { error = "Matvaren mangler et gyldig næringsgrunnlag." }
+                }
+                .disabled(!amount.isValid)
+                .padding(16)
+                .background(AppColors.background)
+            }
         }
     }
 }

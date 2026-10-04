@@ -28,7 +28,7 @@ final class SavedMealDetailUITests: XCTestCase {
         XCTAssertTrue(app.alerts["Forkaste endringene?"].waitForExistence(timeout: 5))
         app.alerts.buttons["Forkast"].tap()
         XCTAssertEqual(toggle.label, "Rediger")
-        XCTAssertFalse(name.exists)
+        XCTAssertFalse(name.isEnabled)
         XCTAssertTrue(app.buttons["saved-meal-log"].exists)
         toggle.tap()
         XCTAssertEqual(name.value as? String, "Yoghurtbolle med havre og blåbær")

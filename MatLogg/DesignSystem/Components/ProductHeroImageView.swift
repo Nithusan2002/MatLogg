@@ -57,6 +57,7 @@ struct ProductHeroImageView: View {
             .clipped()
         }
         .frame(height: height)
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .task(id: ImageIdentity(url: url, data: localData)) {
             guard image == nil else { return }
             await viewModel.load(url: url, localData: localData, repository: repository, maximumPixelSize: 1200)

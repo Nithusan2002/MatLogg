@@ -43,7 +43,7 @@ final class MatLoggUITests: XCTestCase {
         }
         XCTAssertTrue(lunch.isHittable)
         lunch.tap()
-        XCTAssertTrue(app.staticTexts["Logg til: Lunsj"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Lunsj ✓"].waitForExistence(timeout: 5))
         app.buttons["Lukk"].tap()
         for _ in 0..<8 {
             if app.buttons["Forrige dag"].isHittable { break }
@@ -355,7 +355,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Søk etter mat"].exists)
         XCTAssertTrue(app.buttons["Skann strekkode"].exists)
         XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Logg til:'")).firstMatch.exists
+            app.staticTexts["Måltid"].exists
         )
     }
 

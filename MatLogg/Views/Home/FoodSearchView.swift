@@ -20,12 +20,14 @@ struct FoodSearchView: View {
     let onScan: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     var onSavedMealLogComplete: () -> Void = {}
+    var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
         if let repository {
             FoodSearchContent(repository: repository, isTab: isTab, focusOnAppear: focusOnAppear, isFirstLog: isFirstLog,
                               onScan: onScan, onLogComplete: onLogComplete,
-                              onSavedMealLogComplete: onSavedMealLogComplete)
+                              onSavedMealLogComplete: onSavedMealLogComplete,
+                              productSelectionContent: productSelectionContent)
         } else {
             ContentUnavailableView("Søk er utilgjengelig", systemImage: "magnifyingglass")
         }
@@ -41,6 +43,7 @@ private struct FoodSearchContent: View {
     @State private var showManualProduct = false
     @FocusState private var searchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private let productSelectionContent: ((Product) -> AnyView)?
     private let isTab: Bool
     private let focusOnAppear: Bool
     private let isFirstLog: Bool
@@ -51,8 +54,10 @@ private struct FoodSearchContent: View {
     init(repository: any FoodSearchRepository, isTab: Bool, focusOnAppear: Bool, isFirstLog: Bool,
          onScan: @escaping () -> Void,
          onLogComplete: @escaping (ReceiptPayload) -> Void,
-         onSavedMealLogComplete: @escaping () -> Void) {
+         onSavedMealLogComplete: @escaping () -> Void,
+         productSelectionContent: ((Product) -> AnyView)?) {
         _viewModel = StateObject(wrappedValue: FoodSearchViewModel(repository: repository))
+        self.productSelectionContent = productSelectionContent
         self.isTab = isTab
         self.focusOnAppear = focusOnAppear
         self.isFirstLog = isFirstLog
@@ -62,12 +67,14 @@ private struct FoodSearchContent: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: isTab && !dynamicTypeSize.isAccessibilitySize ? 0 : 16) {
             if !isFirstLog && !dynamicTypeSize.isAccessibilitySize {
                 searchControls.padding(.horizontal, 16)
             }
             if isTab {
-                searchList.matLoggTabBarScrollClearance()
+                searchList
+                    .contentMargins(.top, 0, for: .scrollContent)
+                    .matLoggTabBarScrollClearance()
             } else {
                 searchList
             }
@@ -88,7 +95,11 @@ private struct FoodSearchContent: View {
             viewModel.suspend()
         }
         .sheet(item: $viewModel.selectedProduct, onDismiss: { Task { await reload() } }) { product in
-            ProductDetailView(product: product, appState: appState, onLogComplete: onLogComplete)
+            if let productSelectionContent {
+                productSelectionContent(product)
+            } else {
+                ProductDetailView(product: product, appState: appState, onLogComplete: onLogComplete)
+            }
         }
         .sheet(isPresented: $showSavedMeals, onDismiss: { Task { await reload() } }) {
             SavedMealsListView {
@@ -149,6 +160,8 @@ private struct FoodSearchContent: View {
                 } else {
                     HStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
                 }
+            } else if productSelectionContent != nil {
+                searchButton
             } else if dynamicTypeSize.isAccessibilitySize {
                 VStack(spacing: 8) { searchButton; scanButton }
             } else {
@@ -157,7 +170,7 @@ private struct FoodSearchContent: View {
                     VStack(spacing: 8) { searchButton; scanButton }
                 }
             }
-            if !isFirstLog { manualRegistrationButton }
+            if !isFirstLog && productSelectionContent == nil { manualRegistrationButton }
             searchStatus
         }
     }

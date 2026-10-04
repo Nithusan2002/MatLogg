@@ -732,3 +732,11 @@ redigeringsmodus. Redigeringskladden starter fra lagret mal, adskilt fra mengder
 valgt for én loggføring. Avbryt forkaster kladden etter bekreftelse ved endringer;
 vellykket lagring returnerer til oppdatert visning. Eksisterende repositories,
 local-first-lagring og synkkontrakt beholdes. Nye matvarer i malen er utenfor scope.
+
+## 2026-10-04 – Nye matvarer i lagret måltidskladd
+
+Redigeringsmodus utvides med matsøk og eget mengdevalg som legger matvarer i
+kladden uten logging. Valg av eksisterende produkt oppdaterer mengden på
+samme rad uten summering. Kilde, dokumentert enhet og næringssnapshot bevares;
+hele malen lagres atomisk med eksisterende repository og synkhendelse.
+Skanning, manuell registrering og porsjonsvelger inngår ikke i denne flyten.

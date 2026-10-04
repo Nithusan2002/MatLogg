@@ -15,11 +15,10 @@ Første versjon omfatter:
 - «Lagrede måltider» fra «Legg til» i Logg, med valgt dato og måltidskategori
 - forhåndsvisning og mengdejustering før logging
 - logging til valgt dato og måltidskategori, også når måltidet har innhold fra før
-- endring av navn/mengder, fjerning av varer og sletting av malen
+- endring av navn/mengder, tillegg og fjerning av varer og sletting av malen
 - kompakt lokal kvittering og atomisk angre
 
-Det er ikke støtte for å bygge en ny mal fra et tomt lerret, legge til nye varer
-i en eksisterende mal, mapper, deling, porsjonsskalering eller
+Det er ikke støtte for å bygge en ny mal fra et tomt lerret, mapper, deling, porsjonsskalering eller
 oppskriftstekst i denne versjonen.
 
 ## Flyt og design
@@ -119,11 +118,41 @@ Produksjonssynk forblir deaktivert.
 ### Samlet detalj og redigering av lagrede måltider
 
 Et lagret måltid åpnes i én detaljflate. «Rediger» bytter samme flate til
-redigeringsmodus; menyens «Rediger» åpner denne modusen direkte. Navn, bilde,
+redigeringsmodus; sveipehandlingen «Rediger» åpner denne modusen direkte. Navn, bilde,
 mengder og fjerning av matvarer redigeres i en kladd. Dato og måltidskategori
 skjules under redigering. «Lagre endringer» lagrer lokalt og går tilbake til
 oppdatert visning. Feil beholder kladden. «Avbryt» eller lukk ber om bekreftelse
 før endrede verdier forkastes. Sveip for å lukke er deaktivert under redigering.
 Mengdejustering før logging gjelder bare aktuell loggføring; redigeringskladden
 starter alltid fra den lagrede malen. Tidligere loggføringer påvirkes ikke.
-Å legge til nye matvarer i malen er fortsatt utenfor scope.
+Nye matvarer kan legges til i redigeringskladden.
+
+Oversikten bruker trykk på raden for å åpne detaljen og sveip til venstre for
+«Rediger» og «Slett». Det finnes ingen separat ⋯-meny eller langt-trykk-meny.
+Fullt sveip utløser ingen handling; «Slett» krever fortsatt bekreftelse.
+
+Detaljflaten beholder måltidsnavnet som tittel i begge moduser. «Rediger»/
+«Avbryt» ligger fast over scrollinnholdet sammen med modusmarkeringen.
+Navnet vises i samme felt, skrivebeskyttet før logging. Eksisterende bilde har
+samme høyde (180 pt) i begge moduser; redigering viser kompakte bildehandlinger.
+Forklaringen står på samme plass før den valgfrie loggdestinasjonen.
+Matvarenes handlingsmeny ligger ved produktnavnet, med reservert plass også
+utenfor redigeringsmodus, slik at radstruktur og navnebryting beholdes.
+
+«Hele måltidet» vises rett etter bildeområdet (etter navnet når bilde mangler)
+i både visning og redigering, før modusforklaring, loggdestinasjon og matvarer.
+Totalen følger fortsatt de valgte mengdene og varene i aktiv modus.
+
+### Legg til matvarer i redigeringskladden
+
+«Legg til matvare» åpner eksisterende søk med favoritter og nylig brukte varer,
+etterfulgt av mengdevalg i produktets dokumenterte enhet. Valget legger varen
+bare i kladden; ingen matlogg opprettes. En eksisterende vare åpner med lagret
+kladdmengde og oppdateres uten automatisk summering eller duplikat.
+Totalen oppdateres umiddelbart. «Lagre endringer» lagrer hele malen atomisk
+med eksisterende savedMeal-upsert-hendelse. Avbryt forkaster også nye varer.
+Velgeren bruker samme valgflate som Loggfør: søk, skanning og manuell
+produktregistrering. Dato, måltidskategori og gjenbruk av måltider skjules.
+Alle tre veier åpner mengdevalg for kladden uten matlogging. Manuell
+registrering lagrer produktet i eget matvarebibliotek før mengdevalg; avbryt
+av måltidskladden sletter ikke den registrerte matvaren.

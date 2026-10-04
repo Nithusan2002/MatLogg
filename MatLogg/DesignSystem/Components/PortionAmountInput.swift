@@ -3,7 +3,8 @@ import SwiftUI
 struct PortionAmountInput: View {
     @ObservedObject var model: AmountSelectionViewModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private let amountControlWidth: CGFloat = 100
+    @State private var showsServingSource = false
+    @ScaledMetric(relativeTo: .body) private var amountControlWidth: CGFloat = 120
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -24,7 +25,8 @@ struct PortionAmountInput: View {
                         Image(systemName: "chevron.down")
                     }
                     .padding(.horizontal, 12)
-                    .frame(width: model.selectedServing == nil ? amountControlWidth : nil)
+                    .frame(width: amountControlWidth)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 44)
                     .background(AppColors.surface)
                     .overlay {
@@ -43,6 +45,7 @@ struct PortionAmountInput: View {
                 if dynamicTypeSize.isAccessibilitySize {
                     countLabel
                     countControls
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 } else {
                     HStack(spacing: 8) {
                         countLabel
@@ -50,26 +53,45 @@ struct PortionAmountInput: View {
                         countControls
                     }
                 }
+                HStack {
+                    decreaseButton
+                    Spacer(minLength: 0)
+                    increaseButton
+                }
+                .frame(width: amountControlWidth)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             } else {
                 amountField
             }
-            if let serving = model.selectedServing {
-                Text("\(PortionDisplay.number(serving.grams)) \(model.unit.rawValue) per \(displayLabel(serving.portionLabel).lowercased())")
-                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                Text(sourceLabel(serving.source))
-                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-            }
-            if let summary = model.amountSummary {
-                Text(summary)
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundStyle(AppColors.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityLabel("Valgt mengde: \(summary)")
-                    .accessibilityIdentifier("portion-total")
+            if model.selectedServing != nil, let summary = model.amountSummary {
+                HStack {
+                    Text(summary)
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("Valgt mengde: \(summary)")
+                        .accessibilityIdentifier("portion-total")
+                    Spacer(minLength: 8)
+                    Button { showsServingSource = true } label: {
+                        Image(systemName: "info.circle")
+                            .font(AppTypography.body)
+                            .frame(width: 44, height: 44)
+                    }
+                    .foregroundStyle(AppColors.textSecondary)
+                    .accessibilityLabel("Vis kilde for porsjonsstørrelsen")
+                    .accessibilityIdentifier("portion-source-info")
+                }
             }
             if !model.isValid {
                 Text("Skriv en gyldig mengde. Totalen må være større enn 0 og høyst 10 000 \(model.unit.rawValue).")
                     .font(AppTypography.caption).foregroundStyle(AppColors.action)
+            }
+        }
+        .alert("Porsjonsgrunnlag", isPresented: $showsServingSource) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            if let serving = model.selectedServing {
+                Text("\(PortionDisplay.number(serving.grams)) \(model.unit.rawValue) per \(displayLabel(serving.portionLabel).lowercased()).\n\n\(sourceLabel(serving.source))")
             }
         }
     }
@@ -87,11 +109,8 @@ struct PortionAmountInput: View {
     }
 
     private var countControls: some View {
-        HStack(spacing: 4) {
-            decreaseButton
-            AmountInputRow(title: "Antall", gramsText: $model.text, unit: "", showsTitle: false)
-            increaseButton
-        }
+        AmountInputRow(title: "Antall", gramsText: $model.text, unit: "", showsTitle: false,
+                       controlWidth: amountControlWidth)
     }
 
     private func sourceLabel(_ source: ServingSource) -> String {

@@ -623,9 +623,11 @@ menyknapp for redigering og sletting. Eksisterende komponenter og tokens gjenbru
 
 ### Produktkort: antall og porsjoner (2026-10-02)
 
-Mengdekortet har en meny for gram/ml og dokumenterte porsjoner. Porsjon viser
-Antall med −/+, mengde per porsjon, kilde og total. Ved tilgjengelighetsstørrelser
-ligger −/+ på egen rad. Loggredigering åpnes i stor sheet ved stor tekst for
+Mengdekortet har en meny for gram/ml og dokumenterte porsjoner. Enhetsvelgeren
+viser bare navnet på valgt enhet eller porsjon. Antall har −/+ på egen rad,
+bare ved porsjonsvalg. Totalen vises for porsjoner; gram/ml gjentas ikke under
+mengdefeltet. Porsjonsstørrelse og kilde åpnes via en infoknapp ved totalen.
+Loggredigering åpnes i stor sheet ved stor tekst for
 å beholde en brukbar rulleflate. Historiske logger åpner sitt lagrede grunnlag.
 
 ### Loggfør-arkets rulleflate (2026-10-04)

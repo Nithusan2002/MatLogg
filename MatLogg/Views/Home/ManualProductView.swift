@@ -99,11 +99,13 @@ struct ManualProductView: View {
                 }
                 photoControls.disabled(viewModel.isSaving)
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
-                Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
-                    .font(AppTypography.caption)
-                    .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.errorText : AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
+                if viewModel.name.count >= ManualProductViewModel.maximumNameLength - 10 {
+                    Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
+                        .font(AppTypography.caption)
+                        .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.errorText : AppColors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
+                }
                 if viewModel.name.count > ManualProductViewModel.maximumNameLength {
                     ErrorMessageView("Produktnavnet er for langt")
                         .font(AppTypography.caption)
@@ -155,7 +157,7 @@ struct ManualProductView: View {
                         .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Verdier \(viewModel.nutritionContext) fra emballasjen.")
+                    Text("Velg samme næringsgrunnlag som på emballasjen og fyll inn verdiene derfra.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -176,8 +178,6 @@ struct ManualProductView: View {
                         Text("ml").tag(AmountUnit.milliliters)
                     }
                     .pickerStyle(.segmented)
-                    Text("Næringsverdiene gjelder én porsjon med størrelsen du oppgir.")
-                        .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
                 }
                 field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .numberPad)
                 field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)

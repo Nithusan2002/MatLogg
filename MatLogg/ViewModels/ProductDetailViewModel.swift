@@ -214,7 +214,12 @@ nonisolated struct ProductProcessingPresentation {
             return
         }
         isUltraProcessed = group == 4
-        status = group == 4 ? "Klassifisert som ultraprosessert" : "Ikke klassifisert som ultraprosessert"
+        switch group {
+        case 1: status = "Minimalt bearbeidet"
+        case 2: status = "Bearbeidet matlagingsingrediens"
+        case 3: status = "Bearbeidet"
+        default: status = "Ultraprosessert"
+        }
         explanation = "Open Food Facts plasserer produktet i NOVA \(group): \(description)."
         if info.markerNames.isEmpty {
             basis = "Open Food Facts oppgir en klassifisering, men vi har ikke en detaljert forklaring for dette produktet."

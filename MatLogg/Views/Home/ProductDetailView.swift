@@ -42,7 +42,6 @@ private struct ProductDetailContent: View {
     private var isFavorite: Bool { detailModel.isFavorite }
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
-    @State private var showSourceInfo = false
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
     private var isLogging: Bool { detailModel.isLogging }
@@ -67,17 +66,6 @@ private struct ProductDetailContent: View {
                         .frame(minWidth: 44, minHeight: 44)
                     }
                     Spacer()
-
-                    if preferencesViewModel.showNutritionSource
-                        || product.nutritionSource == .openFoodFacts
-                        || product.imageSource == .openFoodFacts {
-                        Button(action: { showSourceInfo = true }) {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 18))
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
 
                     Button(action: toggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -184,10 +172,35 @@ private struct ProductDetailContent: View {
                                             VStack(alignment: .leading, spacing: 6) {
                                                 Text("Bearbeidingsgrad")
                                                     .font(AppTypography.bodyEmphasis)
-                                                Text(detailModel.processingPresentation?.isUltraProcessed == nil
-                                                     ? "Ikke tilgjengelig"
-                                                     : detailModel.processingPresentation?.status ?? "Ikke tilgjengelig")
-                                                    .font(AppTypography.secondary)
+                                                if let presentation = detailModel.processingPresentation,
+                                                   let isUltraProcessed = presentation.isUltraProcessed,
+                                                   let info = detailModel.processingInfo {
+                                                    Text(info.groupTitle)
+                                                        .font(AppTypography.secondaryEmphasis)
+                                                        .foregroundColor(AppColors.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(
+                                                            isUltraProcessed
+                                                                ? AppColors.processingUltraSurface
+                                                                : AppColors.processingNonUltraSurface,
+                                                            in: RoundedRectangle(cornerRadius: 12)
+                                                        )
+                                                } else {
+                                                    Text("Ikke tilgjengelig")
+                                                        .font(AppTypography.secondaryEmphasis)
+                                                        .foregroundColor(AppColors.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(
+                                                            AppColors.processingUnknownSurface,
+                                                            in: RoundedRectangle(cornerRadius: 12)
+                                                        )
+                                                }
+                                                Text("Kilde: Open Food Facts")
+                                                    .font(AppTypography.caption)
                                                     .foregroundColor(AppColors.textSecondary)
                                             }
                                             Spacer(minLength: 8)
@@ -202,11 +215,11 @@ private struct ProductDetailContent: View {
                                     .accessibilityIdentifier("productProcessingInfo")
                                     .accessibilityHint("Åpner forklaring, ingredienser og kilde")
                                 }
-                                if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts || detailModel.canRefresh {
+                                if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts || detailModel.canRefresh {
                                     Divider()
                                     VStack(alignment: .leading, spacing: 4) {
                                         if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
-                                           let sourceURL = URL(string: "https://world.openfoodfacts.org") {
+                                           let sourceURL = detailModel.processingSourceURL ?? URL(string: "https://world.openfoodfacts.org") {
                                             Link(destination: sourceURL) {
                                                 Label("Data fra Open Food Facts", systemImage: "link")
                                                     .font(AppTypography.caption)
@@ -214,6 +227,24 @@ private struct ProductDetailContent: View {
                                                     .frame(minHeight: 44, alignment: .leading)
                                             }
                                             .accessibilityHint("Åpner kilden i nettleseren")
+                                        }
+
+                                        if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts {
+                                            Text("Næringskilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                                .font(AppTypography.caption)
+                                                .foregroundStyle(AppColors.textSecondary)
+                                            if product.imageSource != .none,
+                                               !(product.imageSource == .openFoodFacts && product.nutritionSource == .openFoodFacts),
+                                               !(product.imageSource == .user && product.nutritionSource == .user) {
+                                                Text("Bildekilde: \(product.imageSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundStyle(AppColors.textSecondary)
+                                            }
+                                            if let updatedAt = product.sourceUpdatedAt {
+                                                Text("Oppdatert hos kilden: \(updatedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundStyle(AppColors.textSecondary)
+                                            }
                                         }
 
                                         if detailModel.canRefresh {
@@ -308,9 +339,6 @@ private struct ProductDetailContent: View {
         }
         .sheet(isPresented: $showImagePreview) {
             ImagePreviewView(imageUrl: product.imageUrl, localData: product.localImageData)
-        }
-        .sheet(isPresented: $showSourceInfo) {
-            ProductSourceInfoView(product: product)
         }
         .sheet(isPresented: $showNutriScoreInfo) {
             ProductNutriScoreSheet(productName: product.name, info: detailModel.nutriScoreInfo,
@@ -419,121 +447,6 @@ struct ImagePreviewView: View {
         }
     }
 }
-
-struct ProductSourceInfoView: View {
-    let product: Product
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    infoRow(title: "Næringskilde", value: sourceLabel(product.nutritionSource))
-                    infoRow(title: "Bildekilde", value: sourceLabel(product.imageSource))
-                    infoRow(title: "Kontroll av næringstall", value: verificationLabel(product.verificationStatus))
-                    if let confidenceScore = product.confidenceScore {
-                        infoRow(title: "Likhet med matvaren", value: String(format: "%.2f", locale: Locale(identifier: "nb_NO"), confidenceScore))
-                    }
-                    if let sourceUpdatedAt = product.sourceUpdatedAt {
-                        infoRow(
-                            title: "Sist oppdatert hos kilden",
-                            value: sourceUpdatedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
-                        )
-                    }
-
-                    if let fetchedAt = product.fetchedAt {
-                        infoRow(title: "Sist hentet til enheten",
-                                value: fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))
-                    }
-
-                    Text("Her ser du hvor opplysningene kommer fra. Næringstallene kan inneholde feil eller være utdaterte.")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.top, 8)
-
-                    if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts {
-                        if let sourceURL = URL(string: "https://world.openfoodfacts.org") {
-                            Link("Åpne Open Food Facts", destination: sourceURL)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.actionText)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                        if let licenseURL = URL(string: "https://opendatacommons.org/licenses/odbl/1-0/") {
-                            Link("Database: Open Database License", destination: licenseURL)
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.actionText)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                        if product.imageSource == .openFoodFacts,
-                           let imageLicenseURL = URL(string: "https://creativecommons.org/licenses/by-sa/3.0/") {
-                            Link("Bilder: CC BY-SA 3.0", destination: imageLicenseURL)
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.actionText)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                    }
-                }
-            }
-            .padding(16)
-            .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("Kilder")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.actionText)
-                }
-            }
-        }
-    }
-
-    private func infoRow(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-            Text(value)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.ink)
-        }
-        .padding(12)
-        .background(AppColors.surface)
-        .cornerRadius(12)
-    }
-
-    private func sourceLabel(_ source: NutritionSource) -> String {
-        switch source {
-        case .matvaretabellen:
-            return "Matvaretabellen"
-        case .openFoodFacts:
-            return "Open Food Facts"
-        case .user:
-            return "Bruker"
-        }
-    }
-
-    private func sourceLabel(_ source: ImageSource) -> String {
-        switch source {
-        case .openFoodFacts:
-            return "Open Food Facts"
-        case .user:
-            return "Bruker"
-        case .none:
-            return "Ingen"
-        }
-    }
-
-    private func verificationLabel(_ status: VerificationStatus) -> String {
-        switch status {
-        case .verified:
-            return "Kontrollert"
-        case .unverified:
-            return "Ikke kontrollert"
-        case .suggestedMatch:
-            return "Foreslått treff"
-        }
-    }
-}
-
 
 // MARK: - Supporting Views
 
@@ -767,7 +680,7 @@ private struct ProductProcessingInfoSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(AppColors.background)
-            .navigationTitle("Ultraprosessert mat")
+            .navigationTitle("Bearbeidingsgrad")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {

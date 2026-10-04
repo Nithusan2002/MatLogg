@@ -6,6 +6,46 @@ import ImageIO
 
 @MainActor
 struct SavedMealsTests {
+    @Test func addedFoodSavesTemplateWithoutCreatingLogs() async {
+        let fixture = SavedMealsFixture()
+        fixture.repository.savedMeals = [fixture.meal]
+        await fixture.vm.load(userId: fixture.userId)
+        let detail = SavedMealDetailViewModel(meal: fixture.meal)
+        detail.beginEditing()
+        let product = Product(name: "Ny matvare", caloriesPer100g: 100,
+            proteinGPer100g: 5, carbsGPer100g: 10, fatGPer100g: 2)
+        #expect(detail.add(product, amount: 150))
+        #expect(detail.visibleItems.count == 2)
+        #expect(detail.nutrition.preview.total?.calories == 350)
+        #expect(detail.add(product, amount: 200))
+        #expect(detail.visibleItems.count == 2)
+        #expect(await detail.save(using: fixture.vm))
+        #expect(detail.meal.items.count == 2)
+        #expect(detail.meal.items.last?.amountG == 200)
+        #expect(detail.meal.items.last?.calories == 200)
+        #expect(detail.meal.items.last?.nutritionSource == product.nutritionSource)
+        #expect(fixture.repository.savedLogs.isEmpty)
+    }
+
+    @Test func addedFoodIsDiscardedAndExistingDraftAmountsSurviveRemoval() {
+        let fixture = SavedMealsFixture()
+        let detail = SavedMealDetailViewModel(meal: fixture.meal)
+        let product = Product(name: "Ny matvare", caloriesPer100g: 100,
+            proteinGPer100g: 5, carbsGPer100g: 10, fatGPer100g: 2)
+        detail.beginEditing()
+        detail.nutrition.setAmount(itemID: fixture.meal.items[0].id, text: "75")
+        #expect(!detail.add(product, amount: 0))
+        #expect(detail.add(product, amount: 150))
+        #expect(detail.nutrition.preview.validAmounts?[fixture.meal.items[0].id] == 75)
+        detail.remove(detail.addedItems[0])
+        #expect(detail.visibleItems.count == 1)
+        #expect(detail.nutrition.preview.validAmounts?[fixture.meal.items[0].id] == 75)
+        detail.cancelEditing()
+        detail.beginEditing()
+        #expect(detail.addedItems.isEmpty)
+        #expect(!detail.hasChanges(photoData: nil))
+    }
+
     @Test func detailSaveReturnsToUpdatedView() async throws {
         let fixture = SavedMealsFixture()
         fixture.repository.savedMeals = [fixture.meal]

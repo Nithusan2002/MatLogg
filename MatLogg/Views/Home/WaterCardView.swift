@@ -42,7 +42,7 @@ struct WaterCardView: View {
                 }
             }
         }
-        .foregroundStyle(AppColors.textSecondary)
+        .foregroundStyle(embedded ? AppColors.energyTextSecondary : AppColors.textSecondary)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: viewModel.mutationRevision)
     }
 
@@ -69,7 +69,7 @@ struct WaterCardView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(embedded ? "Vann" : waterTitle)
                         .font(AppTypography.captionEmphasis)
-                        .foregroundStyle(AppColors.textSecondary)
+                        .foregroundStyle(embedded ? AppColors.energyTextSecondary : AppColors.textSecondary)
                     Text(viewModel.isLoaded ? "\(viewModel.glasses.count) glass" : "Henter …")
                         .font(compact ? AppTypography.bodyEmphasis : AppTypography.title)
                         .foregroundStyle(AppColors.deepInk)
@@ -90,18 +90,20 @@ struct WaterCardView: View {
 
     private var waterControls: some View {
         HStack(spacing: 8) {
-            Button { Task { await viewModel.remove() } } label: {
-                Image(systemName: "minus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(AppColors.deepInk)
-                    .background(AppColors.mutedSurface, in: Circle())
-                    .overlay(Circle().strokeBorder(AppColors.separator, lineWidth: 1))
+            if !viewModel.glasses.isEmpty {
+                Button { Task { await viewModel.remove() } } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .foregroundStyle(AppColors.deepInk)
+                        .background(AppColors.mutedSurface, in: Circle())
+                        .overlay(Circle().strokeBorder(AppColors.separator, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(!viewModel.isLoaded || viewModel.glasses.isEmpty || viewModel.isBusy)
+                .accessibilityLabel("Fjern ett glass vann")
+                .accessibilityIdentifier("water-remove")
             }
-            .buttonStyle(.plain)
-            .disabled(!viewModel.isLoaded || viewModel.glasses.isEmpty || viewModel.isBusy)
-            .accessibilityLabel("Fjern ett glass vann")
-            .accessibilityIdentifier("water-remove")
             addButton
         }
     }

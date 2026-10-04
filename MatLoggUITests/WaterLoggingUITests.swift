@@ -63,7 +63,7 @@ final class WaterLoggingUITests: XCTestCase {
         remove.tap()
         expectation(for: NSPredicate(format: "value == %@", String(initial)), evaluatedWith: count)
         waitForExpectations(timeout: 5)
-        if initial == 0 { XCTAssertFalse(remove.isEnabled) }
+        if initial == 0 { XCTAssertFalse(remove.exists) }
     }
     @MainActor
     private func setEnergyVisibility(_ visible: Bool, in app: XCUIApplication) {
