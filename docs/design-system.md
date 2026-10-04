@@ -42,6 +42,11 @@ VoiceOver. Kameraets faste svart/hvitt-flater og slør ligger i sentrale
 bruker samme light/dark-verdier som `action` for arvet tint. Nutri-Score- og
 NOVA-fargene beholdes uendret.
 
+Måltidsvalg ved logging og redigering bruker `MealChip` med full kolonnebredde
+i et rutenett med to kolonner og 8 pt avstand. Ved tilgjengelighetsstørrelser
+for Dynamic Type brukes én kolonne. Begge bruker Frokost, Lunsj, Middag og
+Kveldsmat som visningsnavn.
+
 
 | Token | Formål |
 | --- | --- |
@@ -187,7 +192,7 @@ Kort brukes når innhold trenger en reell grense, for eksempel dagsstatus,
 måltidsoppsummering eller personvernvalg. Ikke legg hvert tekstavsnitt i et kort,
 og unngå kort inni kort.
 
-Dagsstatus på Hjem følger «Dagen din, så langt.» og bruker én samlet
+Dagsstatus på Hjem følger en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer) og bruker én samlet
 `warmSurface`-flate med 24 pt hjørner og 20 pt padding. Registrert energi
 bruker skalerbar `hero`-typografi; balansen mot målet vises nøytralt under.
 Makroer vises i tre kolonner med verdi og sekundært mål, uten progresjonsstolper.
@@ -322,8 +327,8 @@ pluss-/minusbidrag til Nutri-Score, ikke matens trygghet eller teknisk status.
 Tekst, poengtall og kortbakgrunn forblir nøytrale. Begge tokens har egne
 lys-/mørkmodusverdier; teksten forklarer alltid signalet uten farge.
 
-NOVA-raden bruker `processingNonUltraSurface` (lys `#E7F4EC`, mørk
-`#20352B`) for NOVA 1–3 og `processingUltraSurface` (lys `#FBE9E7`,
-mørk `#3D2728`) for NOVA 4. Ukjent klassifisering bruker `mutedSurface`.
-Dette er kildebasert bearbeidingsklassifisering, ikke en helsescore; full
-statustekst og forklaring beholdes. Radens tekst og pil bruker `ink` for kontrast.
+Produktinformasjon viser bearbeidingsgrad på kortets nøytrale `surface`,
+med `bodyEmphasis` for etiketten og `secondary`/`textSecondary` for status.
+Manglende klassifisering vises som «Ikke tilgjengelig». Klassifiseringsfarger
+brukes ikke i denne oversiktsraden; full kildebasert status og detaljforklaring
+beholdes. Kilde, hentetidspunkt og oppdatering samles under en skillelinje.

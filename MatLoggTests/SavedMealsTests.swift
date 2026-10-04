@@ -6,6 +6,72 @@ import ImageIO
 
 @MainActor
 struct SavedMealsTests {
+    @Test func detailSaveReturnsToUpdatedView() async throws {
+        let fixture = SavedMealsFixture()
+        fixture.repository.savedMeals = [fixture.meal]
+        await fixture.vm.load(userId: fixture.userId)
+        let detail = SavedMealDetailViewModel(meal: fixture.meal)
+        detail.beginEditing()
+        fixture.vm.beginPhotoEditing(data: fixture.meal.localImageData)
+        detail.name = "Ny frokost"
+        detail.nutrition.setAmount(itemID: fixture.meal.items[0].id, text: "75")
+        #expect(await detail.save(using: fixture.vm))
+        #expect(!detail.isEditing)
+        #expect(detail.meal.name == "Ny frokost")
+        #expect(detail.meal.items[0].amountG == 75)
+        #expect(detail.meal.items[0].calories == 300)
+    }
+
+    @Test func rejectedDetailSaveKeepsDraft() async {
+        let fixture = SavedMealsFixture()
+        await fixture.vm.load(userId: UUID())
+        let detail = SavedMealDetailViewModel(meal: fixture.meal)
+        detail.beginEditing()
+        detail.name = "Behold kladden"
+        #expect(!(await detail.save(using: fixture.vm)))
+        #expect(detail.isEditing)
+        #expect(detail.name == "Behold kladden")
+        #expect(detail.meal == fixture.meal)
+        #expect(fixture.vm.errorMessage != nil)
+    }
+
+    @Test func previewNutritionMatchesLoggedSnapshotAfterAmountChange() async throws {
+        let fixture = SavedMealsFixture()
+        await fixture.vm.load(userId: fixture.userId)
+        let previewModel = SavedMealNutritionPreviewViewModel(meal: fixture.meal)
+        previewModel.setAmount(itemID: fixture.meal.items[0].id, text: "12,5")
+        let amounts = try #require(previewModel.preview.validAmounts)
+        let preview = try #require(previewModel.preview.total)
+        #expect(await fixture.vm.log(fixture.meal, mealType: "lunsj", date: Date(),
+                                     amounts: amounts, userId: fixture.userId))
+        let logged = NutritionCalculator.totals(for: fixture.repository.savedLogs)
+        #expect(logged.calories == preview.calories)
+        #expect(logged.protein == preview.protein)
+        #expect(logged.carbs == preview.carbs)
+        #expect(logged.fat == preview.fat)
+    }
+
+    @Test func previewLoadsProductImagesWithoutChangingMealSnapshot() async {
+        let fixture = SavedMealsFixture()
+        let data = Data([1, 2, 3])
+        let url = "https://example.invalid/product.jpg"
+        fixture.repository.products[fixture.product.id] = Product(
+            id: fixture.product.id, name: "Oppdatert produkt", source: "manual",
+            caloriesPer100g: 999, proteinGPer100g: 0, carbsGPer100g: 0, fatGPer100g: 0,
+            localImageData: data, imageUrl: url
+        )
+        let model = fixture.vm.makeItemsViewModel(meal: fixture.meal)
+        await model.loadProductImages()
+        #expect(model.imageProducts[fixture.product.id]?.localImageData == data)
+        #expect(model.imageProducts[fixture.product.id]?.imageUrl == url)
+        #expect(model.sortedItems == fixture.meal.items)
+
+        fixture.repository.products = [:]
+        await model.loadProductImages()
+        #expect(model.imageProducts.isEmpty)
+        #expect(model.sortedItems == fixture.meal.items)
+    }
+
     @Test func photoPersistsOnCreationAndCanBeRemovedOnEdit() async throws {
         let fixture = SavedMealsFixture()
         await fixture.vm.load(userId: fixture.userId)

@@ -23,6 +23,7 @@ struct DayNavigationBar: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Forrige dag")
@@ -59,6 +60,7 @@ struct DayNavigationBar: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Neste dag")

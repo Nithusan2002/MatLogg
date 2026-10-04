@@ -8,6 +8,7 @@ struct AmountInputRow: View {
     let onFocus: (() -> Void)?
     let showsTitle: Bool
     let controlWidth: CGFloat?
+    let controlFill: Color
     
     init(
         title: String = "Mengde",
@@ -16,7 +17,8 @@ struct AmountInputRow: View {
         placeholder: String = "0",
         onFocus: (() -> Void)? = nil,
         showsTitle: Bool = true,
-        controlWidth: CGFloat? = nil
+        controlWidth: CGFloat? = nil,
+        controlFill: Color = AppColors.surface
     ) {
         self.title = title
         self._gramsText = gramsText
@@ -25,6 +27,7 @@ struct AmountInputRow: View {
         self.onFocus = onFocus
         self.showsTitle = showsTitle
         self.controlWidth = controlWidth
+        self.controlFill = controlFill
     }
     
     var body: some View {
@@ -51,7 +54,7 @@ struct AmountInputRow: View {
                 .padding(.horizontal, 10)
                 .frame(width: controlWidth ?? 76)
                 .frame(minHeight: 44)
-                .background(AppColors.surface)
+                .background(controlFill)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(AppColors.controlBorder, lineWidth: 1)

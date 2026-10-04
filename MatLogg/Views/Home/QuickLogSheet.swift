@@ -16,7 +16,7 @@ struct QuickLogSheet: View {
     @State private var loadID = UUID()
 
     private enum ReuseList: String, CaseIterable {
-        case recent = "Loggfør igjen"
+        case recent = "Nylig logget"
         case saved = "Lagrede måltider"
     }
 
@@ -27,52 +27,66 @@ struct QuickLogSheet: View {
     let onSavedMealLogComplete: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Text("Loggfør mat")
-                        .font(AppTypography.title)
-                        .foregroundColor(AppColors.deepInk)
-                    Spacer()
-                    ActivityIndicatorSlot(isActive: (viewModel.showsLoadingFeedback && !viewModel.recentFoods.isEmpty)
-                                          || (savedMealsViewModel.showsLoadingFeedback && !savedMealsViewModel.meals.isEmpty),
-                                          label: "Oppdaterer hurtigvalg og måltider")
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.body.weight(.semibold))
+        GeometryReader { geometry in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Text("Loggfør mat")
+                            .font(AppTypography.title)
                             .foregroundColor(AppColors.deepInk)
-                            .frame(width: 44, height: 44)
-                            .background(AppColors.mutedSurface, in: Circle())
+                        Spacer()
+                        ActivityIndicatorSlot(isActive: (viewModel.showsLoadingFeedback && !viewModel.recentFoods.isEmpty)
+                                              || (savedMealsViewModel.showsLoadingFeedback && !savedMealsViewModel.meals.isEmpty),
+                                              label: "Oppdaterer hurtigvalg og måltider")
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(AppColors.deepInk)
+                                .frame(width: 44, height: 44)
+                                .background(AppColors.mutedSurface, in: Circle())
+                        }
+                        .accessibilityLabel("Lukk")
                     }
-                    .accessibilityLabel("Lukk")
+
+                    QuickSearchBar(onSearch: onSearch, onScan: onScan)
+
+                    Button(action: onManualAdd) {
+                        Label("Registrer manuelt", systemImage: "square.and.pencil")
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .foregroundStyle(AppColors.actionText)
+                    .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityIdentifier("quick-log-manual")
+
+                    mealPicker
+
+                    reuseListPicker
+
+                    if selectedReuseList == .recent {
+                        recentContent
+                    } else {
+                        savedContent
+                    }
                 }
-
-                QuickSearchBar(onSearch: onSearch, onScan: onScan)
-
-                Button(action: onManualAdd) {
-                    Label("Registrer manuelt", systemImage: "square.and.pencil")
-                        .font(AppTypography.bodyEmphasis)
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                }
-                .foregroundStyle(AppColors.actionText)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
-                .accessibilityIdentifier("quick-log-manual")
-
-                mealPicker
-
-                reuseListPicker
-
-                if selectedReuseList == .recent {
-                    recentContent
-                } else {
-                    savedContent
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 28)
+                .frame(width: geometry.size.width, alignment: .leading)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 28)
+            .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
+            .accessibilityIdentifier("quick-log-scroll")
         }
         .background(AppColors.background.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            if let payload = viewModel.repeatReceipt {
+                LogToastView(payload: payload, isUndoing: viewModel.isUndoingRepeat,
+                    onUndo: { undoRepeat(payload) },
+                    onDismiss: { viewModel.dismissRepeatReceipt() })
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+            }
+        }
         .task(id: authViewModel.currentUser?.id) { await loadContent() }
         .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
         .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
@@ -109,10 +123,6 @@ struct QuickLogSheet: View {
 
     private var repeatSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Loggfør igjen")
-                .font(AppTypography.sectionTitle)
-                .foregroundStyle(AppColors.deepInk)
-                .accessibilityAddTraits(.isHeader)
             if let error = viewModel.logError {
                 ErrorMessageView(error).font(AppTypography.caption)
             }
@@ -122,24 +132,27 @@ struct QuickLogSheet: View {
                         guard !viewModel.isRepeating else { return }
                         viewModel.selectedQuickProduct = food.product
                     } label: {
-                        HStack {
-                            Text(food.product.name)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundStyle(AppColors.deepInk)
-                            Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(food.product.name)
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.deepInk)
+                                Spacer()
+                                Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
+                            }
+                            if !food.canRepeat {
+                                Text("Sist logget: \(food.amountLabel)")
+                                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                            }
+                            Text("Til \(selectedMealTitle) · \(logDateLabel)")
+                                .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                                .accessibilityIdentifier("quick-log-repeat-destination-\(food.id.uuidString)")
                         }
                         .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Åpner mengdevalg og loggføring")
-                    if !food.canRepeat {
-                        Text("Sist logget: \(food.amountLabel)")
-                            .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                    }
-                    Text("Til \(selectedMealTitle) · \(logDateLabel)")
-                        .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                        .accessibilityIdentifier("quick-log-repeat-destination-\(food.id.uuidString)")
                     Button {
                         guard !viewModel.isRepeating else { return }
                         if food.canRepeat { repeatFood(food) }
@@ -147,7 +160,8 @@ struct QuickLogSheet: View {
                     } label: {
                         HStack(spacing: 8) {
                             ZStack(alignment: .leading) {
-                                Text(food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde")
+                                Text(viewModel.confirmedProductID == food.id ? "Lagt til ✓" :
+                                    (food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde"))
                                     .opacity(viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id ? 0 : 1)
                                 Text("Lagrer …").hidden()
                                 if viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id {
@@ -159,7 +173,14 @@ struct QuickLogSheet: View {
                         }
                         .font(AppTypography.bodyEmphasis)
                         .foregroundStyle(AppColors.actionText)
-                        .frame(minHeight: 44, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(AppColors.chipFillSelected, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(AppColors.chipStroke, lineWidth: 1)
+                        }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(food.canRepeat
@@ -171,7 +192,7 @@ struct QuickLogSheet: View {
                 }
                 .padding(12)
                 .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
-                .allowsHitTesting(!viewModel.isRepeating)
+                .allowsHitTesting(!viewModel.isRepeating && !viewModel.isUndoingRepeat)
             }
         }
     }
@@ -181,15 +202,28 @@ struct QuickLogSheet: View {
         let meal = appState.selectedMealType
         let owner = authViewModel.currentUser?.id
         Task {
-            guard let (product, log) = await viewModel.logAgain(food, mealType: meal, date: date),
+            guard await viewModel.logAgain(food, mealType: meal, date: date) != nil,
                   authViewModel.currentUser?.id == owner,
                   appState.logSelectedDate == date, appState.selectedMealType == meal else { return }
             logViewModel.didPersistExternalLog()
-            dismiss()
-            onLogComplete(ReceiptPayload(product: product, amountG: Double(log.amountG),
-                                         amountUnit: log.resolvedAmountUnit, mealType: log.mealType,
-                                         loggedDate: log.loggedDate, portionSelection: log.portionSelection,
-                                         logID: log.id, ownerID: log.userId))
+            UIAccessibility.post(notification: .announcement, argument: "\(food.product.name) lagt til")
+            await appState.refreshSyncStatus()
+        }
+    }
+
+    private func undoRepeat(_ payload: ReceiptPayload) {
+        guard let owner = authViewModel.currentUser?.id,
+              payload.ownerID == owner, viewModel.beginRepeatUndo() else { return }
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(productId: payload.product.id,
+                mealType: payload.mealType, amountG: Float(payload.amountG), userId: owner,
+                date: payload.loggedDate, logID: payload.logID)
+            if succeeded, viewModel.repeatReceipt?.id == payload.id {
+                viewModel.dismissRepeatReceipt()
+            } else if !succeeded, authViewModel.currentUser?.id == owner {
+                viewModel.showRepeatUndoError()
+            }
+            viewModel.finishRepeatUndo()
             await appState.refreshSyncStatus()
         }
     }

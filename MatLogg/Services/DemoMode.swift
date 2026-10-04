@@ -47,7 +47,7 @@ final class DemoMode: ObservableObject {
                 let products = try await loadCatalog()
                 try Task.checkCancellation()
                 let user = AuthService(defaults: demoDefaults).activateLocalProfile()
-                let url = directory.appendingPathComponent("demo-v1.sqlite")
+                let url = directory.appendingPathComponent("demo-v2.sqlite")
                 let store = try await DemoDataset.prepare(at: url, userId: user.id, products: products, reset: reset)
                 try Task.checkCancellation()
                 if reset {
@@ -88,7 +88,11 @@ nonisolated enum DemoProductCatalog {
     }
 
     static func load(bundle: Bundle = .main) async throws -> [Product] {
-        try await BackgroundWork.run {
+        let staples = try await MatvaretabellenService(bundle: bundle).fetchCommonFoods()
+        let selectedIDs: Set<String> = ["06.525", "06.502", "05.342", "06.010", "06.069", "04.342", "06.262", "06.725", "03.481", "05.337", "06.622", "05.381", "03.139", "06.736", "06.524"]
+        let selected = staples.filter { selectedIDs.contains($0.id) }
+        guard selected.count == selectedIDs.count else { throw CocoaError(.fileReadCorruptFile) }
+        let packaged = try await BackgroundWork.run {
             guard let url = bundle.url(forResource: "demo-openfoodfacts", withExtension: "json") else {
                 throw CocoaError(.fileReadNoSuchFile)
             }
@@ -112,19 +116,7 @@ nonisolated enum DemoProductCatalog {
                 )
             }
         }
-    }
-
-    static func amountG(for product: Product, offset: Int, index: Int) -> Float {
-        let portions: [String: Float] = [
-            "7044416013141": 60, "7038010045073": 150, "7300400129459": 36,
-            "7038010053368": 30, "7036110004785": 60, "7039010016322": 100,
-            "7039010132435": 25, "7036110008844": 20, "7038010054471": 100,
-            "7039317005470": 30, "7622210816672": 24, "4000339697908": 25
-        ]
-        guard let code = product.externalID, let portion = portions[code] else {
-            return Float(60 + (offset + index * 7) % 180)
-        }
-        return portion * (1 + Float(offset % 3) * 0.1)
+        return packaged + selected.map { FoodSearchCatalog.product($0) }
     }
 }
 
@@ -154,7 +146,8 @@ nonisolated struct DemoDataset {
     private static func seed(at url: URL, userId: UUID, products: [Product], now: Date) throws {
         guard !products.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
         let store = try LocalStore(databaseURL: url)
-        let chosen = Array(products.prefix(12))
+        let chosen = products
+        let meals = try menu(products: products)
         for product in chosen { try store.cacheCatalogProduct(product) }
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2200, proteinTargetG: 110, carbsTargetG: 275, fatTargetG: 73))
         let calendar = Calendar.current
@@ -163,27 +156,73 @@ nonisolated struct DemoDataset {
             try Task.checkCancellation()
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             if offset % 13 == 5 { continue }
-            let count = offset % 9 == 4 ? 2 : 9 + offset % 3
+            let weekday = calendar.component(.weekday, from: day)
+            let breakfast = offset % 2 == 0 ? 0 : 1
+            let lunch = offset % 3 == 0 ? 3 : 2
+            let dinner = weekday == 6 ? 6 : offset % 2 == 0 ? 4 : 5
+            let snack = offset % 2 == 0 ? 7 : 8
             var logs: [FoodLog] = []
-            for index in 0..<count {
-                let menu = [0, 1, 2, 3, 4, 5, 8, 9, offset % 2 == 0 ? 7 : 6, 11, 10]
-                let product = chosen[menu[index % menu.count] % chosen.count]
-                let amount = DemoProductCatalog.amountG(for: product, offset: offset, index: index)
-                let scale = amount / 100
-                logs.append(FoodLog(userId: userId, productId: product.id, mealType: index < 2 ? "frokost" : index < 4 ? "lunsj" : index < 7 ? "middag" : "snacks", amountG: amount, loggedDate: day, loggedTime: day.addingTimeInterval(Double(8 + index) * 3600), calories: product.caloriesPer100g * scale, proteinG: product.proteinGPer100g * scale, carbsG: product.carbsGPer100g * scale, fatG: product.fatGPer100g * scale))
+            for (mealIndex, menuIndex) in [breakfast, lunch, dinner, snack].enumerated() {
+                let meal = meals[menuIndex]
+                let hour = [8, 12, 17, 20][mealIndex]
+                let time = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
+                for item in meal.items {
+                    logs.append(FoodLog(userId: userId, productId: item.productId, mealType: meal.type,
+                        amountG: item.amountG, loggedDate: day, loggedTime: time,
+                        calories: item.calories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG))
+                }
             }
             try store.saveLogs(logs)
             for index in 0..<(3 + offset % 5) {
                 try store.saveWaterGlass(WaterGlass(userId: userId, date: day.addingTimeInterval(Double(9 + index) * 3600)))
             }
             if offset % 3 == 0 {
-                try store.saveWeightEntry(WeightEntry(userId: userId, date: day, weightKg: 74 + Double(offset % 7) * 0.1))
+                try store.saveWeightEntry(WeightEntry(userId: userId, date: day, weightKg: 74 + Double(offset) * 0.008 + Double(offset % 5 - 2) * 0.08))
             }
         }
-        for product in chosen.prefix(6) { try store.toggleFavorite(userId: userId, productId: product.id) }
-        for index in 0..<4 {
-            let product = chosen[[0, 2, 4, 7][index] % chosen.count]
-            try store.saveSavedMeal(SavedMeal(userId: userId, name: ["Enkel frokost", "Rask lunsj", "Hverdagsmiddag", "Lite mellommåltid"][index], suggestedMealType: ["frokost", "lunsj", "middag", "snacks"][index], items: [SavedMealItem(productId: product.id, productName: product.name, amountG: 100, calories: product.caloriesPer100g, proteinG: product.proteinGPer100g, carbsG: product.carbsGPer100g, fatG: product.fatGPer100g, nutritionSource: product.nutritionSource, sortIndex: 0)]))
+        let favoriteCodes: Set<String> = ["7044416013141", "7038010053368", "7039010016322", "7038010054471", "06.525", "05.342", "04.342", "03.481"]
+        for product in chosen where favoriteCodes.contains(product.externalID ?? "") {
+            try store.toggleFavorite(userId: userId, productId: product.id)
         }
+        for (index, meal) in meals.prefix(8).enumerated() {
+            let created = today.addingTimeInterval(-Double(index + 1) * 86400)
+            try store.saveSavedMeal(SavedMeal(userId: userId, name: meal.name,
+                suggestedMealType: meal.type, items: meal.items, createdAt: created, updatedAt: created))
+        }
+    }
+
+    private struct Meal {
+        let name: String
+        let type: String
+        let items: [SavedMealItem]
+    }
+
+    /// Amounts refer to the exact catalog food, including cooked rice, meat and potatoes.
+    private static func menu(products: [Product]) throws -> [Meal] {
+        func meal(_ name: String, _ type: String, _ ingredients: [(String, Float)]) throws -> Meal {
+            let items = try ingredients.enumerated().map { index, ingredient in
+                guard let product = products.first(where: { $0.externalID == ingredient.0 }) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                let amount = ingredient.1
+                let scale = amount / 100
+                return SavedMealItem(productId: product.id, productName: product.name, amountG: amount,
+                    calories: product.caloriesPer100g * scale, proteinG: product.proteinGPer100g * scale,
+                    carbsG: product.carbsGPer100g * scale, fatG: product.fatGPer100g * scale,
+                    nutritionSource: product.nutritionSource, sortIndex: index)
+            }
+            return Meal(name: name, type: type, items: items)
+        }
+        return try [
+            meal("Yoghurtbolle med havre og blåbær", "frokost", [("7038010045073", 200), ("7044416013141", 60), ("06.502", 75), ("06.525", 100)]),
+            meal("Grovbrød med ost og agurk", "frokost", [("05.342", 120), ("7038010053368", 40), ("06.010", 50)]),
+            meal("Matpakke med makrell i tomat", "lunsj", [("05.342", 120), ("7039010016322", 80), ("06.010", 50), ("06.622", 150)]),
+            meal("Knekkebrød med ost og tomat", "lunsj", [("7300400129459", 48), ("7038010053368", 40), ("06.069", 100), ("06.525", 120)]),
+            meal("Ovnsbakt laks med poteter", "middag", [("04.342", 180), ("06.262", 300), ("06.725", 150)]),
+            meal("Kylling med ris og brokkoli", "middag", [("03.481", 180), ("05.337", 250), ("06.725", 150), ("06.524", 70)]),
+            meal("Fredagstaco", "middag", [("05.381", 100), ("03.139", 120), ("7038010053368", 25), ("06.069", 80), ("06.736", 50), ("06.524", 60)]),
+            meal("Cottage cheese med bær", "snacks", [("7038010054471", 150), ("06.502", 75), ("7036110008844", 20)]),
+            meal("Turpause med Kvikk Lunsj", "snacks", [("7622210816672", 47), ("06.622", 150)])
+        ]
     }
 }

@@ -61,6 +61,10 @@ final class SavedMealsViewModel: ObservableObject {
         self.now = now
     }
 
+    func makeItemsViewModel(meal: SavedMeal) -> SavedMealItemsViewModel {
+        SavedMealItemsViewModel(meal: meal, repository: foodLogRepository)
+    }
+
     func beginPhotoEditing(data: Data? = nil) {
         photoRequestID = UUID()
         photoData = data

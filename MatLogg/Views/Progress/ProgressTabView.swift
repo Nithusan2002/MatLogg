@@ -236,6 +236,7 @@ private struct WeightEntryContent: View {
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.actionText)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 

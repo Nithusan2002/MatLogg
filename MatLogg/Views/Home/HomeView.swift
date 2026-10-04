@@ -62,6 +62,12 @@ private struct HomeNavigationContent: View {
                 onLogComplete: { payload in
                     receiptPayload = payload
                     Task { await loadTodaysSummary() }
+                },
+                onSavedMealLogComplete: {
+                    Task {
+                        await loadTodaysSummary()
+                        await appState.refreshSyncStatus()
+                    }
                 }
             )
                 .tabItem { EmptyView() }
@@ -331,8 +337,6 @@ private struct HomeTabContent: View {
         return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    homeHeader
-
                     DayNavigationBar(selection: selectedDateBinding)
 
                     HomeSyncBanner()
@@ -347,10 +351,12 @@ private struct HomeTabContent: View {
                     }
 
 
-                    Text("Dagen din, så langt.")
-                        .font(AppTypography.hero)
-                        .foregroundColor(AppColors.deepInk)
-                        .fixedSize(horizontal: false, vertical: true)
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        Text(homeHeading(at: context.date))
+                            .font(AppTypography.hero)
+                            .foregroundColor(AppColors.deepInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     VStack(alignment: .leading, spacing: 16) {
                         if preferencesViewModel.showGoalStatusOnHome {
@@ -574,6 +580,17 @@ private struct HomeTabContent: View {
         if let userId { await mealReuseViewModel.load(userId: userId, date: date) }
     }
 
+    private func homeHeading(at now: Date) -> String {
+        let calendar = Calendar.current
+        guard calendar.isDate(selectedDate, inSameDayAs: now) else { return "Dagsoversikt" }
+        switch calendar.component(.hour, from: now) {
+        case 5..<11: return "God morgen"
+        case 11..<17: return "God ettermiddag"
+        case 17..<23: return "God kveld"
+        default: return "Hei"
+        }
+    }
+
     private var selectedDateBinding: Binding<Date> {
         Binding(
             get: { appState.logSelectedDate },
@@ -590,33 +607,6 @@ private struct HomeTabContent: View {
         if Calendar.current.isDateInYesterday(selectedDate) { return "Måltider i går" }
         if Calendar.current.isDateInTomorrow(selectedDate) { return "Måltider i morgen" }
         return "Måltider \(shortDateLabel)"
-    }
-
-    private var homeHeader: some View {
-        HStack(spacing: 10) {
-            Text("MatLogg")
-                .font(AppTypography.title)
-                .foregroundColor(AppColors.actionText)
-            Spacer()
-            Button {
-                appState.selectedTab = .profile
-            } label: {
-                Text(profileInitials)
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.background)
-                    .frame(width: 44, height: 44)
-                    .background(AppColors.deepInk, in: Circle())
-            }
-            .accessibilityLabel("Åpne profil")
-        }
-    }
-
-    private var profileInitials: String {
-        let localName = healthProfileViewModel.personalDetails.displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let name = localName.isEmpty ? (authViewModel.currentUser?.fullName ?? "") : localName
-        let parts = name.split(whereSeparator: { $0.isWhitespace })
-        let initials = parts.prefix(2).compactMap { $0.first }.map(String.init).joined().uppercased()
-        return initials.isEmpty ? "ML" : initials
     }
 
     private var shortDateLabel: String {
@@ -816,17 +806,20 @@ struct MealOverviewCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Text(String(meal.title.prefix(1)))
+                Image(systemName: meal.icon)
                     .font(AppTypography.secondaryEmphasis)
-                    .foregroundColor(AppColors.deepInk)
-                    .frame(width: 34, height: 34)
-                    .background(meal.tint.opacity(0.22), in: Circle())
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundColor(AppColors.deepInk.opacity(0.8))
+                    .frame(width: 30, height: 30)
+                    .background(meal.tint.opacity(0.14), in: Circle())
+                    .accessibilityHidden(true)
                 Button(action: onOpen) {
                     Text(meal.title)
                         .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.deepInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Åpne \(meal.title)")
@@ -837,6 +830,7 @@ struct MealOverviewCard: View {
                         .font(AppTypography.secondaryEmphasis)
                         .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -850,7 +844,7 @@ struct MealOverviewCard: View {
                     onDismiss: onDismissReuse
                 )
             } else if logs.isEmpty {
-                Text("\(meal.title) · ikke logget ennå")
+                Text("Ikke logget ennå")
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1108,6 +1102,7 @@ struct ScanHistoryView: View {
                                 Image(systemName: "chevron.right")
                                     .foregroundColor(AppColors.textSecondary)
                             }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -1733,10 +1728,12 @@ struct FavoritesTabView: View {
 struct SearchHubView: View {
     let onScan: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    var onSavedMealLogComplete: () -> Void = {}
 
     var body: some View {
         NavigationStack {
-            FoodSearchView(isTab: true, onScan: onScan, onLogComplete: onLogComplete)
+            FoodSearchView(isTab: true, onScan: onScan, onLogComplete: onLogComplete,
+                           onSavedMealLogComplete: onSavedMealLogComplete)
                 .navigationTitle("Søk")
                 .navigationBarTitleDisplayMode(.inline)
         }

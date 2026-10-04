@@ -19,11 +19,13 @@ struct FoodSearchView: View {
     var isFirstLog = false
     let onScan: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    var onSavedMealLogComplete: () -> Void = {}
 
     var body: some View {
         if let repository {
             FoodSearchContent(repository: repository, isTab: isTab, focusOnAppear: focusOnAppear, isFirstLog: isFirstLog,
-                              onScan: onScan, onLogComplete: onLogComplete)
+                              onScan: onScan, onLogComplete: onLogComplete,
+                              onSavedMealLogComplete: onSavedMealLogComplete)
         } else {
             ContentUnavailableView("Søk er utilgjengelig", systemImage: "magnifyingglass")
         }
@@ -35,6 +37,7 @@ private struct FoodSearchContent: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showSavedMeals = false
     @State private var showManualProduct = false
     @FocusState private var searchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -42,17 +45,20 @@ private struct FoodSearchContent: View {
     private let focusOnAppear: Bool
     private let isFirstLog: Bool
     private let onScan: () -> Void
+    private let onSavedMealLogComplete: () -> Void
     private let onLogComplete: (ReceiptPayload) -> Void
 
     init(repository: any FoodSearchRepository, isTab: Bool, focusOnAppear: Bool, isFirstLog: Bool,
          onScan: @escaping () -> Void,
-         onLogComplete: @escaping (ReceiptPayload) -> Void) {
+         onLogComplete: @escaping (ReceiptPayload) -> Void,
+         onSavedMealLogComplete: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: FoodSearchViewModel(repository: repository))
         self.isTab = isTab
         self.focusOnAppear = focusOnAppear
         self.isFirstLog = isFirstLog
         self.onScan = onScan
         self.onLogComplete = onLogComplete
+        self.onSavedMealLogComplete = onSavedMealLogComplete
     }
 
     var body: some View {
@@ -83,6 +89,12 @@ private struct FoodSearchContent: View {
         }
         .sheet(item: $viewModel.selectedProduct, onDismiss: { Task { await reload() } }) { product in
             ProductDetailView(product: product, appState: appState, onLogComplete: onLogComplete)
+        }
+        .sheet(isPresented: $showSavedMeals, onDismiss: { Task { await reload() } }) {
+            SavedMealsListView {
+                showSavedMeals = false
+                onSavedMealLogComplete()
+            }
         }
         .fullScreenCover(isPresented: $showManualProduct, onDismiss: {
             viewModel.finishManualCreation()
@@ -256,6 +268,38 @@ private struct FoodSearchContent: View {
                 .listRowBackground(AppColors.background)
                 .listRowSeparator(.hidden)
             }
+            if isTab && !viewModel.hasQuery {
+                Section {
+                    Button {
+                        searchFocused = false
+                        showSavedMeals = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "square.stack.3d.up")
+                                .foregroundStyle(AppColors.actionText)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Lagrede måltider")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.ink)
+                                Text("Dine faste måltider")
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(AppColors.textSecondary)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Åpner alle lagrede måltider for logging, redigering og sletting")
+                    .accessibilityIdentifier("food-search-saved-meals")
+                }
+                .listRowBackground(AppColors.surface)
+            }
             if viewModel.isLoading {
                 Section { ProgressView("Henter matvarer …").frame(maxWidth: .infinity, minHeight: 80) }
             } else {
@@ -399,6 +443,7 @@ private struct FoodSearchProductRow: View {
             .accessibilityHidden(true)
         }
         .frame(minHeight: 52)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 }

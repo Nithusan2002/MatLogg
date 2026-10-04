@@ -107,6 +107,12 @@ struct ProfileView: View {
             NavigationLink { ProfileSettingsView() } label: {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger")
             }
+            Divider().overlay(AppColors.separator)
+            NavigationLink { HelpSupportView() } label: {
+                ProfileMenuRow(icon: "questionmark.circle", title: "Hjelp og støtte")
+            }
+            .accessibilityIdentifier("profile-help-support")
+            .accessibilityHint("Åpner vanlige spørsmål og kontaktinformasjon")
         }
         .matLoggCardSurface()
         .buttonStyle(.plain)

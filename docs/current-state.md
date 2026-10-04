@@ -408,11 +408,18 @@ Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksj
 DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
 Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
 serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
-favoritter og fire lagrede måltider. Fra 2026-10-04 brukes et fast utvalg av 12
-Open Food Facts-produkter med medfølgende frontbilder og næringsverdier per 100 g.
-Bildene fungerer offline; kilde og uverifisert status bevares. Snapshot og bildeattribusjon
-finnes i `MatLogg/Resources/demo-openfoodfacts*`. Eksisterende demo oppdateres via
-«Tilbakestill demodata» i Profil.
+åtte favoritter og åtte sammensatte lagrede måltider. Fra 2026-10-04 brukes
+åtte Open Food Facts-produkter med lokale frontbilder og 15 råvarer fra den
+bundlete Matvaretabellen. Utvalget dekker yoghurtbolle, grovbrød, matpakke med
+makrell, knekkebrød, ovnsbakt laks, kylling med ris, fredagstaco og cottage cheese
+med bær. Kvikk Lunsj og eple varierer kveldsmaten i historikken. Mengder for
+stekt kjøtt/fisk, kokt ris og kokte poteter bruker tilsvarende tilberedt katalogvare.
+Næringsverdier per 100 g, kilde og verifiseringsstatus bevares; ingen verdier
+gjettes. Produktbildene fungerer offline; råvarer og måltider bruker eksisterende
+fallback uten egne måltidsbilder. OFF-snapshot og bildeattribusjon finnes i
+`MatLogg/Resources/demo-openfoodfacts*`. Datasettet bruker `demo-v2.sqlite`, som
+opprettes ved neste åpning av demo. Tidligere demo og vanlige data overskrives
+ikke. «Tilbakestill demodata» i Profil tilbakestiller det aktive demodatasettet.
 Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
 bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
 profilen ikke har registreringer fra før.

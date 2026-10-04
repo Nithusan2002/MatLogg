@@ -54,7 +54,7 @@ final class PortionLoggingUITests: XCTestCase {
         app.buttons["product-log-save"].tap()
         let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS 'Polarbrød'")).firstMatch
         reveal(row, in: app)
-        XCTAssertTrue(app.buttons["meal-room-select-frokost"].isSelected)
+        XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].exists)
     }
 
     func testTwoPiecesSurviveRelaunchAndEditToThree() {
@@ -117,7 +117,7 @@ final class PortionLoggingUITests: XCTestCase {
         XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
         reveal(breakfast, in: app)
         breakfast.tap()
-        XCTAssertTrue(app.buttons["meal-room-select-frokost"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].waitForExistence(timeout: 5))
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {

@@ -42,6 +42,12 @@ valgt i velgeren «Loggfør igjen / Lagrede måltider». «Se alle» åpner admi
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
 
+Søk-fanen har en fast inngang «Lagrede måltider» med teksten «Dine faste
+måltider» før favoritter og nylig brukt. Inngangen vises også når listen er tom,
+men skjules mens søkefeltet inneholder et søk. Den åpner den eksisterende
+oversikten med forhåndsvisning, logging, redigering og sletting. Loggfør-arket
+beholder sin hurtigtilgang. Endring av malen påvirker ikke tidligere logging.
+
 I Logg åpner «Legg til» → «Lagrede måltider» samme liste og forhåndsvisning.
 Datoen og måltidskategorien fra loggen beholdes. Etter logging lukkes listen
 og loggen oppdateres. En tom liste forklarer hvordan et måltid kan lagres.
@@ -53,9 +59,21 @@ knapper brukes. Handlinger har minst 44 pt trykkflate og tekst kan brytes ved
 Dynamic Type.
 
 Forhåndsvisningen bruker en kompakt destinasjonsrad som kan utvides ved behov.
-Hver vare viser navn, valgfri kilde og en samlet mengdekontroll med `g`.
-Primærhandlingen ligger fast nederst og angir hvor mange varer som loggføres,
+Varene samles i ett kort med diskrete skillelinjer mellom hver vare.
+Hver vare viser et 52 pt produktbilde fra lokalt lagrede produktdata, med
+2 pt innvendig luft og hele bildet synlig. Manglende bilde bruker et nøytralt
+matikon. Navn og valgfri kilde står ved siden av bildet, med et svakt tonet mengdefelt med varens
+lagrede enhet inne i feltet.
+Primærhandlingen «Loggfør måltidet» ligger fast nederst,
 slik at den forblir tilgjengelig også når måltidet har mange varer.
+
+Hver vare viser energi, protein, karbohydrat og fett for valgt mengde. Verdiene
+og en samlet oversikt «Hele måltidet» oppdateres direkte ved mengdeendring,
+med samme skalering av lagret næringssnapshot som ved logging. Avrunding skjer
+bare ved visning. Ingen målprogresjon eller sammenligning med kalorimål vises.
+Tom eller ugyldig mengde skjuler varens verdier og samlet total, viser en
+forklaring og deaktiverer logging. Gyldige varer beholder sine verdier.
+Beregningen fungerer offline og endrer ikke malen eller eksisterende logger.
 
 ## Data og arkitektur
 
@@ -97,3 +115,15 @@ Produksjonssynk forblir deaktivert.
 - Kontoendring fjerner presentasjonstilstand og kvittering for forrige bruker.
 - Oppretting, redigering, bruk og sletting fungerer uten nett.
 - Eksport og kontosletting omfatter lagrede måltider.
+
+### Samlet detalj og redigering av lagrede måltider
+
+Et lagret måltid åpnes i én detaljflate. «Rediger» bytter samme flate til
+redigeringsmodus; menyens «Rediger» åpner denne modusen direkte. Navn, bilde,
+mengder og fjerning av matvarer redigeres i en kladd. Dato og måltidskategori
+skjules under redigering. «Lagre endringer» lagrer lokalt og går tilbake til
+oppdatert visning. Feil beholder kladden. «Avbryt» eller lukk ber om bekreftelse
+før endrede verdier forkastes. Sveip for å lukke er deaktivert under redigering.
+Mengdejustering før logging gjelder bare aktuell loggføring; redigeringskladden
+starter alltid fra den lagrede malen. Tidligere loggføringer påvirkes ikke.
+Å legge til nye matvarer i malen er fortsatt utenfor scope.

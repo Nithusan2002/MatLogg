@@ -51,11 +51,16 @@ final class RepeatFoodUITests: XCTestCase {
         repeatButton.tap()
         let undo = app.buttons["Angre"]
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        XCTAssertTrue(repeatButton.exists, "Hurtiglogging skal beholde arket åpent.")
+        XCTAssertTrue(repeatButton.isHittable)
+        repeatButton.tap()
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["product-log-save"].exists)
         undo.tap()
+        app.buttons["Lukk"].tap()
         reveal(app.buttons[originalID], in: app)
         XCTAssertTrue(app.buttons[originalID].label.contains("1 Polarbrød"))
-        XCTAssertEqual(rows.count, 1, "Angre skal bevare den opprinnelige registreringen.")
+        XCTAssertEqual(rows.count, 2, "Angre skal bare fjerne siste hurtiglogging og bevare de to tidligere registreringene.")
     }
 
     private func openSearch(_ app: XCUIApplication) {

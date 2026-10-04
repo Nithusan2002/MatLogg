@@ -724,3 +724,11 @@ Transaksjoner, eierskap, ernæringsgrunnlag og synkkontrakt endres ikke.
 Vann samles med energi og makroer i én varm flate over måltidene. Vannraden
 beholdes når næring skjules og har uavhengig lasting og feilvisning. Eksisterende
 ViewModels, beregninger, lokal lagring og synkkontrakt beholdes.
+
+## 2026-10-04 – Én detaljflate for lagrede måltider
+
+Visning og redigering av et lagret måltid bruker samme detaljflate med eksplisitt
+redigeringsmodus. Redigeringskladden starter fra lagret mal, adskilt fra mengder
+valgt for én loggføring. Avbryt forkaster kladden etter bekreftelse ved endringer;
+vellykket lagring returnerer til oppdatert visning. Eksisterende repositories,
+local-first-lagring og synkkontrakt beholdes. Nye matvarer i malen er utenfor scope.

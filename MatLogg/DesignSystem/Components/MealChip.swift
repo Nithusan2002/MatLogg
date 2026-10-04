@@ -21,6 +21,7 @@ struct MealChip: View {
                         .stroke(AppColors.controlBorder, lineWidth: 1)
                 )
                 .cornerRadius(12)
+                .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

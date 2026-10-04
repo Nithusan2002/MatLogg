@@ -49,6 +49,7 @@ struct LogToastView: View {
                     .font(AppTypography.bodyEmphasis)
                     .foregroundColor(AppColors.actionText)
                     .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isUndoing)

@@ -16,6 +16,7 @@ struct ProductDetailView: View {
 }
 
 private struct ProductDetailContent: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showNutriScoreInfo = false
     @State private var showProcessingInfo = false
     @StateObject private var detailModel: ProductDetailViewModel
@@ -148,19 +149,27 @@ private struct ProductDetailContent: View {
                                     Text("Næringsinnhold per 100 \(product.amountUnit.rawValue)")
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)
+                                    .frame(minHeight: 44, alignment: .leading)
                                 }
                                 if detailModel.processingInfo != nil {
+                                    Divider()
                                     Button { showNutriScoreInfo = true } label: {
-                                        HStack(spacing: 12) {
+                                        let layout = dynamicTypeSize.isAccessibilitySize
+                                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                            : AnyLayout(HStackLayout(spacing: 12))
+                                        layout {
                                             Text("Nutri-Score").font(AppTypography.bodyEmphasis)
-                                            Spacer(minLength: 8)
-                                            if let info = detailModel.nutriScoreInfo {
-                                                NutriScoreLogo(info: info, width: 72)
-                                            } else {
-                                                Text("Ikke tilgjengelig").font(AppTypography.secondary)
+                                            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
+                                            HStack(spacing: 12) {
+                                                if let info = detailModel.nutriScoreInfo {
+                                                    NutriScoreLogo(info: info, width: dynamicTypeSize.isAccessibilitySize ? 88 : 80)
+                                                } else {
+                                                    Text("Ikke tilgjengelig").font(AppTypography.secondary)
+                                                        .foregroundColor(AppColors.textSecondary)
+                                                }
+                                                Image(systemName: "chevron.right")
+                                                .foregroundColor(AppColors.textSecondary)
                                             }
-                                            Image(systemName: "chevron.right")
-                                            .foregroundColor(AppColors.textSecondary)
                                         }
                                         .foregroundColor(AppColors.ink)
                                         .frame(maxWidth: .infinity, minHeight: 56)
@@ -173,65 +182,71 @@ private struct ProductDetailContent: View {
                                     Button { showProcessingInfo = true } label: {
                                         HStack(spacing: 12) {
                                             VStack(alignment: .leading, spacing: 6) {
-                                                Text("Er maten ultraprosessert?")
-                                                .font(AppTypography.caption)
-                                                .foregroundColor(AppColors.ink)
-                                                Text(detailModel.processingPresentation?.status ?? "Klassifisering mangler")
-                                                  .font(AppTypography.bodyEmphasis)
-                                                .foregroundColor(AppColors.ink)
+                                                Text("Bearbeidingsgrad")
+                                                    .font(AppTypography.bodyEmphasis)
+                                                Text(detailModel.processingPresentation?.isUltraProcessed == nil
+                                                     ? "Ikke tilgjengelig"
+                                                     : detailModel.processingPresentation?.status ?? "Ikke tilgjengelig")
+                                                    .font(AppTypography.secondary)
+                                                    .foregroundColor(AppColors.textSecondary)
                                             }
                                             Spacer(minLength: 8)
                                             Image(systemName: "chevron.right")
-                                            .foregroundColor(AppColors.ink)
+                                            .foregroundColor(AppColors.textSecondary)
                                         }
+                                        .foregroundColor(AppColors.ink)
                                         .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                                        .padding(12)
-                                        .matLoggCardSurface(fill: processingRowBackground, cornerRadius: 12,
-                                        shadowEnabled: false, borderEnabled: false)
                                         .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                     .accessibilityIdentifier("productProcessingInfo")
                                     .accessibilityHint("Åpner forklaring, ingredienser og kilde")
                                 }
+                                if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts || detailModel.canRefresh {
+                                    Divider()
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
+                                           let sourceURL = URL(string: "https://world.openfoodfacts.org") {
+                                            Link(destination: sourceURL) {
+                                                Label("Data fra Open Food Facts", systemImage: "link")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.actionText)
+                                                    .frame(minHeight: 44, alignment: .leading)
+                                            }
+                                            .accessibilityHint("Åpner kilden i nettleseren")
+                                        }
+
+                                        if detailModel.canRefresh {
+                                            if let fetchedAt = product.fetchedAt {
+                                                Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.textSecondary)
+                                            }
+                                            Button {
+                                                Task { await detailModel.refresh(manually: true) }
+                                            } label: {
+                                                Label(detailModel.isRefreshing ? "Henter produktdata …" : "Oppdater",
+                                                      systemImage: "arrow.clockwise")
+                                                    .font(AppTypography.secondaryEmphasis)
+                                                    .frame(minWidth: 44, minHeight: 44)
+                                            }
+                                            .foregroundColor(AppColors.actionText)
+                                            .accessibilityLabel(detailModel.isRefreshing ? "Henter produktdata" : "Hent oppdaterte produktdata")
+                                            .disabled(detailModel.isRefreshing || isLogging)
+                                            if let message = detailModel.refreshMessage {
+                                                Text(message)
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.textSecondary)
+                                                    .multilineTextAlignment(.leading)
+                                                    .accessibilityIdentifier("productRefreshMessage")
+                                            }
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                         }
                         .padding(.horizontal)
-                        if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
-                           let sourceURL = URL(string: "https://world.openfoodfacts.org") {
-                            Link(destination: sourceURL) {
-                                Label("Data fra Open Food Facts", systemImage: "link")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.actionText)
-                            }
-                            .accessibilityHint("Åpner kilden i nettleseren")
-                        }
-
-                        if detailModel.canRefresh {
-                            if let fetchedAt = product.fetchedAt {
-                                Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                            Button {
-                                Task { await detailModel.refresh(manually: true) }
-                            } label: {
-                                Label(detailModel.isRefreshing ? "Henter produktdata …" : "Hent oppdaterte produktdata",
-                                      systemImage: "arrow.clockwise")
-                                    .font(AppTypography.body)
-                                    .frame(minHeight: 44)
-                            }
-                            .foregroundColor(AppColors.actionText)
-                            .disabled(detailModel.isRefreshing || isLogging)
-                            if let message = detailModel.refreshMessage {
-                                Text(message)
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                                    .accessibilityIdentifier("productRefreshMessage")
-                            }
-                        }
 
                     }
                     .padding(.vertical)
@@ -308,14 +323,6 @@ private struct ProductDetailContent: View {
                                            sourceURL: detailModel.processingSourceURL,
                                            presentation: presentation, fetchedAt: product.fetchedAt)
             }
-        }
-    }
-
-    private var processingRowBackground: Color {
-        switch detailModel.processingPresentation?.isUltraProcessed {
-        case false: return AppColors.processingNonUltraSurface
-        case true: return AppColors.processingUltraSurface
-        case nil: return AppColors.mutedSurface
         }
     }
 
@@ -531,14 +538,16 @@ struct ProductSourceInfoView: View {
 // MARK: - Supporting Views
 
 private struct ProductLoggingSection: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var amountModel: AmountSelectionViewModel
     let product: Product
     let isLogging: Bool
     @Binding var selectedMealType: String
     let logDateLabel: String
     let nutritionForAmount: (Double?) -> NutritionBreakdown
-    private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
-    private let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+    }
 
     var body: some View {
         let selectedAmount = amountModel.amount
@@ -599,12 +608,12 @@ private struct ProductLoggingSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(mealTypeKeys, id: \.self) { mealType in
+                    ForEach(MealPresentation.all) { meal in
                         MealChip(
-                            title: mealType.capitalized,
-                            isSelected: selectedMealType == mealType,
+                            title: meal.title,
+                            isSelected: selectedMealType == meal.key,
                             fillsWidth: true,
-                            action: { selectedMealType = mealType }
+                            action: { selectedMealType = meal.key }
                         )
                         .frame(maxWidth: .infinity)
                     }
@@ -954,6 +963,7 @@ private struct NutriScoreCalculationView: View {
                             }
                             .foregroundColor(AppColors.textSecondary)
                             .frame(minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("nutriscore-protein-explanation")

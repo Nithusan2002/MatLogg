@@ -78,6 +78,7 @@ struct WaterCardView: View {
                 }
             }
             .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.isLoaded || viewModel.isBusy)

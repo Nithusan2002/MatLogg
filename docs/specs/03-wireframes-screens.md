@@ -44,6 +44,11 @@ og redigeres med Avbryt/Lagre i Personlige detaljer. Det lagres per profil på
 enheten og vises foran eventuelt kontonavn; det synkroniseres ikke.
 
 «Daglige mål» er første rad i menyen, over Favoritter og Innstillinger.
+«Hjelp og støtte» er siste rad, under Innstillinger, med `questionmark.circle`
+og samme menyradstil. Den åpner en side med lokale vanlige spørsmål,
+der svarene er lukket fra start og foldes ut/inn per spørsmål,
+e-postkontakt og appversjon/build. Kontakt krever ikke konto og legger ikke
+automatisk ved brukerdata. Adressen kan kopieres dersom e-postappen ikke åpnes.
 Raden viser lagret kalorimål i kcal per dag, eller «Valgfritt · Sett opp mål»
 når mål mangler. Hele raden åpner målskjermen, som viser detaljene for kalorier
 og makroer. Underteksten bryter over flere linjer ved stor tekst.
@@ -70,7 +75,7 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
-viser MatLogg, dato og profil. Lokal lagring vises under Profil → Innstillinger → Data og lagring, uten permanent banner på Hjem. Når synk er tilgjengelig, vises eventuell status for ventende endringer og feil før «Dagen din, så langt.», et valgfritt
+starter med datovelgeren. Appnavn og profilknapp vises ikke her; Profil åpnes fra bunnmenyen. Lokal lagring vises under Profil → Innstillinger → Data og lagring, uten permanent banner på Hjem. Når synk er tilgjengelig, vises eventuell status for ventende endringer og feil før en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer), et valgfritt
 samlet dagsstatusfelt med valgfri næring og vann som nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
 lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
@@ -92,7 +97,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
 - Søk-fanen har direkte søk, favoritter og nylig loggede varer. Tomme seksjoner skjules; uten historikk eller favoritter vises «Søk etter en matvare for å komme i gang.», også ved første logging. Råvarer vises kun som søkeresultater. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.
-- Måltidskortene på Hjem og produktradene i dagsloggens måltidsvisning viser 52 pt produktbilder med 2 pt innvendig luft fra produktets lagrede bilde-URL eller lokale bilde, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon i samme ramme; måltidenes fargede bokstavmarkører beholdes. Søkeresultater beholder kompakte bilder.
+- Måltidskortene på Hjem og produktradene i dagsloggens måltidsvisning viser 52 pt produktbilder med 2 pt innvendig luft fra produktets lagrede bilde-URL eller lokale bilde, med hele bildet synlig. Manglende bilder bruker et nøytralt matikon i samme ramme. Hjem bruker måltidssymboler i 30 pt sirkler med svak måltidsfarge: soloppgang, sol, bestikk og måne med stjerner. Dekorative symboler skjules for VoiceOver; måltidsnavn og «Legg til» beholder minst 44 pt trykkflate. Tomme kort viser «Ikke logget ennå». Søkeresultater beholder kompakte bilder.
 - Produktlister viser en kompakt thumbnail når et produktbilde finnes. Manglende eller mislykket bilde bruker en nøytral placeholder uten å flytte tekst eller endre radhøyden.
 - Hurtigvalg skiller mellom første gangs tomtilstand og en feil som kan prøves på nytt.
 - Ved lokal lagringsfeil beholdes mengde og måltid, og feilen vises ved «Legg til»-handlingen med eksplisitt retry.
@@ -595,20 +600,25 @@ Bytte til vanlig modus bevarer eksisterende registreringer og kontosesjon.
 
 ### Måltidsrom (gjeldende loggvisning)
 
-Dato → rullbar måltidsvelger → måltidsnavn og antall → produktbilder, matnavn
-og mengder → Legg til mat. Måltidets samlede næring vises rett under
-måltidsnavn og antall, før produktlisten. Hele dagen kan velges
-sekundært. Se design-and-user-flow.md for handlinger og tilstander.
+Dato → Hele dagen, antall og dagsnæring → fire
+måltidsseksjoner med produktbilder, matnavn, mengder og Legg til.
+Måltidsoverskriftene følger innholdet ved scrolling og festes ikke under toppmenyen.
+Ingen måltidssnarveier eller måltidsfiltrering. Tomme måltider har
+Legg til. Skjermhodet har én •••-meny for gjenbruk og dagsvalg; dagsloggen har ikke søk.
+Se design-and-user-flow.md for handlinger og tilstander.
 
 ### Navigasjonstillegg 2026-10-02
 
 Ved måltidsoverskriften på Hjem står «Se dagslogg»; synlige varerader åpner
 redigering. Midtknappen er merket «Loggfør». Alle Legg til-innganger bruker
 samme ark med søk, skann, Registrer manuelt, måltid/dato og en todelt velger
-for «Loggfør igjen» / «Lagrede måltider». Bare valgt liste vises; øvrige
+for «Nylig logget» / «Lagrede måltider». Bare valgt liste vises; øvrige
 favoritter og nylig brukt er tilgjengelige i Søk. Arket stabler måltidsvalg ved tilgjengelighetsstørrelser.
+I «Nylig logget» vises «Loggfør [mengde]» som en knapp i kortets bredde,
+med avrundet, diskret ramme, svak merkevarebakgrunn og minst 44 punkters trykkflate.
+Listen starter direkte under velgeren uten å gjenta «Nylig logget» som overskrift.
 Hjems næringsfelt viser registrert energi uten mål når visningsvalget er på.
-Dagsloggen har tekstmerket Gjenbruk-meny; måltidsmaler har en 44-punkters
+Dagsloggen har en •••-meny for gjenbruk og dagsvalg; måltidsmaler har en 44-punkters
 menyknapp for redigering og sletting. Eksisterende komponenter og tokens gjenbrukes.
 
 ### Produktkort: antall og porsjoner (2026-10-02)
@@ -617,3 +627,10 @@ Mengdekortet har en meny for gram/ml og dokumenterte porsjoner. Porsjon viser
 Antall med −/+, mengde per porsjon, kilde og total. Ved tilgjengelighetsstørrelser
 ligger −/+ på egen rad. Loggredigering åpnes i stor sheet ved stor tekst for
 å beholde en brukbar rulleflate. Historiske logger åpner sitt lagrede grunnlag.
+
+### Loggfør-arkets rulleflate (2026-10-04)
+
+Innholdet holdes innenfor arkets tilgjengelige bredde også når «Lagrede
+måltider» velges. Lange måltidsnavn brytes vertikalt. Rulleflaten er vertikal;
+elastisk sprett brukes bare når innholdet overstiger tilgjengelig størrelse,
+slik at korte lister ikke kan dras elastisk sideveis.

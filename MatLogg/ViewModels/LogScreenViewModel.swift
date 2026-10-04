@@ -22,10 +22,12 @@ final class LogScreenViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var presentation = LogListPresentation(groups: [], mealLogs: [],
         totals: NutritionCalculator.totals(for: []))
+    private let includesEmptyMeals: Bool
     private var subscriptions = Set<AnyCancellable>()
 
     init(logs: LogViewModel, appState: AppState? = nil, auth: AuthViewModel? = nil,
-         savedMeals: SavedMealsViewModel? = nil, mealFilter: String? = nil) {
+         savedMeals: SavedMealsViewModel? = nil, mealFilter: String? = nil, includesEmptyMeals: Bool = false) {
+        self.includesEmptyMeals = includesEmptyMeals
         self.mealFilter = mealFilter
         logs.$selectedDay.sink { [weak self] day in
             guard let self else { return }
@@ -54,8 +56,13 @@ final class LogScreenViewModel: ObservableObject {
             ? (summary?.logs ?? []).filter { mealFilter == nil || $0.mealType == mealFilter }
             : presentation.mealLogs
         let totals = recomputeMeal ? NutritionCalculator.totals(for: logs) : presentation.totals
-        let groups = LogSummaryService.groupedLogs(logs: logs, searchText: searchText,
+        var groups = LogSummaryService.groupedLogs(logs: logs, searchText: searchText,
                                                   productNameLookup: { names[$0] ?? "" })
+        if includesEmptyMeals, mealFilter == nil, searchText.isEmpty {
+            groups = LogSummaryService.mealOrder.map { meal in
+                (meal, groups.first(where: { $0.mealType == meal })?.logs ?? [])
+            }
+        }
         presentation = LogListPresentation(groups: groups, mealLogs: logs, totals: totals)
     }
 

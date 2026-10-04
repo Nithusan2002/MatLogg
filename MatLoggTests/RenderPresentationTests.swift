@@ -38,6 +38,31 @@ struct RenderPresentationTests {
         #expect(screen.presentation.totals.calories == 0)
     }
 
+    @Test func dailyLogIncludesEmptyMealsAndSearchKeepsDayTotals() async {
+        let repository = RenderLogRepository()
+        let owner = UUID(), date = Date()
+        let bread = product("Brød")
+        let breakfast = log(owner: owner, product: bread, date: date, time: 10, calories: 120)
+        let lunch = log(owner: owner, product: bread, date: date, time: 20, calories: 80, meal: "lunsj")
+        repository.logs = [breakfast, lunch]
+        repository.products = [bread.id: bread]
+        let logs = LogViewModel(repository: repository)
+        let screen = LogScreenViewModel(logs: logs, includesEmptyMeals: true)
+        await logs.loadSelectedSummary(userId: owner, date: date)
+        #expect(screen.presentation.groups.map(\.mealType) == LogSummaryService.mealOrder)
+        #expect(screen.presentation.groups.map { $0.logs.count } == [1, 1, 0, 0])
+        #expect(screen.presentation.totals.calories == 200)
+        screen.searchText = "Ingen treff"
+        #expect(screen.presentation.groups.isEmpty)
+        #expect(screen.presentation.totals.calories == 200)
+        screen.searchText = ""
+        repository.logs = []
+        await logs.loadSelectedSummary(userId: owner, date: date)
+        #expect(screen.presentation.groups.count == 4)
+        #expect(screen.presentation.groups.allSatisfy { $0.logs.isEmpty })
+        #expect(screen.presentation.totals.calories == 0)
+    }
+
     @Test func receiptAndTodayUpdatesDoNotInvalidateLogScreenOrRecalculateGroups() async {
         let repository = RenderLogRepository()
         let logs = LogViewModel(repository: repository)

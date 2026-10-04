@@ -23,17 +23,9 @@ private struct LoggContent: View {
     @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @State private var selectedDate: Date = Date()
     @StateObject private var screen: LogScreenViewModel
-    private var searchText: String {
-        get { screen.searchText }
-        nonmutating set { screen.searchText = newValue }
-    }
     @State private var isPullRefreshing = false
-    @State private var showSearch = false
-    @FocusState private var searchFocused: Bool
-    private var mealFilter: String? {
-        get { screen.mealFilter }
-        nonmutating set { screen.mealFilter = newValue }
-    }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pendingMealScroll: String?
     @State private var showAddActions = false
     @State private var editingLog: FoodLog?
     @State private var receiptPayload: ReceiptPayload?
@@ -47,8 +39,9 @@ private struct LoggContent: View {
         self.authViewModel = authViewModel
         self.savedMealsViewModel = savedMealsViewModel
         _selectedDate = State(initialValue: initialDate)
+        _pendingMealScroll = State(initialValue: initialMeal)
         _screen = StateObject(wrappedValue: LogScreenViewModel(logs: logViewModel, appState: appState,
-            auth: authViewModel, savedMeals: savedMealsViewModel, mealFilter: initialMeal))
+            auth: authViewModel, savedMeals: savedMealsViewModel, includesEmptyMeals: true))
     }
 
     var body: some View {
@@ -72,11 +65,7 @@ private struct LoggContent: View {
         .onDisappear { logViewModel.dismissDeletionReceipt() }
         .task(id: "\(authViewModel.currentUser?.id.uuidString ?? "local")-\(selectedDate.timeIntervalSince1970)") {
             appState.logSelectedDate = selectedDate
-            if let mealFilter { appState.selectedMealType = mealFilter }
             await loadSelectedSummary()
-        }
-        .onChange(of: mealFilter) { _, newValue in
-            if let newValue { appState.selectedMealType = newValue }
         }
         .onChange(of: appState.logSelectedDate) { _, newValue in
             if !Calendar.current.isDate(selectedDate, inSameDayAs: newValue) {
@@ -101,32 +90,13 @@ private struct LoggContent: View {
 
     @ToolbarContentBuilder private var navigationToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                showSearch.toggle()
-                searchFocused = showSearch
-                if !showSearch { searchText = "" }
-            } label: {
-                Image(systemName: showSearch ? "xmark" : "magnifyingglass")
-                    .frame(minWidth: 44, minHeight: 44)
-            }
-            .tint(AppColors.ink)
-            .accessibilityLabel(showSearch ? "Lukk søk" : mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet")
-        }
-        ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
-                if let mealFilter, !logViewModel.logs(for: mealFilter).isEmpty {
-                    Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                        savedMealSource = SavedMealCreationSource(mealType: mealFilter, logs: logViewModel.logs(for: mealFilter))
-                    }
-                }
-                if mealFilter == nil {
-                    Menu("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                        ForEach(MealPresentation.all) { meal in
-                            Button(meal.title) {
-                                savedMealSource = SavedMealCreationSource(mealType: meal.key, logs: logViewModel.logs(for: meal.key))
-                            }
-                            .disabled(logViewModel.logs(for: meal.key).isEmpty)
+                Menu("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                    ForEach(MealPresentation.all) { meal in
+                        Button(meal.title) {
+                            savedMealSource = SavedMealCreationSource(mealType: meal.key, logs: logViewModel.logs(for: meal.key))
                         }
+                        .disabled(logViewModel.logs(for: meal.key).isEmpty)
                     }
                 }
                 Button("Gå til i dag", systemImage: "calendar") {
@@ -143,12 +113,11 @@ private struct LoggContent: View {
                     }
                 }
             } label: {
-                Label("Gjenbruk", systemImage: "arrow.triangle.2.circlepath")
-                    .font(AppTypography.secondaryEmphasis)
-                    .frame(minHeight: 44)
+                Image(systemName: "ellipsis")
+                    .frame(minWidth: 44, minHeight: 44)
             }
             .tint(AppColors.ink)
-            .accessibilityLabel("Gjenbruk og dagsvalg")
+            .accessibilityLabel("Flere valg for dagsloggen")
             .accessibilityIdentifier("meal-room-reuse")
         }
     }
@@ -222,115 +191,71 @@ private struct LoggContent: View {
         }
     }
     
-    private var mealTitle: String {
-        guard let mealFilter else { return "Hele dagen" }
-        return LogSummaryService.title(for: mealFilter)
-    }
-
     private var logList: some View {
         let groups = groupedLogs
         let logs = screen.presentation.mealLogs
         let totals = screen.presentation.totals
         let hasCurrentSummary = screen.summary.map { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } == true
         let loading = screen.isLoading || !hasCurrentSummary
-        return List {
-            Section {
-                DayNavigationBar(selection: $selectedDate)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(MealPresentation.all) { meal in
-                            MealChip(title: meal.title, isSelected: mealFilter == meal.key) {
-                                mealFilter = meal.key
-                            }
-                            .accessibilityIdentifier("meal-room-select-\(meal.key)")
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                Button(mealFilter == nil ? "Velg frokost" : "Se hele dagen") {
-                    mealFilter = mealFilter == nil ? "frokost" : nil
-                }
-                .font(AppTypography.secondaryEmphasis)
-                .foregroundStyle(AppColors.actionText)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("meal-room-all")
-                if showSearch {
-                    TextField(mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet", text: $screen.searchText)
-                        .focused($searchFocused)
-                        .submitLabel(.search)
-                        .padding(12)
-                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
-                        .accessibilityIdentifier("meal-room-search")
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(mealTitle)
-                        .font(AppTypography.hero)
-                        .foregroundStyle(AppColors.deepInk)
-                    if hasCurrentSummary {
-                        Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
-                            .font(AppTypography.secondary)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-                .padding(.vertical, 8)
-                if hasCurrentSummary {
+        return ScrollViewReader { proxy in
+            List {
+                Section {
+                    DayNavigationBar(selection: $selectedDate)
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(mealFilter == nil ? "Hele dagen" : "Dette måltidet")
-                            .font(AppTypography.captionEmphasis)
+                        Text("Hele dagen")
+                            .font(AppTypography.hero)
                             .foregroundStyle(AppColors.deepInk)
-                        Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
-                            .font(AppTypography.title)
-                            .foregroundStyle(AppColors.deepInk)
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) {
-                                mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                            }
-                            VStack(alignment: .leading, spacing: 8) {
-                                mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                            }
+                        if hasCurrentSummary {
+                            Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
+                                .font(AppTypography.secondary)
+                                .foregroundStyle(AppColors.textSecondary)
                         }
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 18))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("meal-room-totals")
-                }
-            }
-            .listRowBackground(AppColors.background)
-            .listRowSeparator(.hidden)
-
-            if loading && (!isPullRefreshing || !hasCurrentSummary) {
-                ProgressView("Henter måltider …")
-                    .frame(maxWidth: .infinity, minHeight: 96)
-                    .listRowBackground(AppColors.background)
-            }
-            if hasCurrentSummary {
-                ForEach(groups, id: \.mealType) { group in
-                    Section {
-                        ForEach(group.logs) { log in
-                            LogRowView(
-                                log: log,
-                                productName: screen.names[log.productId] ?? "Ukjent produkt",
-                                compact: true,
-                                mealRoom: true,
-                                imageURL: screen.imageURLs[log.productId],
-                                imageData: screen.imageData[log.productId],
-                                onEdit: { editingLog = log },
-                                onMove: { editingLog = log },
-                                onDelete: { deleteLog(log) }
-                            )
-                            .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
-                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                            .listRowBackground(AppColors.surface)
-                            .listRowSeparatorTint(AppColors.separator)
+                    .padding(.vertical, 8)
+                    if hasCurrentSummary {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Hele dagen")
+                                .font(AppTypography.captionEmphasis)
+                                .foregroundStyle(AppColors.deepInk)
+                            Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
+                                .font(AppTypography.title)
+                                .foregroundStyle(AppColors.deepInk)
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 8) {
+                                    mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                                }
+                                VStack(alignment: .leading, spacing: 8) {
+                                    mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                                }
+                            }
                         }
-                    } header: {
-                        if mealFilter == nil {
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 18))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("meal-room-totals")
+                    }
+                }
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
+
+                if loading && (!isPullRefreshing || !hasCurrentSummary) {
+                    ProgressView("Henter måltider …")
+                        .frame(maxWidth: .infinity, minHeight: 96)
+                        .listRowBackground(AppColors.background)
+                }
+                if hasCurrentSummary {
+                    ForEach(groups, id: \.mealType) { group in
+                        Section {
                             HStack {
                                 Text(LogSummaryService.title(for: group.mealType))
+                                    .font(AppTypography.sectionTitle)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .accessibilityAddTraits(.isHeader)
+                                    .accessibilityIdentifier("meal-room-heading-\(group.mealType)")
                                 Spacer()
                                 Button("Legg til") { beginAdding(to: group.mealType) }
+                                    .accessibilityIdentifier("meal-room-add-\(group.mealType)")
                                     .frame(minHeight: 44)
                                     .tint(AppColors.action)
                                 Menu {
@@ -340,44 +265,79 @@ private struct LoggContent: View {
                                 } label: {
                                     Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
                                 }
+                                .disabled(group.logs.isEmpty)
                                 .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                             }
+                            .listRowBackground(AppColors.background)
+                            .listRowSeparator(.hidden)
+                            if group.logs.isEmpty {
+                                Text("Ingen mat registrert")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .listRowBackground(AppColors.background)
+                            }
+                            ForEach(group.logs) { log in
+                                LogRowView(
+                                    log: log,
+                                    productName: screen.names[log.productId] ?? "Ukjent produkt",
+                                    compact: true,
+                                    mealRoom: true,
+                                    imageURL: screen.imageURLs[log.productId],
+                                    imageData: screen.imageData[log.productId],
+                                    onEdit: { editingLog = log },
+                                    onMove: { editingLog = log },
+                                    onDelete: { deleteLog(log) }
+                                )
+                                .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                .listRowBackground(AppColors.surface)
+                                .listRowSeparatorTint(AppColors.separator)
+                            }
                         }
+                        .id(group.mealType)
+                    }
+                    if groups.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Ingen mat registrert ennå")
+                                .font(AppTypography.title)
+                            Text("Legg til mat for valgt dato.")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                        .listRowBackground(AppColors.background)
+                        .listRowSeparator(.hidden)
                     }
                 }
-                if groups.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(searchText.isEmpty ? "Ingen mat registrert ennå" : "Ingen treff")
-                            .font(AppTypography.title)
-                        Text(searchText.isEmpty ? "Legg til mat for valgt måltid og dato." : "Prøv et annet søk. Måltidets totaler inkluderer fortsatt alle varene.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
-                        if !searchText.isEmpty {
-                            Button("Nullstill søket") { searchText = "" }.frame(minHeight: 44)
-                        }
+                Section {
+                    PrimaryButton(title: "Legg til mat", systemImage: "plus") {
+                        beginAdding(to: appState.selectedMealType)
                     }
-                    .listRowBackground(AppColors.background)
-                    .listRowSeparator(.hidden)
-                }
-            }
-            Section {
-                PrimaryButton(title: "Legg til mat", systemImage: "plus") {
-                    beginAdding(to: mealFilter ?? appState.selectedMealType)
-                }
-                .accessibilityIdentifier("meal-room-add")
+                    .accessibilityIdentifier("meal-room-add")
 
+                }
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
             }
-            .listRowBackground(AppColors.background)
-            .listRowSeparator(.hidden)
+            .refreshable {
+                isPullRefreshing = true
+                defer { isPullRefreshing = false }
+                await logViewModel.loadSelectedSummary(userId: authViewModel.currentUser?.id, date: selectedDate)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .matLoggTabBarScrollClearance()
+            .task(id: "\(hasCurrentSummary)-\(pendingMealScroll ?? "")") {
+                guard hasCurrentSummary, let meal = pendingMealScroll,
+                      groups.contains(where: { $0.mealType == meal }) else { return }
+                appState.selectedMealType = meal
+                if reduceMotion {
+                    proxy.scrollTo(meal, anchor: .top)
+                } else {
+                    withAnimation { proxy.scrollTo(meal, anchor: .top) }
+                }
+                pendingMealScroll = nil
+            }
         }
-        .refreshable {
-            isPullRefreshing = true
-            defer { isPullRefreshing = false }
-            await logViewModel.loadSelectedSummary(userId: authViewModel.currentUser?.id, date: selectedDate)
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .matLoggTabBarScrollClearance()
     }
 
     private func mealNutrientLabels(protein: Float, carbs: Float, fat: Float) -> some View {
@@ -448,7 +408,6 @@ private struct LoggContent: View {
     }
     
     private func loadSelectedSummary() async {
-        if let mealFilter { appState.selectedMealType = mealFilter }
         await logViewModel.loadSelectedSummary(
             userId: authViewModel.currentUser?.id,
             date: selectedDate
@@ -646,16 +605,12 @@ struct EditLogView: View {
     }
 
     @ViewBuilder private var mealButtons: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                ForEach(MealPresentation.all) { option in
-                    mealButton(option)
-                }
-            }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(MealPresentation.all) { option in
-                    mealButton(option)
-                }
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2),
+            spacing: 8
+        ) {
+            ForEach(MealPresentation.all) { option in
+                mealButton(option)
             }
         }
     }
@@ -664,6 +619,7 @@ struct EditLogView: View {
         MealChip(
             title: option.title,
             isSelected: model.mealType == option.key,
+            fillsWidth: true,
             action: { model.mealType = option.key }
         )
         .frame(maxWidth: .infinity)

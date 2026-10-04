@@ -447,7 +447,7 @@ Mislykket redigering beholder utkastet for retry og lukker ikke skjermen.
 ### Dra ned for å oppdatere
 
 Hjem, Logg og Oversikt støtter dra ned for å lese lokale data på nytt.
-Valgt dato, måltidsfilter og søketekst beholdes. Eksisterende innhold beholdes
+Valgt dato og søketekst beholdes. Dagsloggen viser alltid hele dagen. Eksisterende innhold beholdes
 under oppdatering; den innebygde oppdateringsindikatoren erstatter ekstra
 indikatorer ved innholdet. Automatisk oppdatering etter logging fortsetter.
 Gesten fungerer uten nett, oppretter ingen synkhendelser og aktiverer ikke

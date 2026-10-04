@@ -20,13 +20,20 @@ struct DemoModeTests {
         }
     }
 
-    @Test func bundledOFFCatalogHasStableIdentityNutritionAndDecodableImages() async throws {
+    @Test func bundledCatalogHasStableIdentityNutritionAndDecodableProductImages() async throws {
         let products = try await DemoProductCatalog.load()
         let reloaded = try await DemoProductCatalog.load()
-        #expect(products.count == 12)
+        #expect(products.count == 23)
+        #expect(products.filter { $0.source == "matvaretabellen" }.count == 15)
         #expect(Set(products.map(\.id)).count == products.count)
         #expect(products.map(\.id) == reloaded.map(\.id))
         for product in products {
+            #expect(product.nutritionBasis == .per100g)
+            if product.source == "matvaretabellen" {
+                #expect(product.nutritionSource == .matvaretabellen)
+                #expect(product.isVerified)
+                continue
+            }
             #expect(product.source == "openfoodfacts")
             #expect(product.nutritionSource == .openFoodFacts)
             #expect(product.imageSource == .openFoodFacts)
@@ -40,10 +47,6 @@ struct DemoModeTests {
         }
     }
 
-    private func product() -> Product {
-        Product(name: "Testmat", caloriesPer100g: 100, proteinGPer100g: 10, carbsGPer100g: 10, fatGPer100g: 2)
-    }
-
     @Test func seedingIsPersistentAndResetDoesNotTouchNormalStore() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -53,13 +56,25 @@ struct DemoModeTests {
         try normal.saveWeightEntry(WeightEntry(userId: owner, date: Date(), weightKg: 81))
         let url = directory.appendingPathComponent("demo.sqlite")
         let demoOwner = UUID()
-        let demo = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [product()])
+        let demo = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load())
         let initialCount = demo.getAllLogs(userId: demoOwner).count
         #expect(initialCount > 400)
         #expect(demo.getAllLogs(userId: owner).isEmpty)
         #expect(!demo.getSummary(userId: demoOwner, date: Date()).logs.isEmpty)
-        #expect(demo.getSavedMeals(userId: demoOwner).count == 4)
+        #expect(demo.getSavedMeals(userId: demoOwner).count == 8)
         #expect(try demo.getWaterGlasses(userId: demoOwner).count > 200)
+        let meals = demo.getSavedMeals(userId: demoOwner)
+        #expect(meals.allSatisfy { $0.items.count >= 3 })
+        #expect(meals.contains { $0.name == "Fredagstaco" && $0.items.count == 6 })
+        let catalog = try await DemoProductCatalog.load()
+        for meal in meals {
+            for item in meal.items {
+                let source = try #require(catalog.first { $0.id == item.productId })
+                #expect(abs(item.calories - source.caloriesPer100g * item.amountG / 100) < 0.001)
+                #expect(item.nutritionSource == source.nutritionSource)
+            }
+        }
+        #expect(Set(demo.getSummary(userId: demoOwner, date: Date()).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
         let weight = WeightEntry(userId: demoOwner, date: Date(), weightKg: 99)
         try demo.saveWeightEntry(weight)
         let reopened = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [])
@@ -69,7 +84,12 @@ struct DemoModeTests {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [], reset: true)
         }
         #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
-        let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [product()], reset: true)
+        await #expect(throws: (any Error).self) {
+            _ = try await DemoDataset.prepare(at: url, userId: demoOwner,
+                products: catalog.filter { $0.externalID != "04.342" }, reset: true)
+        }
+        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load(), reset: true)
         #expect(reset.getAllLogs(userId: demoOwner).count == initialCount)
         #expect(!reset.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
         #expect(normal.getWeightEntries(userId: owner).first?.weightKg == 81)

@@ -13,6 +13,10 @@ final class QuickLogViewModel: ObservableObject {
     @Published private(set) var showsRepeatFeedback = false
     private let repeatFeedback = DelayedActivity()
     @Published private(set) var logError: String?
+    @Published private(set) var repeatReceipt: ReceiptPayload?
+    @Published private(set) var confirmedProductID: UUID?
+    @Published private(set) var isUndoingRepeat = false
+    private var confirmationTask: Task<Void, Never>?
     @Published var selectedQuickProduct: Product?
     private var repeatID = UUID()
     @Published private(set) var products: [Product] = []
@@ -63,10 +67,31 @@ final class QuickLogViewModel: ObservableObject {
     func invalidateRepeatPresentation() {
         repeatID = UUID()
         logError = nil
+        dismissRepeatReceipt()
     }
 
+    func dismissRepeatReceipt() {
+        confirmationTask?.cancel()
+        confirmationTask = nil
+        repeatReceipt = nil
+        confirmedProductID = nil
+    }
+
+    func showRepeatUndoError() {
+        logError = "Kunne ikke angre loggingen. Prøv igjen."
+    }
+
+    func beginRepeatUndo() -> Bool {
+        guard !isUndoingRepeat, !isRepeating else { return false }
+        isUndoingRepeat = true
+        logError = nil
+        return true
+    }
+
+    func finishRepeatUndo() { isUndoingRepeat = false }
+
     func logAgain(_ food: RecentFood, mealType: String, date: Date) async -> (Product, FoodLog)? {
-        guard !isRepeating, let owner, food.log.userId == owner else { return nil }
+        guard !isRepeating, !isUndoingRepeat, let owner, food.log.userId == owner else { return nil }
         let request = UUID()
         repeatID = request
         repeatingProductID = food.id
@@ -77,7 +102,18 @@ final class QuickLogViewModel: ObservableObject {
             let outcome = try await repository.logAgain(food, owner: owner, mealType: mealType, date: date)
             guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
             switch outcome {
-            case .logged(let product, let log): return (product, log)
+            case .logged(let product, let log):
+                dismissRepeatReceipt()
+                repeatReceipt = ReceiptPayload(product: product, amountG: Double(log.amountG),
+                    amountUnit: log.resolvedAmountUnit, mealType: log.mealType,
+                    loggedDate: log.loggedDate, portionSelection: log.portionSelection,
+                    logID: log.id, ownerID: log.userId)
+                confirmedProductID = food.id
+                confirmationTask = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                    self?.confirmedProductID = nil
+                }
+                return (product, log)
             case .review(let product):
                 selectedQuickProduct = product
                 return nil
