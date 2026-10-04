@@ -397,7 +397,7 @@ private struct HomeTabContent: View {
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .matLoggCardSurface(fill: AppColors.warmSurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+                    .matLoggCardSurface(fill: AppColors.energySurface, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {
@@ -504,7 +504,10 @@ private struct HomeTabContent: View {
         .sheet(item: $editingLog) { log in
             EditLogView(
                 log: log,
-                productName: productNames[log.productId] ?? "Rediger logging",
+                productName: productNames[log.productId] ?? "Ukjent matvare",
+                brand: overviewModel.products[log.productId]?.brand,
+                imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
+                imageData: overviewModel.products[log.productId]?.localImageData,
                 onSave: { amount, meal, portion in
                         guard let userId = authViewModel.currentUser?.id else { return false }
                         let success = await logViewModel.updateLog(log, amountG: amount, mealType: meal, userId: userId, portionSelection: portion, clearPortion: portion == nil)
@@ -952,7 +955,7 @@ private struct StatusSummaryContent: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Registrert energi")
                     .font(AppTypography.captionEmphasis)
@@ -962,8 +965,12 @@ private struct StatusSummaryContent: View {
                     .foregroundColor(AppColors.deepInk)
                     .fixedSize(horizontal: false, vertical: true)
                 if let goal {
-                    Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen av \(goal.dailyCalories)")
-                        .font(AppTypography.secondary)
+                    (
+                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen")
+                            .font(AppTypography.secondaryEmphasis)
+                        + Text(overCalories > 0 ? "" : " av \(goal.dailyCalories)")
+                            .font(AppTypography.secondary)
+                    )
                         .foregroundColor(AppColors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -996,8 +1003,9 @@ private struct StatusSummaryContent: View {
                 .foregroundColor(AppColors.deepInk)
             if let target {
                 Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
-                    .font(AppTypography.caption)
+                    .font(AppTypography.secondary)
                     .foregroundColor(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

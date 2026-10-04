@@ -237,6 +237,28 @@ struct PortionLoggingTests {
         }
     }
 
+    @Test func editorPreviewMatchesHistoricalSnapshotAndSkipsUnchangedSave() async throws {
+        let log = FoodLog(userId: UUID(), productId: UUID(), mealType: "frokost", amountG: 80,
+                          loggedDate: Date(), calories: 296, proteinG: 10, carbsG: 48, fatG: 6)
+        let editor = EditLogViewModel(log: log)
+        #expect(!editor.canSave)
+        var calls = 0
+        #expect(!(await editor.save { _, _, _ in calls += 1; return true }))
+        #expect(calls == 0)
+        editor.amount.text = "160"
+        #expect(editor.canSave)
+        #expect(editor.nutrition?.calories == 592)
+        #expect(editor.nutrition?.protein == 20)
+        editor.amount.text = "80"
+        #expect(!editor.hasChanges)
+        editor.mealType = "lunsj"
+        #expect(editor.canSave)
+        #expect(editor.nutrition?.calories == 296)
+        editor.amount.text = "0"
+        #expect(!editor.canSave)
+        #expect(editor.nutrition == nil)
+    }
+
     @Test func oldJSONAndFailedSaveKeepSafeState() async throws {
         let item = product()
         let log = FoodLog(userId: UUID(), productId: item.id, mealType: "frokost", amountG: 75,

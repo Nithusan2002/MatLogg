@@ -683,3 +683,12 @@ handlingsspesifikk fallback. Rå servertekst og systemfeil vises ikke direkte.
 Ukjente feil lover ikke at en flertrinnshandling ble rullet tilbake.
 Synkresultater skiller automatisk retry fra behov for oppfølging og omtaler
 allerede lagrede hendelser som lokale data. Produksjonssynk aktiveres ikke.
+
+### Redigering av matlogging
+
+Redigeringsarket viser «Rediger logging», produktbilde/navn, eventuell merkevare og
+loggingens dato. Mengde og lagret porsjonsgrunnlag kommer først, deretter en kompakt
+næringsoppsummering beregnet fra loggingens opprinnelige næringssnapshot og måltidsvalg.
+Det gjøres ikke nye katalogoppslag for å åpne arket. «Lagre endringer» er deaktivert
+uten en gyldig, reell endring. Under lagring låses kontrollene og lukking; feil vises
+ved lagreknappen og beholder utkastet. Stor tekst bruker full arkhøyde.

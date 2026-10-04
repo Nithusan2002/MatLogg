@@ -48,6 +48,7 @@ NOVA-fargene beholdes uendret.
 | `background` | Sidens grunnflate. |
 | `surface` | Kort, skjema og ordinære innholdsflater. |
 | `warmSurface` | Varm sekundær fremheving. |
+| `energySurface` | Dempet blågrå flate for energi- og vannoversikten på Hjem, med ordinær primær- og sekundærtekst. |
 | `mutedSurface` | Diskret status, valgt bakgrunn eller sekundær informasjon. |
 | `ink` | Primær tekst og ikoner. |
 | `deepInk` | Høyere visuell vekt på overskrifter og sentrale elementer. |

@@ -21,6 +21,7 @@ enum AppColors {
     static let mutedSurface = Color(UIColor.appMutedSurface)
     static let deepInk = Color(UIColor.appDeepInk)
     static let energyTint = info
+    static let energySurface = Color(UIColor.appEnergySurface)
     static let calorieBlue = energyTint
     static let energyChart = Color(UIColor.appEnergyChart)
     static let action = Color(UIColor.appAction)
@@ -67,6 +68,7 @@ private extension UIColor {
     static let appBackground = UIColor.dynamic(light: 0xFFF5E8, dark: 0x17120F)
     static let appSurface = UIColor.dynamic(light: 0xFFFCF7, dark: 0x241C18)
     static let appWarmSurface = UIColor.dynamic(light: 0xFCEBDD, dark: 0x30231D)
+    static let appEnergySurface = UIColor.dynamic(light: 0xEDF3F4, dark: 0x202B30)
     static let appMutedSurface = UIColor.dynamic(light: 0xF4EDE6, dark: 0x2A2420)
     static let appInk = UIColor.dynamic(light: 0x24192E, dark: 0xFFF8F1)
     static let appDeepInk = UIColor.dynamic(light: 0x231937, dark: 0xFFF8F1)

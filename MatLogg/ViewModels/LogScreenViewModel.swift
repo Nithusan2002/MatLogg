@@ -16,6 +16,7 @@ final class LogScreenViewModel: ObservableObject {
     }
     @Published private(set) var summary: DailySummary?
     @Published private(set) var names: [UUID: String] = [:]
+    @Published private(set) var brands: [UUID: String] = [:]
     @Published private(set) var imageURLs: [UUID: URL] = [:]
     @Published private(set) var imageData: [UUID: Data] = [:]
     @Published private(set) var isLoading = false
@@ -32,6 +33,7 @@ final class LogScreenViewModel: ObservableObject {
             self.names = day.productNames
             self.updatePresentation(recomputeMeal: true)
         }.store(in: &subscriptions)
+        logs.$mealProductBrands.removeDuplicates().assign(to: &$brands)
         logs.$mealProductImageURLs.removeDuplicates().assign(to: &$imageURLs)
         logs.$mealProductImageData.removeDuplicates().assign(to: &$imageData)
         logs.$isSummaryLoading.removeDuplicates().assign(to: &$isLoading)

@@ -171,7 +171,10 @@ private struct LoggContent: View {
     private func logEditor(for log: FoodLog) -> some View {
         EditLogView(
             log: log,
-            productName: screen.names[log.productId] ?? "Rediger logging",
+            productName: screen.names[log.productId] ?? "Ukjent matvare",
+            brand: screen.brands[log.productId],
+            imageURL: screen.imageURLs[log.productId],
+            imageData: screen.imageData[log.productId],
             onSave: { amountG, mealType, portion in
                     guard let userId = authViewModel.currentUser?.id else { return false }
                     let success = await logViewModel.updateLog(log, amountG: amountG, mealType: mealType, userId: userId, portionSelection: portion, clearPortion: portion == nil)
@@ -522,14 +525,20 @@ struct EditLogView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let log: FoodLog
     let productName: String
+    let brand: String?
+    let imageURL: URL?
+    let imageData: Data?
     let onSave: (Float, String, PortionSelection?) async -> Bool
     
     @StateObject private var model: EditLogViewModel
 
-    init(log: FoodLog, productName: String,
+    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil,
          onSave: @escaping (Float, String, PortionSelection?) async -> Bool) {
         self.log = log
         self.productName = productName
+        self.brand = brand
+        self.imageURL = imageURL
+        self.imageData = imageData
         self.onSave = onSave
         _model = StateObject(wrappedValue: EditLogViewModel(log: log))
     }
@@ -537,17 +546,36 @@ struct EditLogView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                MatLoggSheetHeader(title: productName) { dismiss() }
+                MatLoggSheetHeader(title: "Rediger logging", isCloseDisabled: model.isSaving) { dismiss() }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top, spacing: 12) {
+                            ProductThumbnailView(url: imageURL, localData: imageData, imagePadding: 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(productName)
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let brand, !brand.isEmpty {
+                                    Text(brand)
+                                        .font(AppTypography.secondary)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Text("Logget \(log.loggedDate.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
                                 PortionAmountInput(model: model.amount)
                                     .disabled(model.isSaving)
+
+                                nutritionSummary
 
                                 Divider().overlay(AppColors.separator)
 
@@ -559,19 +587,21 @@ struct EditLogView: View {
                             }
                         }
 
-                        if let error = model.error {
-                            ErrorMessageView(error).font(AppTypography.caption)
-                        }
                     }
                     .padding(16)
                 }
                 .accessibilityIdentifier("log-editor-scroll")
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                PrimaryButton(title: model.isSaving ? "Lagrer …" : "Lagre endringer") {
-                    Task { if await model.save(onSave) { dismiss() } }
+                VStack(spacing: 8) {
+                    if let error = model.error {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
+                    PrimaryButton(title: model.isSaving ? "Lagrer …" : "Lagre endringer") {
+                        Task { if await model.save(onSave) { dismiss() } }
+                    }
+                    .disabled(!model.canSave)
                 }
-                .disabled(model.isSaving || !model.amount.isValid)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(AppColors.background)
@@ -587,8 +617,32 @@ struct EditLogView: View {
             }
 
         }
-        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+        .interactiveDismissDisabled(model.isSaving)
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder private var nutritionSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Næring for valgt mengde")
+                .font(AppTypography.secondary)
+                .foregroundStyle(AppColors.textSecondary)
+            if let nutrition = model.nutrition {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 240 : 130))], spacing: 8) {
+                    SummaryPill(label: "Energi", value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal", tintColor: AppColors.energyTint)
+                    SummaryPill(label: "Proteiner", value: "\(nutrition.protein.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroProteinTint)
+                    SummaryPill(label: "Karbohydrater", value: "\(nutrition.carbs.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroCarbTint)
+                    SummaryPill(label: "Fett", value: "\(nutrition.fat.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroFatTint)
+                }
+                Text("Beregnet fra næringsverdiene i loggingen.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Text("Næring kan ikke beregnes. Kontroller mengden og loggingens næringsgrunnlag.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
     }
 
     @ViewBuilder private var mealButtons: some View {
@@ -613,6 +667,7 @@ struct EditLogView: View {
             action: { model.mealType = option.key }
         )
         .frame(maxWidth: .infinity)
+        .disabled(model.isSaving)
         .accessibilityLabel("Flytt til \(option.title)")
     }
 
