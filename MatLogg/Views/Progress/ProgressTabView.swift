@@ -4,19 +4,31 @@ import Charts
 #endif
 
 struct ProgressTabView: View {
-    @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var logViewModel: LogViewModel
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    var body: some View { ProgressTabContent(healthProfileViewModel: healthProfileViewModel) }
+}
+
+private struct ProgressTabContent: View {
+
+    @EnvironmentObject private var appState: AppState
+    let healthProfileViewModel: HealthProfileViewModel
+    @StateObject private var goalModel: ProgressGoalViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @State private var summaries: [DailySummary] = []
-    @State private var metrics = ProgressMetrics(summaries: [])
-    @State private var isLoading = true
+    @EnvironmentObject private var viewModel: ProgressViewModel
+    private var summaries: [DailySummary] { viewModel.summaries }
+    private var metrics: ProgressMetrics { viewModel.metrics }
+    private var isLoading: Bool { viewModel.isLoading }
 
     private var today: DailySummary? { metrics.today }
-    private var goal: Goal? { healthProfileViewModel.currentGoal }
+    private var goal: Goal? { goalModel.goal }
+
+    init(healthProfileViewModel: HealthProfileViewModel) {
+        self.healthProfileViewModel = healthProfileViewModel
+        _goalModel = StateObject(wrappedValue: ProgressGoalViewModel(health: healthProfileViewModel))
+    }
 
     var body: some View {
         NavigationStack {
@@ -27,11 +39,18 @@ struct ProgressTabView: View {
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
 
-                    if isLoading {
+                    if let error = viewModel.errorMessage {
+                        Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        Button("Prøv igjen") { Task { await reload() } }.frame(minHeight: 44)
+                    }
+                    if isLoading && !summaries.isEmpty {
+                        ProgressView("Oppdaterer oversikten …")
+                    }
+                    if isLoading && summaries.isEmpty {
                         loadingState
-                    } else if summaries.allSatisfy({ $0.logs.isEmpty }) {
+                    } else if viewModel.errorMessage == nil && summaries.allSatisfy({ $0.logs.isEmpty }) {
                         emptyState
-                    } else {
+                    } else if !summaries.isEmpty {
                         calorieHighlights
                         weeklyCard
                         if let goal { macroCard(goal: goal) }
@@ -53,7 +72,7 @@ struct ProgressTabView: View {
                         .foregroundColor(AppColors.action)
                 }
             }
-            .task { await reload() }
+            .task(id: authViewModel.currentUser?.id) { await reload() }
             .refreshable { await reload() }
         }
     }
@@ -127,44 +146,7 @@ struct ProgressTabView: View {
     }
 
     private var weeklyCard: some View {
-        dashboardCard(title: "Kalorier gjennom uka") {
-            #if canImport(Charts)
-            Chart(summaries, id: \.date) { summary in
-                BarMark(
-                    x: .value("Dag", summary.date, unit: .day),
-                    y: .value("Kilokalorier", summary.totalCalories)
-                )
-                .foregroundStyle(Calendar.current.isDateInToday(summary.date) ? AppColors.calorieBlue : AppColors.calorieBlue.opacity(0.42))
-                .cornerRadius(6)
-                if let goal {
-                    RuleMark(y: .value("Mål", goal.dailyCalories))
-                        .foregroundStyle(AppColors.textSecondary.opacity(0.55))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day)) { _ in
-                    AxisValueLabel(format: .dateTime.weekday(.narrow))
-                }
-            }
-            .chartYAxis(.hidden)
-            .frame(height: 168)
-            .accessibilityLabel("Kalorier gjennom de siste sju dagene")
-            #endif
-
-            HStack {
-                ForEach(summaries, id: \.date) { summary in
-                    VStack(spacing: 4) {
-                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                            .font(.caption2.weight(.semibold))
-                        Text(dayLabel(summary.date))
-                            .font(.caption2)
-                    }
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
+        WeeklyCaloriesCard(summaries: summaries, dailyCalories: goal?.dailyCalories)
     }
 
     private func macroCard(goal: Goal) -> some View {
@@ -177,7 +159,12 @@ struct ProgressTabView: View {
 
     private var weightCard: some View {
         dashboardCard(title: "Vekt") {
-            WeightEntryContent()
+            if healthProfileViewModel.isLoadingWeights {
+                ProgressView("Henter vekthistorikk …")
+            }
+            if !healthProfileViewModel.isLoadingWeights || !healthProfileViewModel.weightEntries.isEmpty {
+                WeightEntryContent()
+            }
         }
     }
 
@@ -195,23 +182,17 @@ struct ProgressTabView: View {
     }
 
     private func reload() async {
-        guard let userId = authViewModel.currentUser?.id else {
-            isLoading = false
-            return
-        }
-        isLoading = true
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var loaded: [DailySummary] = []
-        for offset in (-6...0) {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
-            loaded.append(await logViewModel.fetchSummary(userId: userId, date: date))
-        }
-        summaries = loaded
-        metrics = ProgressMetrics(summaries: loaded)
-        await healthProfileViewModel.loadGoal(userId: userId)
-        await healthProfileViewModel.loadWeightEntries(userId: userId)
-        isLoading = false
+        let userId = authViewModel.currentUser?.id
+        async let summaries: Void = viewModel.load(userId: userId)
+        async let health: Void = loadHealth(userId: userId)
+        _ = await (summaries, health)
+    }
+
+    private func loadHealth(userId: UUID?) async {
+        guard let userId else { return }
+        async let goal: Void = healthProfileViewModel.loadGoal(userId: userId)
+        async let weights: Void = healthProfileViewModel.loadWeightEntries(userId: userId)
+        _ = await (goal, weights)
     }
 
     private func ratio(_ value: Float, _ target: Float) -> Double {
@@ -311,7 +292,7 @@ private struct WeightEntryContent: View {
     }
 
     private func formatWeight(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", value)
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", locale: Locale(identifier: "nb_NO"), value)
     }
 }
 
@@ -328,5 +309,61 @@ struct ProgressMetrics {
         } else {
             averageCalories = NutritionDisplay.wholeCalories(summaries.reduce(0) { $0 + $1.totalCalories } / Float(summaries.count))
         }
+    }
+}
+
+private struct WeeklyCaloriesCard: View {
+    let summaries: [DailySummary]
+    let dailyCalories: Int?
+    var body: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Kalorier gjennom uka")
+                    .font(AppTypography.title)
+                    .foregroundColor(AppColors.deepInk)
+                    .accessibilityAddTraits(.isHeader)
+            #if canImport(Charts)
+            Chart(summaries, id: \.date) { summary in
+                BarMark(
+                    x: .value("Dag", summary.date, unit: .day),
+                    y: .value("Kilokalorier", summary.totalCalories)
+                )
+                .foregroundStyle(Calendar.current.isDateInToday(summary.date) ? AppColors.calorieBlue : AppColors.calorieBlue.opacity(0.42))
+                .cornerRadius(6)
+                if let dailyCalories {
+                    RuleMark(y: .value("Mål", dailyCalories))
+                        .foregroundStyle(AppColors.textSecondary.opacity(0.55))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { _ in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow))
+                }
+            }
+            .chartYAxis(.hidden)
+            .frame(height: 168)
+            .accessibilityLabel("Kalorier gjennom de siste sju dagene")
+            #endif
+
+            HStack {
+                ForEach(summaries, id: \.date) { summary in
+                    VStack(spacing: 4) {
+                        Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
+                            .font(.caption2.weight(.semibold))
+                        Text(dayLabel(summary.date))
+                            .font(.caption2)
+                    }
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func dayLabel(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date) ? "I dag" : date.formatted(.dateTime.weekday(.abbreviated))
     }
 }

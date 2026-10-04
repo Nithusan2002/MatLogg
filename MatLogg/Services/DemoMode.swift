@@ -8,24 +8,33 @@ final class DemoMode: ObservableObject {
     @Published private(set) var revision = UUID()
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
-    private(set) var database = DatabaseService()
+    @Published private(set) var isReady = false
+    private(set) var database = DatabaseService(storeResult: .failure(DatabaseServiceError.unavailable))
     private(set) var defaults = UserDefaults.standard
     private let selectionDefaults: UserDefaults
     private let demoDefaults: UserDefaults?
     private let directory: URL
     private let loadCatalog: () async throws -> [MatvaretabellenProduct]
+    private let openDatabase: () async -> DatabaseService
 
-    init(selectionDefaults: UserDefaults = .standard, demoDefaults: UserDefaults?, directory: URL, loadCatalog: @escaping () async throws -> [MatvaretabellenProduct] = { try await MatvaretabellenService().fetchCommonFoods() }) {
+    init(selectionDefaults: UserDefaults = .standard, demoDefaults: UserDefaults?, directory: URL, loadCatalog: @escaping () async throws -> [MatvaretabellenProduct] = { try await MatvaretabellenService().fetchCommonFoods() }, openDatabase: @escaping () async -> DatabaseService = { await DatabaseService.open() }) {
         self.selectionDefaults = selectionDefaults
         self.demoDefaults = demoDefaults
         self.directory = directory
         self.loadCatalog = loadCatalog
+        self.openDatabase = openDatabase
     }
 
     func restore() async {
+        guard !isReady, !isLoading else { return }
+        isLoading = true
+        database = await openDatabase()
+        guard !Task.isCancelled else { isLoading = false; return }
+        isLoading = false
         #if DEBUG
         if selectionDefaults.bool(forKey: "demoModeActive") { await selectDemo(true) }
         #endif
+        isReady = true
     }
 
     func selectDemo(_ enabled: Bool, reset: Bool = false) async {
@@ -39,7 +48,7 @@ final class DemoMode: ObservableObject {
                 try Task.checkCancellation()
                 let user = AuthService(defaults: demoDefaults).activateLocalProfile()
                 let url = directory.appendingPathComponent("demo-v1.sqlite")
-                let products = catalog.map { FoodSearchCatalog.product($0) }
+                let products = try await BackgroundWork.run { catalog.map(FoodSearchCatalog.product) }
                 let store = try await DemoDataset.prepare(at: url, userId: user.id, products: products, reset: reset)
                 try Task.checkCancellation()
                 if reset {
@@ -51,27 +60,33 @@ final class DemoMode: ObservableObject {
                 database = DatabaseService(store: store, defaults: demoDefaults)
                 defaults = demoDefaults
             } else {
-                database = DatabaseService()
+                database = await openDatabase()
                 defaults = .standard
             }
             isDemo = enabled
             selectionDefaults.set(enabled, forKey: "demoModeActive")
             revision = UUID()
         } catch {
-            errorMessage = "Kunne ikke åpne demodata. \(error.localizedDescription)"
+            errorMessage = "Kunne ikke åpne demodata. Prøv igjen."
         }
     }
 }
 
-struct DemoDataset {
+nonisolated struct DemoDataset {
     /// Staging ensures interrupted or failed seeding never exposes a partial dataset.
     static func prepare(at url: URL, userId: UUID, products: [Product], reset: Bool = false, now: Date = Date()) async throws -> LocalStore {
+        return try await BackgroundWork.run {
+            try prepareStore(at: url, userId: userId, products: products, reset: reset, now: now)
+        }
+    }
+
+    private static func prepareStore(at url: URL, userId: UUID, products: [Product], reset: Bool, now: Date) throws -> LocalStore {
         let files = FileManager.default
         try files.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if !reset && files.fileExists(atPath: url.path) { return try LocalStore(databaseURL: url) }
         let temporary = url.deletingLastPathComponent().appendingPathComponent(UUID().uuidString + ".sqlite")
         defer { try? files.removeItem(at: temporary) }
-        try await seed(at: temporary, userId: userId, products: products, now: now)
+        try seed(at: temporary, userId: userId, products: products, now: now)
         if files.fileExists(atPath: url.path) {
             _ = try files.replaceItemAt(url, withItemAt: temporary)
         } else {
@@ -80,7 +95,7 @@ struct DemoDataset {
         return try LocalStore(databaseURL: url)
     }
 
-    private static func seed(at url: URL, userId: UUID, products: [Product], now: Date) async throws {
+    private static func seed(at url: URL, userId: UUID, products: [Product], now: Date) throws {
         guard !products.isEmpty else { throw CocoaError(.fileReadCorruptFile) }
         let store = try LocalStore(databaseURL: url)
         let preferredIDs = ["05.003", "06.525", "05.342", "02.026", "04.342", "05.337", "03.418", "01.299", "06.620", "06.747", "06.718", "06.107"]
@@ -92,7 +107,6 @@ struct DemoDataset {
         let today = calendar.startOfDay(for: now)
         for offset in 0..<56 {
             try Task.checkCancellation()
-            await Task.yield()
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             if offset % 13 == 5 { continue }
             let count = offset % 9 == 4 ? 2 : 9 + offset % 3

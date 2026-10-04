@@ -66,7 +66,7 @@ enum BarcodeLookupFailure: Error, Equatable {
 
 @MainActor
 protocol BarcodeLookupRepository {
-    func cached(barcode: String, owner: UUID?) -> Product?
+    func cached(barcode: String, owner: UUID?) async -> Product?
     func fetch(barcode: String) async throws -> Product
     func refresh(_ product: Product, manually: Bool) async throws -> Product?
 }
@@ -90,13 +90,13 @@ final class DefaultBarcodeLookupRepository: BarcodeLookupRepository {
         self.now = now
     }
 
-    func cached(barcode: String, owner: UUID?) -> Product? {
-        products.getProductByBarcode(barcode, ownerUserId: owner)
+    func cached(barcode: String, owner: UUID?) async -> Product? {
+        await products.getProductByBarcode(barcode, ownerUserId: owner)
     }
 
     func refresh(_ product: Product, manually: Bool) async throws -> Product? {
         guard product.canRefreshCatalogData, let barcode = product.barcodeEan else { return nil }
-        let current = products.getProductByBarcode(barcode, ownerUserId: nil) ?? product
+        let current = await products.getProductByBarcode(barcode, ownerUserId: nil) ?? product
         guard current.canRefreshCatalogData else {
             if manually { throw BarcodeLookupFailure.protectedProduct }
             return nil
@@ -115,7 +115,7 @@ final class DefaultBarcodeLookupRepository: BarcodeLookupRepository {
         }
         let task = Task<Product, Error> { [remote, products] in
             let product = try await remote.searchProductByBarcodeOpenFoodFacts(barcode)
-            if let stored = products.getProduct(product.id), !stored.canRefreshCatalogData {
+            if let stored = await products.getProduct(product.id), !stored.canRefreshCatalogData {
                 throw BarcodeLookupFailure.protectedProduct
             }
             do {

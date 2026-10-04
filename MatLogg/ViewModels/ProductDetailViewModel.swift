@@ -8,11 +8,55 @@ final class ProductDetailViewModel: ObservableObject {
     @Published private(set) var refreshMessage: String?
     @Published private(set) var isLogging = false
     @Published private(set) var logError: String?
+    let amountModel: AmountSelectionViewModel
     private let repository: any BarcodeLookupRepository
+    private let favorites: (any ProductFavoriteRepository)?
+    @Published private(set) var isFavorite = false
+    @Published private(set) var isChangingFavorite = false
+    @Published private(set) var favoriteError: String?
+    private var favoriteOwner: UUID?
+    private var favoriteRequest = UUID()
 
-    init(product: Product, repository: any BarcodeLookupRepository) {
+    init(product: Product, repository: any BarcodeLookupRepository, favorites: (any ProductFavoriteRepository)? = nil) {
         self.product = product
+        amountModel = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [])
         self.repository = repository
+        self.favorites = favorites
+    }
+
+    func loadFavorite(owner: UUID?) async {
+        let request = UUID()
+        favoriteRequest = request
+        favoriteOwner = owner
+        isFavorite = false
+        isChangingFavorite = false
+        favoriteError = nil
+        guard let owner, let favorites else { return }
+        let loaded = await favorites.isFavorite(userId: owner, productId: product.id)
+        guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return }
+        isFavorite = loaded
+    }
+
+    @discardableResult
+    func toggleFavorite(owner: UUID?) async -> Bool {
+        guard !isChangingFavorite, let owner, let favorites else { return false }
+        let request = UUID()
+        favoriteRequest = request
+        favoriteOwner = owner
+        isChangingFavorite = true
+        favoriteError = nil
+        defer { if favoriteRequest == request { isChangingFavorite = false } }
+        do {
+            try await favorites.toggleFavorite(userId: owner, productId: product.id)
+            let current = await favorites.isFavorite(userId: owner, productId: product.id)
+            guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return false }
+            isFavorite = current
+            return true
+        } catch {
+            guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return false }
+            favoriteError = "Kunne ikke oppdatere favoritt. Prøv igjen."
+            return false
+        }
     }
 
     var nutriScoreInfo: ProductNutriScoreInfo? {

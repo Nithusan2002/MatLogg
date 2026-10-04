@@ -28,12 +28,20 @@ final class FoodSearchViewModel: ObservableObject {
     private var searchID = UUID()
     private var selectionID = UUID()
     private var searchTask: Task<Void, Never>?
+    private var resultsTask: Task<Void, Never>?
+    private var resultsID = UUID()
+    private let searchIndex = FoodSearchIndex()
 
     var hasQuery: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     init(repository: any FoodSearchRepository) { self.repository = repository }
 
     func load(owner: UUID?) async {
+        let timing = PerformanceSignposts.begin("Search.Load")
+        defer { PerformanceSignposts.end(timing) }
+        let localTiming = PerformanceSignposts.begin("Search.FirstLocal")
+        var localEnded = false
+        defer { if !localEnded { PerformanceSignposts.end(localTiming) } }
         let request = UUID()
         if self.owner != owner {
             reset(owner: owner)
@@ -42,13 +50,19 @@ final class FoodSearchViewModel: ObservableObject {
         loadError = nil
         isLoadingCatalog = true
         do {
-            let local = try await repository.loadLocalLibrary(owner: owner)
-            guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
-            apply(local)
-            isLoading = false
-            let loaded = try await repository.loadLibrary(owner: owner)
+            let loaded = try await repository.loadLibrary(owner: owner) { local in
+                guard self.loadID == request, self.owner == owner, !Task.isCancelled else { return }
+                self.apply(local)
+                self.isLoading = false
+                if !localEnded {
+                    PerformanceSignposts.end(localTiming)
+                    localEnded = true
+                }
+            }
             guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
             apply(loaded)
+            await resultsTask?.value
+            guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
         } catch {
             guard loadID == request, self.owner == owner, !Task.isCancelled else { return }
             loadError = "Kunne ikke hente lagrede matvarer. Prøv igjen."
@@ -67,6 +81,8 @@ final class FoodSearchViewModel: ObservableObject {
 
     func reset(owner: UUID?) {
         loadID = UUID()
+        resultsID = UUID()
+        resultsTask?.cancel()
         cancelSearch()
         self.owner = owner
         selectionID = UUID()
@@ -101,16 +117,22 @@ final class FoodSearchViewModel: ObservableObject {
         let submittedOwner = owner
         phase = .searching
         searchTask = Task { [weak self] in
+            let timing = PerformanceSignposts.begin("Search.RemoteToState")
+            defer { PerformanceSignposts.end(timing) }
             guard let self else { return }
             do {
                 let products = try await repository.searchRemote(query: submittedQuery, owner: submittedOwner)
                 guard searchID == request, owner == submittedOwner, !Task.isCancelled else { return }
                 remoteProducts = products
                 updateResults()
+                await resultsTask?.value
+                guard searchID == request, owner == submittedOwner, !Task.isCancelled else { return }
                 phase = .complete
             } catch {
                 guard searchID == request, owner == submittedOwner, !Task.isCancelled else { return }
                 // Local matches stay available even when the external service fails.
+                await resultsTask?.value
+                guard searchID == request, owner == submittedOwner, !Task.isCancelled else { return }
                 phase = results.isEmpty ? .failure : .offline
                 searchError = Self.message(for: error)
             }
@@ -173,9 +195,20 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     private func updateResults() {
+        resultsTask?.cancel()
+        let request = UUID()
+        resultsID = request
         guard hasQuery else { results = []; return }
-        let local = library.filter { FoodSearchMatcher.matches(query: query, name: $0.name, brand: $0.brand) }
-        results = FoodSearchMatcher.sorted(FoodSearchMatcher.unique(local + remoteProducts), query: query)
+        let query = query
+        let library = library
+        let remote = remoteProducts
+        let index = searchIndex
+        resultsTask = Task { [weak self] in
+            let timing = PerformanceSignposts.begin("Search.ResultsToState")
+            defer { PerformanceSignposts.end(timing) }
+            guard let computed = try? await index.results(library: library, remote: remote, query: query), let self, resultsID == request, !Task.isCancelled else { return }
+            results = computed
+        }
     }
 
     private static func message(for error: Error) -> String {

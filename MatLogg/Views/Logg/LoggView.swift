@@ -2,27 +2,54 @@ import SwiftUI
 import UIKit
 
 struct LoggView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var logViewModel: LogViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var logViewModel: LogViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
+    var initialDate = Date()
+    var initialMeal: String?
+
+    var body: some View {
+        LoggContent(appState: appState, logViewModel: logViewModel, authViewModel: authViewModel,
+                    savedMealsViewModel: savedMealsViewModel, initialDate: initialDate, initialMeal: initialMeal)
+    }
+}
+
+private struct LoggContent: View {
+    let appState: AppState
+    let logViewModel: LogViewModel
+    let authViewModel: AuthViewModel
+    let savedMealsViewModel: SavedMealsViewModel
     @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @State private var selectedDate: Date = Date()
-    @State private var searchText = ""
+    @StateObject private var screen: LogScreenViewModel
+    private var searchText: String {
+        get { screen.searchText }
+        nonmutating set { screen.searchText = newValue }
+    }
     @State private var showSearch = false
     @FocusState private var searchFocused: Bool
-    @State private var mealFilter: String?
+    private var mealFilter: String? {
+        get { screen.mealFilter }
+        nonmutating set { screen.mealFilter = newValue }
+    }
     @State private var showAddActions = false
     @State private var editingLog: FoodLog?
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
 
-    init(initialDate: Date = Date(), initialMeal: String? = nil) {
+    init(appState: AppState, logViewModel: LogViewModel, authViewModel: AuthViewModel,
+         savedMealsViewModel: SavedMealsViewModel, initialDate: Date, initialMeal: String?) {
+        self.appState = appState
+        self.logViewModel = logViewModel
+        self.authViewModel = authViewModel
+        self.savedMealsViewModel = savedMealsViewModel
         _selectedDate = State(initialValue: initialDate)
-        _mealFilter = State(initialValue: initialMeal)
+        _screen = StateObject(wrappedValue: LogScreenViewModel(logs: logViewModel, appState: appState,
+            auth: authViewModel, savedMeals: savedMealsViewModel, mealFilter: initialMeal))
     }
-    
+
     var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
@@ -63,33 +90,12 @@ struct LoggView: View {
         }
     }
 
-    private var deletionReceiptTitle: String {
-        let count = logViewModel.deletedLogCount
-        return count == 1 ? "Varen er slettet" : "\(count) varer er slettet"
-    }
-
-    @ViewBuilder private var receiptOverlay: some View {
-        if let id = logViewModel.deletionReceiptID {
-            LogToastView(
-                id: id,
-                title: deletionReceiptTitle,
-                isUndoing: logViewModel.isDeletingOrRestoring,
-                onUndo: { performDeletionUndo() },
-                onDismiss: { logViewModel.dismissDeletionReceipt() }
-            )
+    private var receiptOverlay: some View {
+        LogReceiptOverlay(logs: logViewModel, payload: receiptPayload, isUndoing: isUndoingReceipt,
+            onDeletionUndo: performDeletionUndo, onLoggingUndo: { if let receiptPayload { undoLogging(receiptPayload) } },
+            onLoggingDismiss: dismissReceipt)
             .padding(.horizontal, 16)
             .padding(.bottom, tabBarScrollMargin)
-        } else if let payload = receiptPayload {
-            LogToastView(
-                payload: payload,
-                isUndoing: isUndoingReceipt,
-                onUndo: { undoLogging(payload) },
-                onDismiss: { dismissReceipt() }
-            )
-            .padding(.horizontal, 16)
-            .padding(.bottom, tabBarScrollMargin)
-            .transition(.logToast)
-        }
     }
 
     @ToolbarContentBuilder private var navigationToolbar: some ToolbarContent {
@@ -164,7 +170,7 @@ struct LoggView: View {
     private func logEditor(for log: FoodLog) -> some View {
         EditLogView(
             log: log,
-            productName: logViewModel.selectedProductNames[log.productId] ?? "Rediger logging",
+            productName: screen.names[log.productId] ?? "Rediger logging",
             onSave: { amountG, mealType, portion in
                     guard let userId = authViewModel.currentUser?.id else { return false }
                     let success = await logViewModel.updateLog(log, amountG: amountG, mealType: mealType, userId: userId, portionSelection: portion, clearPortion: portion == nil)
@@ -219,9 +225,10 @@ struct LoggView: View {
 
     private var logList: some View {
         let groups = groupedLogs
-        let logs = logViewModel.logs(for: mealFilter)
-        let totals = logViewModel.nutrition(for: mealFilter)
-        let loading = logViewModel.isSummaryLoading || logViewModel.selectedSummary.map { !Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } != false
+        let logs = screen.presentation.mealLogs
+        let totals = screen.presentation.totals
+        let hasCurrentSummary = screen.summary.map { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } == true
+        let loading = screen.isLoading || !hasCurrentSummary
         return List {
             Section {
                 DayNavigationBar(selection: $selectedDate)
@@ -244,7 +251,7 @@ struct LoggView: View {
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("meal-room-all")
                 if showSearch {
-                    TextField(mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet", text: $searchText)
+                    TextField(mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet", text: $screen.searchText)
                         .focused($searchFocused)
                         .submitLabel(.search)
                         .padding(12)
@@ -255,14 +262,14 @@ struct LoggView: View {
                     Text(mealTitle)
                         .font(AppTypography.hero)
                         .foregroundStyle(AppColors.deepInk)
-                    if !loading {
+                    if hasCurrentSummary {
                         Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
                             .font(AppTypography.secondary)
                             .foregroundStyle(AppColors.textSecondary)
                     }
                 }
                 .padding(.vertical, 8)
-                if !loading {
+                if hasCurrentSummary {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(mealFilter == nil ? "Hele dagen" : "Dette måltidet")
                             .font(AppTypography.captionEmphasis)
@@ -293,17 +300,18 @@ struct LoggView: View {
                 ProgressView("Henter måltider …")
                     .frame(maxWidth: .infinity, minHeight: 96)
                     .listRowBackground(AppColors.background)
-            } else {
+            }
+            if hasCurrentSummary {
                 ForEach(groups, id: \.mealType) { group in
                     Section {
                         ForEach(group.logs) { log in
                             LogRowView(
                                 log: log,
-                                productName: logViewModel.selectedProductNames[log.productId] ?? "Ukjent produkt",
+                                productName: screen.names[log.productId] ?? "Ukjent produkt",
                                 compact: true,
                                 mealRoom: true,
-                                imageURL: logViewModel.mealProductImageURLs[log.productId],
-                                imageData: logViewModel.mealProductImageData[log.productId],
+                                imageURL: screen.imageURLs[log.productId],
+                                imageData: screen.imageData[log.productId],
                                 onEdit: { editingLog = log },
                                 onMove: { editingLog = log },
                                 onDelete: { deleteLog(log) }
@@ -412,18 +420,10 @@ struct LoggView: View {
         }
     }
 
-    private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
-        let logs = logViewModel.selectedSummary?.logs ?? []
-        return LogSummaryService.groupedLogs(
-            logs: logs,
-            searchText: searchText,
-            mealFilter: mealFilter,
-            productNameLookup: { logViewModel.selectedProductNames[$0] ?? "" }
-        )
-    }
-    
+    private var groupedLogs: [(mealType: String, logs: [FoodLog])] { screen.presentation.groups }
+
     private var hasLogs: Bool {
-        !(logViewModel.selectedSummary?.logs.isEmpty ?? true)
+        !(screen.summary?.logs.isEmpty ?? true)
     }
     
     private var canCopyFromYesterday: Bool {
@@ -538,10 +538,6 @@ struct EditLogView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Endre mengden eller flytt varen til et annet måltid.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
-
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
                                 PortionAmountInput(model: model.amount)
@@ -614,4 +610,38 @@ struct EditLogView: View {
         .accessibilityLabel("Flytt til \(option.title)")
     }
 
+}
+
+private struct LogReceiptOverlay: View {
+    @StateObject private var viewModel: LogDeletionReceiptViewModel
+    let logs: LogViewModel
+    let payload: ReceiptPayload?
+    let isUndoing: Bool
+    let onDeletionUndo: () -> Void
+    let onLoggingUndo: () -> Void
+    let onLoggingDismiss: () -> Void
+
+    init(logs: LogViewModel, payload: ReceiptPayload?, isUndoing: Bool,
+         onDeletionUndo: @escaping () -> Void, onLoggingUndo: @escaping () -> Void,
+         onLoggingDismiss: @escaping () -> Void) {
+        self.logs = logs
+        self.payload = payload
+        self.isUndoing = isUndoing
+        self.onDeletionUndo = onDeletionUndo
+        self.onLoggingUndo = onLoggingUndo
+        self.onLoggingDismiss = onLoggingDismiss
+        _viewModel = StateObject(wrappedValue: LogDeletionReceiptViewModel(logs: logs))
+    }
+
+    var body: some View {
+        if let id = viewModel.receipt.id {
+            LogToastView(id: id,
+                title: viewModel.receipt.count == 1 ? "Varen er slettet" : "\(viewModel.receipt.count) varer er slettet",
+                isUndoing: viewModel.receipt.isBusy, onUndo: onDeletionUndo,
+                onDismiss: { logs.dismissDeletionReceipt() })
+        } else if let payload {
+            LogToastView(payload: payload, isUndoing: isUndoing, onUndo: onLoggingUndo, onDismiss: onLoggingDismiss)
+                .transition(.logToast)
+        }
+    }
 }

@@ -82,7 +82,9 @@ tomme seksjoner har en tydelig «Legg til»-handling. Gjenbruk og angre beholdes
 
 Tilstandskrav for Home, hurtigvalg og søk:
 
-- Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting.
+- Før data er lest, vises en egen lastingstilstand; tomtilstand skal ikke blinke under lasting. Ved oppdatering av samme profil og dato beholdes ferdig innhold med en diskret «Oppdaterer …»-indikator. Profil- eller datobytte fjerner tidligere kontekst før nye svar publiseres.
+- Lagrede måltider, skannehistorikk og innholdet i «Lagre som måltid» har egne indikatorer fra første visning. Morgeninnsjekk viser «Henter innsjekk …» mens knappen er deaktivert. Feil ved bibliotek-/oversiktslasting tilbyr «Prøv igjen» og skal ikke fremstå som en tom liste.
+- Lokale søketreff blir brukbare før kataloglasting er ferdig. Katalogen lastes samtidig med lokale oppslag; ukesoversikten henter perioden samlet. Uavhengige seksjoner oppdateres hver for seg.
 - Manglende mål eller dagsoversikt forklares uten å blokkere matlogging.
 - Ventende synk vises som lokalt lagret og skal aldri fremstilles som tapt data.
 - Søk-fanen har direkte søk, favoritter og nylig loggede varer. Tomme seksjoner skjules; uten historikk eller favoritter vises «Søk etter en matvare for å komme i gang.», også ved første logging. Råvarer vises kun som søkeresultater. Lokale treff vises mens brukeren skriver; eksterne treff hentes eksplisitt. Søket skiller mellom ingen treff, lagrede treff og nettverksfeil. Nettverksfeil beholder lokale treff og søket, og tilbyr «Prøv igjen», strekkodeskanning og manuell produktregistrering.

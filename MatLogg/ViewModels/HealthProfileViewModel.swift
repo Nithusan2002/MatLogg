@@ -6,11 +6,15 @@ final class HealthProfileViewModel: ObservableObject {
     @Published private(set) var currentGoal: Goal?
     @Published private(set) var personalDetails: PersonalDetails
     @Published private(set) var weightEntries: [WeightEntry] = []
+    @Published private(set) var isLoadingWeights = true
     @Published private(set) var errorMessage: String?
 
     private let repository: any HealthProfileRepository
     private let personalDetailsStore: any PersonalDetailsStore
     private var activeUserId: UUID?
+    private var goalRequestID = UUID()
+    private var weightRequestID = UUID()
+    private var weightOwner: UUID?
 
     convenience init(repository: any HealthProfileRepository) {
         self.init(
@@ -33,6 +37,7 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func acceptSavedGoal(_ goal: Goal) {
+        goalRequestID = UUID()
         currentGoal = goal
     }
 
@@ -46,9 +51,14 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func loadGoal(userId: UUID) async {
+        if activeUserId != userId { currentGoal = nil }
         activeUserId = userId
+        let request = UUID()
+        goalRequestID = request
         personalDetails = personalDetailsStore.load(userId: userId)
-        currentGoal = await repository.latestGoal(userId: userId)
+        let loaded = await repository.latestGoal(userId: userId)
+        guard goalRequestID == request, activeUserId == userId, !Task.isCancelled else { return }
+        currentGoal = loaded
     }
 
     func useDevelopmentGoalIfMissing(userId: UUID) {
@@ -74,7 +84,7 @@ final class HealthProfileViewModel: ObservableObject {
             currentGoal = goal
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre mål: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre mål. Prøv igjen."
             return false
         }
     }
@@ -91,13 +101,21 @@ final class HealthProfileViewModel: ObservableObject {
             personalDetails = details
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre personlige detaljer: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre personlige detaljer. Prøv igjen."
             return false
         }
     }
 
     func loadWeightEntries(userId: UUID) async {
-        weightEntries = await repository.getWeightEntries(userId: userId)
+        if weightOwner != userId { weightEntries = [] }
+        weightOwner = userId
+        let request = UUID()
+        weightRequestID = request
+        isLoadingWeights = true
+        defer { if weightRequestID == request { isLoadingWeights = false } }
+        let loaded = await repository.getWeightEntries(userId: userId)
+        guard weightRequestID == request, !Task.isCancelled else { return }
+        weightEntries = loaded
     }
 
     @discardableResult
@@ -109,7 +127,7 @@ final class HealthProfileViewModel: ObservableObject {
             await loadWeightEntries(userId: userId)
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre vekt: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre vekt. Prøv igjen."
             return false
         }
     }
@@ -126,12 +144,16 @@ final class HealthProfileViewModel: ObservableObject {
             await loadWeightEntries(userId: userId)
             return true
         } catch {
-            errorMessage = "Kunne ikke slette vekt: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke slette vekt. Prøv igjen."
             return false
         }
     }
 
     func resetUserState() {
+        goalRequestID = UUID()
+        weightRequestID = UUID()
+        weightOwner = nil
+        isLoadingWeights = false
         activeUserId = nil
         currentGoal = nil
         personalDetails = .empty

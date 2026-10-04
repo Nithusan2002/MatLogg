@@ -57,9 +57,6 @@ struct PrivacyChoicesContentView: View {
                 Text("Personvern og valg")
                     .font(AppTypography.title)
                     .foregroundColor(AppColors.ink)
-                Text("Du bestemmer. Du kan endre dette når som helst.")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
             }
             
             VStack(alignment: .leading, spacing: 12) {

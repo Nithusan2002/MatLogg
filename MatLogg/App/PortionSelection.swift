@@ -30,7 +30,7 @@ nonisolated struct PortionSelection: Codable, Equatable, Sendable {
         return copy.matches(amount: Double(amount), unit: unit) ? copy : nil
     }
 
-    var displayText: String { "\(PortionDisplay.number(count)) \(label)" }
+    var displayText: String { "\(PortionDisplay.number(count)) \(PortionDisplay.label(label))" }
     var serving: ServingOption {
         ServingOption(id: servingId, label: label, grams: amountPerServing, unit: unit,
                       source: source, kind: kind, shortLabel: label)
@@ -38,6 +38,17 @@ nonisolated struct PortionSelection: Codable, Equatable, Sendable {
 }
 
 nonisolated enum PortionDisplay {
+    /// Translate generic source labels for presentation without changing historical data.
+    static func label(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = #"^(?:[0-9]+(?:[.,][0-9]+)?\s+)?portions?(?:\s*(?:\([^)]*\)|·\s*[0-9]+(?:[.,][0-9]+)?\s*(?:g|ml)))?$"#
+        guard trimmed.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil else {
+            return raw
+        }
+        return trimmed.replacingOccurrences(of: #"\bportions?\b"#, with: "porsjon",
+                                            options: [.regularExpression, .caseInsensitive])
+    }
+
     static func number(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0...6)).locale(Locale(identifier: "nb_NO")))
     }

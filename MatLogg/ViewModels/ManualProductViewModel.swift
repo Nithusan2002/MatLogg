@@ -65,6 +65,7 @@ final class ManualProductViewModel: ObservableObject {
     @Published var showCamera = false
     @Published var imageError: String?
     private var imageRequestID = UUID()
+    private var imageData: Data?
     private let cameraAuthorization: any CameraAuthorizationProviding
 
     func openCamera() async {
@@ -79,19 +80,27 @@ final class ManualProductViewModel: ObservableObject {
         showCamera = true
     }
 
-    func selectImage(_ image: UIImage?) {
-        imageRequestID = UUID()
-        isLoadingImage = false
+    func selectImage(_ image: UIImage?) async {
+        let requestID = UUID()
+        imageRequestID = requestID
         imageError = nil
-        guard let image else { productImage = nil; return }
-        let maxSide: CGFloat = 512
-        let factor = min(1, maxSide / max(image.size.width, image.size.height))
-        let size = CGSize(width: max(1, image.size.width * factor), height: max(1, image.size.height * factor))
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        // Redrawing removes original photo metadata and limits local storage size.
-        productImage = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
+        guard let image else {
+            productImage = nil; imageData = nil; isLoadingImage = false
+            return
+        }
+        isLoadingImage = true
+        defer { if imageRequestID == requestID { isLoadingImage = false } }
+        do {
+            let data = try await ProductImagePreparation.cameraJPEG(from: image)
+            let preview = try await ProductImagePreparation.image(from: data, maximumPixelSize: 512)
+            guard imageRequestID == requestID, !Task.isCancelled else { return }
+            imageData = data
+            productImage = preview
+            isLoadingImage = false
+        } catch {
+            guard imageRequestID == requestID else { return }
+            isLoadingImage = false
+            imageError = "Kunne ikke åpne bildet. Prøv et annet bilde."
         }
     }
 
@@ -100,11 +109,15 @@ final class ManualProductViewModel: ObservableObject {
         imageRequestID = requestID
         isLoadingImage = true
         imageError = nil
+        defer { if imageRequestID == requestID { isLoadingImage = false } }
         do {
-            guard let data = try await item.loadTransferable(type: Data.self),
-                  let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
-            guard imageRequestID == requestID else { return }
-            selectImage(image)
+            guard let original = try await item.loadTransferable(type: Data.self) else { throw CocoaError(.fileReadCorruptFile) }
+            let data = try await BackgroundWork.run { try LocalMealPhotoRepository.prepare(original, maximumPixelSize: 512) }
+            let preview = try await ProductImagePreparation.image(from: data, maximumPixelSize: 512)
+            guard imageRequestID == requestID, !Task.isCancelled else { return }
+            imageData = data
+            productImage = preview
+            isLoadingImage = false
         } catch {
             guard imageRequestID == requestID else { return }
             isLoadingImage = false
@@ -142,7 +155,7 @@ final class ManualProductViewModel: ObservableObject {
             proteinGPer100g: Float(input.protein * factor),
             carbsGPer100g: Float(input.carbs * factor),
             fatGPer100g: Float(input.fat * factor),
-            localImageData: productImage?.jpegData(compressionQuality: 0.75),
+            localImageData: imageData,
             servings: servings,
             nutritionSource: .user,
             imageSource: productImage == nil ? .none : .user,

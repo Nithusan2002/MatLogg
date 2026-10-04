@@ -61,20 +61,20 @@ class APIService {
             switch self {
             case .invalidURL:
                 return "Ugyldig URL"
-            case .networkError(let message):
-                return message
+            case .networkError:
+                return "Kunne ikke koble til tjenesten. Prøv igjen."
             case .decodingError:
                 return "Kunne ikke tolke svar fra server"
             case .serverError(let code):
                 return "Server feil: \(code)"
-            case .backendError(_, _, let message):
-                return message
+            case .backendError:
+                return "Tjenesten kunne ikke fullføre forespørselen. Prøv igjen."
             case .backendNotConfigured:
                 return "Backend ikke konfigurert"
             case .batchLimitExceeded(let limit):
-                return "For mange sync-events i batch (maks \(limit))"
+                return "For mange endringer i én forespørsel (maks \(limit))"
             case .payloadTooLarge(let limit):
-                return "For stor payload i sync-event (maks \(limit) bytes)"
+                return "Endringen er for stor til å sendes (maks \(limit) byte)"
             case .missingAccessToken:
                 return "Du må være innlogget for å synkronisere"
             case .sessionExpired:
@@ -397,11 +397,7 @@ class APIService {
         guard let url = components?.url else { throw APIError.invalidURL }
 
         let data = try await openFoodFactsData(from: url)
-        let response = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
-
-        return response.products.compactMap { product in
-            makeOpenFoodFactsProduct(product, barcode: product.code, requiresCompleteMacros: true)
-        }
+        return try await BackgroundWork.run { try OpenFoodFactsParser.search(data) }
     }
     
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
@@ -422,20 +418,7 @@ class APIService {
             throw APIError.invalidURL
         }
         let data = try await openFoodFactsData(from: url)
-        let responseData = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
-        
-        guard responseData.status == "success", let product = responseData.product else {
-            throw APIError.serverError(404)
-        }
-
-        guard let mapped = makeOpenFoodFactsProduct(
-            product,
-            barcode: product.code ?? ean,
-            requiresCompleteMacros: true
-        ) else {
-            throw APIError.incompleteProductData
-        }
-        return mapped
+        return try await BackgroundWork.run { try OpenFoodFactsParser.barcode(data, ean: ean) }
     }
 
     private func openFoodFactsData(from url: URL) async throws -> Data {
@@ -553,7 +536,28 @@ class APIService {
         NotificationCenter.default.post(name: .authSessionExpired, object: nil)
     }
 
-    private func makeOpenFoodFactsProduct(
+}
+
+nonisolated private enum OpenFoodFactsParser {
+    static func search(_ data: Data) throws -> [Product] {
+        let response = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
+        return response.products.compactMap {
+            makeOpenFoodFactsProduct($0, barcode: $0.code, requiresCompleteMacros: true)
+        }
+    }
+
+    static func barcode(_ data: Data, ean: String) throws -> Product {
+        let response = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
+        guard response.status == "success", let product = response.product else {
+            throw APIService.APIError.serverError(404)
+        }
+        guard let mapped = makeOpenFoodFactsProduct(product, barcode: product.code ?? ean, requiresCompleteMacros: true) else {
+            throw APIService.APIError.incompleteProductData
+        }
+        return mapped
+    }
+
+    private static func makeOpenFoodFactsProduct(
         _ product: OpenFoodFactsProduct,
         barcode: String?,
         requiresCompleteMacros: Bool
@@ -613,7 +617,7 @@ class APIService {
         )
     }
 
-    private func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
+    private static func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
         guard let energyKcal = nutriments?.energyKcal100g,
               let protein = nutriments?.protein100g,
               let carbohydrates = nutriments?.carbs100g,
@@ -632,7 +636,7 @@ class APIService {
         )
     }
     
-    private func buildServingOptions(
+    private static func buildServingOptions(
         identity: String,
         servingSize: String?,
         productQuantity: Double?,
@@ -669,7 +673,7 @@ class APIService {
         return options
     }
     
-    private func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
+    private static func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
         let pattern = #"(?<![0-9.,+\-])([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return nil
@@ -685,13 +689,13 @@ class APIService {
         return (number, unit)
     }
     
-    private func parseQuantity(productQuantity: Double?, unit: String?) -> (value: Double, unit: AmountUnit)? {
+    private static func parseQuantity(productQuantity: Double?, unit: String?) -> (value: Double, unit: AmountUnit)? {
         guard let productQuantity, productQuantity > 0,
               let amountUnit = amountUnit(from: unit) else { return nil }
         return (productQuantity, amountUnit)
     }
 
-    private func amountUnit(from rawValue: String?) -> AmountUnit? {
+    private static func amountUnit(from rawValue: String?) -> AmountUnit? {
         switch rawValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "g", "gram", "grams": return .grams
         case "ml", "milliliter", "milliliters", "millilitres": return .milliliters
@@ -699,14 +703,14 @@ class APIService {
         }
     }
 
-    private func nutritionBasis(nutritionDataPer: String?, productQuantityUnit: String?) -> NutritionBasis {
+    private static func nutritionBasis(nutritionDataPer: String?, productQuantityUnit: String?) -> NutritionBasis {
         let normalized = nutritionDataPer?.lowercased().replacingOccurrences(of: " ", with: "")
         if normalized == "100ml" { return .per100ml }
         if normalized == nil, amountUnit(from: productQuantityUnit) == .milliliters { return .per100ml }
         return .per100g
     }
     
-    private func formatGrams(_ grams: Double) -> String {
+    private static func formatGrams(_ grams: Double) -> String {
         if grams.truncatingRemainder(dividingBy: 1) == 0 {
             return String(Int(grams))
         }
@@ -784,16 +788,16 @@ private struct BackendErrorResponse: Decodable {
     }
 }
 
-private struct OpenFoodFactsResponse: Codable {
+nonisolated private struct OpenFoodFactsResponse: Codable {
     let status: String
     let product: OpenFoodFactsProduct?
 }
 
-private struct OpenFoodFactsSearchResponse: Codable {
+nonisolated private struct OpenFoodFactsSearchResponse: Codable {
     let products: [OpenFoodFactsProduct]
 }
 
-private struct OpenFoodFactsProduct: Codable {
+nonisolated private struct OpenFoodFactsProduct: Codable {
     let code: String?
     let productName: String?
     let brands: String?
@@ -892,14 +896,14 @@ private struct OpenFoodFactsProduct: Codable {
     }
 }
 
-private struct CompleteNutrition {
+nonisolated private struct CompleteNutrition {
     let energyKcal: Double
     let protein: Double
     let carbohydrates: Double
     let fat: Double
 }
 
-private struct OpenFoodFactsNutriments: Codable {
+nonisolated private struct OpenFoodFactsNutriments: Codable {
     let energyKcal100g: Double?
     let protein100g: Double?
     let carbs100g: Double?
@@ -933,7 +937,7 @@ enum SyncDeviceIdentity {
     }
 }
 
-private struct FlexibleDouble: Codable {
+nonisolated private struct FlexibleDouble: Codable {
     let value: Double?
     
     init(from decoder: Decoder) throws {
@@ -951,7 +955,7 @@ private struct FlexibleDouble: Codable {
     }
 }
 
-private struct OFFNutriScoreCalculation: Codable {
+nonisolated private struct OFFNutriScoreCalculation: Codable {
     let grade: String?
     let estimated: Int?
     let preparation: String?

@@ -74,10 +74,8 @@ struct PortionAmountInput: View {
 
     // Normalize generic source wording only for display; preserve the stored label.
     private func displayLabel(_ raw: String) -> String {
-        switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "portion", "porsjon": return "Porsjon"
-        default: return raw
-        }
+        let label = PortionDisplay.label(raw)
+        return label.lowercased() == "porsjon" ? "Porsjon" : label
     }
 
     private var countLabel: some View {

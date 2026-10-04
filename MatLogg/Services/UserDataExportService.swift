@@ -35,7 +35,11 @@ final class UserDataExportService: UserDataExporting {
     }
 
     init(logRepository: any FoodLogRepository, savedMealRepository: any SavedMealRepository, waterRepository: any WaterRepository, healthRepository: any HealthProfileRepository, productRepository: any ProductRepository, personalDetailsStore: any PersonalDetailsStore, profileDataRepository: any ProfileDataExportRepository) {
-        Self.cleanupExpiredExports(in: FileManager.default.temporaryDirectory)
+        Task {
+            try? await BackgroundWork.run(priority: .utility) {
+                Self.cleanupExpiredExports(in: FileManager.default.temporaryDirectory)
+            }
+        }
         self.profileDataRepository = profileDataRepository
         self.healthRepository = healthRepository
         self.productRepository = productRepository
@@ -55,6 +59,16 @@ final class UserDataExportService: UserDataExporting {
         let weights = await healthRepository.getWeightEntries(userId: user.id)
         let favorites = await productRepository.getFavorites(userId: user.id, kind: nil)
         let details = personalDetailsStore.load(userId: user.id)
+        guard let records = try? await profileDataRepository.exportProfileRecords(ownerId: user.id) else { return nil }
+        return try? await BackgroundWork.run {
+            Self.writeExport(user: user, logs: logs, savedMeals: savedMeals, water: water,
+                             goal: goal, weights: weights, favorites: favorites, details: details, records: records)
+        }
+    }
+
+    nonisolated private static func writeExport(user: User, logs: [FoodLog], savedMeals: [SavedMeal],
+        water: [WaterGlass], goal: Goal?, weights: [WeightEntry], favorites: [Product],
+        details: PersonalDetails, records: [String: [Data]]) -> URL? {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let goalJSON: Any
@@ -125,7 +139,6 @@ final class UserDataExportService: UserDataExporting {
         ]
 
         do {
-            let records = try await profileDataRepository.exportProfileRecords(ownerId: user.id)
             for (category, rows) in records {
                 payload[category] = try rows.map { try JSONSerialization.jsonObject(with: $0) }
             }

@@ -15,7 +15,7 @@ struct SaveMealFromLogsView: View {
     @EnvironmentObject private var productViewModel: ProductViewModel
     let source: SavedMealCreationSource
     @State private var name = ""
-    @State private var productNames: [UUID: String] = [:]
+    private var productNames: [UUID: String] { viewModel.sourceProductNames }
 
     var body: some View {
         NavigationStack {
@@ -51,6 +51,7 @@ struct SaveMealFromLogsView: View {
                                 .foregroundStyle(AppColors.deepInk)
                             CardContainer {
                                 VStack(spacing: 12) {
+                                    if viewModel.isLoadingSource { ProgressView("Henter matvarer …") }
                                     ForEach(source.logs) { log in
                                         if log.id != source.logs.first?.id {
                                             Divider().overlay(AppColors.separator)
@@ -89,7 +90,7 @@ struct SaveMealFromLogsView: View {
                     PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre") {
                         Task { await save() }
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving || viewModel.isLoadingPhoto)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving || viewModel.isLoadingPhoto || viewModel.isLoadingSource)
                     .opacity(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving ? 0.5 : 1)
                     .accessibilityIdentifier("saved-meal-save")
                 }
@@ -102,12 +103,8 @@ struct SaveMealFromLogsView: View {
             .interactiveDismissDisabled(viewModel.isSaving)
             .onAppear { viewModel.beginPhotoEditing() }
             .onDisappear { viewModel.beginPhotoEditing() }
-            .task {
-                let products = await productViewModel.products(ids: Set(source.logs.map(\.productId)))
-                productNames = products.mapValues(\.name)
-                if let userId = authViewModel.currentUser?.id {
-                    await viewModel.load(userId: userId)
-                }
+            .task(id: authViewModel.currentUser?.id) {
+                await viewModel.loadCreationSource(logs: source.logs, userId: authViewModel.currentUser?.id)
             }
         }
         .tint(AppColors.action)
@@ -147,7 +144,17 @@ struct SavedMealsListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.meals.isEmpty {
+                if viewModel.isLoading && viewModel.meals.isEmpty {
+                    ProgressView("Henter lagrede måltider …")
+                } else if let error = viewModel.loadError, viewModel.meals.isEmpty {
+                    ContentUnavailableView {
+                        Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(error)
+                    } actions: {
+                        Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
+                    }
+                } else if viewModel.meals.isEmpty {
                     ContentUnavailableView {
                         Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
                     } description: {
@@ -155,6 +162,11 @@ struct SavedMealsListView: View {
                     }
                 } else {
                     List {
+                        if viewModel.isLoading { ProgressView("Oppdaterer måltider …") }
+                        if let error = viewModel.loadError {
+                            Text(error)
+                            Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
+                        }
                         ForEach(viewModel.meals) { meal in
                             HStack {
                                 Button { selectedMeal = meal } label: {
@@ -192,8 +204,8 @@ struct SavedMealsListView: View {
                     Button("Ferdig") { dismiss() }
                 }
             }
-            .task {
-                if let userId = authViewModel.currentUser?.id { await viewModel.load(userId: userId) }
+            .task(id: authViewModel.currentUser?.id) {
+                await viewModel.load(userId: authViewModel.currentUser?.id)
             }
             .sheet(item: $selectedMeal) { meal in
                 SavedMealLogView(meal: meal) {
@@ -224,38 +236,51 @@ struct SavedMealsListView: View {
 }
 
 struct SavedMealLogView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: SavedMealsViewModel
+    let meal: SavedMeal
+    let onLogged: () -> Void
+    var body: some View { SavedMealLogContent(viewModel: viewModel, meal: meal, onLogged: onLogged) }
+}
+
+private struct SavedMealLogContent: View {
+    @Environment(\.dismiss) private var dismiss
+    let viewModel: SavedMealsViewModel
+    @StateObject private var formState: SavedMealFormState
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var preferences: PreferencesViewModel
     let meal: SavedMeal
+    @StateObject private var itemsModel: SavedMealItemsViewModel
     let onLogged: () -> Void
     @State private var amounts: [UUID: String] = [:]
     @State private var isChoosingTarget = false
 
+    init(viewModel: SavedMealsViewModel, meal: SavedMeal, onLogged: @escaping () -> Void) {
+        self.meal = meal
+        self.viewModel = viewModel
+        _formState = StateObject(wrappedValue: SavedMealFormState(viewModel: viewModel))
+        self.onLogged = onLogged
+        _itemsModel = StateObject(wrappedValue: SavedMealItemsViewModel(meal: meal))
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                MatLoggSheetHeader(title: meal.name, isCloseDisabled: viewModel.isSaving) { dismiss() }
+                MatLoggSheetHeader(title: meal.name, isCloseDisabled: formState.isSaving) { dismiss() }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Kontroller før du loggfører.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
-
-                        if let data = meal.localImageData, let image = UIImage(data: data) {
-                            ProductHeroImageView(image: image, height: 180)
+                        if let data = meal.localImageData {
+                            ProductHeroImageView(localData: data, height: 180)
                                 .accessibilityLabel("Bilde av \(meal.name)")
                         }
 
                         targetPicker
 
-                        ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex })) { item in
+                        ForEach(itemsModel.sortedItems) { item in
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
@@ -288,11 +313,11 @@ struct SavedMealLogView: View {
                     }
                     .padding(16)
                 }
-                .disabled(viewModel.isSaving)
+                .disabled(formState.isSaving)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 8) {
-                    if let error = viewModel.errorMessage {
+                    if let error = formState.errorMessage {
                         Text(error)
                             .font(AppTypography.caption)
                             .foregroundStyle(AppColors.action)
@@ -302,7 +327,7 @@ struct SavedMealLogView: View {
                     PrimaryButton(title: primaryButtonTitle) {
                         Task { await logMeal() }
                     }
-                    .disabled(parsedAmounts == nil || viewModel.isSaving)
+                    .disabled(parsedAmounts == nil || formState.isSaving)
                     .accessibilityIdentifier("saved-meal-log")
                 }
                 .padding(.horizontal, 16)
@@ -322,8 +347,9 @@ struct SavedMealLogView: View {
                     ($0.id, format($0.amountG))
                 })
             }
-            .interactiveDismissDisabled(viewModel.isSaving)
+            .interactiveDismissDisabled(formState.isSaving)
         }
+        .onChange(of: meal) { _, meal in itemsModel.update(meal) }
         .presentationDragIndicator(.visible)
     }
 
@@ -375,7 +401,7 @@ struct SavedMealLogView: View {
     }
 
     private var primaryButtonTitle: String {
-        if viewModel.isSaving { return "Logger …" }
+        if formState.isSaving { return "Logger …" }
         return meal.items.count == 1 ? "Loggfør varen" : "Loggfør \(meal.items.count) varer"
     }
 
@@ -421,28 +447,44 @@ struct SavedMealLogView: View {
 }
 
 struct SavedMealEditorView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: SavedMealsViewModel
     let meal: SavedMeal
+
+    var body: some View { SavedMealEditorContent(viewModel: viewModel, meal: meal) }
+}
+
+private struct SavedMealEditorContent: View {
+    @Environment(\.dismiss) private var dismiss
+    let viewModel: SavedMealsViewModel
+    @StateObject private var formState: SavedMealFormState
+    let meal: SavedMeal
+    @StateObject private var itemsModel: SavedMealItemsViewModel
     @State private var name = ""
     @State private var amounts: [UUID: String] = [:]
-    @State private var removed = Set<UUID>()
+    private var removed: Set<UUID> { itemsModel.removed }
+
+    init(viewModel: SavedMealsViewModel, meal: SavedMeal) {
+        self.meal = meal
+        self.viewModel = viewModel
+        _formState = StateObject(wrappedValue: SavedMealFormState(viewModel: viewModel))
+        _itemsModel = StateObject(wrappedValue: SavedMealItemsViewModel(meal: meal))
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Navn") { TextField("Navn", text: $name) }
-                Section { SavedMealPhotoPicker().disabled(viewModel.isSaving) }
+                Section { SavedMealPhotoPicker().disabled(formState.isSaving) }
                     .listRowBackground(AppColors.surface)
                 Section("Matvarer") {
-                    ForEach(meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }).filter { !removed.contains($0.id) }) { item in
+                    ForEach(itemsModel.visibleItems) { item in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(item.productName).font(AppTypography.bodyEmphasis)
                             TextField("Mengde i \(item.resolvedAmountUnit.spokenName)", text: Binding(
                                 get: { amounts[item.id] ?? "" }, set: { amounts[item.id] = $0 }
                             ))
                             .keyboardType(.decimalPad)
-                            Button("Fjern matvare", role: .destructive) { removed.insert(item.id) }
+                            Button("Fjern matvare", role: .destructive) { itemsModel.removed.insert(item.id) }
                                 .frame(minHeight: 44)
                         }
                     }
@@ -450,7 +492,7 @@ struct SavedMealEditorView: View {
                 if meal.items.count == removed.count {
                     Section { Text("Et lagret måltid må inneholde minst én matvare.") }
                 }
-                if let error = viewModel.errorMessage { Section { Text(error) } }
+                if let error = formState.errorMessage { Section { Text(error) } }
             }
             .scrollContentBackground(.hidden)
             .background(AppColors.background.ignoresSafeArea())
@@ -461,8 +503,8 @@ struct SavedMealEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(viewModel.isSaving ? "Lagrer …" : "Lagre") { Task { await save() } }
-                        .disabled(viewModel.isSaving || viewModel.isLoadingPhoto || parsedAmounts == nil || meal.items.count == removed.count)
+                    Button(formState.isSaving ? "Lagrer …" : "Lagre") { Task { await save() } }
+                        .disabled(formState.isSaving || formState.isLoadingPhoto || parsedAmounts == nil || meal.items.count == removed.count)
                 }
             }
             .onAppear {
@@ -471,8 +513,9 @@ struct SavedMealEditorView: View {
                 amounts = Dictionary(uniqueKeysWithValues: meal.items.map { ($0.id, format($0.amountG)) })
             }
             .onDisappear { viewModel.beginPhotoEditing() }
-            .interactiveDismissDisabled(viewModel.isSaving)
+            .interactiveDismissDisabled(formState.isSaving)
         }
+        .onChange(of: meal) { _, meal in itemsModel.update(meal) }
         .tint(AppColors.action)
     }
 
@@ -496,16 +539,18 @@ struct SavedMealEditorView: View {
 
 struct SavedMealRow: View {
     let meal: SavedMeal
+    @StateObject private var itemsModel: SavedMealItemsViewModel
+
+    init(meal: SavedMeal) {
+        self.meal = meal
+        _itemsModel = StateObject(wrappedValue: SavedMealItemsViewModel(meal: meal))
+    }
 
     var body: some View {
         HStack(spacing: 12) {
             Group {
-                if let data = meal.localImageData, let image = UIImage(data: data) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                if let data = meal.localImageData {
+                    ProductThumbnailView(url: nil, localData: data, size: 44, imagePadding: 0)
                 } else {
                     Image(systemName: "square.stack.3d.up.fill")
                         .foregroundStyle(AppColors.action)
@@ -516,7 +561,7 @@ struct SavedMealRow: View {
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(meal.name).font(AppTypography.bodyEmphasis).foregroundStyle(AppColors.deepInk)
-                Text(subtitle).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary).lineLimit(2)
+                Text(itemsModel.subtitle).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary).lineLimit(2)
             }
             Spacer()
             Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
@@ -524,14 +569,9 @@ struct SavedMealRow: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityHint("Åpner måltidet før loggføring")
+        .onChange(of: meal) { _, meal in itemsModel.update(meal) }
     }
 
-    private var subtitle: String {
-        let names = meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }).prefix(3).map(\.productName)
-        let suffix = meal.items.count > 3 ? " + \(meal.items.count - 3) til" : ""
-        let itemCount = meal.items.count == 1 ? "1 vare" : "\(meal.items.count) varer"
-        return "\(itemCount) · \(names.joined(separator: ", "))\(suffix)"
-    }
 }
 
 struct SavedMealToastView: View {

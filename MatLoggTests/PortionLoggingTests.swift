@@ -5,6 +5,19 @@ import Testing
 
 @MainActor
 struct PortionLoggingTests {
+    @Test func genericEnglishPortionLabelsAreTranslatedOnlyForDisplay() {
+        #expect(PortionDisplay.label("portion") == "porsjon")
+        #expect(PortionDisplay.label("1 portion (100 g)") == "1 porsjon (100 g)")
+        #expect(PortionDisplay.label("1 portion · 100 g") == "1 porsjon · 100 g")
+        #expect(PortionDisplay.label("1 beger (150 g)") == "1 beger (150 g)")
+        #expect(PortionDisplay.label("Portion Pizza") == "Portion Pizza")
+        let selection = PortionSelection(servingId: UUID(), label: "portion", count: 1,
+                                         amountPerServing: 100, unit: .grams,
+                                         source: .openFoodFacts, kind: .portion)
+        #expect(selection.displayText == "1 porsjon")
+        #expect(selection.label == "portion")
+    }
+
     @Test func understandableAmountSummaryTracksSelectionAndInvalidInput() {
         let serving = ServingOption(label: "1 beger · 150 g", grams: 150, source: .user,
                                     kind: .piece, shortLabel: "beger")

@@ -66,7 +66,7 @@ struct ManualProductView: View {
             }
             .fullScreenCover(isPresented: $viewModel.showCamera) {
                 ProductCameraPicker { image in
-                    if let image { viewModel.selectImage(image) }
+                    if let image { Task { await viewModel.selectImage(image) } }
                     viewModel.showCamera = false
                 }
                 .ignoresSafeArea()
@@ -130,7 +130,7 @@ struct ManualProductView: View {
             if viewModel.productImage != nil {
                 Button("Fjern bilde") {
                     selectedPhoto = nil
-                    viewModel.selectImage(nil)
+                    Task { await viewModel.selectImage(nil) }
                 }
                 .frame(minHeight: 44)
             }

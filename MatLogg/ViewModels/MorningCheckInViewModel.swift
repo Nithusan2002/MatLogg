@@ -6,7 +6,7 @@ final class MorningCheckInViewModel: ObservableObject {
     @Published var weightText = ""
     @Published var isPresented = false
     @Published private(set) var status: String?
-    @Published private(set) var isLoading = false
+    @Published private(set) var isLoading = true
     @Published private(set) var isSaving = false
     @Published private(set) var errorMessage: String?
 

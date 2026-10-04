@@ -17,6 +17,7 @@ struct FoodSearchTests {
         #expect(vm.isLoadingCatalog)
         #expect(vm.favorites.map(\.id) == [oats.id])
         vm.setQuery("havre")
+        await waitUntil { vm.results.map(\.id) == [oats.id] }
         #expect(vm.results.map(\.id) == [oats.id])
         await vm.open(oats)
         #expect(vm.selectedProduct?.id == oats.id)
@@ -34,6 +35,7 @@ struct FoodSearchTests {
         let vm = FoodSearchViewModel(repository: repository)
         await vm.load(owner: UUID())
         vm.setQuery("testmerke havre")
+        await waitUntil { vm.results.map(\.id) == [oats.id] }
         #expect(vm.results.map(\.id) == [oats.id])
         #expect(repository.requests.isEmpty)
         #expect(vm.recent.map(\.id) == [oats.id])
@@ -52,6 +54,7 @@ struct FoodSearchTests {
         let vm = FoodSearchViewModel(repository: repository)
         await vm.load(owner: UUID())
         vm.setQuery("havre")
+        await waitUntil { vm.results.map(\.id) == [oats.id] }
         vm.search()
         await repository.waitForRequests(1)
         #expect(vm.results.map(\.id) == [oats.id])
@@ -189,9 +192,9 @@ struct FoodSearchTests {
     }
 
     private func waitUntil(_ predicate: () -> Bool) async {
-        for _ in 0..<1_000 {
+        for _ in 0..<200 {
             if predicate() { return }
-            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(5))
         }
         #expect(predicate())
     }

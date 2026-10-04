@@ -652,3 +652,11 @@ Mengdevelgeren har en ramme rundt valgt porsjon/enhet og nedoverpil.
 Antall vises til venstre for en samlet kontroll med minus, tallfelt og pluss.
 Ved tilgjengelighetsstørrelser vises etiketten over kontrollgruppen. Generisk
 «portion» vises som «Porsjon»; råverdi og lagret porsjonsgrunnlag beholdes.
+
+### Norske feilmeldinger (2026-10-03)
+
+Konto- og lagringsmeldinger bruker norsk tekst fra feiltype/kode eller en
+handlingsspesifikk fallback. Rå servertekst og systemfeil vises ikke direkte.
+Ukjente feil lover ikke at en flertrinnshandling ble rullet tilbake.
+Synkresultater skiller automatisk retry fra behov for oppfølging og omtaler
+allerede lagrede hendelser som lokale data. Produksjonssynk aktiveres ikke.

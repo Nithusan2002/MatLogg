@@ -23,7 +23,7 @@ struct ProductImageTests {
             UIColor.red.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 1200, height: 600))
         }
-        model.selectImage(image)
+        await model.selectImage(image)
         #expect(model.productImage?.size.width == 512)
         let product = try #require(await model.save())
         let bytes = try #require(product.localImageData)
@@ -38,14 +38,14 @@ struct ProductImageTests {
         let thumbnail = ProductThumbnailViewModel()
         await thumbnail.load(url: nil, localData: bytes, repository: nil)
         #expect(thumbnail.image != nil)
-        model.selectImage(nil)
+        await model.selectImage(nil)
         let withoutImage = try #require(await model.save())
         #expect(withoutImage.localImageData == nil)
         #expect(withoutImage.imageSource == .none)
     }
 
     @Test func cachedImageIsAvailableWithoutNetwork() async throws {
-        let cache = URLCache(memoryCapacity: 1024 * 1024, diskCapacity: 0)
+        let cache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 0, diskPath: UUID().uuidString)
         let url = try #require(URL(string: "https://images.example.invalid/product.png"))
         let bytes = Data([1, 2, 3])
         let response = try #require(HTTPURLResponse(url: url, statusCode: 200,
@@ -54,6 +54,49 @@ struct ProductImageTests {
                                   for: URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad))
         let repository = CachedProductImageRepository(cache: cache)
         #expect(try await repository.data(for: url) == bytes)
+    }
+
+    @MainActor @Test func decodedImagesAreSharedAndSeparatedBySize() async throws {
+        let cache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 0, diskPath: UUID().uuidString)
+        let url = try #require(URL(string: "https://images.example.invalid/shared.png"))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let original = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 400), format: format).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 800, height: 400))
+        }
+        let bytes = try #require(original.pngData())
+        let response = try #require(HTTPURLResponse(url: url, statusCode: 200,
+                                                  httpVersion: nil, headerFields: ["Content-Type": "image/png"]))
+        cache.storeCachedResponse(CachedURLResponse(response: response, data: bytes),
+                                  for: URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad))
+        let repository = CachedProductImageRepository(cache: cache)
+        async let first = repository.pixels(for: url, maximumPixelSize: 160)
+        async let second = repository.pixels(for: url, maximumPixelSize: 160)
+        let (a, b) = try await (first, second)
+        #expect(a === b)
+        #expect(a.width == 160)
+        #expect(a.height == 80)
+        let cached = try await repository.pixels(for: url, maximumPixelSize: 160)
+        #expect(cached === a)
+        let larger = try await repository.pixels(for: url, maximumPixelSize: 320)
+        #expect(larger.width == 320)
+        #expect(larger !== a)
+    }
+
+    @Test func failedDecodeCanBeRetried() async throws {
+        let cache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 0, diskPath: UUID().uuidString)
+        let url = try #require(URL(string: "https://images.example.invalid/invalid.png"))
+        let response = try #require(HTTPURLResponse(url: url, statusCode: 200,
+                                                  httpVersion: nil, headerFields: ["Content-Type": "image/png"]))
+        cache.storeCachedResponse(CachedURLResponse(response: response, data: Data([1, 2, 3])),
+                                  for: URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad))
+        let repository = CachedProductImageRepository(cache: cache)
+        for _ in 0..<2 {
+            await #expect(throws: (any Error).self) {
+                try await repository.pixels(for: url, maximumPixelSize: 160)
+            }
+        }
     }
 
     @Test func insecureImageURLIsRejected() async throws {

@@ -216,7 +216,7 @@ final class OnboardingViewModel: ObservableObject {
             try await goalRepository.saveGoal(goal)
             return Completion(goal: goal, personalDetails: details)
         } catch {
-            errorMessage = "Kunne ikke fullføre oppsettet. Utfylte opplysninger er beholdt, og du kan prøve igjen. \(error.localizedDescription)"
+            errorMessage = "Kunne ikke fullføre oppsettet. Utfylte opplysninger er beholdt, og du kan prøve igjen."
             return nil
         }
     }

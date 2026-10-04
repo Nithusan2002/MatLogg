@@ -40,3 +40,25 @@ struct ProductThumbnailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+struct ProductPhotoView: View {
+    @Environment(\.productImageRepository) private var repository
+    @StateObject private var viewModel = ProductThumbnailViewModel()
+    let localData: Data?
+    var url: URL? = nil
+
+    var body: some View {
+        Group {
+            if let image = viewModel.image {
+                Image(uiImage: image).resizable().scaledToFit()
+            } else {
+                Image(systemName: "photo").foregroundStyle(AppColors.textSecondary)
+            }
+        }
+        .task(id: ImageIdentity(url: url, data: localData)) {
+            await viewModel.load(url: url, localData: localData, repository: repository, maximumPixelSize: 1600)
+        }
+    }
+
+    private struct ImageIdentity: Equatable { let url: URL?; let data: Data? }
+}

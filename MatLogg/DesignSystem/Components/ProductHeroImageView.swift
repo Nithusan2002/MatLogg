@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 
 struct ProductHeroImageView: View {
+    @Environment(\.productImageRepository) private var repository
+    @StateObject private var viewModel = ProductThumbnailViewModel()
+    private let localData: Data?
     private let image: UIImage?
     private let url: URL?
     private let height: CGFloat
@@ -9,6 +12,7 @@ struct ProductHeroImageView: View {
     private let thumbnailHeight: CGFloat = 170
     
     init(image: UIImage?, height: CGFloat = 220, cornerRadius: CGFloat = 18) {
+        self.localData = nil
         self.image = image
         self.url = nil
         self.height = height
@@ -16,33 +20,29 @@ struct ProductHeroImageView: View {
     }
     
     init(url: URL?, height: CGFloat = 220, cornerRadius: CGFloat = 18) {
+        self.localData = nil
         self.image = nil
         self.url = url
         self.height = height
         self.cornerRadius = cornerRadius
     }
     
+    init(localData: Data?, url: URL? = nil, height: CGFloat = 220, cornerRadius: CGFloat = 18) {
+        self.localData = localData
+        self.image = nil
+        self.url = url
+        self.height = height
+        self.cornerRadius = cornerRadius
+    }
+
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
             Group {
-                if let image {
+                if let image = image ?? viewModel.image {
                     heroView(with: Image(uiImage: image), width: width)
-                } else if let url {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            heroPlaceholder(width: width)
-                        case .success(let image):
-                            heroView(with: image, width: width)
-                        case .failure:
-                            heroPlaceholder(width: width)
-                        @unknown default:
-                            heroPlaceholder(width: width)
-                        }
-                    }
                 } else {
                     heroPlaceholder(width: width)
                 }
@@ -57,7 +57,13 @@ struct ProductHeroImageView: View {
             .clipped()
         }
         .frame(height: height)
+        .task(id: ImageIdentity(url: url, data: localData)) {
+            guard image == nil else { return }
+            await viewModel.load(url: url, localData: localData, repository: repository, maximumPixelSize: 1200)
+        }
     }
+
+    private struct ImageIdentity: Equatable { let url: URL?; let data: Data? }
     
     private func heroView(with image: Image, width: CGFloat) -> some View {
         ZStack {

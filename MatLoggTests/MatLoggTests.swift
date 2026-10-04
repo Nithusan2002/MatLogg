@@ -1015,7 +1015,7 @@ struct LogViewModelTests {
         )
 
         #expect(!succeeded)
-        #expect(viewModel.errorMessage?.hasPrefix("Kunne ikke lagre logging:") == true)
+        #expect(viewModel.errorMessage == "Kunne ikke lagre logging. Prøv igjen.")
     }
 
     @Test func loggingUsesTheSelectedHistoricalDate() async throws {

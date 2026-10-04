@@ -235,7 +235,7 @@ private struct FoodSearchContent: View {
             if viewModel.isLoading {
                 Section { ProgressView("Henter matvarer …").frame(maxWidth: .infinity, minHeight: 80) }
             } else {
-                if viewModel.isLoadingCatalog && viewModel.hasQuery {
+                if viewModel.isLoadingCatalog {
                     Section { ProgressView("Henter flere matvarer …") }
                 }
                 if let error = viewModel.loadError {
@@ -299,7 +299,7 @@ private struct FoodSearchContent: View {
                 Text(error).font(AppTypography.body).foregroundColor(AppColors.textSecondary)
                 Button("Prøv igjen", action: submitSearch).frame(minHeight: 44)
             } else if viewModel.phase == .local && !isFirstLog {
-                Text("Lokale treff vises mens du skriver. Trykk Søk for flere produkter.")
+                Text("Trykk Søk for flere produkter.")
                     .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }
         }

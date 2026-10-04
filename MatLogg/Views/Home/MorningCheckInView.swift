@@ -15,7 +15,9 @@ struct MorningCheckInView: View {
             if userId != nil, Calendar.current.isDateInToday(date), viewModel.status != "skipped" {
                 Button { viewModel.begin() } label: {
                     Group {
-                        if dynamicTypeSize.isAccessibilitySize {
+                        if viewModel.isLoading {
+                            ProgressView("Henter innsjekk …")
+                        } else if dynamicTypeSize.isAccessibilitySize {
                             Text(completed ? "✓ \(title)" : title)
                         } else {
                             Label(title, systemImage: completed ? "checkmark.circle.fill" : "checkmark.circle")
@@ -29,7 +31,7 @@ struct MorningCheckInView: View {
                     .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(viewModel.isLoading || viewModel.isSaving)
-                .accessibilityLabel(title)
+                .accessibilityLabel(viewModel.isLoading ? "Henter innsjekk" : title)
                 .accessibilityHint(viewModel.status == "completed" ? "Åpner dagens innsjekk for redigering" : "Åpner valgfri vektregistrering")
                 .accessibilityIdentifier("morning-check-in-open")
             }

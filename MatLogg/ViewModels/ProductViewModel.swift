@@ -23,6 +23,7 @@ final class ProductViewModel: ObservableObject {
     private let repository: any ProductRepository
     private let catalogService: any ProductCatalogService
     let barcodeRepository: any BarcodeLookupRepository
+    var favoriteRepository: any ProductFavoriteRepository { repository }
     private let nameSearchService: any ProductNameSearchService
     @Published private(set) var scannedProduct: Product?
     @Published private(set) var scannedBarcode: String?
@@ -32,11 +33,11 @@ final class ProductViewModel: ObservableObject {
     private var scanFeedbackTask: Task<Void, Never>?
     @Published private(set) var isScanTakingLong = false
 
-    static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
+    nonisolated static func searchMatches(query: String, name: String, brand: String? = nil) -> Bool {
         FoodSearchMatcher.matches(query: query, name: name, brand: brand)
     }
 
-    static func sortedSearchResults(_ products: [Product], query: String) -> [Product] {
+    nonisolated static func sortedSearchResults(_ products: [Product], query: String) -> [Product] {
         FoodSearchMatcher.sorted(products, query: query)
     }
 
@@ -68,8 +69,8 @@ final class ProductViewModel: ObservableObject {
         self.nameSearchService = nameSearchService
     }
 
-    func product(id: UUID) -> Product? {
-        repository.getProduct(id)
+    func product(id: UUID) async -> Product? {
+        await repository.getProduct(id)
     }
 
     func products(ids: Set<UUID>) async -> [UUID: Product] {
@@ -80,8 +81,8 @@ final class ProductViewModel: ObservableObject {
         try await repository.saveProduct(product, ownerUserId: ownerUserId)
     }
 
-    func cachedProduct(barcode: String, ownerUserId: UUID?) -> Product? {
-        repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
+    func cachedProduct(barcode: String, ownerUserId: UUID?) async -> Product? {
+        await repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
     }
 
     func lookupBarcode(from scannedCode: ScannedBarcode) throws -> String {
@@ -139,7 +140,9 @@ final class ProductViewModel: ObservableObject {
         }
         do {
             let product: Product
-            if let cached = barcodeRepository.cached(barcode: barcode, owner: ownerUserId) {
+            let cached = await barcodeRepository.cached(barcode: barcode, owner: ownerUserId)
+            guard scanRequestID == requestID, !Task.isCancelled else { return }
+            if let cached {
                 product = cached
             } else {
                 product = try await barcodeRepository.fetch(barcode: barcode)
@@ -163,7 +166,7 @@ final class ProductViewModel: ObservableObject {
             try await repository.saveScanHistory(userId: userId, productId: product.id)
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre skanning: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre skanning. Prøv igjen."
             return false
         }
     }
@@ -199,21 +202,21 @@ final class ProductViewModel: ObservableObject {
             try await repository.toggleFavorite(userId: userId, productId: product.id)
             return true
         } catch {
-            errorMessage = "Kunne ikke oppdatere favoritt: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke oppdatere favoritt. Prøv igjen."
             return false
         }
     }
 
-    func isFavorite(_ product: Product, userId: UUID) -> Bool {
-        repository.isFavorite(userId: userId, productId: product.id)
+    func isFavorite(_ product: Product, userId: UUID) async -> Bool {
+        await repository.isFavorite(userId: userId, productId: product.id)
     }
 
     func rawFoodSuggestions() async -> [MatvaretabellenProduct] {
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365) {
+        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365) {
             return cached
         }
         let items = (try? await catalogService.fetchCommonFoods()) ?? []
-        repository.saveMatvaretabellenCache(items)
+        await repository.saveMatvaretabellenCache(items)
         return items
     }
 
@@ -227,17 +230,19 @@ final class ProductViewModel: ObservableObject {
             return RawFoodSearchOutcome(items: [], source: .localCache)
         }
 
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
-            let filtered = cached.filter {
-                Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand)
+        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
+            let filtered = try await BackgroundWork.run {
+                cached.filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
             }
             if !filtered.isEmpty {
                 return RawFoodSearchOutcome(items: filtered, source: .localCache)
             }
         }
 
-        let items = try await catalogService.searchProducts(query: trimmed)
-            .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+        let catalogItems = try await catalogService.searchProducts(query: trimmed)
+        let items = try await BackgroundWork.run {
+            catalogItems.filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+        }
         return RawFoodSearchOutcome(items: items, source: .localCache)
     }
 
@@ -251,16 +256,13 @@ final class ProductViewModel: ObservableObject {
         var usedRemoteSource = false
         var firstError: Error?
 
-        if let cached = repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
-            let cachedMatches = cached
-                .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
-            products.append(contentsOf: cachedMatches.map(makeRawFoodProduct))
+        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
+            let cachedMatches = try await Self.rawProducts(cached, query: trimmed)
+            products.append(contentsOf: cachedMatches)
             if cachedMatches.isEmpty {
                 do {
                     let rawFoods = try await catalogService.searchProducts(query: trimmed)
-                    products.append(contentsOf: rawFoods
-                        .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
-                        .map(makeRawFoodProduct))
+                    products.append(contentsOf: try await Self.rawProducts(rawFoods, query: trimmed))
                 } catch {
                     firstError = error
                 }
@@ -268,9 +270,7 @@ final class ProductViewModel: ObservableObject {
         } else {
             do {
                 let rawFoods = try await catalogService.searchProducts(query: trimmed)
-                products.append(contentsOf: rawFoods
-                    .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
-                    .map(makeRawFoodProduct))
+                products.append(contentsOf: try await Self.rawProducts(rawFoods, query: trimmed))
             } catch {
                 firstError = error
             }
@@ -278,12 +278,10 @@ final class ProductViewModel: ObservableObject {
 
         do {
             let packagedProducts = try await nameSearchService.searchProductsByNameOpenFoodFacts(trimmed)
-            products.append(contentsOf: packagedProducts
-                .filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
-                .map { product in
-                    guard let barcode = product.barcodeEan else { return product }
-                    return repository.getProductByBarcode(barcode, ownerUserId: ownerUserId) ?? product
-                })
+            let matches = try await BackgroundWork.run {
+                packagedProducts.filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
+            }
+            products.append(contentsOf: matches)
             usedRemoteSource = true
         } catch {
             firstError = firstError ?? error
@@ -293,15 +291,21 @@ final class ProductViewModel: ObservableObject {
             throw firstError
         }
 
-        var seen = Set<String>()
-        let uniqueProducts = products.filter { product in
-            let key = product.barcodeEan.map { "barcode:\($0)" }
-                ?? "\(product.source):\(normalize(product.name)):\(normalize(product.brand ?? ""))"
-            return seen.insert(key).inserted
-        }
+        let cachedByBarcode = await repository.getProductsByBarcodes(Set(products.compactMap(\.barcodeEan)), ownerUserId: ownerUserId)
+        products = products.map { product in product.barcodeEan.flatMap { cachedByBarcode[$0] } ?? product }
+        let input = products
+        let sorted = try await BackgroundWork.run {
+            var seen = Set<String>()
+            let uniqueProducts = input.filter { product in
+                let key = product.barcodeEan.map { "barcode:\($0)" }
+                    ?? "\(product.source):\(FoodSearchMatcher.normalized(product.name)):\(FoodSearchMatcher.normalized(product.brand ?? ""))"
+                return seen.insert(key).inserted
+            }
 
+            return Self.sortedSearchResults(uniqueProducts, query: trimmed)
+        }
         return FoodSearchOutcome(
-            items: Self.sortedSearchResults(uniqueProducts, query: trimmed),
+            items: sorted,
             source: usedRemoteSource ? .remote : .localCache
         )
     }
@@ -343,11 +347,18 @@ final class ProductViewModel: ObservableObject {
         )
     }
 
+    nonisolated private static func rawProducts(_ items: [MatvaretabellenProduct], query: String) async throws -> [Product] {
+        try await BackgroundWork.run {
+            items.filter { Self.searchMatches(query: query, name: $0.name, brand: $0.brand) }
+                .map(FoodSearchCatalog.product)
+        }
+    }
+
     func makeRawFoodProduct(_ item: MatvaretabellenProduct) -> Product {
         FoodSearchCatalog.product(item)
     }
 
-    private func normalize(_ text: String) -> String {
+    nonisolated private func normalize(_ text: String) -> String {
         let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         let allowed = folded.map { $0.isLetter || $0.isNumber ? $0 : " " }
         let cleaned = String(allowed).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)

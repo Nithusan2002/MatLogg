@@ -32,8 +32,8 @@ nonisolated final class LocalStore: @unchecked Sendable {
         configuredDatabaseURL = databaseURL
         self.diagnosticHandler = diagnosticHandler
         do {
-            try openDatabase()
-            try migrateDatabase()
+            try PerformanceSignposts.measure("Store.Open") { try openDatabase() }
+            try PerformanceSignposts.measure("Store.Migrate") { try migrateDatabase() }
         } catch {
             if case LocalStoreError.unsupportedSchema(let version) = error {
                 Self.logger.error("LocalStore startup failed: Databaseskjema \(version, privacy: .public) er nyere enn appen støtter (\(Self.latestSchemaVersion, privacy: .public)).")
@@ -46,7 +46,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             }
             throw error
         }
-        resetInFlightToPending()
+        PerformanceSignposts.measure("Store.ResetInFlight") { resetInFlightToPending() }
     }
 
     deinit {
@@ -324,6 +324,30 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
 
+    func getLogs(userId: UUID, from start: Date, before end: Date) -> [FoodLog] {
+        queue.sync {
+            let sql = """
+            SELECT json FROM logs
+            WHERE userId = ? AND loggedDate >= ? AND loggedDate < ?
+            ORDER BY loggedTime DESC;
+            """
+            var stmt: OpaquePointer?
+            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 2, start.timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 3, end.timeIntervalSince1970)
+            defer { sqlite3_finalize(stmt) }
+            var results: [FoodLog] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                if let data = readBlob(stmt, index: 0),
+                   let log = decode(FoodLog.self, from: data, entity: "food_log") {
+                    results.append(log)
+                }
+            }
+            return results
+        }
+    }
+
     func getRecentFoods(owner: UUID, before: Date, limit: Int) throws -> [RecentFood] {
         try queue.sync {
             guard limit > 0 else { return [] }
@@ -363,6 +387,38 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
     
+    func loadSummaries(userId: UUID, dates: [Date]) throws -> [DailySummary] {
+        let timing = PerformanceSignposts.begin("Store.Summaries.Total")
+        defer { PerformanceSignposts.end(timing) }
+        let calendar = Calendar.current
+        let days = dates.map { calendar.startOfDay(for: $0) }
+        guard let first = days.min(), let last = days.max(),
+              let end = calendar.date(byAdding: .day, value: 1, to: last) else { return [] }
+        let logs = try queue.sync { () throws -> [FoodLog] in
+            let timing = PerformanceSignposts.begin("Store.Summaries.SQLAndDecode")
+            defer { PerformanceSignposts.end(timing) }
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM logs WHERE userId = ? AND loggedDate >= ? AND loggedDate < ? ORDER BY loggedTime ASC;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 2, first.timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 3, end.timeIntervalSince1970)
+            var result: [FoodLog] = []
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                if let data = readBlob(stmt, index: 0),
+                   let log = decode(FoodLog.self, from: data, entity: "food_log") { result.append(log) }
+                step = sqlite3_step(stmt)
+            }
+            guard step == SQLITE_DONE else { throw databaseError() }
+            return result
+        }
+        return PerformanceSignposts.measure("Store.Summaries.Aggregate") {
+            DailySummary.summaries(userId: userId, dates: dates, logs: logs, calendar: calendar)
+        }
+    }
+
     func getSummary(userId: UUID, date: Date) -> DailySummary {
         let dayStart = Calendar.current.startOfDay(for: date)
         let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
@@ -499,23 +555,28 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     func getSavedMeals(userId: UUID) -> [SavedMeal] {
-        queue.sync {
+        (try? loadSavedMeals(userId: userId)) ?? []
+    }
+
+    func loadSavedMeals(userId: UUID) throws -> [SavedMeal] {
+        try queue.sync {
             let sql = "SELECT json FROM saved_meals WHERE userId = ? ORDER BY updatedAt DESC;"
             var stmt: OpaquePointer?
-            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
             defer { sqlite3_finalize(stmt) }
             sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
             var meals: [SavedMeal] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0),
-                   let meal = decode(SavedMeal.self, from: data, entity: "saved_meal") {
-                    meals.append(meal)
-                }
+                   let meal = decode(SavedMeal.self, from: data, entity: "saved_meal") { meals.append(meal) }
+                step = sqlite3_step(stmt)
             }
+            guard step == SQLITE_DONE else { throw databaseError() }
             return meals
         }
     }
-    
+
     // MARK: - Products
     
     func saveProduct(_ product: Product, ownerUserId: UUID) throws {
@@ -607,8 +668,12 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     func getProducts(_ ids: Set<UUID>) -> [UUID: Product] {
+        let timing = PerformanceSignposts.begin("Store.Products.Total")
+        defer { PerformanceSignposts.end(timing) }
         guard !ids.isEmpty else { return [:] }
         return queue.sync {
+            let timing = PerformanceSignposts.begin("Store.Products.SQLAndDecode")
+            defer { PerformanceSignposts.end(timing) }
             let orderedIDs = Array(ids)
             let placeholders = Array(repeating: "?", count: orderedIDs.count).joined(separator: ",")
             let sql = "SELECT id, json FROM products WHERE id IN (\(placeholders));"
@@ -656,6 +721,40 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
     
+    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) -> [String: Product] {
+        guard !barcodes.isEmpty else { return [:] }
+        return queue.sync {
+            let requested = barcodes.sorted()
+            var products: [String: Product] = [:]
+            // Bound SQL parameters even when a caller supplies more than a search page.
+            for start in stride(from: 0, to: requested.count, by: 400) {
+                let batch = Array(requested[start..<min(start + 400, requested.count)])
+                let placeholders = Array(repeating: "?", count: batch.count).joined(separator: ",")
+                let sql = """
+                SELECT barcode, json FROM products
+                WHERE barcode IN (\(placeholders)) AND (storageKind = 'catalog' OR ownerUserId = ?)
+                ORDER BY CASE WHEN ownerUserId = ? THEN 0 ELSE 1 END;
+                """
+                var stmt: OpaquePointer?
+                sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+                defer { sqlite3_finalize(stmt) }
+                for (index, barcode) in batch.enumerated() {
+                    sqlite3_bind_text(stmt, Int32(index + 1), barcode, -1, SQLITE_TRANSIENT)
+                }
+                sqlite3_bind_text(stmt, Int32(batch.count + 1), ownerUserId?.uuidString ?? "", -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, Int32(batch.count + 2), ownerUserId?.uuidString ?? "", -1, SQLITE_TRANSIENT)
+                while sqlite3_step(stmt) == SQLITE_ROW {
+                    guard let raw = sqlite3_column_text(stmt, 0) else { continue }
+                    let barcode = String(cString: raw)
+                    guard products[barcode] == nil, let data = readBlob(stmt, index: 1),
+                          let product = decode(Product.self, from: data, entity: "product") else { continue }
+                    products[barcode] = product
+                }
+            }
+            return products
+        }
+    }
+
     // MARK: - Favorites
     
     func toggleFavorite(userId: UUID, productId: UUID) throws {
@@ -743,7 +842,11 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
     
     func getRecentScans(userId: UUID, limit: Int) -> [ScanHistory] {
-        queue.sync {
+        (try? loadRecentScans(userId: userId, limit: limit)) ?? []
+    }
+
+    func loadRecentScans(userId: UUID, limit: Int) throws -> [ScanHistory] {
+        try queue.sync {
             let sql = """
             SELECT id, userId, productId, scannedAt FROM scans
             WHERE userId = ?
@@ -751,12 +854,14 @@ nonisolated final class LocalStore: @unchecked Sendable {
             LIMIT ?;
             """
             var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
             sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_int(stmt, 2, Int32(limit))
             defer { sqlite3_finalize(stmt) }
             var results: [ScanHistory] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                defer { step = sqlite3_step(stmt) }
                 guard let idText = sqlite3_column_text(stmt, 0),
                       let userText = sqlite3_column_text(stmt, 1),
                       let productText = sqlite3_column_text(stmt, 2) else { continue }
@@ -766,6 +871,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
                 let scannedAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
                 results.append(ScanHistory(id: id, userId: userId, productId: productId, scannedAt: scannedAt))
             }
+            guard step == SQLITE_DONE else { throw databaseError() }
             return results
         }
     }
@@ -1603,7 +1709,11 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     private func performTransaction(_ write: () throws -> Void) throws {
+        let timing = PerformanceSignposts.begin("Store.Transaction.Total")
+        defer { PerformanceSignposts.end(timing) }
         try queue.sync {
+            let execution = PerformanceSignposts.begin("Store.Transaction.Execute")
+            defer { PerformanceSignposts.end(execution) }
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
                 try write()

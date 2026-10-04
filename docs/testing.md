@@ -319,3 +319,49 @@ legacy/null-semantikk, logg og måltid, eierskap, retry og rollback.
 Bruk en separat lokal testdatabase for migrasjonsreset; ikke reset utviklerens
 eller staging-/produksjonsdata. Migrasjon og Edge Function må være på plass
 før klienten sender det nye valgfrie v1-feltet. Produksjonssynk forblir av.
+
+### Tidsmåling med Instruments
+
+`PerformanceSignposts` sender intervaller også i optimaliserte Release/Profile-
+bygg. Bruk Product → Profile på fysisk enhet, velg Time Profiler og legg til
+os_signpost-instrumentet. Filtrer på subsystem `com.nithusan.MatLogg` og
+kategori `Performance`. Intervallene inneholder bare statiske kodenavn.
+
+- `Database.Total` / `Database.Execute`: total ventetid og utførelse på IO-køen.
+  Metadata `operation` identifiserer repository-kallet. Differansen inkluderer
+  køventing og gjenopptakelse av den ventende tasken.
+  `Database.QueueWait` måler fra innsending til IO-closure-en starter;
+  `Database.ResumeWait` måler fra rett før continuation.resume til tasken
+  fortsetter etter await, også ved feil. ResumeWait inkluderer selve resume-
+  kallet og executor-planlegging; det beviser ikke alene at MainActor blokkeres.
+  Bruk metadata `operation=latestGoal(userId:)` for å undersøke målhenting.
+- `Store.Summaries.*`, `Store.Products.*` og `Store.Transaction.*`: indre SQL/
+  dekoding, aggregering og transaksjon, adskilt fra total tid med køventing.
+  Transaksjonsintervallet inkluderer commit eller rollback.
+- `Home.*` og `Log.*`: lasting av hjemoversikt og lokal matlogging. Oversikten
+  kan oppdateres i en separat task etter logging; disse intervallene skal derfor
+  undersøkes sammen, ikke summeres som én sekvens.
+- `Search.FirstLocal`, `Search.Load`, `Search.ResultsToState`, `Search.Index`:
+  første lokale state, full lasting, task frem til publisering og faktisk
+  søkeberegning inne i actor-en. Første lokale state kan publiseres før den
+  asynkrone treffberegningen er ferdig.
+- `Catalog.*` og `Search.Remote*`: filinnlesing, parsing, projisering,
+  sammenslåing, leverandør/cache, faktisk API-kall, filtrering og lokal cache.
+  `Store.Open`, `Store.Migrate` og `Store.ResetInFlight` dekker databaseoppstart.
+
+Gjenta kald oppstart, åpning av søk, tastetrykk, matlogging og datobytte.
+Sammenlign første og senere kjøringer. Marker samme tidsområde i Time Profiler
+for å finne CPU-arbeidet. Signpost-varighet er forløpt tid, inkludert venting;
+intervaller kan overlappe og skal ikke summeres ukritisk. Intervallene avsluttes
+også ved feil, kansellering og forkastede resultater. Slutten betyr derfor ikke
+alltid at data ble publisert, og måler aldri ferdig tegnet skjerm.
+
+Oppstart og UI: `Startup.RestoreContext`, `Startup.Compose`,
+`Startup.RestoreSession` og `Startup.LoadHealthProfile` måler koordinering og
+oppsett. `Startup.*Changed` og `Startup.ContentAppeared` er enkeltmarkører uten
+brukerdata. `UI.AppRootBody`, `UI.RootBody`, `UI.TabBody` og `UI.HomeBody` måler
+bare evaluering av view-verdier. De inkluderer ikke underliggende body-kall,
+layout eller rendering. Bruk SwiftUI-instrumentet sammen med Time Profiler for
+å se view-grafarbeid mellom intervallene og antall gjentatte evalueringer.
+`Startup.Compose` dekker initializer-arbeid, men StateObject kan opprette
+objektene senere; intervallet dekker derfor ikke hele objektinitialiseringen.

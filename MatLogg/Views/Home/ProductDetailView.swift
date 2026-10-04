@@ -9,6 +9,7 @@ struct ProductDetailView: View {
     var body: some View {
         ProductDetailContent(product: product, appState: appState,
                              repository: productViewModel.barcodeRepository,
+                             favorites: productViewModel.favoriteRepository,
                              onLogComplete: onLogComplete)
             .id(product.id)
     }
@@ -21,11 +22,11 @@ private struct ProductDetailContent: View {
     private var product: Product { detailModel.product }
 
     init(product: Product, appState: AppState, repository: any BarcodeLookupRepository,
+         favorites: any ProductFavoriteRepository,
          onLogComplete: ((ReceiptPayload) -> Void)?) {
         self.appState = appState
         self.onLogComplete = onLogComplete
-        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository))
-        _amountModel = StateObject(wrappedValue: AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? []))
+        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository, favorites: favorites))
     }
 
     @ObservedObject var appState: AppState
@@ -36,8 +37,8 @@ private struct ProductDetailContent: View {
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
 
-    @StateObject private var amountModel: AmountSelectionViewModel
-    @State private var isFavorite = false
+    private var amountModel: AmountSelectionViewModel { detailModel.amountModel }
+    private var isFavorite: Bool { detailModel.isFavorite }
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
     @State private var showSourceInfo = false
@@ -47,12 +48,8 @@ private struct ProductDetailContent: View {
     private var logError: String? { detailModel.logError }
     @State private var hasConfiguredAmount = false
 
-    let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
 
     var body: some View {
-        let amount = amountModel.amount ?? 0
-        let nutrition = detailModel.nutrition(for: amountModel.amount)
-
         ZStack {
             AppColors.background.ignoresSafeArea()
 
@@ -88,6 +85,7 @@ private struct ProductDetailContent: View {
                             .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
+                    .disabled(detailModel.isChangingFavorite)
                 }
                 .padding()
 
@@ -116,75 +114,10 @@ private struct ProductDetailContent: View {
                         }
 
 
-                        CardContainer {
-                            VStack(spacing: 12) {
-                                PortionAmountInput(model: amountModel)
-                                    .disabled(isLogging)
-
-                                Text("Næringsinnhold for din mengde")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                LazyVGrid(columns: summaryColumns, spacing: 8) {
-                                    SummaryPill(
-                                        label: "Energi",
-                                        value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
-                                        tintColor: AppColors.brand
-                                    )
-                                    SummaryPill(
-                                        label: "Proteiner",
-                                        value: String(format: "%.1f g", nutrition.protein),
-                                        tintColor: AppColors.macroProteinTint
-                                    )
-                                    SummaryPill(
-                                        label: "Karbohydrater",
-                                        value: String(format: "%.1f g", nutrition.carbs),
-                                        tintColor: AppColors.macroCarbTint
-                                    )
-                                    SummaryPill(
-                                        label: "Fett",
-                                        value: String(format: "%.1f g", nutrition.fat),
-                                        tintColor: AppColors.macroFatTint
-                                    )
-                                }
-
-                                if amount <= 0.0001 {
-                                    Text("Skriv inn mengde i \(product.amountUnit.spokenName)")
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-
-
-                                Divider()
-                                    .padding(.vertical, 4)
-
-                                Text("Måltid")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .foregroundColor(AppColors.ink)
-
-                                Label(logDateLabel, systemImage: "calendar")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                                LazyVGrid(columns: mealColumns, spacing: 8) {
-                                    ForEach(mealTypeKeys, id: \.self) { mealType in
-                                        MealChip(
-                                            title: mealType.capitalized,
-                                            isSelected: selectedMealType == mealType,
-                                            fillsWidth: true,
-                                            action: { selectedMealType = mealType }
-                                        )
-                                        .frame(maxWidth: .infinity)
-                                    }
-                                }
-
-                            }
-                        }
-                        .padding(.horizontal)
+                        ProductLoggingSection(amountModel: amountModel, product: product, isLogging: isLogging,
+                            selectedMealType: $selectedMealType, logDateLabel: logDateLabel,
+                            nutritionForAmount: detailModel.nutrition)
+                            .padding(.horizontal)
 
                         CardContainer {
                             VStack(alignment: .leading, spacing: 12) {
@@ -199,15 +132,15 @@ private struct ProductDetailContent: View {
                                         )
                                         NutritionRowView(
                                         label: "Protein",
-                                        value: "\(String(format: "%.1f", product.proteinGPer100g)) g"
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.proteinGPer100g)) g"
                                         )
                                         NutritionRowView(
                                         label: "Karbohydrat",
-                                        value: "\(String(format: "%.1f", product.carbsGPer100g)) g"
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.carbsGPer100g)) g"
                                         )
                                         NutritionRowView(
                                         label: "Fett",
-                                        value: "\(String(format: "%.1f", product.fatGPer100g)) g"
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.fatGPer100g)) g"
                                         )
                                     }
                                     .padding(.top, 8)
@@ -244,7 +177,7 @@ private struct ProductDetailContent: View {
                                                 .font(AppTypography.caption)
                                                 .foregroundColor(AppColors.ink)
                                                 Text(detailModel.processingPresentation?.status ?? "Klassifisering mangler")
-                                                .font(AppTypography.bodyEmphasis)
+                                                  .font(AppTypography.bodyEmphasis)
                                                 .foregroundColor(AppColors.ink)
                                             }
                                             Spacer(minLength: 8)
@@ -276,7 +209,7 @@ private struct ProductDetailContent: View {
 
                         if detailModel.canRefresh {
                             if let fetchedAt = product.fetchedAt {
-                                Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                                Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
                                     .font(AppTypography.caption)
                                     .foregroundColor(AppColors.textSecondary)
                             }
@@ -322,15 +255,9 @@ private struct ProductDetailContent: View {
                     .accessibilityElement(children: .combine)
                 }
 
-                PrimaryButton(
-                    title: isLogging ? "Lagrer …" : "Legg til \(selectedMealType) · \(PortionDisplay.number(Double(amount))) \(product.amountUnit.rawValue)",
-                    systemImage: "plus.circle.fill",
-                    action: logProduct
-                )
-                .padding()
-                .accessibilityIdentifier("product-log-save")
-                .disabled(!amountModel.isValid || isLogging)
-                .opacity(amountModel.isValid && !isLogging ? 1.0 : 0.5)
+                ProductLogButton(amountModel: amountModel, selectedMealType: selectedMealType,
+                    unit: product.amountUnit, isLogging: isLogging, onLog: logProduct)
+
             }
         }
         .toolbar {
@@ -341,15 +268,15 @@ private struct ProductDetailContent: View {
             }
         }
         .task { await detailModel.refresh(manually: false) }
+        .task(id: authViewModel.currentUser?.id) {
+            await detailModel.loadFavorite(owner: authViewModel.currentUser?.id)
+        }
         .onChange(of: detailModel.product.servings) { _, servings in
             amountModel.updateServings(servings ?? [])
         }
         .onAppear {
             guard !hasConfiguredAmount else { return }
             hasConfiguredAmount = true
-            if let userId = authViewModel.currentUser?.id {
-                isFavorite = productViewModel.isFavorite(product, userId: userId)
-            }
             if let userId = authViewModel.currentUser?.id,
                let lastUsed = preferencesViewModel.lastUsedAmount(for: product.id, userId: userId) {
                 amountModel.restore(amount: lastUsed, portion: preferencesViewModel.lastUsedPortion(for: product.id, userId: userId))
@@ -383,15 +310,6 @@ private struct ProductDetailContent: View {
             }
         }
     }
-
-    private let summaryColumns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
-    ]
-    private let mealColumns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
-    ]
 
     private var processingRowBackground: Color {
         switch detailModel.processingPresentation?.isUltraProcessed {
@@ -438,11 +356,7 @@ private struct ProductDetailContent: View {
     }
 
     @ViewBuilder private var heroView: some View {
-        if let data = product.localImageData, let image = UIImage(data: data) {
-            ProductHeroImageView(image: image, height: 160, cornerRadius: 18)
-        } else {
-            ProductHeroImageView(url: imageUrl, height: 160, cornerRadius: 18)
-        }
+        ProductHeroImageView(localData: product.localImageData, url: imageUrl, height: 160, cornerRadius: 18)
     }
 
     private var imageUrl: URL? {
@@ -454,15 +368,14 @@ private struct ProductDetailContent: View {
     private func toggleFavorite() {
         Task {
             guard let userId = authViewModel.currentUser?.id else { return }
-            if await productViewModel.toggleFavorite(product, userId: userId) {
-                isFavorite.toggle()
+            if await detailModel.toggleFavorite(owner: userId) {
                 HapticFeedbackService.shared.trigger(
                     .favoriteToggle,
                     isEnabled: preferencesViewModel.hapticsFeedbackEnabled
                 )
                 await appState.refreshSyncStatus()
             } else {
-                appState.errorMessage = productViewModel.errorMessage
+                appState.errorMessage = detailModel.favoriteError
             }
         }
     }
@@ -491,43 +404,8 @@ struct ImagePreviewView: View {
 
                 Spacer()
 
-                if let localData, let image = UIImage(data: localData) {
-                    Image(uiImage: image).resizable().scaledToFit().padding(16)
-                } else if let imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .padding(16)
-                                .scaleEffect(scale)
-                                .gesture(
-                                    MagnificationGesture()
-                                        .onChanged { value in
-                                            let delta = value / lastScale
-                                            lastScale = value
-                                            scale = min(max(scale * delta, 1.0), 3.0)
-                                        }
-                                        .onEnded { _ in
-                                            lastScale = 1.0
-                                        }
-                                )
-                        case .failure:
-                            Text("Bilde ikke tilgjengelig")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                } else {
-                    Text("Bilde ikke tilgjengelig")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                }
+                ProductPhotoView(localData: localData, url: imageUrl.flatMap(URL.init(string:)))
+                    .padding(16)
 
                 Spacer()
             }
@@ -547,18 +425,18 @@ struct ProductSourceInfoView: View {
                     infoRow(title: "Bildekilde", value: sourceLabel(product.imageSource))
                     infoRow(title: "Kontroll av næringstall", value: verificationLabel(product.verificationStatus))
                     if let confidenceScore = product.confidenceScore {
-                        infoRow(title: "Likhet med matvaren", value: String(format: "%.2f", confidenceScore))
+                        infoRow(title: "Likhet med matvaren", value: String(format: "%.2f", locale: Locale(identifier: "nb_NO"), confidenceScore))
                     }
                     if let sourceUpdatedAt = product.sourceUpdatedAt {
                         infoRow(
                             title: "Sist oppdatert hos kilden",
-                            value: sourceUpdatedAt.formatted(date: .abbreviated, time: .omitted)
+                            value: sourceUpdatedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
                         )
                     }
 
                     if let fetchedAt = product.fetchedAt {
                         infoRow(title: "Sist hentet til enheten",
-                                value: fetchedAt.formatted(date: .abbreviated, time: .omitted))
+                                value: fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))
                     }
 
                     Text("Her ser du hvor opplysningene kommer fra. Næringstallene kan inneholde feil eller være utdaterte.")
@@ -651,6 +529,113 @@ struct ProductSourceInfoView: View {
 
 
 // MARK: - Supporting Views
+
+private struct ProductLoggingSection: View {
+    @ObservedObject var amountModel: AmountSelectionViewModel
+    let product: Product
+    let isLogging: Bool
+    @Binding var selectedMealType: String
+    let logDateLabel: String
+    let nutritionForAmount: (Double?) -> NutritionBreakdown
+    private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    private let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
+
+    var body: some View {
+        let selectedAmount = amountModel.amount
+        let amount = selectedAmount ?? 0
+        let nutrition = nutritionForAmount(selectedAmount)
+        CardContainer {
+            VStack(spacing: 12) {
+                PortionAmountInput(model: amountModel)
+                    .disabled(isLogging)
+
+                Text("Næringsinnhold for din mengde")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                LazyVGrid(columns: columns, spacing: 8) {
+                    SummaryPill(
+                        label: "Energi",
+                        value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
+                        tintColor: AppColors.brand
+                    )
+                    SummaryPill(
+                        label: "Proteiner",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.protein),
+                        tintColor: AppColors.macroProteinTint
+                    )
+                    SummaryPill(
+                        label: "Karbohydrater",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.carbs),
+                        tintColor: AppColors.macroCarbTint
+                    )
+                    SummaryPill(
+                        label: "Fett",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.fat),
+                        tintColor: AppColors.macroFatTint
+                    )
+                }
+
+                if amount <= 0.0001 {
+                    Text("Skriv inn mengde i \(product.amountUnit.spokenName)")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                Text("Måltid")
+                    .font(AppTypography.bodyEmphasis)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundColor(AppColors.ink)
+
+                Label(logDateLabel, systemImage: "calendar")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(mealTypeKeys, id: \.self) { mealType in
+                        MealChip(
+                            title: mealType.capitalized,
+                            isSelected: selectedMealType == mealType,
+                            fillsWidth: true,
+                            action: { selectedMealType = mealType }
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+private struct ProductLogButton: View {
+    @ObservedObject var amountModel: AmountSelectionViewModel
+    let selectedMealType: String
+    let unit: AmountUnit
+    let isLogging: Bool
+    let onLog: () -> Void
+    var body: some View {
+        let amount = amountModel.amount ?? 0
+        let isEnabled = amountModel.isValid && !isLogging
+        PrimaryButton(
+            title: isLogging ? "Lagrer …" : "Legg til \(selectedMealType) · \(PortionDisplay.number(Double(amount))) \(unit.rawValue)",
+            systemImage: "plus.circle.fill",
+            action: onLog
+        )
+        .padding()
+        .accessibilityIdentifier("product-log-save")
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1.0 : 0.5)
+    }
+}
+
 
 struct NutritionRowView: View {
     let label: String
@@ -756,7 +741,7 @@ private struct ProductProcessingInfoSheet: View {
                         Text("Kilde: Open Food Facts")
                             .font(AppTypography.secondary)
                         if let fetchedAt {
-                            Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                            Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
                                 .font(AppTypography.caption)
                                 .foregroundColor(AppColors.textSecondary)
                         }
@@ -835,7 +820,7 @@ private struct ProductNutriScoreSheet: View {
                     Text("Registrerte opplysninger kan være ufullstendige. Karakteren kan avvike fra emballasjen dersom beregningsversjonen er forskjellig.")
                         .foregroundColor(AppColors.textSecondary)
                     if let fetchedAt {
-                        Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
+                        Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
                             .font(AppTypography.caption)
                             .foregroundColor(AppColors.textSecondary)
                     }

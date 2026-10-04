@@ -39,7 +39,7 @@ struct PersonalDetailsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         sectionTitle("Grunnlag for målforslag")
-                        Text("Brukes til et veiledende forslag til kalorimål.")
+                        Text("Opplysningene brukes til å beregne et veiledende målforslag. Du kan også sette mål selv. Eksisterende mål endres ikke når du lagrer.")
                             .font(AppTypography.secondary)
                             .foregroundStyle(AppColors.textSecondary)
                     }
@@ -86,18 +86,18 @@ struct PersonalDetailsView: View {
                         }
                     }
 
-                    Text("Vekten her brukes bare som grunnlag for målforslag. Registrer vekt i Oversikt for å legge den til i vekthistorikken.")
+                    Text("Vekten her brukes til målforslag. Registrer vekt under Oversikt for å følge vekthistorikken.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
                 DisclosureGroup {
-                    Text("Du kan sette mål selv uten et automatisk målforslag. Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes bare som grunnlag for et veiledende målforslag. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv. Eksisterende mål endres ikke automatisk når du lagrer.")
+                    Text("Velger du Annet eller Ønsker ikke å oppgi for kjønn, setter du kalorimålet selv.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                         .padding(.top, 8)
                 } label: {
-                    Label("Om opplysningene og målforslag", systemImage: "info.circle")
+                    Label("Om kjønn og målforslag", systemImage: "info.circle")
                         .font(AppTypography.secondaryEmphasis)
                         .foregroundStyle(AppColors.ink)
                 }
@@ -318,14 +318,6 @@ struct ActivityLevelSheet: View {
                             .cornerRadius(12)
                         }
                     }
-                }
-                
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(AppColors.textSecondary)
-                    Text("Tips: Velg nivå for en vanlig uke. Du kan alltid justere senere.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
                 }
                 
                 Button("Hjelp meg å velge") {

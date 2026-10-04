@@ -61,9 +61,6 @@ struct MealReuseEditorView: View {
                     if let draft = viewModel.draft {
                         Text(draft.title)
                             .font(AppTypography.title)
-                        Text("Endre mengder eller fjern matvarer før du loggfører. Enhetene beholdes fra gårsdagens logg.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
                         ForEach(draft.items) { item in
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 12) {

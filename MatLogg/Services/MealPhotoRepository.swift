@@ -12,19 +12,17 @@ struct LocalMealPhotoRepository: MealPhotoRepository {
         guard let data = try await loadData() else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        return try await Task.detached(priority: .userInitiated) {
-            try Self.prepare(data)
-        }.value
+        return try await BackgroundWork.run { try Self.prepare(data) }
     }
 
     // Re-encode only pixels: no location, EXIF or other original metadata.
-    nonisolated static func prepare(_ data: Data) throws -> Data {
+    nonisolated static func prepare(_ data: Data, maximumPixelSize: Int = 1200) throws -> Data {
         guard data.count <= 30 * 1024 * 1024,
               let source = CGImageSourceCreateWithData(data as CFData, nil),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
-                kCGImageSourceThumbnailMaxPixelSize: 1200,
+                kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize,
                 kCGImageSourceShouldCacheImmediately: true
               ] as CFDictionary) else { throw CocoaError(.fileReadCorruptFile) }
         let output = NSMutableData()

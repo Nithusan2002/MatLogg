@@ -1,10 +1,17 @@
 import Foundation
 import Combine
 
+struct SelectedDayPresentation {
+    let summary: DailySummary?
+    let productNames: [UUID: String]
+    static let empty = SelectedDayPresentation(summary: nil, productNames: [:])
+}
+
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
-    @Published private(set) var isSummaryLoading = false
+    @Published private(set) var isSummaryLoading = true
+    @Published private(set) var selectedDay = SelectedDayPresentation.empty
     @Published private(set) var selectedSummary: DailySummary?
     @Published private(set) var yesterdaySummary: DailySummary?
     @Published private(set) var selectedProductNames: [UUID: String] = [:]
@@ -75,6 +82,21 @@ final class LogViewModel: ObservableObject {
 
     private let repository: any FoodLogRepository
     private var activeSummaryRequestID = UUID()
+    private var summaryUserID: UUID?
+    private var summaryDate: Date?
+
+    func resetSelectedSummary() {
+        activeSummaryRequestID = UUID()
+        summaryUserID = nil
+        summaryDate = nil
+        selectedDay = .empty
+        selectedSummary = nil
+        yesterdaySummary = nil
+        selectedProductNames = [:]
+        mealProductImageURLs = [:]
+        mealProductImageData = [:]
+        isSummaryLoading = true
+    }
 
     init(repository: any FoodLogRepository) {
         self.repository = repository
@@ -117,6 +139,10 @@ final class LogViewModel: ObservableObject {
     }
 
     func loadSelectedSummary(userId: UUID?, date: Date, calendar: Calendar = .current) async {
+        let day = calendar.startOfDay(for: date)
+        if summaryUserID != userId || summaryDate != day { resetSelectedSummary() }
+        summaryUserID = userId
+        summaryDate = day
         let requestID = UUID()
         activeSummaryRequestID = requestID
         isSummaryLoading = true
@@ -125,6 +151,7 @@ final class LogViewModel: ObservableObject {
         }
 
         guard let userId else {
+            selectedDay = .empty
             selectedSummary = nil
             yesterdaySummary = nil
             selectedProductNames = [:]
@@ -143,12 +170,13 @@ final class LogViewModel: ObservableObject {
             yesterday = nil
         }
 
-        guard activeSummaryRequestID == requestID else { return }
+        guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
         selectedSummary = selected
         yesterdaySummary = yesterday
         selectedProductNames = products.mapValues(\.name)
         mealProductImageData = products.compactMapValues(\.localImageData)
         mealProductImageURLs = products.compactMapValues { $0.imageUrl.flatMap(URL.init(string:)) }
+        selectedDay = SelectedDayPresentation(summary: selected, productNames: selectedProductNames)
     }
 
     func logs(for mealType: String?) -> [FoodLog] {
@@ -170,6 +198,8 @@ final class LogViewModel: ObservableObject {
         date: Date = Date(),
         portionSelection: PortionSelection? = nil
     ) async -> Bool {
+        let timing = PerformanceSignposts.begin("Log.Food")
+        defer { PerformanceSignposts.end(timing) }
         guard portionSelection == nil || portionSelection?.matches(amount: Double(amountG), unit: product.amountUnit) == true else {
             errorMessage = "Porsjonen samsvarer ikke med mengden."
             return false
@@ -317,19 +347,21 @@ final class LogViewModel: ObservableObject {
         errorPrefix: String,
         operation: () async throws -> Void
     ) async -> Bool {
+        let timing = PerformanceSignposts.begin("Log.Persist")
+        defer { PerformanceSignposts.end(timing) }
         errorMessage = nil
         do {
             try await operation()
             mutationRevision += 1
             return true
         } catch {
-            errorMessage = "\(errorPrefix): \(error.localizedDescription)"
+            errorMessage = "\(errorPrefix). Prøv igjen."
             return false
         }
     }
 }
 
-private extension DailySummary {
+extension DailySummary {
     static func empty(for date: Date) -> DailySummary {
         DailySummary(
             date: date,

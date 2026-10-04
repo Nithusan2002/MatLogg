@@ -11,6 +11,7 @@ final class QuickLogViewModel: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var additionalProducts: [Product] = []
     @Published private(set) var isLoading = false
+    @Published private(set) var hasLoaded = false
     @Published private(set) var errorMessage: String?
     @Published var selectedManualProduct: Product?
     private var pendingManualProduct: Product?
@@ -32,6 +33,7 @@ final class QuickLogViewModel: ObservableObject {
         selectedManualProduct = nil
         errorMessage = nil
         isLoading = false
+        hasLoaded = false
     }
 
     func saveManual(_ product: Product) async throws {
@@ -77,6 +79,10 @@ final class QuickLogViewModel: ObservableObject {
 
     func load(userId: UUID?) async {
         if owner != userId {
+            hasLoaded = false
+            products = []
+            additionalProducts = []
+            recentFoods = []
             invalidateRepeatPresentation()
             selectedQuickProduct = nil
             pendingManualProduct = nil
@@ -88,7 +94,7 @@ final class QuickLogViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
-            let library = try await repository.loadLocalLibrary(owner: userId)
+            let library = try await repository.loadQuickChoices(owner: userId)
             guard requestID == request, !Task.isCancelled else { return }
             recentFoods = library.recentFoods
             products = Array(FoodSearchMatcher.unique(library.favorites + library.recent).prefix(8))
@@ -96,11 +102,9 @@ final class QuickLogViewModel: ObservableObject {
             additionalProducts = products.filter { !repeatedIDs.contains($0.id) }
         } catch {
             guard requestID == request, !Task.isCancelled else { return }
-            products = []
-            additionalProducts = []
-            recentFoods = []
             errorMessage = "Kunne ikke hente hurtigvalg. Prøv igjen."
         }
         isLoading = false
+        hasLoaded = true
     }
 }

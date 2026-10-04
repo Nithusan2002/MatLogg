@@ -707,3 +707,14 @@ størrelse i g/ml. Eksisterende per-100-modell og porsjonsvalg gjenbrukes;
 originalinput bevares som valgfri metadata lokalt og i en additiv utvidelse av synkkontrakt v1.
 Porsjoner uten kjent størrelse er utenfor scope. Massegrenser brukes kun for
 gram; ml innebærer ingen antatt tetthet. Null kcal og desimaler tillates.
+
+## 2026-10-03 – Bakgrunnsarbeid ved lasting
+
+SQLite-oppslag går gjennom den serielle IO-køen i DatabaseService, også for
+produkter, favorittstatus og katalogcache. Måltidsforslag bruker avgrenset
+historikk og batchlastede produkter. Søk bruker en actor som gjenbruker
+normaliserte felt; katalogkonvertering gjenbrukes utenfor MainActor.
+Open Food Facts-parsing, bildeklargjøring, eksport og database-/demoklargjøring
+utføres utenfor hovedtråden. UI-state publiseres på MainActor med kontroll av
+request-ID/kontekst. App-roten viser lastestatus fram til databasen er klar.
+Transaksjoner, eierskap, ernæringsgrunnlag og synkkontrakt endres ikke.

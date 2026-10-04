@@ -3,10 +3,23 @@ import AVFoundation
 import UIKit
 
 struct HomeView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var logViewModel: LogViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var logViewModel: LogViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
+
+    var body: some View {
+        HomeNavigationContent(appState: appState, logViewModel: logViewModel,
+            authViewModel: authViewModel, savedMealsViewModel: savedMealsViewModel)
+    }
+}
+
+private struct HomeNavigationContent: View {
+    let appState: AppState
+    let logViewModel: LogViewModel
+    let authViewModel: AuthViewModel
+    let savedMealsViewModel: SavedMealsViewModel
+    @StateObject private var navigation: HomeNavigationViewModel
     @State private var showScanCamera = false
     @State private var showRawMaterials = false
     @State private var receiptPayload: ReceiptPayload?
@@ -16,9 +29,23 @@ struct HomeView: View {
     @State private var previousTab: AppTab = .home
     @State private var isTabEditing = false
     @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
-    
+
+    init(appState: AppState, logViewModel: LogViewModel, authViewModel: AuthViewModel,
+         savedMealsViewModel: SavedMealsViewModel) {
+        self.appState = appState
+        self.logViewModel = logViewModel
+        self.authViewModel = authViewModel
+        self.savedMealsViewModel = savedMealsViewModel
+        _navigation = StateObject(wrappedValue: HomeNavigationViewModel(appState: appState,
+            auth: authViewModel, savedMeals: savedMealsViewModel))
+    }
+
     var body: some View {
-        TabView(selection: tabSelection) {
+        let timing = PerformanceSignposts.begin("UI.TabBody")
+        defer { PerformanceSignposts.end(timing) }
+        // The custom bar owns labels and accessibility; avoid resolving icons
+        // for the hidden system tab bar while retaining TabView state.
+        return TabView(selection: tabSelection) {
             HomeTabView(
                 onOpenQuickLog: { showAddActions = true },
                 onLogComplete: { payload in
@@ -26,12 +53,10 @@ struct HomeView: View {
                     receiptPayload = payload
                 }
             )
-                .tabItem {
-                    Label("Hjem", systemImage: "house.fill")
-                }
+                .tabItem { EmptyView() }
                 .tag(AppTab.home)
                 .matLoggSystemTabBarHidden()
-            
+
             SearchHubView(
                 onScan: { showScanCamera = true },
                 onLogComplete: { payload in
@@ -39,30 +64,22 @@ struct HomeView: View {
                     Task { await loadTodaysSummary() }
                 }
             )
-                .tabItem {
-                    Label("Søk", systemImage: "magnifyingglass")
-                }
+                .tabItem { EmptyView() }
                 .tag(AppTab.search)
                 .matLoggSystemTabBarHidden()
 
             Color.clear
-                .tabItem {
-                    Label("Loggfør", systemImage: "plus.circle.fill")
-                }
+                .tabItem { EmptyView() }
                 .tag(AppTab.add)
                 .matLoggSystemTabBarHidden()
 
             ProgressTabView()
-                .tabItem {
-                    Label("Oversikt", systemImage: "chart.bar")
-                }
+                .tabItem { EmptyView() }
                 .tag(AppTab.progress)
                 .matLoggSystemTabBarHidden()
 
             ProfileView()
-                .tabItem {
-                    Label("Profil", systemImage: "person.crop.circle")
-                }
+                .tabItem { EmptyView() }
                 .tag(AppTab.profile)
                 .matLoggSystemTabBarHidden()
         }
@@ -93,7 +110,7 @@ struct HomeView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, tabBarScrollMargin)
                 .transition(.logToast)
-            } else if let receipt = savedMealsViewModel.receipt {
+            } else if let receipt = navigation.savedMealReceipt {
                 SavedMealToastView(
                     receipt: receipt,
                     isUndoing: isUndoingSavedMeal,
@@ -113,7 +130,7 @@ struct HomeView: View {
             }
         }
         .fullScreenCover(isPresented: Binding(
-            get: { authViewModel.isOnboarding },
+            get: { navigation.isOnboarding },
             set: { _ in }
         )) {
             OnboardingView { payload in
@@ -145,7 +162,7 @@ struct HomeView: View {
                 await loadTodaysSummary()
             }
         }
-        .onChange(of: appState.selectedTab) { _, newValue in
+        .onChange(of: navigation.selectedTab) { _, newValue in
             if newValue != .add { previousTab = newValue }
         }
         .sheet(isPresented: $showAddActions) {
@@ -169,7 +186,7 @@ struct HomeView: View {
 
     private var tabSelection: Binding<AppTab> {
         Binding(
-            get: { appState.selectedTab },
+            get: { navigation.selectedTab },
             set: { newValue in
                 if newValue == .add {
                     showAddActions = true
@@ -181,7 +198,7 @@ struct HomeView: View {
             }
         )
     }
-    
+
     private func loadTodaysSummary() async {
         guard let userId = authViewModel.currentUser?.id else { return }
         await logViewModel.loadTodaysSummary(userId: userId)
@@ -246,50 +263,88 @@ private extension View {
 }
 
 struct HomeTabView: View {
-    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
-    @Environment(\.scenePhase) private var scenePhase
-    @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var logViewModel: LogViewModel
-    @EnvironmentObject var productViewModel: ProductViewModel
-    @EnvironmentObject var healthProfileViewModel: HealthProfileViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var preferencesViewModel: PreferencesViewModel
+    @Environment(\.foodLogRepository) private var repository
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var logViewModel: LogViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
-    @EnvironmentObject var waterViewModel: WaterViewModel
-    @State private var selectedSummary: DailySummary?
-    @State private var productNames: [UUID: String] = [:]
-    @EnvironmentObject private var quickLogViewModel: QuickLogViewModel
+
+    var body: some View {
+        if let repository {
+            HomeTabContent(repository: repository, appState: appState, logViewModel: logViewModel,
+                authViewModel: authViewModel, savedMealsViewModel: savedMealsViewModel,
+                healthProfileViewModel: healthProfileViewModel, preferencesViewModel: preferencesViewModel,
+                onOpenQuickLog: onOpenQuickLog, onLogComplete: onLogComplete)
+        } else {
+            ContentUnavailableView("Oversikt er utilgjengelig", systemImage: "fork.knife")
+        }
+    }
+}
+
+private struct HomeTabContent: View {
+    let savedMealsViewModel: SavedMealsViewModel
+    @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
+    let appState: AppState
+    let logViewModel: LogViewModel
+    let healthProfileViewModel: HealthProfileViewModel
+    let authViewModel: AuthViewModel
+    let preferencesViewModel: PreferencesViewModel
+    let onOpenQuickLog: () -> Void
+    let onLogComplete: (ReceiptPayload) -> Void
+    @StateObject private var overviewModel: HomeOverviewViewModel
+    private var selectedSummary: DailySummary? { overviewModel.overview.summary }
+    private var productNames: [UUID: String] { overviewModel.overview.productNames }
     @State private var selectedProduct: Product?
     @State private var selectedMealForLog: MealPresentation?
     @State private var showDailyLog = false
     @State private var editingLog: FoodLog?
-    @State private var isSummaryLoading = true
-    
-    var body: some View {
-        let logsByMeal = selectedSummary?.logsByMeal ?? [:]
+    private var isSummaryLoading: Bool { overviewModel.isLoading }
 
-        NavigationStack {
+    init(repository: any FoodLogRepository, appState: AppState, logViewModel: LogViewModel,
+         authViewModel: AuthViewModel, savedMealsViewModel: SavedMealsViewModel,
+         healthProfileViewModel: HealthProfileViewModel, preferencesViewModel: PreferencesViewModel,
+         onOpenQuickLog: @escaping () -> Void, onLogComplete: @escaping (ReceiptPayload) -> Void) {
+        self.appState = appState
+        self.logViewModel = logViewModel
+        self.authViewModel = authViewModel
+        self.savedMealsViewModel = savedMealsViewModel
+        self.healthProfileViewModel = healthProfileViewModel
+        self.preferencesViewModel = preferencesViewModel
+        self.onOpenQuickLog = onOpenQuickLog
+        self.onLogComplete = onLogComplete
+        _overviewModel = StateObject(wrappedValue: HomeOverviewViewModel(repository: repository,
+            appState: appState, auth: authViewModel, logs: logViewModel, savedMeals: savedMealsViewModel,
+            health: healthProfileViewModel, preferences: preferencesViewModel))
+    }
+
+    var body: some View {
+        let timing = PerformanceSignposts.begin("UI.HomeBody")
+        defer { PerformanceSignposts.end(timing) }
+        let logsByMeal = overviewModel.overview.logsByMeal
+
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     homeHeader
 
                     DayNavigationBar(selection: selectedDateBinding)
 
-                    if !appState.isSyncAvailable || appState.unsyncedSyncCount > 0 {
-                        Label(
-                            homeSyncStatusText,
-                            systemImage: appState.isSyncAvailable ? "arrow.triangle.2.circlepath" : "internaldrive"
-                        )
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .accessibilityLabel(homeSyncStatusText)
+                    HomeSyncBanner()
+
+                    if let error = overviewModel.errorMessage {
+                        Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        Button("Prøv igjen") { Task { await refreshSummaries() } }
+                            .frame(minHeight: 44)
                     }
+                    if isSummaryLoading && (selectedSummary != nil || !preferencesViewModel.showGoalStatusOnHome) {
+                        ProgressView("Henter oversikt …")
+                    }
+
 
                     Text("Dagen din, så langt.")
                         .font(AppTypography.hero)
@@ -297,7 +352,7 @@ struct HomeTabView: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     if preferencesViewModel.showGoalStatusOnHome {
-                        if isSummaryLoading {
+                        if isSummaryLoading && selectedSummary == nil {
                             CardContainer {
                                 HStack(spacing: 12) {
                                     ProgressView()
@@ -313,7 +368,7 @@ struct HomeTabView: View {
                                 summary: summary,
                                 goal: healthProfileViewModel.currentGoal
                             )
-                        } else {
+                        } else if overviewModel.errorMessage == nil {
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Label("Matloggen din er klar", systemImage: "chart.bar")
@@ -328,7 +383,7 @@ struct HomeTabView: View {
                         }
                     }
 
-                    WaterCardView(viewModel: waterViewModel, userId: authViewModel.currentUser?.id, date: appState.logSelectedDate, compact: true)
+                    HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
 
                     PrimaryButton(title: "Loggfør mat", systemImage: "plus", action: onOpenQuickLog)
                         .accessibilityIdentifier("home-log-food")
@@ -370,32 +425,37 @@ struct HomeTabView: View {
                             .accessibilityIdentifier("home-daily-log")
                     }
 
-                    ForEach(MealPresentation.all) { meal in
-                        MealOverviewCard(
-                            meal: meal,
-                            logs: logsByMeal[meal.key] ?? [],
-                            productName: { productNames[$0] ?? "Ukjent produkt" },
-                            productImageURL: { logViewModel.mealProductImageURLs[$0] },
-                            productImageData: { logViewModel.mealProductImageData[$0] },
-                            onOpen: { selectedMealForLog = meal },
-                            onEdit: { editingLog = $0 },
-                            onAdd: {
-                                appState.selectedMealType = meal.key
-                                onOpenQuickLog()
-                            },
-                            reuseSuggestion: mealReuseViewModel.suggestions.first { $0.mealType == meal.key },
-                            isReusing: mealReuseViewModel.isSaving,
-                            onReuse: { suggestion in
-                                Task {
-                                    if await mealReuseViewModel.log(suggestion) { await refreshAfterMealReuse() }
-                                }
-                            },
-                            onAdjustReuse: { mealReuseViewModel.edit($0) },
-                            onDismissReuse: { mealReuseViewModel.dismissSuggestion(mealType: meal.key) }
-                        )
+                    if selectedSummary != nil {
+                        ForEach(MealPresentation.all) { meal in
+                            MealOverviewCard(
+                                meal: meal,
+                                logs: logsByMeal[meal.key] ?? [],
+                                totals: overviewModel.overview.mealTotals[meal.key] ?? NutritionCalculator.totals(for: []),
+                                productName: { productNames[$0] ?? "Ukjent produkt" },
+                                productImageURL: { overviewModel.products[$0]?.imageUrl.flatMap(URL.init(string:)) },
+                                productImageData: { overviewModel.products[$0]?.localImageData },
+                                onOpen: { selectedMealForLog = meal },
+                                onEdit: { editingLog = $0 },
+                                onAdd: {
+                                    appState.selectedMealType = meal.key
+                                    onOpenQuickLog()
+                                },
+                                reuseSuggestion: mealReuseViewModel.suggestions.first { $0.mealType == meal.key },
+                                isReusing: mealReuseViewModel.isSaving,
+                                onReuse: { suggestion in
+                                    Task {
+                                        if await mealReuseViewModel.log(suggestion) { await refreshAfterMealReuse() }
+                                    }
+                                },
+                                onAdjustReuse: { mealReuseViewModel.edit($0) },
+                                onDismissReuse: { mealReuseViewModel.dismissSuggestion(mealType: meal.key) }
+                            )
+                        }
                     }
 
-                    quickLogSection
+                    HomeQuickProductsSection(userId: authViewModel.currentUser?.id, date: selectedDate,
+                        logRevision: logViewModel.mutationRevision, savedMealRevision: savedMealsViewModel.mutationRevision,
+                        onSelect: { selectedProduct = $0 })
 
 
                 }
@@ -463,27 +523,9 @@ struct HomeTabView: View {
         .onChange(of: appState.logSelectedDate) { _, _ in
             Task { await refreshSummaries() }
         }
-        
+
     }
 
-    private var homeSyncStatusText: String {
-        let count = appState.unsyncedSyncCount
-        let noun = count == 1 ? "endring" : "endringer"
-        if !appState.isSyncAvailable {
-            return "Lagret på denne enheten"
-        }
-        if appState.networkAvailability == .offline {
-            return "Du er offline. \(count) \(noun) er lagret på enheten og venter på synk"
-        }
-        if appState.isSyncing || appState.inFlightSyncCount > 0 {
-            return "Synkroniserer \(count) \(noun)"
-        }
-        if appState.failedSyncCount > 0 {
-            return "\(count) \(noun) er lagret på enheten. \(appState.failedSyncCount) krever handling"
-        }
-        return "\(count) \(noun) lagret på enheten og venter på synk"
-    }
-    
     private func refreshAfterMealReuse() async {
         if let userId = authViewModel.currentUser?.id {
             await logViewModel.loadTodaysSummary(userId: userId)
@@ -493,29 +535,15 @@ struct HomeTabView: View {
     }
 
     private func refreshSummaries() async {
-        await loadSelectedSummary()
-        if let userId = authViewModel.currentUser?.id {
-            await quickLogViewModel.load(userId: userId)
-            await mealReuseViewModel.load(userId: userId, date: selectedDate)
-        }
+        let userId = authViewModel.currentUser?.id
+        let date = selectedDate
+        async let summary: Void = overviewModel.load(userId: userId, date: date)
+        async let reuse: Void = loadMealReuse(userId: userId, date: date)
+        _ = await (summary, reuse)
     }
-    
-    private func loadSelectedSummary() async {
-        let requestedDate = selectedDate
-        isSummaryLoading = true
-        guard let userId = authViewModel.currentUser?.id else {
-            selectedSummary = nil
-            productNames = [:]
-            isSummaryLoading = false
-            return
-        }
-        let summary = await logViewModel.fetchSummary(userId: userId, date: requestedDate)
-        let names = await logViewModel.productNames(for: summary.logs)
-        guard Calendar.current.isDate(requestedDate, inSameDayAs: selectedDate) else { return }
-        selectedSummary = summary
-        productNames = names
-        isSummaryLoading = false
-        await logViewModel.loadMealProductImages(for: summary.logs)
+
+    private func loadMealReuse(userId: UUID?, date: Date) async {
+        if let userId { await mealReuseViewModel.load(userId: userId, date: date) }
     }
 
     private var selectedDateBinding: Binding<Date> {
@@ -534,57 +562,6 @@ struct HomeTabView: View {
         if Calendar.current.isDateInYesterday(selectedDate) { return "Måltider i går" }
         if Calendar.current.isDateInTomorrow(selectedDate) { return "Måltider i morgen" }
         return "Måltider \(shortDateLabel)"
-    }
-
-    @ViewBuilder
-    private var quickLogSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Hurtigvalg")
-                .font(AppTypography.title)
-                .foregroundColor(AppColors.deepInk)
-
-            if quickLogViewModel.isLoading && quickLogViewModel.products.isEmpty {
-                ProgressView("Henter hurtigvalg …")
-            } else if let error = quickLogViewModel.errorMessage {
-                Text(error)
-                    .font(AppTypography.secondary)
-                    .foregroundStyle(AppColors.textSecondary)
-                Button("Prøv igjen") {
-                    Task { await quickLogViewModel.load(userId: authViewModel.currentUser?.id) }
-                }
-                .frame(minHeight: 44)
-            } else if quickLogViewModel.products.isEmpty {
-                Text("Favoritter og nylig brukte matvarer dukker opp her.")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-                    .padding(.vertical, 8)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(quickLogViewModel.products.prefix(6)) { product in
-                            Button {
-                                selectedProduct = product
-                            } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(product.name)
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                        .lineLimit(2)
-                                    Text("\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)")
-                                        .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                }
-                                .frame(width: 132, alignment: .leading)
-                                .frame(minHeight: 76, alignment: .leading)
-                                .padding(14)
-                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private var homeHeader: some View {
@@ -619,7 +596,130 @@ struct HomeTabView: View {
             .dateTime.day().month(.abbreviated).locale(Locale(identifier: "nb_NO"))
         )
     }
-    
+
+}
+
+private struct HomeSyncBanner: View {
+    @EnvironmentObject private var appState: AppState
+    var body: some View {
+                    if !appState.isSyncAvailable || appState.unsyncedSyncCount > 0 {
+                        Label(
+                            homeSyncStatusText,
+                            systemImage: appState.isSyncAvailable ? "arrow.triangle.2.circlepath" : "internaldrive"
+                        )
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundColor(AppColors.textSecondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .accessibilityLabel(homeSyncStatusText)
+                    }
+
+
+    }
+    private var homeSyncStatusText: String {
+        let count = appState.unsyncedSyncCount
+        let noun = count == 1 ? "endring" : "endringer"
+        if !appState.isSyncAvailable {
+            return "Lagret på denne enheten"
+        }
+        if appState.networkAvailability == .offline {
+            return "Du er offline. \(count) \(noun) er lagret på enheten og venter på synk"
+        }
+        if appState.isSyncing || appState.inFlightSyncCount > 0 {
+            return "Synkroniserer \(count) \(noun)"
+        }
+        if appState.failedSyncCount > 0 {
+            return "\(count) \(noun) er lagret på enheten. \(appState.failedSyncCount) krever handling"
+        }
+        return "\(count) \(noun) lagret på enheten og venter på synk"
+    }
+
+}
+
+private struct HomeWaterSection: View {
+    @EnvironmentObject private var waterViewModel: WaterViewModel
+    let userId: UUID?
+    let date: Date
+    var body: some View { WaterCardView(viewModel: waterViewModel, userId: userId, date: date, compact: true) }
+}
+
+private struct HomeQuickProductsSection: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var quickLogViewModel: QuickLogViewModel
+    let userId: UUID?
+    let date: Date
+    let logRevision: Int
+    let savedMealRevision: Int
+    let onSelect: (Product) -> Void
+    private struct RefreshContext: Equatable {
+        let userId: UUID?
+        let date: Date
+        let logRevision: Int
+        let savedMealRevision: Int
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Hurtigvalg")
+                .font(AppTypography.title)
+                .foregroundColor(AppColors.deepInk)
+
+            if quickLogViewModel.isLoading && !quickLogViewModel.products.isEmpty { ProgressView("Oppdaterer hurtigvalg …") }
+            if let error = quickLogViewModel.errorMessage, !quickLogViewModel.products.isEmpty {
+                Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                Button("Prøv igjen") { Task { await quickLogViewModel.load(userId: userId) } }.frame(minHeight: 44)
+            }
+            if (quickLogViewModel.isLoading || !quickLogViewModel.hasLoaded) && quickLogViewModel.products.isEmpty {
+                ProgressView("Henter hurtigvalg …")
+            } else if let error = quickLogViewModel.errorMessage, quickLogViewModel.products.isEmpty {
+                Text(error)
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
+                Button("Prøv igjen") {
+                    Task { await quickLogViewModel.load(userId: userId) }
+                }
+                .frame(minHeight: 44)
+            } else if quickLogViewModel.products.isEmpty {
+                Text("Favoritter og nylig brukte matvarer dukker opp her.")
+                    .font(AppTypography.body)
+                    .foregroundColor(AppColors.textSecondary)
+                    .padding(.vertical, 8)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(quickLogViewModel.products.prefix(6)) { product in
+                            Button {
+                                onSelect(product)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(product.name)
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundColor(AppColors.deepInk)
+                                        .lineLimit(2)
+                                    Text("\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)")
+                                        .font(AppTypography.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .frame(width: 132, alignment: .leading)
+                                .frame(minHeight: 76, alignment: .leading)
+                                .padding(14)
+                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await quickLogViewModel.load(userId: userId) } }
+        }
+        .task(id: RefreshContext(userId: userId, date: date, logRevision: logRevision, savedMealRevision: savedMealRevision)) {
+            if let userId { await quickLogViewModel.load(userId: userId) }
+        }
+    }
+
 }
 
 
@@ -673,6 +773,7 @@ struct QuickSearchBar: View {
 struct MealOverviewCard: View {
     let meal: MealPresentation
     let logs: [FoodLog]
+    let totals: NutritionBreakdown
     let productName: (UUID) -> String
     var productImageURL: (UUID) -> URL? = { _ in nil }
     var productImageData: (UUID) -> Data? = { _ in nil }
@@ -686,8 +787,6 @@ struct MealOverviewCard: View {
     var onDismissReuse: () -> Void = {}
 
     var body: some View {
-        let totals = NutritionCalculator.totals(for: logs)
-
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Text(String(meal.title.prefix(1)))
@@ -817,15 +916,15 @@ struct StatusCardView: View {
     private var calorieBalance: CalorieBalance? {
         goal.flatMap { GoalCalculator.calorieBalance(dailyGoal: $0.dailyCalories, consumed: summary.totalCalories) }
     }
-    
+
     var remainingCalories: Int {
         calorieBalance?.remaining ?? 0
     }
-    
+
     var overCalories: Int {
         calorieBalance?.over ?? 0
     }
-    
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -886,17 +985,15 @@ struct StatusCardView: View {
 
 struct MealTypeSelector: View {
     @EnvironmentObject var appState: AppState
-    
-    let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
-    let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
-    
+
+
     var body: some View {
         HStack(spacing: 8) {
-            ForEach(0..<mealTypes.count, id: \.self) { index in
+            ForEach(MealPresentation.all) { meal in
                 MealChip(
-                    title: mealTypes[index],
-                    isSelected: appState.selectedMealType == mealTypeKeys[index],
-                    action: { appState.selectedMealType = mealTypeKeys[index] }
+                    title: meal.key == "snacks" ? "Snacks" : meal.title,
+                    isSelected: appState.selectedMealType == meal.key,
+                    action: { appState.selectedMealType = meal.key }
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -918,7 +1015,7 @@ struct ReceiptPayload: Identifiable {
 
 struct ScanButtonLarge: View {
     let action: () -> Void
-    
+
     var body: some View {
         PrimaryButton(title: "Skann", systemImage: "barcode.viewfinder", height: 72, action: action)
     }
@@ -929,15 +1026,16 @@ struct ScanHistoryView: View {
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
     @EnvironmentObject var authViewModel: AuthViewModel
-    @State private var recentScans: [ScanHistory] = []
-    @State private var productsByID: [UUID: Product] = [:]
+    @EnvironmentObject private var historyViewModel: ScanHistoryViewModel
+    private var recentScans: [ScanHistory] { historyViewModel.scans }
+    private var productsByID: [UUID: Product] { historyViewModel.products }
     @State private var selectedProduct: Product?
     @State private var showMissingProductAlert = false
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var showScanCamera = false
     @State private var showRawMaterials = false
-    
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -945,8 +1043,16 @@ struct ScanHistoryView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
-                
-                if recentScans.isEmpty {
+
+                if historyViewModel.isLoading {
+                    ProgressView("Henter skannehistorikk …")
+                }
+                if let error = historyViewModel.errorMessage {
+                    Text(error).foregroundStyle(AppColors.textSecondary)
+                    Button("Prøv igjen") { Task { await historyViewModel.load(userId: authViewModel.currentUser?.id) } }
+                        .frame(minHeight: 44)
+                }
+                if recentScans.isEmpty && !historyViewModel.isLoading && historyViewModel.errorMessage == nil {
                     Text("Ingen nylige skanninger")
                         .foregroundColor(AppColors.textSecondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -991,12 +1097,8 @@ struct ScanHistoryView: View {
                 .transition(.logToast)
             }
         }
-        .task {
-            if let userId = authViewModel.currentUser?.id {
-                let scans = await productViewModel.recentScans(userId: userId)
-                recentScans = scans
-                productsByID = await productViewModel.products(ids: Set(scans.map(\.productId)))
-            }
+        .task(id: authViewModel.currentUser?.id) {
+            await historyViewModel.load(userId: authViewModel.currentUser?.id)
         }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(product: product, appState: appState) { payload in
@@ -1022,7 +1124,7 @@ struct ScanHistoryView: View {
             Text("Vi finner ikke produktdata lokalt. Prøv å skanne på nytt.")
         }
     }
-    
+
     private func productName(for scan: ScanHistory) -> String {
         productsByID[scan.productId]?.name ?? "Ukjent produkt"
     }
@@ -1072,14 +1174,14 @@ struct CameraView: View {
     let onSearch: () -> Void
 
     @StateObject private var cameraAuthorization: CameraAuthorizationViewModel
-    
+
     private var scannedBarcode: String? { productViewModel.scannedBarcode }
     private var scannedProduct: Product? { productViewModel.scannedProduct }
     private var isLoading: Bool { productViewModel.isScanning }
     @State private var isTorchOn = false
     @State private var isTorchAvailable = false
     @State private var scanHelpTitle: String?
-    @State private var scanHelpHints: [String] = []
+    @State private var scanHelpHints: [ScanHelpHint] = []
     @State private var showScanHelp = false
     @State private var showProductDetail = false
     @State private var showProductNotFound = false
@@ -1098,7 +1200,7 @@ struct CameraView: View {
             wrappedValue: CameraAuthorizationViewModel(authorizationProvider: authorizationProvider)
         )
     }
-    
+
     var body: some View {
         ZStack {
             scannerContent
@@ -1287,8 +1389,8 @@ struct CameraView: View {
                 VStack(spacing: 6) {
                     Text(scanHelpTitle)
                         .font(AppTypography.bodyEmphasis)
-                    ForEach(Array(scanHelpHints.enumerated()), id: \.offset) { _, hint in
-                        Text(hint)
+                    ForEach(scanHelpHints) { hint in
+                        Text(hint.text)
                             .font(AppTypography.caption)
                             .foregroundStyle(Color.white.opacity(0.82))
                     }
@@ -1437,7 +1539,7 @@ struct CameraView: View {
             onSearch()
         }
     }
-    
+
     private func handleBarcodeDetected(_ scannedCode: ScannedBarcode) {
         guard !isLoading, !showManualProduct, !showProductDetail, !showProductNotFound else { return }
 
@@ -1447,13 +1549,13 @@ struct CameraView: View {
         } catch {
             presentScanHelp(
                 title: "Denne koden inneholder ikke et gyldig produktnummer",
-                hints: ["Prøv en annen kode på pakken", "Du kan også søke eller registrere produktet manuelt"]
+                hints: [.anotherCode, .manualEntry]
             )
             return
         }
 
         guard scannedBarcode != barcode else { return }
-        
+
         UIAccessibility.post(notification: .announcement, argument: "Kode funnet. Henter produkt.")
         HapticFeedbackService.shared.trigger(.barcodeDetected, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
         SoundFeedbackService.shared.play(.barcodeDetected, isEnabled: preferencesViewModel.soundFeedbackEnabled)
@@ -1497,7 +1599,7 @@ struct CameraView: View {
     private func handleError(_ error: String) {
         presentScanHelp(
             title: error,
-            hints: ["Hold kamera rolig", "Mer lys", "Flytt nærmere strekkoden"]
+            hints: [.holdStill, .moreLight, .moveCloser]
         )
         HapticFeedbackService.shared.trigger(.error, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
         SoundFeedbackService.shared.play(.error, isEnabled: preferencesViewModel.soundFeedbackEnabled)
@@ -1508,10 +1610,12 @@ struct CameraView: View {
         isTorchAvailable = false
         cameraAuthorization.reportCameraUnavailable()
     }
-    
-    private func presentScanHelp(title: String, hints: [String]) {
+
+    private func presentScanHelp(title: String, hints: [ScanHelpHint]) {
         scanHelpTitle = title
-        scanHelpHints = hints
+        scanHelpHints = hints.reduce(into: []) { unique, hint in
+            if !unique.contains(hint) { unique.append(hint) }
+        }
         showScanHelp = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
             if scanHelpTitle == title {
@@ -1529,7 +1633,7 @@ struct ManualAddView: View {
     @State private var protein = ""
     @State private var carbs = ""
     @State private var fat = ""
-    
+
     var body: some View {
         NavigationStack {
             Form {
@@ -1548,7 +1652,7 @@ struct ManualAddView: View {
                         .foregroundColor(AppColors.textSecondary)
                 }
                 .listRowBackground(AppColors.surface)
-                
+
                 Section("Produktdetaljer") {
                     TextField("Produktnavn", text: $productName)
                     TextField("Kalorier (per 100g)", text: $calories)
@@ -1617,6 +1721,7 @@ struct SearchHubView: View {
         .environmentObject(MealReuseViewModel(repository: database))
         .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database, photoRepository: LocalMealPhotoRepository()))
         .environmentObject(ProductViewModel(repository: database))
+        .environment(\.foodLogRepository, database)
         .environment(\.foodSearchRepository, DefaultFoodSearchRepository(
             products: database, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: database
         ))
@@ -1796,7 +1901,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
     let onCameraUnavailable: () -> Void
     let onTorchAvailabilityChanged: (Bool) -> Void
     @Binding var torchOn: Bool
-    
+
     func makeUIViewController(context: Context) -> BarcodeScannerViewController {
         let controller = BarcodeScannerViewController()
         controller.onBarcodeDetected = onBarcodeDetected
@@ -1805,7 +1910,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
         controller.onTorchAvailabilityChanged = onTorchAvailabilityChanged
         return controller
     }
-    
+
     func updateUIViewController(_ uiViewController: BarcodeScannerViewController, context: Context) {
         uiViewController.setTorch(on: torchOn)
     }
@@ -1820,7 +1925,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     var onError: ((String) -> Void)?
     var onCameraUnavailable: (() -> Void)?
     var onTorchAvailabilityChanged: ((Bool) -> Void)?
-    
+
     private let captureSession = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "com.matlogg.barcode-scanner.session", qos: .userInitiated)
     private var previewLayer: AVCaptureVideoPreviewLayer?
@@ -1829,7 +1934,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
     private var lastScanTime: Date = Date()
     private var videoDevice: AVCaptureDevice?
     private var isSessionConfigured = false
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
         sessionQueue.async { [weak self] in
@@ -1842,14 +1947,14 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         previewLayer?.frame = view.bounds
         updatePreviewRotation()
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         sessionQueue.async { [weak self] in
             self?.startSessionIfPossible()
         }
     }
-    
+
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         stopScanning()
@@ -1864,7 +1969,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             }
         }
     }
-    
+
     private func configureSession() {
         guard !isSessionConfigured else { return }
 
@@ -1884,16 +1989,16 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             reportCameraUnavailable()
             return
         }
-        
+
         if captureSession.canAddInput(videoInput) {
             captureSession.addInput(videoInput)
         } else {
             reportCameraUnavailable()
             return
         }
-        
+
         let metadataOutput = AVCaptureMetadataOutput()
-        
+
         if captureSession.canAddOutput(metadataOutput) {
             captureSession.addOutput(metadataOutput)
             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
@@ -1950,7 +2055,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             self?.onCameraUnavailable?()
         }
     }
-    
+
     func setTorch(on: Bool) {
         sessionQueue.async { [weak self] in
             self?.setTorchOnSessionQueue(on: on)
@@ -1976,7 +2081,7 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
             }
         }
     }
-    
+
     func metadataOutput(
         _ output: AVCaptureMetadataOutput,
         didOutput metadataObjects: [AVMetadataObject],
@@ -2008,6 +2113,20 @@ class BarcodeScannerViewController: UIViewController, AVCaptureMetadataOutputObj
         case .code93: return .code93
         case .dataMatrix: return .gs1DataMatrix
         default: return nil
+        }
+    }
+}
+
+private enum ScanHelpHint: String, Identifiable {
+    case anotherCode, manualEntry, holdStill, moreLight, moveCloser
+    var id: String { rawValue }
+    var text: String {
+        switch self {
+        case .anotherCode: return "Prøv en annen kode på pakken"
+        case .manualEntry: return "Du kan også søke eller registrere produktet manuelt"
+        case .holdStill: return "Hold kamera rolig"
+        case .moreLight: return "Mer lys"
+        case .moveCloser: return "Flytt nærmere strekkoden"
         }
     }
 }

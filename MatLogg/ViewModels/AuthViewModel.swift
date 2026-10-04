@@ -136,7 +136,7 @@ final class AuthViewModel: ObservableObject {
             try await authRepository.resendEmailVerification(to: pendingVerificationEmail)
             verificationMessage = "En ny bekreftelseslenke er sendt."
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(error, fallback: "Kontohandlingen kunne ikke fullføres. Prøv igjen.")
         }
     }
 
@@ -189,7 +189,7 @@ final class AuthViewModel: ObservableObject {
             pendingAccountSession = nil
             pendingLocalDataSummary = nil
         } catch {
-            errorMessage = "Kunne ikke knytte lokale data til kontoen. Ingen data ble flyttet. \(error.localizedDescription)"
+            errorMessage = "Kunne ikke knytte lokale data til kontoen. Ingen data ble flyttet."
         }
     }
 
@@ -244,7 +244,7 @@ final class AuthViewModel: ObservableObject {
             logout()
             return true
         } catch {
-            errorMessage = "Kontoen kunne ikke slettes. Ingen lokale data ble fjernet. \(error.localizedDescription)"
+            errorMessage = "Slettingen kunne ikke fullføres. Kontroller kontostatus før du prøver igjen."
             return false
         }
     }
@@ -257,7 +257,7 @@ final class AuthViewModel: ObservableObject {
             logout()
             return true
         } catch {
-            errorMessage = "Dataene kunne ikke fjernes fra denne iPhonen. \(error.localizedDescription)"
+            errorMessage = "Dataene kunne ikke fjernes fra denne iPhonen."
             return false
         }
     }
@@ -328,11 +328,11 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func present(_ error: Error) {
-        errorMessage = error.localizedDescription
+        errorMessage = UserFacingError.message(error, fallback: "Kontohandlingen kunne ikke fullføres. Prøv igjen.")
         if let currentUser {
             authState = currentUser.isLocalProfile ? .local(user: currentUser) : .authenticated(user: currentUser)
         } else {
-            authState = .error(error.localizedDescription)
+            authState = .error(errorMessage ?? "Innloggingen kunne ikke fullføres. Prøv igjen.")
         }
     }
 }

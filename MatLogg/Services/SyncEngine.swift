@@ -185,8 +185,8 @@ final class SyncEngine {
                 }
                 await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
                 let message = failedCount > 0
-                    ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. \(error.localizedDescription)"
-                    : error.localizedDescription
+                    ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. Dataene er fortsatt lagret på denne enheten."
+                    : "Dataene er lagret på denne enheten. Synkroniseringen prøves igjen senere."
                 return SyncResult(success: false, errorMessage: message)
             }
         }

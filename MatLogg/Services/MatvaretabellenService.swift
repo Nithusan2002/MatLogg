@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct MatvaretabellenProduct: Codable, Sendable {
+nonisolated struct MatvaretabellenProduct: Codable, Equatable, Sendable {
     let id: String
     let name: String
     let brand: String?
@@ -35,8 +35,8 @@ nonisolated final class MatvaretabellenService: @unchecked Sendable {
 
     func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
         let catalog = try await loadCatalog()
-        return catalog.filter {
-            catalogSearchMatches(query: query, name: $0.name, brand: $0.brand)
+        return try await BackgroundWork.run {
+            catalog.filter { catalogSearchMatches(query: query, name: $0.name, brand: $0.brand) }
         }
     }
 
@@ -45,12 +45,16 @@ nonisolated final class MatvaretabellenService: @unchecked Sendable {
     }
 
     nonisolated private func loadCatalog() async throws -> [MatvaretabellenProduct] {
-        try await withCheckedThrowingContinuation { continuation in
+        let timing = PerformanceSignposts.begin("Catalog.Load")
+        defer { PerformanceSignposts.end(timing) }
+        return try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 continuation.resume(with: Result {
+                    let timing = PerformanceSignposts.begin("Catalog.Execute")
+                    defer { PerformanceSignposts.end(timing) }
                     if let loadedCatalog = self.loadedCatalog { return loadedCatalog }
-                    let data = try self.bundledData()
-                    let products = MatvaretabellenResponseParser.parse(data: data)
+                    let data = try PerformanceSignposts.measure("Catalog.Read") { try self.bundledData() }
+                    let products = PerformanceSignposts.measure("Catalog.Parse") { MatvaretabellenResponseParser.parse(data: data) }
                     guard !products.isEmpty else { throw MatvaretabellenCatalogError.invalidCatalog }
                     self.loadedCatalog = products
                     return products

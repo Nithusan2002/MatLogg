@@ -38,7 +38,7 @@ struct BusinessRuleTests {
         }
 
         #expect(repository.savedLogs.isEmpty)
-        #expect(viewModel.errorMessage?.contains("ugyldig") == true)
+        #expect(viewModel.errorMessage == "Kunne ikke lagre: Sjekk mengden og næringstallene.")
     }
 
     @Test func scaledSnapshotRejectsInvalidBoundsEvenForZeroNutrition() {

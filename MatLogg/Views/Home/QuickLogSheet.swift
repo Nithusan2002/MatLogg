@@ -48,13 +48,24 @@ struct QuickLogSheet: View {
 
                 mealPicker
 
-                if !viewModel.isLoading && viewModel.errorMessage == nil && !viewModel.recentFoods.isEmpty {
+                if !viewModel.recentFoods.isEmpty {
                     repeatSection
                 }
 
+                if savedMealsViewModel.isLoading { ProgressView("Henter lagrede måltider …") }
+                if let error = savedMealsViewModel.loadError {
+                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    Button("Prøv igjen") { Task { await savedMealsViewModel.load(userId: authViewModel.currentUser?.id) } }
+                        .frame(minHeight: 44)
+                }
                 savedMealsSection
 
-                if viewModel.isLoading {
+                if let error = viewModel.errorMessage, !viewModel.products.isEmpty {
+                    Text(error).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
+                }
+                if viewModel.isLoading && !viewModel.products.isEmpty { ProgressView("Oppdaterer hurtigvalg …") }
+                if (viewModel.isLoading || !viewModel.hasLoaded) && viewModel.products.isEmpty {
                     HStack(spacing: 10) {
                         ProgressView()
                         Text("Henter hurtigvalg …")
@@ -63,7 +74,7 @@ struct QuickLogSheet: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 120)
                     .accessibilityElement(children: .combine)
-                } else if viewModel.errorMessage != nil {
+                } else if viewModel.errorMessage != nil && viewModel.products.isEmpty {
                     VStack(spacing: 10) {
                         Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
                             .font(AppTypography.bodyEmphasis)
@@ -315,10 +326,10 @@ struct QuickLogSheet: View {
     }
 
     private func loadContent() async {
-        await viewModel.load(userId: authViewModel.currentUser?.id)
-        if let userId = authViewModel.currentUser?.id {
-            await savedMealsViewModel.load(userId: userId)
-        }
+        let userId = authViewModel.currentUser?.id
+        async let quick: Void = viewModel.load(userId: userId)
+        async let meals: Void = savedMealsViewModel.load(userId: userId)
+        _ = await (quick, meals)
     }
 
     private func productSubtitle(_ product: Product) -> String {

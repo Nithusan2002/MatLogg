@@ -30,41 +30,65 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         startupError = nil
     }
 
+    static func open() async -> DatabaseService {
+        let result: Result<LocalStore, Error>
+        do {
+            result = try await BackgroundWork.run { LocalStore.sharedResult }
+        } catch { result = .failure(error) }
+        return DatabaseService(storeResult: result)
+    }
+
     var isAvailable: Bool { store != nil }
 
     func exportProfileRecords(ownerId: UUID) async throws -> [String: [Data]] {
-        var records = try await perform { try $0.exportProfileRecords(ownerId: ownerId) }
-        let prefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]
-        records["profile_preferences"] = try defaults.dictionaryRepresentation()
-            .filter { entry in prefixes.contains { entry.key.hasPrefix($0) } }
-            .sorted { $0.key < $1.key }
-            .map { key, value in
-                let data = value as? Data
-                return try JSONSerialization.data(withJSONObject: [
-                    "key": key,
-                    "value": data?.base64EncodedString() ?? value,
-                    "encoding": data == nil ? "json" : "base64"
-                ])
-            }
-        return records
+        let preferences = ProfilePreferenceExporter(defaults: defaults)
+        return try await perform { store in
+            var records = try store.exportProfileRecords(ownerId: ownerId)
+            records["profile_preferences"] = try preferences.records(ownerId: ownerId)
+            return records
+        }
     }
 
     // The store serializes SQLite transactions internally. This outer queue keeps
     // synchronous store work off MainActor while preserving submission order.
-    private func performIfAvailable<T: Sendable>(_ operation: @escaping @Sendable (LocalStore?) -> T) async -> T {
+    private func performIfAvailable<T: Sendable>(name: StaticString = #function, _ operation: @escaping @Sendable (LocalStore?) -> T) async -> T {
+        let timing = PerformanceSignposts.begin("Database.Total", operation: name)
+        defer { PerformanceSignposts.end(timing) }
         let store = store
-        return await withCheckedContinuation { continuation in
-            ioQueue.async { continuation.resume(returning: operation(store)) }
-        }
-    }
-
-    private func perform<T: Sendable>(_ operation: @escaping @Sendable (LocalStore) throws -> T) async throws -> T {
-        let store = try requireStore()
-        return try await withCheckedThrowingContinuation { continuation in
+        let (result, resumeTiming): (T, PerformanceSignposts.Interval) = await withCheckedContinuation { continuation in
+            let queueTiming = PerformanceSignposts.begin("Database.QueueWait", operation: name)
             ioQueue.async {
-                continuation.resume(with: Result { try operation(store) })
+                PerformanceSignposts.end(queueTiming)
+                let execution = PerformanceSignposts.begin("Database.Execute", operation: name)
+                let result = operation(store)
+                PerformanceSignposts.end(execution)
+                let resumeTiming = PerformanceSignposts.begin("Database.ResumeWait", operation: name)
+                continuation.resume(returning: (result, resumeTiming))
             }
         }
+        PerformanceSignposts.end(resumeTiming)
+        return result
+    }
+
+    private func perform<T: Sendable>(name: StaticString = #function, _ operation: @escaping @Sendable (LocalStore) throws -> T) async throws -> T {
+        let timing = PerformanceSignposts.begin("Database.Total", operation: name)
+        defer { PerformanceSignposts.end(timing) }
+        let store = try requireStore()
+        // Carry the Result and interval back together so failed operations also
+        // close ResumeWait on the caller's executor before rethrowing.
+        let (result, resumeTiming): (Result<T, Error>, PerformanceSignposts.Interval) = await withCheckedContinuation { continuation in
+            let queueTiming = PerformanceSignposts.begin("Database.QueueWait", operation: name)
+            ioQueue.async {
+                PerformanceSignposts.end(queueTiming)
+                let execution = PerformanceSignposts.begin("Database.Execute", operation: name)
+                let result = Result { try operation(store) }
+                PerformanceSignposts.end(execution)
+                let resumeTiming = PerformanceSignposts.begin("Database.ResumeWait", operation: name)
+                continuation.resume(returning: (result, resumeTiming))
+            }
+        }
+        PerformanceSignposts.end(resumeTiming)
+        return try result.get()
     }
 
     func getWaterGlasses(userId: UUID) async throws -> [WaterGlass] {
@@ -91,7 +115,7 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
     }
     
     func getLatestGoal(userId: UUID, completion: @escaping (Goal?) -> Void) {
-        completion(store?.getLatestGoal(userId: userId))
+        Task { completion(await latestGoal(userId: userId)) }
     }
 
     func latestGoal(userId: UUID) async -> Goal? {
@@ -118,10 +142,29 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         await performIfAvailable { $0?.getAllLogs(userId: userId) ?? [] }
     }
 
+    func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog] {
+        await performIfAvailable { $0?.getLogs(userId: userId, from: start, before: end) ?? [] }
+    }
+
     func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood] {
         try await perform { try $0.getRecentFoods(owner: owner, before: before, limit: limit) }
     }
     
+    func loadSummaries(userId: UUID, dates: [Date]) async throws -> [DailySummary] {
+        try await perform { try $0.loadSummaries(userId: userId, dates: dates) }
+    }
+
+    func loadSavedMeals(userId: UUID) async throws -> [SavedMeal] {
+        try await perform { try $0.loadSavedMeals(userId: userId) }
+    }
+
+    func loadScanHistory(userId: UUID) async throws -> ScanHistorySnapshot {
+        try await perform { store in
+            let scans = try store.loadRecentScans(userId: userId, limit: 15)
+            return ScanHistorySnapshot(scans: scans, products: store.getProducts(Set(scans.map(\.productId))))
+        }
+    }
+
     func getSummary(userId: UUID, date: Date) async -> DailySummary {
         await performIfAvailable { $0?.getSummary(userId: userId, date: date) ?? DailySummary(
             date: date,
@@ -157,32 +200,36 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         try await perform { try $0.cacheCatalogProduct(product) }
     }
     
-    func getProduct(_ id: UUID) -> Product? {
-        store?.getProduct(id)
+    func getProduct(_ id: UUID) async -> Product? {
+        await performIfAvailable { $0?.getProduct(id) }
     }
 
     func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
         await performIfAvailable { $0?.getProducts(ids) ?? [:] }
     }
     
-    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) -> Product? {
-        store?.getProductByBarcode(barcode, ownerUserId: ownerUserId)
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async -> Product? {
+        await performIfAvailable { $0?.getProductByBarcode(barcode, ownerUserId: ownerUserId) }
     }
     
-    func saveMatchMapping(_ mapping: ProductMatchMapping) {
-        store?.saveMatchMapping(mapping)
+    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async -> [String: Product] {
+        await performIfAvailable { $0?.getProductsByBarcodes(barcodes, ownerUserId: ownerUserId) ?? [:] }
+    }
+
+    func saveMatchMapping(_ mapping: ProductMatchMapping) async {
+        await performIfAvailable { $0?.saveMatchMapping(mapping) }
     }
     
-    func getMatchMapping(for barcode: String) -> ProductMatchMapping? {
-        store?.getMatchMapping(for: barcode)
+    func getMatchMapping(for barcode: String) async -> ProductMatchMapping? {
+        await performIfAvailable { $0?.getMatchMapping(for: barcode) }
     }
     
     func toggleFavorite(userId: UUID, productId: UUID) async throws {
         try await perform { try $0.toggleFavorite(userId: userId, productId: productId) }
     }
     
-    func isFavorite(userId: UUID, productId: UUID) -> Bool {
-        store?.isFavorite(userId: userId, productId: productId) ?? false
+    func isFavorite(userId: UUID, productId: UUID) async -> Bool {
+        await performIfAvailable { $0?.isFavorite(userId: userId, productId: productId) ?? false }
     }
     
     func saveScanHistory(userId: UUID, productId: UUID) async throws {
@@ -217,12 +264,12 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         await performIfAvailable { $0?.getRecentProducts(userId: userId, kind: kind, limit: limit) ?? [] }
     }
     
-    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {
-        store?.saveMatvaretabellenCache(items)
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async {
+        await performIfAvailable { $0?.saveMatvaretabellenCache(items) }
     }
     
-    func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? {
-        store?.getMatvaretabellenCache(maxAgeDays: maxAgeDays)
+    func getMatvaretabellenCache(maxAgeDays: Int) async -> [MatvaretabellenProduct]? {
+        await performIfAvailable { $0?.getMatvaretabellenCache(maxAgeDays: maxAgeDays) }
     }
     
     func pendingSyncCount() async -> Int {
@@ -353,5 +400,26 @@ enum DatabaseServiceError: LocalizedError {
         case .unavailable:
             return "Den lokale databasen er ikke tilgjengelig. Dataene er ikke slettet."
         }
+    }
+}
+
+// UserDefaults supports concurrent access; only this immutable handle crosses
+// the IO boundary. Exported values are serialized on the database worker.
+nonisolated private struct ProfilePreferenceExporter: @unchecked Sendable {
+    let defaults: UserDefaults
+
+    func records(ownerId: UUID) throws -> [Data] {
+        let prefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]
+        return try defaults.dictionaryRepresentation()
+            .filter { entry in prefixes.contains { entry.key.hasPrefix($0) } }
+            .sorted { $0.key < $1.key }
+            .map { key, value in
+                let data = value as? Data
+                return try JSONSerialization.data(withJSONObject: [
+                    "key": key,
+                    "value": data?.base64EncodedString() ?? value,
+                    "encoding": data == nil ? "json" : "base64"
+                ])
+            }
     }
 }

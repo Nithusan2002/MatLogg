@@ -9,6 +9,8 @@ import SwiftUI
 
 struct MatLoggContent: View {
     @StateObject private var appState: AppState
+    @StateObject private var progressViewModel: ProgressViewModel
+    @StateObject private var scanHistoryViewModel: ScanHistoryViewModel
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
     @StateObject private var waterViewModel: WaterViewModel
@@ -25,6 +27,7 @@ struct MatLoggContent: View {
     @StateObject private var profileExportViewModel: ProfileExportViewModel
     @StateObject private var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
+    private let foodLogRepository: any FoodLogRepository
     private let foodSearchRepository: any FoodSearchRepository
     private let databaseStartupFailed: Bool
     private let databaseStartupDetail: String?
@@ -35,7 +38,10 @@ struct MatLoggContent: View {
     private let isDemo: Bool
 
     init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false) {
+        let timing = PerformanceSignposts.begin("Startup.Compose")
+        defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
+        foodLogRepository = databaseService
         #if DEBUG
         portionQARepository = databaseService
         #endif
@@ -73,6 +79,8 @@ struct MatLoggContent: View {
             syncEngine: syncEngine
         ))
         _waterViewModel = StateObject(wrappedValue: WaterViewModel(repository: databaseService))
+        _progressViewModel = StateObject(wrappedValue: ProgressViewModel(repository: databaseService))
+        _scanHistoryViewModel = StateObject(wrappedValue: ScanHistoryViewModel(repository: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
         _savedMealsViewModel = StateObject(wrappedValue: SavedMealsViewModel(
@@ -117,7 +125,11 @@ struct MatLoggContent: View {
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
     
-    var body: some View { rootContent }
+    var body: some View {
+        let timing = PerformanceSignposts.begin("UI.RootBody")
+        defer { PerformanceSignposts.end(timing) }
+        return rootContent
+    }
 
     @ViewBuilder
     private var rootContent: some View {
@@ -143,19 +155,15 @@ struct MatLoggContent: View {
             }
             .onDisappear { appState.updateAuthenticatedUser(nil) }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
+                logViewModel.resetSelectedSummary()
+                progressViewModel.reset()
+                scanHistoryViewModel.reset()
                 quickLogViewModel.reset()
                 profileExportViewModel.reset()
                 personalDetailsViewModel.begin(details: .empty, userId: nil)
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
-                if let userId {
-                    Task {
-                        guard authViewModel.currentUser?.id == userId else { return }
-                        await mealReuseViewModel.load(userId: userId)
-                        await savedMealsViewModel.load(userId: userId)
-                    }
-                }
             }
             .alert(item: $appState.activeError) { error in
                 Alert(
@@ -164,7 +172,14 @@ struct MatLoggContent: View {
                     dismissButton: .default(Text("OK")) { appState.activeError = nil }
                 )
             }
+            .onChange(of: authViewModel.currentUser?.id) { _, _ in
+                PerformanceSignposts.event("Startup.UserChanged")
+            }
+            .onChange(of: authViewModel.isRestoringSession) { _, _ in
+                PerformanceSignposts.event("Startup.SessionStateChanged")
+            }
             .onAppear {
+                PerformanceSignposts.event("Startup.ContentAppeared")
                 if isDemo {
                     authViewModel.continueLocally()
                 } else if skipAuthForDev {
@@ -182,6 +197,8 @@ struct MatLoggContent: View {
                 }
                 #endif
                 guard !isDemo && !skipAuthForDev else { return }
+                let timing = PerformanceSignposts.begin("Startup.RestoreSession")
+                defer { PerformanceSignposts.end(timing) }
                 await authViewModel.restoreSession()
             }
             .onChange(of: scenePhase) { _, phase in
@@ -206,6 +223,8 @@ struct MatLoggContent: View {
     }
 
     private func loadHealthProfile() async {
+        let timing = PerformanceSignposts.begin("Startup.LoadHealthProfile")
+        defer { PerformanceSignposts.end(timing) }
         if let userId = authViewModel.currentUser?.id {
             await healthProfileViewModel.loadGoal(userId: userId)
             #if DEBUG
@@ -233,6 +252,8 @@ struct MatLoggContent: View {
             }
         }
         .environmentObject(appState)
+        .environmentObject(progressViewModel)
+        .environmentObject(scanHistoryViewModel)
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)
         .environmentObject(savedMealsViewModel)
@@ -241,6 +262,7 @@ struct MatLoggContent: View {
         .environmentObject(quickLogViewModel)
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
+        .environment(\.foodLogRepository, foodLogRepository)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)
         .environmentObject(personalDetailsViewModel)
