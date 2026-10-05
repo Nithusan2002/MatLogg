@@ -8,6 +8,8 @@ final class RepeatFoodUITests: XCTestCase {
         app.launchArguments = ["--portion-qa", "-ml_local_profile", "", "-ml_local_mode_active", "NO",
                                "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
+        XCTAssertTrue(app.buttons["onboarding-skip-intro"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-skip-intro"].tap()
         let skip = app.buttons["first-log-skip"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10))
         skip.tap()

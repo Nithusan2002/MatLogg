@@ -183,11 +183,25 @@ private struct ProfileSettingsView: View {
     @EnvironmentObject private var exportViewModel: ProfileExportViewModel
     @State private var showDeleteConfirm = false
     @State private var showRemoveLocalConfirm = false
+    @State private var showAppleEmailInformation = false
 
     var body: some View {
         Form {
             Section("Personvern") {
                 NavigationLink("Personvern og valg") { PrivacyChoicesView() }
+            }
+            .listRowBackground(AppColors.surface)
+            Section {
+                Picker(selection: $preferencesViewModel.appearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.title).tag(appearance)
+                    }
+                } label: {
+                    Label("Utseende", systemImage: "circle.lefthalf.filled")
+                        .foregroundStyle(AppColors.ink)
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("profile-appearance")
             }
             .listRowBackground(AppColors.surface)
             Section("Visning og tilbakemelding") {
@@ -198,11 +212,23 @@ private struct ProfileSettingsView: View {
                 LabeledContent("Matmengder", value: "Gram og milliliter")
             }
             .listRowBackground(AppColors.surface)
-            Section("Data og lagring") {
-                Text("Vi har ingen skybackup av matloggene dine. Data kan gå tapt hvis du sletter appen eller mister telefonen. Du kan eksportere en kopi her.")
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-                LabeledContent("Status", value: syncStatusText)
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(appState.isSyncAvailable ? "Lagring og synk" : "Lagret på denne iPhonen", systemImage: "iphone")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.ink)
+                    if appState.isSyncAvailable {
+                        Text(syncStatusText)
+                            .font(AppTypography.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
+                    } else {
+                        Text("Tilgjengelig uten nett")
+                            .font(AppTypography.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+                .padding(.vertical, 8)
+                .accessibilityElement(children: .combine)
                 if appState.isSyncAvailable && appState.quarantinedSyncCount > 0 {
                     Label(
                         "\(appState.quarantinedSyncCount) eldre endring(er) er lagret på denne iPhonen. De kan ikke lastes opp fordi vi ikke kan bekrefte hvilken konto de tilhører.",
@@ -255,46 +281,104 @@ private struct ProfileSettingsView: View {
                     )
                 }
 
-                if appState.isSyncAvailable {
-                    Text(syncExplanationText)
-                        .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                }
-                Button(exportViewModel.isExporting ? "Klargjør eksport …" : "Eksporter data") {
+                Button {
                     Task { await exportViewModel.export(user: authViewModel.currentUser) }
+                } label: {
+                    HStack(spacing: 12) {
+                        Label(exportViewModel.isExporting ? "Klargjør eksport …" : "Eksporter data", systemImage: "square.and.arrow.up")
+                        Spacer(minLength: 0)
+                        if exportViewModel.isExporting {
+                            ProgressView()
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .foregroundStyle(AppColors.actionText)
+                    .frame(minHeight: 44)
                 }
                 .disabled(exportViewModel.isExporting)
                 if let error = exportViewModel.errorMessage {
                     ErrorMessageView(error).font(AppTypography.caption)
                 }
                 DisclosureGroup("Hva følger med?") {
-                    Text("Filen inneholder matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter fra denne iPhonen. Filformatet er JSON. Filen kan ikke brukes til å gjenopprette data i appen.")
-                        .font(AppTypography.caption)
+                    Text("En JSON-fil med matlogg, vann, lagrede måltider, daglige mål, vekthistorikk, personlige detaljer og favoritter for den aktive profilen.")
+                        .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
+                }
+            } header: {
+                Text("Data og lagring")
+            } footer: {
+                VStack(alignment: .leading, spacing: 8) {
+                    if appState.isSyncAvailable {
+                        Text(syncExplanationText)
+                    } else {
+                        Text("Ingen skybackup. Data kan gå tapt hvis du sletter appen eller mister telefonen.")
+                    }
+                    Text("Eksporten er en kopi for innsyn og deling. Den kan ikke importeres tilbake i MatLogg.")
                 }
             }
             .listRowBackground(AppColors.surface)
-            Section("Konto") {
-                Text("Kontoen brukes til innlogging. Matloggene dine lagres foreløpig bare på denne enheten.")
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
+            Section {
                 if demoMode.isDemo {
-                    LabeledContent("Status", value: "Demomodus – fiktiv lokal profil")
+                    Label("Demomodus – fiktiv lokal profil", systemImage: "person.crop.circle")
                 } else if authViewModel.isLocalMode {
-                    Text("Konto er valgfritt. Innlogging gir foreløpig ikke sikkerhetskopi eller synk mellom enheter.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
                     NavigationLink("Logg inn eller opprett konto") { LoginView() }
                 } else {
-                    LabeledContent("Innlogging", value: authProviderLabel)
-                    if let email = authViewModel.currentUser?.email, !email.isEmpty { LabeledContent("E-post", value: email) }
-                    Button("Logg ut", role: .destructive) { authViewModel.logout() }
-                    Button("Fjern data fra denne iPhonen", role: .destructive) { showRemoveLocalConfirm = true }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Logget inn med \(authProviderLabel)", systemImage: authViewModel.currentUser?.authProvider == "apple" ? "apple.logo" : "person.crop.circle")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundStyle(AppColors.ink)
+                        if let email = authViewModel.currentUser?.email, !email.isEmpty {
+                            Text(email)
+                                .font(AppTypography.secondary)
+                                .foregroundStyle(AppColors.textSecondary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityLabel("E-post: \(email)")
+                            if authViewModel.currentUser?.authProvider == "apple",
+                               email.lowercased().hasSuffix("@privaterelay.appleid.com") {
+                                HStack(alignment: .center, spacing: 8) {
+                                    Text("Privat e-postadresse fra Apple")
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                    Button {
+                                        showAppleEmailInformation = true
+                                    } label: {
+                                        Image(systemName: "info.circle")
+                                            .frame(minWidth: 44, minHeight: 44)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .foregroundStyle(AppColors.actionText)
+                                    .accessibilityLabel("Om privat e-postadresse fra Apple")
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    Button { authViewModel.logout() } label: {
+                        Label("Logg ut", systemImage: "rectangle.portrait.and.arrow.right")
+                            .foregroundStyle(AppColors.ink)
+                            .frame(minHeight: 44)
+                    }
+                }
+            } header: {
+                Text("Konto")
+            } footer: {
+                if !demoMode.isDemo {
+                    Text(authViewModel.isLocalMode
+                         ? "Konto er valgfritt. Innlogging gir foreløpig ikke skybackup eller synk mellom enheter."
+                         : "Matloggene lagres bare på denne iPhonen. Kontoen gir ikke skybackup.")
+                }
+            }
+            .listRowBackground(AppColors.surface)
+            if !demoMode.isDemo && !authViewModel.isLocalMode {
+                Section("Sletting") {
+                    Button("Fjern lokale data", role: .destructive) { showRemoveLocalConfirm = true }
                     if authViewModel.isDeletingAccount { ProgressView("Sletter konto …") }
                     Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
                         .disabled(authViewModel.isDeletingAccount)
                 }
+                .listRowBackground(AppColors.surface)
             }
-            .listRowBackground(AppColors.surface)
             #if DEBUG
             Section("Debug") { NavigationLink("Theme Preview") { ThemePreviewView() } }
                 .listRowBackground(AppColors.surface)
@@ -307,6 +391,11 @@ private struct ProfileSettingsView: View {
         .toolbar(.visible, for: .navigationBar)
         .navigationTitle("Innstillinger")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Privat e-postadresse fra Apple", isPresented: $showAppleEmailInformation) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Du har valgt Skjul e-post hos Apple. Denne adressen videresender e-post til adressen som er knyttet til Apple-kontoen din.")
+        }
         .alert("Slett konto?", isPresented: $showDeleteConfirm) {
             Button(authViewModel.isDeletingAccount ? "Sletter …" : "Slett", role: .destructive) {
                 Task {

@@ -124,7 +124,8 @@ final class PortionLoggingUITests: XCTestCase {
         _ = element.waitForExistence(timeout: 5)
         for _ in 0..<10 {
             if element.exists && element.isHittable { return }
-            let scroll = app.scrollViews["log-editor-scroll"]
+            let editor = app.scrollViews["log-editor-scroll"]
+            let scroll = editor.exists ? editor : app.scrollViews["product-detail-scroll"]
             if scroll.exists {
                 let upwards = !element.exists || element.frame.midY >= scroll.frame.midY
                 let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upwards ? 0.65 : 0.4))

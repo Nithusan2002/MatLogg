@@ -740,3 +740,67 @@ kladden uten logging. Valg av eksisterende produkt oppdaterer mengden på
 samme rad uten summering. Kilde, dokumentert enhet og næringssnapshot bevares;
 hele malen lagres atomisk med eksisterende repository og synkhendelse.
 Skanning, manuell registrering og porsjonsvelger inngår ikke i denne flyten.
+
+
+## 2026-10-04 – Kort intro før første logging
+
+Ny førstegangsbruk viser én kort introduksjon til appens formål, lokal lagring
+og valgfrie mål. «Kom i gang» åpner eksisterende logging med søkefokus.
+«Gå til Hjem» er tilgjengelig på begge steg. Fullført onboarding bevares;
+avbrutt oppstart starter på introen igjen uten ny lagring av mellomsteg.
+Feature-ViewModel eier steget; auth, domenelagring og synkkontrakt beholdes.
+
+
+## 2026-10-05 – To visuelle introsider før første logging
+
+Introen viser enkel logging og valgfri oversikt på to sveipbare sider med
+statiske SwiftUI-illustrasjoner. «Neste» og trykkbare sideindikatorer gir
+alternativer til sveiping. «Hopp over intro» åpner logging fra begge sider;
+«Gå til Hjem» beholdes på logging. Lokal lagring uten skybackup og eksport
+forklares fortsatt ved søket. Feature-ViewModel eier sidevalget, uten ny IO
+eller endringer i fullføring, autentisering og synk.
+
+
+### 2026-10-05 – Diskret loggerekke på Hjem
+
+Brukeren godkjente flamme og dagteller som et avgrenset unntak fra
+gamification-avgrensningen. Rekken avledes lokalt fra aktive profileiers
+matloggdatoer; etterregistrering og sletting påvirker resultatet. Ingen egen
+tellerpersistens, nye synkhendelser, premier eller varsler innføres.
+
+
+## 2026-10-05 – Fotografier og native sveiping i intro
+
+Tekstbaserte eksempelkort erstattes av to faktiske Pexels-fotografier, bundlet
+i asset-katalogen. Kilder og lisens er dokumentert i design-and-user-flow.
+Native TabView med page-stil erstatter gest som bare byttet innhold etter slipp.
+ViewModel beholder sidevalget; hver side ruller vertikalt ved stor tekst.
+
+
+## 2026-10-05 – Typografiretning fra prototype 10
+
+Brukeren valgte prototype 10: det rolige hierarkiet fra 09 med kraftigere,
+avrundede hovedoverskrifter fra 05. Delte tokens bruker avrundede overskrifter
+og vanlig systemfont i brødtekst og metadata. Store næringsverdier skilles fra
+overskrifter med `heroValue`, middels vekt og tabellariske sifre. Native
+tekststiler beholdes for Dynamic Type. Ingen nye fonter eller brukerinnstillinger.
+
+
+## 2026-10-05 – Valgfritt navneforslag fra Apple
+
+Apple-dialogen ber om navn og e-post. Delt navn beholdes kun i den lokale
+kontoprofilen og tilbys med «Bruk navn fra Apple» under Personlige detaljer.
+Eksisterende visningsnavn overskrives ikke; forslaget brukes først ved et
+eksplisitt valg og kan redigeres eller fjernes før lagring. Navneforslaget
+bevares ved sesjonsgjenoppretting for samme konto og fjernes med kontoprofilen
+ved utlogging. Apple deler normalt navn bare ved første godkjenning, så
+manglende navn er en vanlig tilstand og hindrer aldri innlogging.
+
+
+## 2026-10-05 – Innlogging avslutter valgfri onboarding
+
+Vellykket Apple- eller e-postinnlogging fra intro/første logging åpner Hjem
+og lagrer onboarding som fullført for kontoen. Har den lokale profilen data,
+fullføres overgangen først etter eksplisitt bekreftet kontokobling. Feil eller
+avbrudd beholder lokal profil og onboarding. E-postregistrering beholder sin
+eksisterende førstegangs- og bekreftelsesflyt.

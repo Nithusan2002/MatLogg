@@ -117,6 +117,16 @@ final class MatLoggUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-ml_local_profile", "", "-ml_local_mode_active", "NO", "-demoModeActive", "NO"]
         app.launch()
+        XCTAssertTrue(app.buttons["onboarding-next"].waitForExistence(timeout: 10))
+        app.swipeLeft()
+        XCTAssertTrue(app.buttons["onboarding-start-logging"].waitForExistence(timeout: 5))
+        app.swipeRight()
+        XCTAssertTrue(app.buttons["onboarding-next"].waitForExistence(timeout: 5))
+        app.buttons["onboarding-next"].tap()
+        let start = app.buttons["onboarding-start-logging"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        start.tap()
         let field = app.textFields["food-search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         XCTAssertTrue(app.staticTexts["local-storage-explanation"].exists)
@@ -146,11 +156,38 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testUnfinishedOnboardingReturnsToIntroduction() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ml_local_profile", "", "-ml_local_mode_active", "NO", "-demoModeActive", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["onboarding-next"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-next"].tap()
+        let start = app.buttons["onboarding-start-logging"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        start.tap()
+        XCTAssertTrue(app.textFields["food-search-field"].waitForExistence(timeout: 5))
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.buttons["onboarding-next"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-skip-intro"].tap()
+        XCTAssertTrue(app.buttons["first-log-skip"].waitForExistence(timeout: 5))
+        app.buttons["first-log-skip"].tap()
+        XCTAssertTrue(app.buttons["Profil"].waitForExistence(timeout: 8))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["Profil"].waitForExistence(timeout: 8))
+        XCTAssertFalse(start.exists)
+    }
+
+    @MainActor
     func testLocalStorageInformationInProfile() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-ml_local_profile", "", "-ml_local_mode_active", "NO", "-demoModeActive", "NO"]
         app.launch()
-        XCTAssertTrue(app.buttons["first-log-skip"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["onboarding-skip-intro"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-skip-intro"].tap()
+        XCTAssertTrue(app.buttons["first-log-skip"].waitForExistence(timeout: 5))
         app.buttons["first-log-skip"].tap()
         XCTAssertTrue(app.buttons["Profil"].waitForExistence(timeout: 8))
         app.buttons["Profil"].tap()
@@ -185,6 +222,12 @@ final class MatLoggUITests: XCTestCase {
         app.launchArguments = ["-ml_local_profile", "", "-ml_local_mode_active", "NO", "-demoModeActive", "NO",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
+        XCTAssertTrue(app.buttons["onboarding-next"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-next"].tap()
+        let start = app.buttons["onboarding-start-logging"]
+        XCTAssertTrue(start.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        start.tap()
         let field = app.textFields["food-search-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         // At accessibility sizes, dismiss the keyboard before inspecting the
@@ -418,6 +461,23 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Ingen lokale treff"].waitForExistence(timeout: 5))
         app.buttons["Registrer manuelt"].tap()
         XCTAssertTrue(app.textFields["Produktnavn"].waitForExistence(timeout: 5))
+        let photoOptions = app.buttons["manual-product-photo-options"]
+        for _ in 0..<4 {
+            if photoOptions.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(photoOptions.isHittable)
+        photoOptions.tap()
+        XCTAssertTrue(app.buttons["Ta bilde"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Velg fra bilder"].exists)
+        // Confirmation choices may be presented as a popover on newer iOS.
+        if app.sheets.buttons["Avbryt"].exists {
+            app.sheets.buttons["Avbryt"].tap()
+        } else {
+            app.navigationBars["Opprett produkt"].staticTexts["Opprett produkt"].tap()
+        }
+        XCTAssertTrue(app.textFields["Produktnavn"].exists)
+        app.swipeDown()
         for (label, value) in [("Produktnavn", "Søktest " + UUID().uuidString.prefix(8)),
                                ("Energi", "100"), ("Protein", "2"), ("Karbohydrat", "10"), ("Fett", "4")] {
             if !app.textFields[label].isHittable { app.swipeUp() }
@@ -518,9 +578,9 @@ final class MatLoggUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Innstillinger"].waitForExistence(timeout: 2))
         XCTAssertEqual(
-            app.buttons.matching(NSPredicate(format: "label == 'Oversikt'")).count,
+            app.buttons.matching(NSPredicate(format: "label == 'Utvikling'")).count,
             1,
-            "Oversikt skal bare finnes i bunnmenyen, ikke som snarvei i Innstillinger."
+            "Utvikling skal bare finnes i bunnmenyen, ikke som snarvei i Innstillinger."
         )
     }
 

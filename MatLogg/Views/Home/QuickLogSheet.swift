@@ -293,7 +293,7 @@ struct QuickLogSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Ingen nylig loggede matvarer")
                     .font(AppTypography.bodyEmphasis)
-                Text("Søk etter, skann eller registrer en matvare. Etter logging kan du loggføre den igjen her.")
+                Text("Matvarer du logger, vises her.")
                     .font(AppTypography.secondary).foregroundStyle(AppColors.textSecondary)
             }
         }

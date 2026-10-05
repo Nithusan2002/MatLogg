@@ -7,7 +7,7 @@ struct WaterCardView: View {
     var compact = false
     var embedded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showCorrection = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Group {
@@ -17,19 +17,23 @@ struct WaterCardView: View {
                 CardContainer { content }
             }
         }
-        .confirmationDialog("Juster vannloggen", isPresented: $showCorrection, titleVisibility: .visible) {
-            Button("Fjern ett glass", role: .destructive) { Task { await viewModel.remove() } }
-                .disabled(viewModel.glasses.isEmpty || viewModel.isBusy)
-            Button("Avbryt", role: .cancel) {}
-        }
         .task(id: context) { await viewModel.load(userId: userId, date: date) }
     }
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { summary; Spacer(minLength: 8); waterControls }
+            if embedded && !dynamicTypeSize.isAccessibilitySize {
+                HStack(spacing: 12) {
+                    summary.frame(maxWidth: .infinity, alignment: .leading)
+                    waterControls.fixedSize(horizontal: true, vertical: false)
+                }
+            } else if embedded {
                 VStack(alignment: .leading, spacing: 8) { summary; waterControls }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { summary; Spacer(minLength: 8); waterControls }
+                    VStack(alignment: .leading, spacing: 8) { summary; waterControls }
+                }
             }
             if viewModel.isLoaded && !compact {
                 WaterCupGrid(count: viewModel.glasses.count, reduceMotion: reduceMotion)
@@ -56,71 +60,104 @@ struct WaterCardView: View {
 
     private var context: String { "\(userId?.uuidString ?? "")-\(date.timeIntervalSince1970)" }
 
-    private var summary: some View {
-        Button { showCorrection = true } label: {
-            HStack(spacing: 10) {
-                if compact {
-                    Image(systemName: "drop.fill")
-                        .foregroundStyle(AppColors.info)
-                        .frame(width: 32, height: 32)
-                        .background(embedded ? AppColors.mutedSurface : AppColors.info.opacity(0.16), in: Circle())
-                        .accessibilityHidden(true)
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(embedded ? "Vann" : waterTitle)
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundStyle(embedded ? AppColors.energyTextSecondary : AppColors.textSecondary)
-                    Text(viewModel.isLoaded ? "\(viewModel.glasses.count) glass" : "Henter …")
-                        .font(compact ? AppTypography.bodyEmphasis : AppTypography.title)
-                        .foregroundStyle(AppColors.deepInk)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                }
-            }
-            .frame(minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
+    private var waterStatus: Text {
+        guard viewModel.isLoaded else { return Text("Henter …") }
+        guard embedded else { return Text("\(viewModel.glasses.count) glass") }
+
+        let isToday = Calendar.current.isDateInToday(date)
+        let day = isToday ? "i dag" : "denne dagen"
+        if viewModel.glasses.isEmpty {
+            return Text("Ingen glass registrert \(day)")
         }
-        .buttonStyle(.plain)
-        .disabled(!viewModel.isLoaded || viewModel.isBusy)
+        let amount = Text("\(viewModel.glasses.count) glass").bold()
+        if isToday {
+            return Text("Du har drukket \(amount) i dag")
+        }
+        return Text("Du registrerte \(amount) denne dagen")
+    }
+
+    private var summary: some View {
+        HStack(spacing: 10) {
+            if compact {
+                Image(systemName: "drop.fill")
+                    .foregroundStyle(AppColors.info)
+                    .frame(width: 32, height: 32)
+                    .background(embedded ? AppColors.mutedSurface : AppColors.info.opacity(0.16), in: Circle())
+                    .accessibilityHidden(true)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(embedded ? "Husk å drikke vann" : waterTitle)
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundStyle(embedded ? AppColors.energyTextSecondary : AppColors.textSecondary)
+                waterStatus
+                    .font(embedded ? AppTypography.secondary : (compact ? AppTypography.bodyEmphasis : AppTypography.title))
+                    .foregroundStyle(AppColors.deepInk)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(minHeight: 44, alignment: .leading)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(viewModel.isLoaded ? "\(waterTitle), \(viewModel.glasses.count) glass" : "\(waterTitle), henter")
         .accessibilityIdentifier("water-count")
         .accessibilityValue(String(viewModel.glasses.count))
-        .accessibilityHint("Juster antall glass for valgt dag")
     }
 
     private var waterControls: some View {
         HStack(spacing: 8) {
-            if !viewModel.glasses.isEmpty {
-                Button { Task { await viewModel.remove() } } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .foregroundStyle(AppColors.deepInk)
-                        .background(AppColors.mutedSurface, in: Circle())
-                        .overlay(Circle().strokeBorder(AppColors.separator, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .disabled(!viewModel.isLoaded || viewModel.glasses.isEmpty || viewModel.isBusy)
-                .accessibilityLabel("Fjern ett glass vann")
-                .accessibilityIdentifier("water-remove")
+            Button { Task { await viewModel.remove() } } label: {
+                waterButtonLabel(symbol: "minus")
             }
+            .buttonStyle(.plain)
+            .disabled(!viewModel.isLoaded || viewModel.glasses.isEmpty || viewModel.isBusy)
+            .opacity(viewModel.glasses.isEmpty ? 0.45 : 1)
+            .accessibilityLabel("Fjern ett glass vann")
+            .accessibilityIdentifier("water-remove")
             addButton
         }
     }
 
+    private func waterButtonLabel(symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(AppColors.deepInk)
+            .frame(width: 44, height: 44)
+            .background(WaterGlassButtonShape().fill(AppColors.mutedSurface))
+            .overlay(WaterGlassButtonShape().stroke(AppColors.separator, lineWidth: 1))
+            .contentShape(Rectangle())
+    }
+
     private var addButton: some View {
         Button { Task { await viewModel.add() } } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: 44, height: 44)
-                .foregroundStyle(AppColors.deepInk)
-                .background(embedded ? AppColors.mutedSurface : AppColors.info.opacity(0.16), in: Circle())
-                .overlay(Circle().strokeBorder(embedded ? AppColors.separator : AppColors.info.opacity(0.35), lineWidth: 1))
+            waterButtonLabel(symbol: "plus")
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.isLoaded || viewModel.isBusy)
         .accessibilityLabel("Legg til ett glass vann")
         .accessibilityIdentifier("water-add")
+    }
+}
+
+/// A handle-free tumbler silhouette inside the full 44 pt button hit area.
+private struct WaterGlassButtonShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let bounds = rect.insetBy(dx: 2, dy: 0.5)
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: bounds.minX + bounds.width * x, y: bounds.minY + bounds.height * y)
+        }
+        var path = Path()
+        path.move(to: point(0.12, 0))
+        path.addLine(to: point(0.88, 0))
+        path.addQuadCurve(to: point(1, 0.12), control: point(1, 0))
+        path.addLine(to: point(0.88, 0.82))
+        path.addQuadCurve(to: point(0.68, 1), control: point(0.85, 1))
+        path.addLine(to: point(0.32, 1))
+        path.addQuadCurve(to: point(0.12, 0.82), control: point(0.15, 1))
+        path.addLine(to: point(0, 0.12))
+        path.addQuadCurve(to: point(0.12, 0), control: point(0, 0))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -141,7 +178,7 @@ private struct WaterCupGrid: View {
             }
         }
         // Ten slots are a visual starting layout, not a recommended daily goal.
-        // VoiceOver reads the full count from the button above.
+        // VoiceOver reads the full count from the summary above.
         .accessibilityHidden(true)
     }
 }

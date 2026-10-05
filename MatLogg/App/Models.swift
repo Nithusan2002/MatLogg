@@ -10,6 +10,21 @@ nonisolated struct User: Codable, Identifiable, Sendable {
     let lastName: String
     let authProvider: String // "apple", "google", "email"
     let createdAt: Date
+    var appleDisplayNameSuggestion: String? = nil
+
+    func preservingAppleNameSuggestion(sharedName: String? = nil, previous: User?) -> User {
+        var result = self
+        guard authProvider == "apple" else {
+            result.appleDisplayNameSuggestion = nil
+            return result
+        }
+        let shared = sharedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let saved = previous?.id == id && previous?.authProvider == "apple"
+            ? previous?.appleDisplayNameSuggestion : nil
+        result.appleDisplayNameSuggestion = saved ?? appleDisplayNameSuggestion
+            ?? ((shared?.isEmpty == false) ? shared : nil)
+        return result
+    }
     
     var fullName: String {
         "\(firstName) \(lastName)"

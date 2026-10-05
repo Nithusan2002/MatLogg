@@ -129,6 +129,7 @@ struct MatLoggContent: View {
         let timing = PerformanceSignposts.begin("UI.RootBody")
         defer { PerformanceSignposts.end(timing) }
         return rootContent
+            .preferredColorScheme(preferencesViewModel.appearance.colorScheme)
     }
 
     @ViewBuilder

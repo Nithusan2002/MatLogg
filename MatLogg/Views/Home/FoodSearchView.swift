@@ -257,26 +257,24 @@ private struct FoodSearchContent: View {
             }
             if isFirstLog {
                 Section {
-                    let informationLayout = dynamicTypeSize.isAccessibilitySize
-                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-                        : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
-                    informationLayout {
-                        Text("Lagres på denne iPhonen. Konto og mål er valgfrie.")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                        if let url = PrivacyConstants.privacyPolicyURL {
-                            Link("Personvern", destination: url)
-                                .font(AppTypography.captionEmphasis)
-                                .frame(minHeight: 44)
+                    VStack(alignment: .leading, spacing: 20) {
+                        if !viewModel.hasQuery {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Logg din første matvare")
+                                    .font(AppTypography.title)
+                                    .foregroundStyle(AppColors.deepInk)
+                                    .accessibilityAddTraits(.isHeader)
+                                Text("Finn noe du har spist. Velg mengde og lagre.")
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        searchControls
+                        if !viewModel.hasQuery {
+                            firstLogStorageInformation
                         }
                     }
-                    searchControls
-                    if !viewModel.hasQuery {
-                        Text("Matloggene lagres på denne enheten uten skybackup. Data kan gå tapt hvis du sletter appen eller mister telefonen. Du kan eksportere en kopi under Profil.")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                            .accessibilityIdentifier("local-storage-explanation")
-                    }
+                    .padding(.vertical, 8)
                 }
                 .listRowBackground(AppColors.background)
                 .listRowSeparator(.hidden)
@@ -291,14 +289,9 @@ private struct FoodSearchContent: View {
                             Image(systemName: "square.stack.3d.up")
                                 .foregroundStyle(AppColors.actionText)
                                 .accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Lagrede måltider")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundStyle(AppColors.ink)
-                                Text("Dine faste måltider")
-                                    .font(AppTypography.caption)
-                                    .foregroundStyle(AppColors.textSecondary)
-                            }
+                            Text("Lagrede måltider")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundStyle(AppColors.ink)
                             Spacer()
                             Image(systemName: "chevron.right")
                                 .foregroundStyle(AppColors.textSecondary)
@@ -327,7 +320,7 @@ private struct FoodSearchContent: View {
                 }
                 if viewModel.hasQuery {
                     results
-                } else {
+                } else if !isFirstLog || !viewModel.favorites.isEmpty || !viewModel.recent.isEmpty {
                     library
                 }
             }
@@ -337,6 +330,27 @@ private struct FoodSearchContent: View {
         .tint(AppColors.action)
         .scrollDismissesKeyboard(.interactively)
         .refreshable { await reload() }
+    }
+
+    private var firstLogStorageInformation: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("På denne iPhonen", systemImage: "iphone")
+                .font(AppTypography.captionEmphasis)
+                .foregroundStyle(AppColors.ink)
+            Text("Konto og mål er valgfrie. Matloggene lagres uten skybackup og kan gå tapt hvis du sletter appen eller mister telefonen. Du kan eksportere en kopi under Profil.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("local-storage-explanation")
+            if let url = PrivacyConstants.privacyPolicyURL {
+                Link("Personvern", destination: url)
+                    .font(AppTypography.captionEmphasis)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 16))
     }
 
     @ViewBuilder

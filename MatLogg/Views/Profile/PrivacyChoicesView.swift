@@ -53,106 +53,68 @@ struct PrivacyChoicesContentView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Personvern og valg")
-                    .font(AppTypography.title)
-                    .foregroundColor(AppColors.ink)
-            }
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Kort forklart")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    PrivacyBullet(text: "Data lagres først på enheten. Konto er valgfritt. Synk og gjenoppretting avhenger av hvilke funksjoner som er tilgjengelige.")
-                    PrivacyBullet(text: "Kamera brukes bare når du skanner strekkoder.")
-                    PrivacyBullet(text: "Du kan eksportere data under Profil → Innstillinger. Bruker du konto, finner du også kontosletting der.")
-                    PrivacyBullet(text: "Du velger selv om du vil oppgi vekt, høyde og fødselsdato.")
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Kort forklart")
+                        .font(AppTypography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
+                    PrivacyBullet(text: "Data lagres på denne iPhonen. Konto er valgfritt og gir foreløpig ikke skybackup.")
+                    PrivacyBullet(text: "Kamera brukes når du skanner strekkoder eller velger å ta et produktbilde.")
+                    PrivacyBullet(text: "Eksport og kontosletting finnes under Profil → Innstillinger.")
+                    PrivacyBullet(text: "Vekt, høyde og fødselsdato er valgfrie.")
                 }
             }
-            .padding(16)
-            .background(AppColors.surface)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.separator, lineWidth: 1)
-            )
-            
-            VStack(alignment: .leading, spacing: 12) {
-                if let onOpenPolicy {
-                    Button(action: onOpenPolicy) {
-                        HStack {
-                            Text("Personvernerklæring")
-                                .foregroundColor(AppColors.ink)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-                    }
-                } else {
-                    HStack {
-                        Text("Personvernerklæring")
-                            .foregroundColor(AppColors.ink)
-                        Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .foregroundColor(AppColors.textSecondary)
+            CardContainer {
+                VStack(alignment: .leading, spacing: 0) {
+                    documentRow("Personvernerklæring", action: onOpenPolicy)
+                    if PrivacyConstants.privacyChoicesURL != nil {
+                        Divider().overlay(AppColors.separator)
+                        documentRow("Dine personvernvalg", action: onOpenChoices)
                     }
                 }
-                
-                if PrivacyConstants.privacyChoicesURL != nil {
-                    if let onOpenChoices {
-                        Button(action: onOpenChoices) {
-                            HStack {
-                                Text("Dine personvernvalg")
-                                    .foregroundColor(AppColors.ink)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                        }
-                    } else {
-                        HStack {
-                            Text("Dine personvernvalg")
-                                .foregroundColor(AppColors.ink)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .foregroundColor(AppColors.textSecondary)
-                        }
-                    }
-                }
-                
-                Text("Lenker åpnes i Safari.")
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.textSecondary)
             }
-            .padding(16)
-            .background(AppColors.surface)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.separator, lineWidth: 1)
-            )
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle("Del anonym bruksstatistikk", isOn: $preferencesViewModel.analyticsEnabled)
-                    .disabled(true)
-                Toggle("Del anonyme krasjrapporter", isOn: $preferencesViewModel.crashReportsEnabled)
-                    .disabled(true)
-            }
-            .padding(16)
-            .background(AppColors.surface)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.separator, lineWidth: 1)
-            )
-            
-            Text("Deling av bruksstatistikk og krasjrapporter er ikke tilgjengelig i denne versjonen.")
+            Text("Dokumentene åpnes i nettleseren i appen.")
                 .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
+                .foregroundStyle(AppColors.textSecondary)
+            CardContainer {
+                Label {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Ingen deling av bruksdata")
+                            .font(AppTypography.bodyEmphasis)
+                        Text("Bruksstatistikk og krasjrapporter deles ikke i denne versjonen.")
+                            .font(AppTypography.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                } icon: {
+                    Image(systemName: "hand.raised")
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("privacy-telemetry-status")
+            }
         }
+        .foregroundStyle(AppColors.ink)
     }
+
+    private func documentRow(_ title: String, action: (() -> Void)?) -> some View {
+        Button {
+            action?()
+        } label: {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(AppTypography.bodyEmphasis)
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.up.right")
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .foregroundStyle(action == nil ? AppColors.textSecondary : AppColors.actionText)
+        }
+        .buttonStyle(.plain)
+        .disabled(action == nil)
+    }
+
 }
 
 private struct PrivacyBullet: View {

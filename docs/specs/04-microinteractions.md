@@ -174,7 +174,7 @@ under klargjøring. VoiceOver får «Åpner matvare» som verdi på valgt rad.
 
 Oppdatering av ferdig innhold flytter ikke eksisterende kort eller rader:
 - Søk viser katalog- og søkestatus i et fast område ved søkekontrollene.
-- Hurtigvalg på Hjem og Oversikt bruker en fast indikatorplass ved overskriften.
+- Hurtigvalg på Hjem og Utvikling bruker en fast indikatorplass ved overskriften.
 - Lagrede måltider viser oppdatering i navigasjonslinjen; dra-for-å-oppdatere
   bruker også systemindikatoren.
 - «Loggfør igjen» viser «Lagrer …» og spinner i valgt knapp uten å endre
@@ -446,10 +446,10 @@ Mislykket redigering beholder utkastet for retry og lukker ikke skjermen.
 
 ### Dra ned for å oppdatere
 
-Hjem, Logg og Oversikt støtter dra ned for å lese lokale data på nytt.
+Hjem, Logg og Utvikling støtter dra ned for å lese lokale data på nytt.
 Valgt dato og søketekst beholdes. Dagsloggen viser alltid hele dagen. Eksisterende innhold beholdes
 under oppdatering; den innebygde oppdateringsindikatoren erstatter ekstra
 indikatorer ved innholdet. Automatisk oppdatering etter logging fortsetter.
 Gesten fungerer uten nett, oppretter ingen synkhendelser og aktiverer ikke
-produksjonssynk. Hjem og Oversikt beholder eksisterende innhold ved lesefeil
+produksjonssynk. Hjem og Utvikling beholder eksisterende innhold ved lesefeil
 og tilbyr «Prøv igjen». Logg bruker eksisterende lokal leseflyt.

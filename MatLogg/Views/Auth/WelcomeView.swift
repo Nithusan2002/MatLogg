@@ -106,7 +106,7 @@ private struct WelcomeTrustRow: View {
     }
 }
 
-private struct WelcomeIllustration: View {
+struct WelcomeIllustration: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 22, style: .continuous)

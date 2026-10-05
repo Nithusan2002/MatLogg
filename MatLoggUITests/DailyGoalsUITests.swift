@@ -79,9 +79,15 @@ final class DailyGoalsUITests: XCTestCase {
     }
 
     @MainActor
-    func testSuggestionMustBeAppliedAndSavedExplicitly() {
+    func testSuggestionMustBeAppliedAndSavedExplicitly() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("--skip-auth")
+        // Synthetic adult profile in the argument domain; never persisted by this test.
+        let details = try JSONSerialization.data(withJSONObject: [
+            "weightKg": 70, "heightCm": 170, "birthDate": -315576000,
+            "gender": "kvinne", "activityLevel": "moderat"
+        ])
+        let encodedDetails = "<" + details.map { String(format: "%02x", $0) }.joined() + ">"
+        app.launchArguments += ["--skip-auth", "-personalDetails.00000000-0000-4000-8000-000000000001", encodedDetails]
         app.launch()
         openGoals(app)
         let original = app.textFields["daily-goals-calories"].value as! String

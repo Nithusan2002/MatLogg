@@ -82,7 +82,8 @@ final class AuthViewModel: ObservableObject {
     func restoreSession() async {
         isRestoringSession = true
         defer { isRestoringSession = false }
-        if let user = await authRepository.restoreSession() {
+        if let restored = await authRepository.restoreSession() {
+            let user = restored.preservingAppleNameSuggestion(previous: localStore.getStoredUser())
             localStore.storeUser(user)
             show(user: user, account: true)
         } else if let localUser = localStore.getActiveLocalProfile() {
@@ -146,9 +147,10 @@ final class AuthViewModel: ObservableObject {
         errorMessage = nil
     }
 
-    func loginWithApple(identityToken: String, authorizationCode: String?, nonce: String) async {
+    func loginWithApple(identityToken: String, authorizationCode: String?, nonce: String, sharedName: String? = nil) async {
         await authenticate {
-            try await self.authRepository.signInWithApple(identityToken: identityToken, nonce: nonce)
+            let user = try await self.authRepository.signInWithApple(identityToken: identityToken, nonce: nonce)
+            return user.preservingAppleNameSuggestion(sharedName: sharedName, previous: self.localStore.getStoredUser())
         }
     }
 
@@ -279,14 +281,13 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func authenticate(operation: () async throws -> User) async {
-        let startedInFirstLogging = isOnboarding
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
             let user = try await operation()
-            let shouldOnboard = startedInFirstLogging && !localStore.hasCompletedOnboarding(userId: user.id)
-            try await prepareAccountSession(user: user, shouldOnboard: shouldOnboard)
+            // Account sign-in is an explicit exit from the optional first-use flow.
+            try await prepareAccountSession(user: user, shouldOnboard: false)
         } catch {
             present(error)
         }
@@ -309,7 +310,7 @@ final class AuthViewModel: ObservableObject {
         localStore.storeUser(user)
         localStore.consumeLocalProfile()
         currentUser = user
-        if shouldOnboard { localStore.setOnboardingCompleted(false, userId: user.id) }
+        localStore.setOnboardingCompleted(!shouldOnboard, userId: user.id)
         isOnboarding = shouldOnboard && !localStore.hasCompletedOnboarding(userId: user.id)
         authState = isOnboarding ? .onboarding(user: user) : .authenticated(user: user)
     }

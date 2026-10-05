@@ -25,9 +25,12 @@ Acceptance Criteria:
 □ Ny installasjon oppretter lokal profil automatisk etter sesjonsgjenoppretting; lokal bruk er tidsubegrenset
 □ Apple Sign in og e-post/passord er tilgjengelig; Google er senere scope
 □ E-postregistrering krever bare e-post og passord; navn er ikke påkrevd
+□ Apple-innlogging ber om navn og e-post i Apples dialog. Delt navn beholdes som et lokalt forslag per konto og brukes bare når brukeren velger «Bruk navn fra Apple» i Personlige detaljer. Eksisterende visningsnavn overskrives ikke. Innloggingsskjermen forklarer «Skjul e-post», og kontoinnstillingene forklarer den private videresendingsadressen. Ernæringsprofil fylles ut separat.
 □ Validering: e-post format, passord >8 tegn
-□ Ny lokal profil åpner første logging direkte; konto er en sekundær inngang
+□ Ny lokal profil åpner to korte, sveipbare introsider før første logging; konto er en sekundær inngang
 □ Eksisterende lokale data knyttes aldri til konto uten eksplisitt bekreftelse
+□ Etter fullført innlogging lukkes innloggingsskjermen. Automatisk lukking av bekreftelsesdialogen avbryter ikke kontokoblingen; bare «Avbryt» gjør det. Ventestatus og feil vises over innloggingsvalgene.
+□ Vellykket Apple-/e-postinnlogging avslutter intro/første logging og åpner Hjem, etter eventuell bekreftelse av kontokobling. Dette lagres per konto og gjelder også etter omstart. Avbrutt eller mislykket innlogging beholder onboarding.
 □ Sessionstoken lagres sikkert i Keychain (iOS)
 □ Ingen cookies; kun JWT-bearer-token i Authorization-header
 ```
@@ -39,7 +42,7 @@ SOM: ny bruker
 SÅ AT: jeg kan begynne på en måte som passer meg
 
 Acceptance Criteria:
-□ Første logging åpner søk med fokus, skann/manuell som alternativer og kort personverntekst
+□ «Logg din første matvare» eller «Hopp over intro» åpner søk med fokus, skann/manuell som alternativer og kort personverntekst
 □ Små skjermer, liggende retning og store tekststørrelser kan scrolle som tilgjengelighetsfallback
 □ Første logging krever ikke mål; mål settes senere under Profil → Daglige mål
 □ Automatisk lokal oppstart oppretter ikke et skjult mål
@@ -439,14 +442,15 @@ Acceptance Criteria:
 
 | Steg | Innhold og handling |
 |------|---------------------|
-| **1. Første måltid** | Søk med fokus, Skann og Manuelt. Kort informasjon om lokal lagring, valgfri konto og mål, samt personvernlenke. «Logg inn» er sekundær; «Gå til Hjem» hopper over logging. |
-| **2. Produktkort** | Kontroller mengde, enhet, kilde og måltid før eksplisitt lokal logging. |
-| **3. Hjem** | Bekreftelse og Angre etter vellykket lagring. Mål kan settes senere under Profil → Daglige mål. |
+| **1. Intro (to sider)** | Visuelle eksempler på logging og dagsoversikt. «Neste» viser side 2; «Logg din første matvare» og «Hopp over intro» åpner logging. |
+| **2. Første matvare** | Søk med fokus, Skann og Manuelt. Kort informasjon om lokal lagring, valgfri konto og mål, samt personvernlenke. «Logg inn» er sekundær; «Gå til Hjem» hopper over logging. |
+| **3. Produktkort** | Kontroller mengde, enhet, kilde og måltid før eksplisitt lokal logging. |
+| **4. Hjem** | Bekreftelse og Angre etter vellykket lagring. Mål kan settes senere under Profil → Daglige mål. |
 
 Akseptansekriterier i tillegg til US-1.2:
 
 - Bekreftet lokal lagring eller «Gå til Hjem» fullfører førstegangsvisningen.
-- Avbrutt flyt gjenopptas ved neste åpning; Angre starter ikke onboarding på nytt.
+- Avbrutt flyt starter på introen ved neste åpning; Angre starter ikke onboarding på nytt.
 - Tidligere fullført onboarding bevares.
 - Lagringsfeil beholder input og fullfører ikke førstegangsvisningen.
 - Stor tekst gir vertikale søkehandlinger og rullbart innhold; kamera etterspørres først ved valgt skanning.

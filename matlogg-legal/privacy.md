@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 3. oktober 2026
+Sist oppdatert: 5. oktober 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -15,6 +15,7 @@ Konto og innlogging
   - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
   - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
   - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
+  - Apple-dialogen ber også om navn. Hvis du deler navn, beholdes det lokalt sammen med kontoprofilen som et forslag til valgfritt visningsnavn. Navnet sendes ikke til Supabase av MatLogg. Du velger selv om forslaget skal brukes under Personlige detaljer, og kan endre eller fjerne visningsnavnet. Forslaget fjernes sammen med kontoprofilen ved utlogging; Apple deler normalt navn bare ved første godkjenning.
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen

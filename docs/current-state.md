@@ -74,7 +74,7 @@ App-roten bruker `SupabaseService` for konto og synk når konfigurasjon finnes.
 Uten konfigurasjon brukes eksplisitt utilgjengelige kontotjenester; lokal profil
 fungerer fortsatt. NestJS er ikke appens aktive synktransport.
 
-Debug bruker ordinær sesjonsflyt og direkte første logging som standard. Launch-argumentet
+Debug bruker ordinær sesjonsflyt og intro før første logging som standard. Launch-argumentet
 `--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Lokal profil opprettes automatisk ved første åpning; brukeren kan
 velge Apple/e-postkonto som sekundær handling. Demo har eget lager.
 
@@ -101,7 +101,7 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
 
 ### iOS
 
-- Førstegangsbruk åpner matvaresøk direkte med automatisk lokal profil, kort
+- Førstegangsbruk viser to korte, sveipbare introsider før matvaresøk med automatisk lokal profil, kort
   personverninformasjon og valgfri innlogging. Skann/manuell finnes på samme
   flate. Bekreftet lokal logging eller «Gå til Hjem» avslutter onboarding;
   måloppsett finnes under Profil → Daglige mål. Tidligere fullført onboarding
@@ -256,6 +256,17 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--skip-auth`.
 - Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
+  Apple-dialogen ber om navn og e-post. Delt navn beholdes lokalt som et
+  valgfritt forslag med «Bruk navn fra Apple» under Personlige detaljer;
+  eksisterende visningsnavn overskrives ikke. Forslaget bevares ved
+  sesjonsgjenoppretting for samme konto og fjernes ved utlogging.
+  Innloggingsskjermen lukkes ved fullført innlogging, viser ventestatus/feil
+  over innloggingsvalgene og tilbyr gjenåpning av bekreftelse for kontokobling.
+  Dialoglukking avbryter ikke koblingen; «Avbryt» er en eksplisitt handling.
+  Appspråket er Bokmål, også for Apples standardknapp.
+  Vellykket Apple-/e-postinnlogging avslutter onboarding og åpner Hjem etter
+  eventuell bekreftet kontokobling. Fullføring lagres per konto; mislykket
+  eller avbrutt innlogging beholder den lokale introen.
   Google-innlogging er senere scope. Apple krever konfigurert Supabase Apple-provider og aktivert
   Sign in with Apple-capability før distribusjon.
 - Manuell opprettelse av ukjente produkter finnes fra skanneflyten.

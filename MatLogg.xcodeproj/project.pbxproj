@@ -205,10 +205,10 @@
 				};
 			};
 			buildConfigurationList = 8276A8D72F21635F00FD2BF4 /* Build configuration list for PBXProject "MatLogg" */;
-			developmentRegion = en;
+			developmentRegion = nb;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				nb,
 				Base,
 			);
 			mainGroup = 8276A8D32F21635F00FD2BF4;
@@ -618,6 +618,8 @@
 				kind = upToNextMajorVersion;
 				minimumVersion = 2.9.0;
 			};
+			traits = (
+			);
 		};
 /* End XCRemoteSwiftPackageReference section */
 

@@ -1324,6 +1324,24 @@ private final class PersonalDetailsStoreSpy: PersonalDetailsStore {
 
 @MainActor
 struct AuthViewModelTests {
+    @Test func appleNameIsStoredLocallyAndRetainedOnSessionRestore() async {
+        let account = User(id: UUID(), email: "test@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+        let store = AuthSessionStoreSpy()
+        let repository = AccountAuthRepositorySpy()
+        repository.callbackUser = account
+        let model = AuthViewModel(authRepository: repository, localStore: store,
+                                  localProfileManager: LocalProfileManagerSpy())
+        await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce", sharedName: "Test Navn")
+        #expect(model.currentUser?.appleDisplayNameSuggestion == "Test Navn")
+        #expect(store.getStoredUser()?.appleDisplayNameSuggestion == "Test Navn")
+        repository.restoredUser = account
+        let resumed = AuthViewModel(authRepository: repository, localStore: store,
+                                    localProfileManager: LocalProfileManagerSpy())
+        await resumed.restoreSession()
+        #expect(resumed.currentUser?.appleDisplayNameSuggestion == "Test Navn")
+        #expect(resumed.currentUser?.email == account.email)
+    }
+
     @Test func freshLaunchCreatesLocalProfileAndResumesUntilFinished() async throws {
         let store = AuthSessionStoreSpy()
         let model = AuthViewModel(authRepository: AccountAuthRepositorySpy(), localStore: store,
@@ -1363,7 +1381,7 @@ struct AuthViewModelTests {
         #expect(store.token == nil)
     }
 
-    @Test func optionalAppleLoginPreservesFirstLoggingButCompletedAccountGoesHome() async {
+    @Test func appleLoginExitsFirstLoggingAndStaysCompletedAfterRestore() async {
         for alreadyCompleted in [false, true] {
             let account = makeUser()
             let store = AuthSessionStoreSpy()
@@ -1375,7 +1393,13 @@ struct AuthViewModelTests {
             await model.restoreSession()
             await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce")
             #expect(model.authenticatedUser?.id == account.id)
-            #expect(model.isOnboarding == !alreadyCompleted)
+            #expect(!model.isOnboarding)
+            #expect(store.hasCompletedOnboarding(userId: account.id))
+            repository.restoredUser = account
+            let resumed = AuthViewModel(authRepository: repository, localStore: store,
+                                        localProfileManager: LocalProfileManagerSpy())
+            await resumed.restoreSession()
+            #expect(!resumed.isOnboarding)
         }
     }
 
@@ -1497,6 +1521,8 @@ struct AuthViewModelTests {
         #expect(manager.claimedFrom == localId)
         #expect(manager.claimedTo == account.id)
         #expect(viewModel.authenticatedUser?.id == account.id)
+        #expect(!viewModel.isOnboarding)
+        #expect(store.hasCompletedOnboarding(userId: account.id))
         #expect(store.token == "token")
     }
 

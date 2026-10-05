@@ -44,6 +44,7 @@ private struct ProductDetailContent: View {
     @State private var showImagePreview = false
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
+    @State private var showSourceDetails = false
     private var isLogging: Bool { detailModel.isLogging }
     private var logError: String? { detailModel.logError }
     @State private var hasConfiguredAmount = false
@@ -139,6 +140,11 @@ private struct ProductDetailContent: View {
                                     .foregroundColor(AppColors.ink)
                                     .frame(minHeight: 44, alignment: .leading)
                                 }
+                                if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts {
+                                    Text("Kilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
                                 if detailModel.processingInfo != nil {
                                     Divider()
                                     Button { showNutriScoreInfo = true } label: {
@@ -215,8 +221,8 @@ private struct ProductDetailContent: View {
                                     .accessibilityIdentifier("productProcessingInfo")
                                     .accessibilityHint("Åpner forklaring, ingredienser og kilde")
                                 }
-                                if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts || detailModel.canRefresh {
-                                    Divider()
+                                Divider()
+                                DisclosureGroup(isExpanded: $showSourceDetails) {
                                     VStack(alignment: .leading, spacing: 4) {
                                         if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
                                            let sourceURL = detailModel.processingSourceURL ?? URL(string: "https://world.openfoodfacts.org") {
@@ -229,7 +235,7 @@ private struct ProductDetailContent: View {
                                             .accessibilityHint("Åpner kilden i nettleseren")
                                         }
 
-                                        if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts {
+                                        Group {
                                             Text("Næringskilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
                                                 .font(AppTypography.caption)
                                                 .foregroundStyle(AppColors.textSecondary)
@@ -274,6 +280,19 @@ private struct ProductDetailContent: View {
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.top, 8)
+                                } label: {
+                                    Text("Kilde og oppdatering")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundStyle(AppColors.ink)
+                                        .frame(minHeight: 44)
+                                }
+                                .accessibilityIdentifier("product-source-details")
+                                if !showSourceDetails, let message = detailModel.refreshMessage {
+                                    Text(message)
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                        .accessibilityIdentifier("productRefreshMessage")
                                 }
                             }
                         }
@@ -284,6 +303,7 @@ private struct ProductDetailContent: View {
                     .padding(.bottom, 24)
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .accessibilityIdentifier("product-detail-scroll")
 
                 // Add Button
                 if let logError {
@@ -638,9 +658,6 @@ private struct ProductProcessingInfoSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    Text("Dette beskriver hvordan maten er bearbeidet. Nutri-Score gir informasjon om næringskvaliteten.")
-                        .font(AppTypography.secondary)
-                        .foregroundColor(AppColors.textSecondary)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Hva bygger vurderingen på?")
                             .font(AppTypography.sectionTitle)

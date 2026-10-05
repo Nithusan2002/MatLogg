@@ -26,7 +26,16 @@
 
 ### Første logging
 
-«Første måltid» åpner søk med fokus. Kort informasjon om lokal lagring,
+To sveipbare introsider viser «Matlogging gjort enkelt» med et fotografi av
+en frokostskål og «Oversikt på dine premisser» med et pizzafoto. Native
+sidevisning følger sveiping kontinuerlig. Begge har
+kort, sentrert tekst og «Uten konto. Lagres på denne iPhonen.». Innholdet er
+rullbart uten fast sidehøyde. Sideindikatorene er knapper med VoiceOver-labels.
+«Neste» åpner side 2; «Logg din første matvare» og «Hopp over intro» åpner logging.
+Knappene ligger over nederste safe area. «Gå til Hjem» finnes på loggingssteget.
+Informasjon om manglende skybackup, eksport og personvern følger søket.
+
+«Logg din første matvare» åpner deretter søk med fokus. Kort informasjon om lokal lagring,
 valgfri konto/mål og personvernlenke ligger sammen med søkekontrollene i
 en rullbar liste. «Søk», «Skann» og «Manuelt» står på samme flate; store
 tekststørrelser bruker vertikal layout. Lokale treff prioriteres foran
@@ -35,6 +44,11 @@ forklaringstekst og tomme favoritt-/historikkseksjoner.
 «Logg inn» er sekundær. «Gå til Hjem» avslutter førstegangsvisningen uten
 mål eller logging. Produktkortet gjenbrukes, og vellykket lokal lagring
 åpner Hjem med kvittering og Angre. Ingen oppsummering krever nytt trykk.
+
+Makroene i energikortet på Hjem viser registrert mengde og mål på samme
+linje, for eksempel «65 / 120 g», under næringsstoffets navn. Uten mål vises
+bare registrert mengde. Ved tilgjengelighetstekststørrelser stables makroene
+vertikalt, og VoiceOver leser inntak og mål eksplisitt.
 
 ### Profil
 
@@ -105,7 +119,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Normal tekst skal ha minst 4,5:1 kontrast, stor tekst og nødvendige UI-symboler minst 3:1. Tekst på sterke makrofarger bruker mørk `onVibrant`, mens handlingslenker bruker det kontrastverifiserte `action`-tokenet.
 - Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
 - Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
-- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger i Loggfør-arket og Søk-fanen. De dupliseres ikke som en egen handlingsrad på Hjem. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Oversikt».
+- Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger i Loggfør-arket og Søk-fanen. De dupliseres ikke som en egen handlingsrad på Hjem. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Utvikling».
 - «Registrer manuelt» ligger som en sekundær knapp i full bredde rett under Søk og Skann strekkode, før listene, i alle søketilstander.
 - Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
@@ -565,7 +579,7 @@ App-rot: sesjonsgjenoppretting
    ├─ Hjem → valgt måltid eller hele dagsloggen
    ├─ Søk → produktkort
    ├─ Loggfør → loggingark med valgt dato og måltid
-   ├─ Oversikt → energi, makroer og vektregistrering
+   ├─ Utvikling → energi, makroer og vektregistrering
    └─ Profil → daglige mål, personlige detaljer og valgfri konto
 ```
 
@@ -636,3 +650,13 @@ Innholdet holdes innenfor arkets tilgjengelige bredde også når «Lagrede
 måltider» velges. Lange måltidsnavn brytes vertikalt. Rulleflaten er vertikal;
 elastisk sprett brukes bare når innholdet overstiger tilgjengelig størrelse,
 slik at korte lister ikke kan dras elastisk sideveis.
+
+
+### Første logging – kompakt hierarki (2026-10-05)
+
+Navigasjonslinjen viser «MatLogg», «Hjem» (VoiceOver: «Gå til Hjem») og
+«Logg inn». Før søk vises full overskrift «Logg din første matvare» og en
+kort instruksjon over søkekontrollene. Lokal lagring, datatap, eksport og
+personvern samles i én dempet informasjonsflate under kontrollene. Den
+dupliserte tomtilstandsbeskjeden skjules ved første logging. Ved søk skjules
+introduksjon og lagringsinformasjon slik at treff får plass.

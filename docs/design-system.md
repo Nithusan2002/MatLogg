@@ -86,7 +86,8 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 | Rolle | Bruk |
 | --- | --- |
 | `display` | Én kort hero-verdi eller introduksjon. Skal brukes sjelden. |
-| `hero` | Kort hovedutsagn eller stor sidetittel. |
+| `hero` | Kraftig, avrundet hovedutsagn eller stor sidetittel. |
+| `heroValue` | Stor næringsverdi med middels vekt, vanlig systemfont og tabellariske sifre. |
 | `title` | Skjerm- og hovedkorttitler. |
 | `sectionTitle` | Seksjonsoverskrifter. |
 | `body` | Brødtekst og ordinære verdier. |
@@ -96,8 +97,12 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 | `caption` | Kompakt metadata og korte, mindre sentrale etiketter. |
 | `captionEmphasis` | Kompakte etiketter og status. |
 
-Den avrundede systemtypografien er del av MatLoggs vennlige uttrykk. Lange
-forklaringer skal ikke bruke tunge displaystiler. Kritiske krav, kilder og feil
+Typografien følger godkjent prototype 10: kraftige, avrundede hovedoverskrifter,
+avrundede titler og seksjonsoverskrifter med halvfet vekt, og vanlig systemfont
+i brødtekst, matvarenavn og metadata. Store næringsverdier bruker `heroValue`
+med middels vekt og tabellariske sifre. Native tekststiler bevarer Dynamic Type;
+prototypens pikselstørrelser kopieres ikke direkte. Lange forklaringer skal
+ikke bruke tunge displaystiler. Kritiske krav, kilder og feil
 skal kunne bryte over flere linjer og ikke skjules av trunkering.
 
 All tekst skal støtte Dynamic Type. Fast skriftstørrelse krever en begrunnet,
@@ -195,7 +200,7 @@ og unngå kort inni kort.
 
 Dagsstatus på Hjem følger en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer) og bruker én samlet
 `warmSurface`-flate med 24 pt hjørner og 20 pt padding. Registrert energi
-bruker skalerbar `hero`-typografi; balansen mot målet vises nøytralt under.
+bruker skalerbar `heroValue`-typografi; balansen mot målet vises nøytralt under.
 Makroer vises i tre kolonner med verdi og sekundært mål, uten progresjonsstolper.
 Ved tilgjengelighetsstørrelser stables de vertikalt. Makrofargene brukes kun
 som små dekorative markører, mens tekst identifiserer næringsstoffet.
@@ -304,11 +309,19 @@ progresjonsstolper eller måltidskvote introduseres.
 Vann på Hjem vises nederst i samme `warmSurface`-flate som næringsfeltet,
 med felles 20 pt padding og 24 pt hjørner. En `separator`-linje skiller delene;
 ingen kort legges inni kortet. Når energi og mål er skjult, vises bare vannraden.
-Raden viser «Vann», antall glass og nøytrale 44 pt minus-/plussknapper med
+Raden viser «Husk å drikke vann» og «Du har drukket x glass i dag», med antall
+glass fremhevet i statuslinjen. Ved null glass vises «Ingen glass registrert
+i dag». Andre datoer bruker «Du registrerte x glass denne dagen» eller
+«Ingen glass registrert denne dagen». Raden har minus-/plussknapper formet som glass uten hank, med svakt skrå
+sider og avrundede hjørner. Begge har 44 × 44 pt rektangulær trykkflate og bruker
 `mutedSurface` og `separator`. Bare dråpen bruker `info`; tekst bruker
 `deepInk` og `textSecondary`. Ingen glassrutenett vises på Hjem.
-Ved liten bredde eller stor tekst stables innholdet. Lasting, lokal feil med
-retry og justering beholdes uavhengig av næringsfeltets tilstand.
+Teksten brytes over flere linjer ved liten bredde, mens knappene beholder sin
+plass til høyre. Ved tilgjengelighetsstørrelser i Dynamic Type stables innholdet.
+Lasting, lokal feil med
+retry og justering beholdes uavhengig av næringsfeltets tilstand. Teksten og
+dråpen er ikke trykkbare; vannloggen justeres bare med pluss-/minusknappene.
+Minuskoppen er alltid synlig og vises dempet og deaktivert ved null glass.
 
 ### Måltidsrom
 
@@ -319,6 +332,20 @@ Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;
 ingen separat Endre-knapp vises. Et kompakt warmSurface-
 felt rett under måltidsnavn og antall varer viser måltidets næring. Rader beholder systemets List-
 sveiping, skalerbar typografi og matLoggTabBarScrollClearance().
+
+### Vekt på Utvikling
+
+Vektkortet fremhever siste registrering med `heroValue` og norsk dato med år.
+Verdier og historikk bruker nøytrale tekstfarger uansett vektendring.
+«Registrer vekt» åpner datofelt, et synlig merket kg-felt og lagrehandling.
+Tomtilstanden forklarer at registrering er valgfri. De tre siste registreringene
+vises med dato og verdi; ved tilgjengelighetsstørrelser stables disse.
+Hver rad har en egen sletteknapp med minst 44 pt trykkflate og et VoiceOver-navn
+som identifiserer registreringen. Bekreftelsen viser dato og vekt før sletting.
+«Se alle registreringer» åpner Vekthistorikk i fanens navigasjonsstakk med
+alle lokale registreringer, nyeste først. Historikken bruker samme rader og
+slettebekreftelse som kortet, viser tomtilstand etter siste sletting og holder
+innholdet over bunnmenyen med `matLoggTabBarScrollClearance()`.
 
 ### Farge for Nutri-Score-bidrag
 

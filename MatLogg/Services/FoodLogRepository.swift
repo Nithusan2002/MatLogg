@@ -5,6 +5,7 @@ protocol FoodLogRepository {
     func deleteLogs(_ ids: [UUID]) async throws
     func saveLog(_ log: FoodLog) async throws
     func deleteLog(_ id: UUID) async throws
+    func loadLoggingDates(userId: UUID) async throws -> [Date]
     func getAllLogs(userId: UUID) async -> [FoodLog]
     func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog]
     func getSummary(userId: UUID, date: Date) async -> DailySummary
@@ -15,6 +16,10 @@ protocol FoodLogRepository {
 }
 
 extension FoodLogRepository {
+    func loadLoggingDates(userId: UUID) async throws -> [Date] {
+        await getAllLogs(userId: userId).filter { $0.userId == userId }.map(\.loggedDate)
+    }
+
     func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog] {
         await getAllLogs(userId: userId).filter { $0.loggedDate >= start && $0.loggedDate < end }
     }

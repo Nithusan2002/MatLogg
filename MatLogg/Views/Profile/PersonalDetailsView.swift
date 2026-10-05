@@ -17,7 +17,7 @@ struct PersonalDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Fødselsdato må fylles inn. De øvrige opplysningene er valgfrie.")
+                Text("Alle opplysningene er valgfrie. Du kan lagre bare navn.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
 
@@ -33,6 +33,12 @@ struct PersonalDetailsView: View {
                                 .accessibilityLabel("Navn, valgfritt")
                                 .accessibilityIdentifier("personal-details-name")
                         }
+                    }
+                    if let name = auth.currentUser?.appleDisplayNameSuggestion,
+                       viewModel.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button("Bruk navn fra Apple") { viewModel.useSuggestedName(name) }
+                            .font(AppTypography.body)
+                            .accessibilityHint("Fyller ut det valgfrie navnefeltet. Du kan endre eller fjerne navnet før du lagrer.")
                     }
                 }
 
@@ -86,7 +92,7 @@ struct PersonalDetailsView: View {
                         }
                     }
 
-                    Text("Vekten her brukes til målforslag. Registrer vekt under Oversikt for å følge vekthistorikken.")
+                    Text("Vekten her brukes til målforslag. Registrer vekt under Utvikling for å følge vekthistorikken.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }

@@ -33,7 +33,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
 | **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
-| **Onboarding** | P0 | Direkte første logging med automatisk lokal profil. Konto og mål er valgfrie; mål settes under Profil. |
+| **Onboarding** | P0 | To korte, sveipbare introsider før første logging med automatisk lokal profil. Konto og mål er valgfrie; mål settes under Profil. |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
 | **Strekkode-skanning** | P0 | EAN- eller GS1 Data Matrix-skann → GTIN-oppslag → produktkort → logging |
 | **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser med antall og historisk grunnlag, mengdevelger (prefill: 100g), "Legg til"-knapp |
@@ -121,7 +121,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 
 ### Ny bruker:
 ```
-Åpne app → Søk/skann/manuell registrering → Kontroller mengde og måltid → Lagre lokalt → Hjem med Angre
+Åpne app → Intro → Kom i gang → Søk/skann/manuell registrering → Kontroller mengde og måltid → Lagre lokalt → Hjem med Angre
 ```
 
 ### Aktiv bruker:
@@ -169,3 +169,15 @@ Se `../design-and-user-flow.md` for gjeldende flyt.
 Manuell registrering støtter 100 g, 100 ml og porsjon/stykk med navn og kjent
 størrelse i g/ml. Egne porsjoner er avgrenset til produktet som opprettes;
 editor for eksisterende katalogprodukter og porsjoner uten størrelse er utenfor scope.
+
+
+### Diskret loggerekke
+
+Hjem viser flamme og antall sammenhengende matloggdager. Se reglene i
+[design- og brukerflyt](../design-and-user-flow.md#loggerekke-på-hjem).
+Ingen premier, varsler, ny datainnsamling eller synkkontrakt inngår.
+
+### Utseendevalg
+
+Profil → Innstillinger → Utseende tilbyr lys modus, mørk modus og å følge telefonens innstillinger
+(standard). Valget lagres lokalt på enheten og gjelder hele appen umiddelbart.

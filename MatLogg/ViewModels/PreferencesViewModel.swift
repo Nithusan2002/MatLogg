@@ -1,8 +1,34 @@
 import Foundation
 import Combine
+import SwiftUI
+
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "Følg telefonen"
+        case .light: return "Lys modus"
+        case .dark: return "Mørk modus"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
 
 @MainActor
 final class PreferencesViewModel: ObservableObject {
+    @Published var appearance: AppAppearance {
+        didSet { defaults.set(appearance.rawValue, forKey: "appAppearance") }
+    }
     @Published var hapticsFeedbackEnabled: Bool { didSet { store(hapticsFeedbackEnabled, key: "hapticsFeedbackEnabled") } }
     @Published var soundFeedbackEnabled: Bool { didSet { store(soundFeedbackEnabled, key: "soundFeedbackEnabled") } }
     @Published var showGoalStatusOnHome: Bool { didSet { store(showGoalStatusOnHome, key: "showGoalStatusOnHome") } }
@@ -25,6 +51,7 @@ final class PreferencesViewModel: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        appearance = AppAppearance(rawValue: defaults.string(forKey: "appAppearance") ?? "") ?? .system
         hapticsFeedbackEnabled = defaults.object(forKey: "hapticsFeedbackEnabled") as? Bool ?? true
         soundFeedbackEnabled = defaults.object(forKey: "soundFeedbackEnabled") as? Bool ?? true
         showGoalStatusOnHome = defaults.object(forKey: "showGoalStatusOnHome") as? Bool ?? true

@@ -34,6 +34,15 @@ final class PersonalDetailsViewModel: ObservableObject {
     }
 
     @discardableResult
+    func useSuggestedName(_ name: String) -> Bool {
+        guard displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        let suggestion = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !suggestion.isEmpty else { return false }
+        displayName = suggestion
+        return true
+    }
+
+    @discardableResult
     func save(now: Date = Date()) -> Bool {
         errors = [:]
         errorMessage = nil
@@ -43,8 +52,6 @@ final class PersonalDetailsViewModel: ObservableObject {
             if birthDate > now {
                 errors["birthDate"] = "Fødselsdato kan ikke være i fremtiden."
             }
-        } else {
-            errors["birthDate"] = "Velg fødselsdato før du lagrer."
         }
         guard errors.isEmpty else { return false }
         guard let userId else {

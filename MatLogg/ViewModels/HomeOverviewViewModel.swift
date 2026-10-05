@@ -32,6 +32,7 @@ struct HomeOverview {
 @MainActor
 final class HomeOverviewViewModel: ObservableObject {
     @Published private(set) var overview = HomeOverview.empty
+    @Published private(set) var loggingStreak: Int?
     @Published private(set) var isLoading = true
     @Published private(set) var products: [UUID: Product] = [:]
     @Published private(set) var errorMessage: String?
@@ -68,6 +69,7 @@ final class HomeOverviewViewModel: ObservableObject {
 
     func reset() {
         requestID = UUID()
+        loggingStreak = nil
         owner = nil
         day = nil
         overview = .empty
@@ -81,10 +83,11 @@ final class HomeOverviewViewModel: ObservableObject {
             .store(in: &subscriptions)
     }
 
-    func load(userId: UUID?, date: Date) async {
+    func load(userId: UUID?, date: Date, now: Date = Date(), calendar: Calendar = .current) async {
         let timing = PerformanceSignposts.begin("Home.Load")
         defer { PerformanceSignposts.end(timing) }
         let selectedDay = Calendar.current.startOfDay(for: date)
+        if owner != userId { loggingStreak = nil }
         if owner != userId || day != selectedDay {
             overview = .empty
             products = [:]
@@ -104,10 +107,13 @@ final class HomeOverviewViewModel: ObservableObject {
                 return try await repository.loadSummaries(userId: userId, dates: [selectedDay])
             }()
             guard let summary = summaries.first else { throw DatabaseServiceError.unavailable }
+            // A streak read failure must not hide the selected day's overview or report a false zero.
+            let loggingDates = try? await repository.loadLoggingDates(userId: userId)
             let productsTiming = PerformanceSignposts.begin("Home.Products")
             let products = await repository.getProducts(Set(summary.logs.map(\.productId)))
             PerformanceSignposts.end(productsTiming)
             guard requestID == request, !Task.isCancelled else { return }
+            loggingStreak = loggingDates.map { LoggingStreakCalculator.count(dates: $0, now: now, calendar: calendar) }
             self.products = products
             overview = PerformanceSignposts.measure("Home.PrepareOverview") {
                 HomeOverview(summary: summary, productNames: products.mapValues(\.name),
@@ -115,6 +121,7 @@ final class HomeOverviewViewModel: ObservableObject {
             }
         } catch {
             guard requestID == request, !Task.isCancelled else { return }
+            loggingStreak = nil
             errorMessage = "Kunne ikke hente oversikten. Prøv igjen."
         }
     }

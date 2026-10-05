@@ -138,6 +138,10 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         try await perform { try $0.deleteLog(id) }
     }
 
+    func loadLoggingDates(userId: UUID) async throws -> [Date] {
+        try await perform { try $0.loadLoggingDates(userId: userId) }
+    }
+
     func getAllLogs(userId: UUID) async -> [FoodLog] {
         await performIfAvailable { $0?.getAllLogs(userId: userId) ?? [] }
     }

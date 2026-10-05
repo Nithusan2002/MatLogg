@@ -194,7 +194,6 @@ private struct LoggContent: View {
     private var logList: some View {
         let groups = groupedLogs
         let logs = screen.presentation.mealLogs
-        let totals = screen.presentation.totals
         let hasCurrentSummary = screen.summary.map { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } == true
         let loading = screen.isLoading || !hasCurrentSummary
         return ScrollViewReader { proxy in
@@ -212,28 +211,11 @@ private struct LoggContent: View {
                         }
                     }
                     .padding(.vertical, 8)
-                    if hasCurrentSummary {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Hele dagen")
-                                .font(AppTypography.captionEmphasis)
-                                .foregroundStyle(AppColors.deepInk)
-                            Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
-                                .font(AppTypography.title)
-                                .foregroundStyle(AppColors.deepInk)
-                            ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 8) {
-                                    mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                                }
-                                VStack(alignment: .leading, spacing: 8) {
-                                    mealNutrientLabels(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                                }
-                            }
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 18))
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("meal-room-totals")
+                    if hasCurrentSummary, let summary = screen.summary {
+                        StatusSummaryContent(summary: summary, goal: nil)
+                            .padding(20)
+                            .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+                            .accessibilityIdentifier("meal-room-totals")
                     }
                 }
                 .listRowBackground(AppColors.background)
@@ -340,23 +322,6 @@ private struct LoggContent: View {
         }
     }
 
-    private func mealNutrientLabels(protein: Float, carbs: Float, fat: Float) -> some View {
-        Group {
-            mealNutrientLabel("Protein", value: protein, tint: AppColors.macroProteinTint)
-            mealNutrientLabel("Karbohydrat", value: carbs, tint: AppColors.macroCarbTint)
-            mealNutrientLabel("Fett", value: fat, tint: AppColors.macroFatTint)
-        }
-    }
-
-    private func mealNutrientLabel(_ label: String, value: Float, tint: Color) -> some View {
-        Text("\(label) \(NutritionDisplay.wholeGrams(value)) g")
-            .font(AppTypography.captionEmphasis)
-            .foregroundStyle(AppColors.deepInk)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.12), in: Capsule())
-            .fixedSize(horizontal: false, vertical: true)
-    }
 
     private func beginAdding(to meal: String) {
         appState.selectedMealType = meal

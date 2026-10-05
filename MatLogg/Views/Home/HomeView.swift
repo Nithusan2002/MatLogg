@@ -352,10 +352,17 @@ private struct HomeTabContent: View {
 
 
                     TimelineView(.periodic(from: .now, by: 60)) { context in
-                        Text(homeHeading(at: context.date))
-                            .font(AppTypography.hero)
-                            .foregroundColor(AppColors.deepInk)
-                            .fixedSize(horizontal: false, vertical: true)
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                homeHeadingText(at: context.date).fixedSize()
+                                Spacer(minLength: 0)
+                                loggingStreakBadge
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                homeHeadingText(at: context.date)
+                                loggingStreakBadge
+                            }
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -538,6 +545,10 @@ private struct HomeTabContent: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
             appState.logSelectedDate = Date()
+            Task { await refreshSummaries() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
+            Task { await refreshSummaries() }
         }
         .sheet(item: $selectedProduct) { product in
             ProductDetailView(
@@ -578,6 +589,30 @@ private struct HomeTabContent: View {
 
     private func loadMealReuse(userId: UUID?, date: Date) async {
         if let userId { await mealReuseViewModel.load(userId: userId, date: date) }
+    }
+
+    private func homeHeadingText(at date: Date) -> some View {
+        Text(homeHeading(at: date))
+            .font(AppTypography.hero)
+            .foregroundColor(AppColors.deepInk)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var loggingStreakBadge: some View {
+        if let count = overviewModel.loggingStreak {
+            HStack(spacing: 5) {
+                Image(systemName: "flame.fill")
+                    .foregroundColor(count > 0 ? AppColors.accent : AppColors.textSecondary)
+                Text(count, format: .number)
+                    .foregroundColor(count > 0 ? AppColors.deepInk : AppColors.textSecondary)
+                    .monospacedDigit()
+            }
+            .font(AppTypography.bodyEmphasis)
+            .fixedSize()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(count == 1 ? "Mat logget 1 dag på rad" : "Mat logget \(count) dager på rad")
+        }
     }
 
     private func homeHeading(at now: Date) -> String {
@@ -930,82 +965,6 @@ struct MealOverviewCard: View {
 
 }
 
-private struct StatusSummaryContent: View {
-    let summary: DailySummary
-    let goal: Goal?
-
-    private var calorieBalance: CalorieBalance? {
-        goal.flatMap { GoalCalculator.calorieBalance(dailyGoal: $0.dailyCalories, consumed: summary.totalCalories) }
-    }
-
-    var remainingCalories: Int {
-        calorieBalance?.remaining ?? 0
-    }
-
-    var overCalories: Int {
-        calorieBalance?.over ?? 0
-    }
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Kalorier")
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.energyTextSecondary)
-                Text("\(NutritionDisplay.wholeCalories(summary.totalCalories)) kcal")
-                    .font(AppTypography.hero)
-                    .foregroundColor(AppColors.deepInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let goal {
-                    (
-                        Text(overCalories > 0 ? "\(overCalories) kcal over mål" : "\(remainingCalories) kcal igjen")
-                            .font(AppTypography.secondaryEmphasis)
-                        + Text(overCalories > 0 ? "" : " av \(goal.dailyCalories)")
-                            .font(AppTypography.secondary)
-                    )
-                        .foregroundColor(AppColors.energyTextSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .accessibilityElement(children: .combine)
-
-            let layout = dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
-                : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-            layout {
-                nutrient(label: "Proteiner", value: summary.totalProtein, target: goal?.proteinTargetG, tint: AppColors.macroProteinTint)
-                nutrient(label: "Karbohydrater", value: summary.totalCarbs, target: goal?.carbsTargetG, tint: AppColors.macroCarbTint)
-                nutrient(label: "Fett", value: summary.totalFat, target: goal?.fatTargetG, tint: AppColors.macroFatTint)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func nutrient(label: String, value: Float, target: Float?, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Circle().fill(tint).frame(width: 6, height: 6).accessibilityHidden(true)
-                Text(label)
-                    .font(AppTypography.caption)
-                    .foregroundColor(AppColors.energyTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text("\(NutritionDisplay.wholeGrams(value)) g")
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.deepInk)
-            if let target {
-                Text("Mål \(NutritionDisplay.wholeGrams(target)) g")
-                    .font(AppTypography.secondary)
-                    .foregroundColor(AppColors.energyTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-    }
-}
 
 struct MealTypeSelector: View {
     @EnvironmentObject var appState: AppState

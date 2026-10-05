@@ -1,9 +1,56 @@
 import Foundation
 import Testing
+import SwiftUI
 @testable import MatLogg
 
 @MainActor
 struct ProfileTests {
+    @Test func appearanceDefaultsToSystemAndPersistsAllChoices() throws {
+        let suite = "AppearanceTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let vm = PreferencesViewModel(defaults: defaults)
+        #expect(vm.appearance == .system)
+        #expect(vm.appearance.colorScheme == nil)
+        for appearance in AppAppearance.allCases {
+            vm.appearance = appearance
+            #expect(PreferencesViewModel(defaults: defaults).appearance == appearance)
+        }
+        #expect(AppAppearance.light.colorScheme == .light)
+        #expect(AppAppearance.dark.colorScheme == .dark)
+        defaults.set("unknown", forKey: "appAppearance")
+        #expect(PreferencesViewModel(defaults: defaults).appearance == .system)
+    }
+
+    @Test func appleNameSuggestionRequiresExplicitUseAndPreservesEditedName() {
+        let vm = PersonalDetailsViewModel(store: ProfileDetailsStoreStub())
+        vm.begin(details: .empty, userId: UUID())
+        #expect(vm.displayName.isEmpty)
+        #expect(vm.useSuggestedName("  Test Navn  "))
+        #expect(vm.displayName == "Test Navn")
+        vm.displayName = "Mitt navn"
+        #expect(!vm.useSuggestedName("Apple Navn"))
+        #expect(vm.displayName == "Mitt navn")
+        vm.displayName = ""
+        #expect(!vm.useSuggestedName("  "))
+    }
+
+    @Test func appleNameSuggestionSurvivesMissingNameAndNeverCrossesOwners() throws {
+        let account = User(id: UUID(), email: "test@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+        let shared = account.preservingAppleNameSuggestion(sharedName: "  Test Navn  ", previous: nil)
+        #expect(shared.appleDisplayNameSuggestion == "Test Navn")
+        let restored = account.preservingAppleNameSuggestion(previous: shared)
+        #expect(restored.appleDisplayNameSuggestion == "Test Navn")
+        #expect(account.preservingAppleNameSuggestion(sharedName: "Nytt navn", previous: shared).appleDisplayNameSuggestion == "Test Navn")
+        let other = User(id: UUID(), email: "other@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+        #expect(other.preservingAppleNameSuggestion(previous: shared).appleDisplayNameSuggestion == nil)
+        #expect(User.local(id: account.id).preservingAppleNameSuggestion(previous: shared).appleDisplayNameSuggestion == nil)
+        let encoded = try JSONEncoder().encode(shared)
+        #expect(try JSONDecoder().decode(User.self, from: encoded).appleDisplayNameSuggestion == "Test Navn")
+        let oldData = try JSONEncoder().encode(account)
+        #expect(try JSONDecoder().decode(User.self, from: oldData).appleDisplayNameSuggestion == nil)
+    }
+
     @Test func optionalNameSurvivesReopeningAndIsScopedToItsOwner() throws {
         let suite = "ProfileNameTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -12,11 +59,11 @@ struct ProfileTests {
         let owner = UUID()
         let vm = PersonalDetailsViewModel(store: store)
         vm.begin(details: .empty, userId: owner)
-        vm.birthDate = Date(timeIntervalSince1970: 1)
         vm.displayName = "  Test Navn  "
         #expect(vm.save())
         vm.begin(details: store.load(userId: owner), userId: owner)
         #expect(vm.displayName == "Test Navn")
+        #expect(vm.birthDate == nil)
         #expect(store.load(userId: UUID()).displayName == nil)
         vm.displayName = "  "
         #expect(vm.save())
@@ -28,17 +75,22 @@ struct ProfileTests {
         #expect(details.displayName == nil)
     }
 
-    @Test func birthDateIsRequiredAndOtherDetailsStayOptional() {
+    @Test func nameCanBeSavedWithoutBirthDateAndOtherDetailsStayOptional() {
         let store = ProfileDetailsStoreStub()
         let userId = UUID()
         var accepted: PersonalDetails?
         let vm = PersonalDetailsViewModel(store: store) { accepted = $0 }
         vm.begin(details: .empty, userId: userId)
         #expect(vm.birthDate == nil)
-        #expect(!vm.save())
-        #expect(vm.errors["birthDate"] != nil)
-        #expect(store.owner == nil)
-        #expect(accepted == nil)
+        vm.displayName = "Test Navn"
+        #expect(vm.save())
+        #expect(vm.errors.isEmpty)
+        #expect(store.owner == userId)
+        #expect(accepted?.displayName == "Test Navn")
+        #expect(store.details.birthDate == nil)
+        vm.begin(details: store.details, userId: userId)
+        #expect(vm.displayName == "Test Navn")
+        #expect(vm.birthDate == nil)
         let birthDate = Date(timeIntervalSince1970: 1)
         vm.birthDate = birthDate
         #expect(vm.save())

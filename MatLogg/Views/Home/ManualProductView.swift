@@ -6,6 +6,8 @@ struct ManualProductView: View {
     @StateObject private var viewModel: ManualProductViewModel
 
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showPhotoOptions = false
+    @State private var showPhotoLibrary = false
 
     let barcode: String?
     let onSaved: (Product) -> Void
@@ -27,6 +29,7 @@ struct ManualProductView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     productFields
+                    photoControls.disabled(viewModel.isSaving || viewModel.isLoadingImage)
                     nutritionFields
 
                     if let errorMessage = viewModel.errorMessage {
@@ -49,7 +52,7 @@ struct ManualProductView: View {
                     .disabled(viewModel.isSaving || viewModel.isLoadingImage)
                     .opacity(viewModel.isSaving ? 0.6 : 1)
 
-                    Text("Verdiene lagres slik du oppgir dem og merkes som brukerregistrerte. Du kan kontrollere dem mot emballasjen.")
+                    Text("Merket som brukerregistrert.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -97,7 +100,6 @@ struct ManualProductView: View {
                         .foregroundColor(AppColors.textSecondary)
                         .accessibilityLabel("Strekkode \(barcode)")
                 }
-                photoControls.disabled(viewModel.isSaving)
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
                 if viewModel.name.count >= ManualProductViewModel.maximumNameLength - 10 {
                     Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
@@ -115,38 +117,46 @@ struct ManualProductView: View {
     }
 
     private var photoControls: some View {
-        let libraryTitle = viewModel.productImage == nil ? "Velg fra bilder" : "Bytt bilde fra bibliotek"
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("Produktbilde · valgfritt")
-                .font(AppTypography.bodyEmphasis)
-            if let image = viewModel.productImage {
-                ProductHeroImageView(image: image, height: 160)
-            }
-            Button {
-                Task { await viewModel.openCamera() }
-            } label: {
-                Label("Ta bilde", systemImage: "camera")
-                    .frame(minHeight: 44)
-            }
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Label(libraryTitle, systemImage: "photo")
-                    .frame(minHeight: 44)
-            }
-            if viewModel.productImage != nil {
-                Button("Fjern bilde") {
-                    selectedPhoto = nil
-                    Task { await viewModel.selectImage(nil) }
+        VStack(alignment: .leading, spacing: 8) {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let image = viewModel.productImage {
+                        ProductHeroImageView(image: image, height: 160)
+                    }
+                    Button {
+                        showPhotoOptions = true
+                    } label: {
+                        Label(viewModel.productImage == nil ? "Legg til bilde (valgfritt)" : "Bytt bilde", systemImage: "photo")
+                            .frame(minHeight: 44)
+                    }
+                    .accessibilityIdentifier("manual-product-photo-options")
+                    if viewModel.productImage != nil {
+                        Button("Fjern bilde") {
+                            selectedPhoto = nil
+                            Task { await viewModel.selectImage(nil) }
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
+                    if let error = viewModel.imageError {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
                 }
-                .frame(minHeight: 44)
             }
-            if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
-            if let error = viewModel.imageError {
-                ErrorMessageView(error).font(AppTypography.caption)
-            }
-            Text("Bildet lagres kun på denne enheten sammen med produktet.")
-                .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+            Text("Bildet lagres bare på denne iPhonen.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
-        .foregroundColor(AppColors.actionText)
+        .foregroundStyle(AppColors.actionText)
+        .confirmationDialog("Velg produktbilde", isPresented: $showPhotoOptions, titleVisibility: .visible) {
+            Button("Ta bilde") { Task { await viewModel.openCamera() } }
+            Button("Velg fra bilder") {
+                selectedPhoto = nil
+                showPhotoLibrary = true
+            }
+            Button("Avbryt", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoLibrary, selection: $selectedPhoto, matching: .images)
     }
 
     private var nutritionFields: some View {

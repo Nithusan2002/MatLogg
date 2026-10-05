@@ -73,7 +73,7 @@ struct MorningCheckInView: View {
                         .accessibilityValue(viewModel.weightText.isEmpty ? "Ikke oppgitt" : viewModel.weightText)
                         .accessibilityHint("Åpner tallskala og direkte inntasting.")
                         .accessibilityIdentifier("morning-check-in-weight")
-                        Text("Vekten lagres i vekthistorikken under Oversikt. Målene dine endres ikke. Et tomt felt sletter ikke en tidligere registrering.")
+                        Text("Vekten lagres i vekthistorikken under Utvikling. Målene dine endres ikke. Et tomt felt sletter ikke en tidligere registrering.")
                             .font(AppTypography.caption)
                             .foregroundStyle(AppColors.textSecondary)
                         if let error = viewModel.errorMessage {

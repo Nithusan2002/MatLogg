@@ -275,7 +275,7 @@ private struct SavedMealLogContent: View {
                     .padding(.bottom, 8)
 
                 HStack(spacing: 12) {
-                    Text(detail.isEditing ? "Redigerer" : "Måltidsdetaljer")
+                    Text(detail.isEditing ? "Rediger lagret måltid" : "Loggfør lagret måltid")
                         .font(AppTypography.captionEmphasis)
                         .foregroundStyle(AppColors.textSecondary)
                     Spacer()
@@ -289,30 +289,21 @@ private struct SavedMealLogContent: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         CardContainer {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Navn")
-                                    .font(AppTypography.caption)
-                                    .foregroundStyle(AppColors.textSecondary)
-                                TextField("Navn på måltidet", text: Binding(
-                                    get: { detail.isEditing ? detail.name : meal.name },
-                                    set: { detail.name = $0 }
-                                ))
-                                .font(AppTypography.title)
-                                .disabled(!detail.isEditing)
-                                .accessibilityIdentifier("saved-meal-edit-name")
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        if detail.isEditing {
-                            SavedMealPhotoPicker(isCompact: true)
-                        } else if let data = meal.localImageData {
-                            ProductHeroImageView(localData: data, height: 180)
-                                .allowsHitTesting(false)
-                                .accessibilityLabel("Bilde av \(meal.name)")
-                        }
-
-                        CardContainer {
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                if detail.isEditing {
+                                    Text("Navn")
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                    TextField("Navn på måltidet", text: $detail.name)
+                                        .font(AppTypography.title)
+                                        .accessibilityIdentifier("saved-meal-edit-name")
+                                } else {
+                                    Text(meal.name)
+                                        .font(AppTypography.title)
+                                        .foregroundStyle(AppColors.ink)
+                                        .accessibilityAddTraits(.isHeader)
+                                }
+                                Divider().overlay(AppColors.separator)
                                 Text("Hele måltidet")
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundStyle(AppColors.deepInk)
@@ -327,16 +318,31 @@ private struct SavedMealLogContent: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
+                        if detail.isEditing {
+                            SavedMealPhotoPicker(isCompact: true)
+                        } else if let data = meal.localImageData {
+                            ProductHeroImageView(localData: data, height: 180)
+                                .allowsHitTesting(false)
+                                .accessibilityLabel("Bilde av \(meal.name)")
+                        }
 
-                        Text(detail.isEditing ? "Du endrer det lagrede måltidet." : "Mengdene gjelder denne loggføringen.")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.textSecondary)
+                        if !detail.isEditing {
+                            Text("Mengdene gjelder denne loggføringen.")
+                                .font(AppTypography.caption)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
 
-                        if !detail.isEditing { targetPicker }
+                        if !detail.isEditing {
+                            CardContainer { targetPicker }
+                        }
 
                         CardContainer {
                             let items = detail.isEditing ? detail.visibleItems : itemsModel.sortedItems
                             VStack(alignment: .leading, spacing: 16) {
+                                Text("Matvarer")
+                                    .font(AppTypography.sectionTitle)
+                                    .foregroundStyle(AppColors.ink)
+                                    .accessibilityAddTraits(.isHeader)
                                 ForEach(items) { item in
                                     if item.id != items.first?.id {
                                         Divider().overlay(AppColors.separator)

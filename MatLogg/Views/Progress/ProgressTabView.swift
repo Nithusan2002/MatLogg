@@ -36,7 +36,7 @@ private struct ProgressTabContent: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     HStack {
-                        Text("Oversikt")
+                        Text("Utvikling")
                             .font(AppTypography.hero)
                             .foregroundColor(AppColors.deepInk)
                             .accessibilityAddTraits(.isHeader)
@@ -121,8 +121,7 @@ private struct ProgressTabContent: View {
                 eyebrow: "I DAG",
                 value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
                 detail: goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
-                fill: AppColors.energyTint,
-                foreground: AppColors.onVibrant
+                fill: AppColors.warmSurface
             )
             highlightCard(
                 eyebrow: "SNITT SISTE 7 DAGER",
@@ -167,12 +166,7 @@ private struct ProgressTabContent: View {
 
     private var weightCard: some View {
         dashboardCard(title: "Vekt") {
-            if healthProfileViewModel.isLoadingWeights {
-                ProgressView("Henter vekthistorikk …")
-            }
-            if !healthProfileViewModel.isLoadingWeights || !healthProfileViewModel.weightEntries.isEmpty {
-                WeightEntryContent()
-            }
+            WeightCardContent()
         }
     }
 
@@ -217,6 +211,21 @@ private struct ProgressTabContent: View {
 
 }
 
+private struct WeightCardContent: View {
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+
+    var body: some View {
+        Group {
+            if healthProfileViewModel.isLoadingWeights {
+                ProgressView("Henter vekthistorikk …")
+            }
+            if !healthProfileViewModel.isLoadingWeights || !healthProfileViewModel.weightEntries.isEmpty {
+                WeightEntryContent()
+            }
+        }
+    }
+}
+
 private struct WeightEntryContent: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
@@ -224,13 +233,33 @@ private struct WeightEntryContent: View {
     @State private var weightText = ""
     @State private var selectedDate = Date()
     @State private var showWeightEntry = false
-    @State private var showDeleteConfirm = false
-    @State private var entryToDelete: WeightEntry?
 
     var body: some View {
         Group {
+            if let latest = healthProfileViewModel.weightEntries.last {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Siste registrering")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundColor(AppColors.textSecondary)
+                    Text("\(formatWeight(latest.weightKg)) kg")
+                        .font(AppTypography.heroValue)
+                        .foregroundColor(AppColors.deepInk)
+                    Text("Registrert \(weightDate(latest.date))")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Ingen vekt registrert")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.deepInk)
+                }
+            }
+
+            Divider().overlay(AppColors.separator)
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showWeightEntry.toggle() }
+                showWeightEntry.toggle()
             } label: {
                 Label(showWeightEntry ? "Skjul registrering" : "Registrer vekt", systemImage: showWeightEntry ? "chevron.up" : "plus")
                     .font(AppTypography.bodyEmphasis)
@@ -241,7 +270,14 @@ private struct WeightEntryContent: View {
             .buttonStyle(.plain)
 
             if showWeightEntry {
+                Text("Ny vektregistrering")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundStyle(AppColors.ink)
+                    .accessibilityAddTraits(.isHeader)
                 DatePicker("Dato", selection: $selectedDate, displayedComponents: .date)
+                Text("Vekt (kg)")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.deepInk)
                 TextField("Vekt (kg)", text: $weightText)
                     .keyboardType(.decimalPad)
                     .padding(12)
@@ -249,30 +285,23 @@ private struct WeightEntryContent: View {
                 PrimaryButton(title: "Lagre", systemImage: "plus") { Task { await saveWeight() } }
             }
 
-            if healthProfileViewModel.weightEntries.isEmpty {
-                Text("Ingen vektdata ennå")
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.textSecondary)
-            } else {
-                ForEach(healthProfileViewModel.weightEntries.suffix(3).reversed()) { entry in
-                    HStack {
-                        Text(entry.date.formatted(.dateTime.day().month(.abbreviated)))
-                        Spacer()
-                        Text("\(formatWeight(entry.weightKg)) kg").fontWeight(.semibold)
-                    }
-                    .font(AppTypography.body)
-                    .foregroundColor(AppColors.deepInk)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        entryToDelete = entry
-                        showDeleteConfirm = true
-                    }
+            if !healthProfileViewModel.weightEntries.isEmpty {
+                Divider()
+                if healthProfileViewModel.weightEntries.count > 1 {
+                    Text("Tidligere registreringer")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundColor(AppColors.textSecondary)
+                    WeightHistoryRows(entries: Array(healthProfileViewModel.weightEntries.suffix(4).reversed().dropFirst()))
+                }
+                NavigationLink {
+                    WeightHistoryView()
+                } label: {
+                    Label("Se alle registreringer", systemImage: "chevron.right")
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundColor(AppColors.actionText)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
             }
-        }
-        .alert("Slette vektregistrering?", isPresented: $showDeleteConfirm) {
-            Button("Slett", role: .destructive) { deleteSelectedWeight() }
-            Button("Avbryt", role: .cancel) {}
         }
     }
 
@@ -289,6 +318,87 @@ private struct WeightEntryContent: View {
         }
     }
 
+    private func formatWeight(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", locale: Locale(identifier: "nb_NO"), value)
+    }
+
+    private func weightDate(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
+    }
+}
+
+private struct WeightHistoryView: View {
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                if healthProfileViewModel.weightEntries.isEmpty {
+                    Text("Ingen vekt registrert")
+                        .font(AppTypography.body)
+                        .foregroundColor(AppColors.textSecondary)
+                } else {
+                    WeightHistoryRows(entries: Array(healthProfileViewModel.weightEntries.reversed()))
+                }
+            }
+            .padding(20)
+        }
+        .matLoggTabBarScrollClearance()
+        .background(AppColors.background.ignoresSafeArea())
+        .navigationTitle("Vekthistorikk")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct WeightHistoryRows: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    let entries: [WeightEntry]
+    @State private var showDeleteConfirm = false
+    @State private var entryToDelete: WeightEntry?
+
+    var body: some View {
+        Group {
+            ForEach(entries) { entry in
+                HStack(spacing: 12) {
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                        : AnyLayout(HStackLayout(spacing: 12))
+                    layout {
+                        Text(weightDate(entry.date))
+                        if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+                        Text("\(formatWeight(entry.weightKg)) kg").fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
+                    Button(role: .destructive) {
+                        entryToDelete = entry
+                        showDeleteConfirm = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .foregroundColor(AppColors.textSecondary)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Slett \(formatWeight(entry.weightKg)) kg registrert \(weightDate(entry.date))")
+                }
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.deepInk)
+            }
+        }
+        .alert("Slette vektregistrering?", isPresented: $showDeleteConfirm) {
+            Button("Slett", role: .destructive) { deleteSelectedWeight() }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            if let entryToDelete {
+                Text("\(formatWeight(entryToDelete.weightKg)) kg registrert \(weightDate(entryToDelete.date)).")
+            }
+        }
+    }
+
     private func deleteSelectedWeight() {
         guard let entryToDelete, let userId = authViewModel.currentUser?.id else { return }
         Task {
@@ -302,6 +412,10 @@ private struct WeightEntryContent: View {
 
     private func formatWeight(_ value: Double) -> String {
         value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", locale: Locale(identifier: "nb_NO"), value)
+    }
+
+    private func weightDate(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
     }
 }
 
@@ -338,13 +452,6 @@ private struct WeeklyCaloriesCard: View {
                     y: .value("Kilokalorier", summary.totalCalories)
                 )
                 .foregroundStyle(AppColors.energyChart)
-                .annotation(position: .top) {
-                    if Calendar.current.isDateInToday(summary.date) {
-                        Text("I dag")
-                            .font(AppTypography.captionEmphasis)
-                            .foregroundStyle(AppColors.ink)
-                    }
-                }
                 .cornerRadius(6)
                 if let dailyCalories {
                     RuleMark(y: .value("Mål", dailyCalories))
@@ -352,13 +459,9 @@ private struct WeeklyCaloriesCard: View {
                         .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 4]))
                 }
             }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day)) { _ in
-                    AxisValueLabel(format: .dateTime.weekday(.narrow))
-                }
-            }
+            .chartXAxis(.hidden)
             .chartYAxis(.hidden)
-            .frame(height: 168)
+            .frame(height: 140)
             .accessibilityLabel("Kalorier gjennom de siste sju dagene")
             #endif
 
@@ -380,6 +483,8 @@ private struct WeeklyCaloriesCard: View {
     }
 
     private func dayLabel(_ date: Date) -> String {
-        Calendar.current.isDateInToday(date) ? "I dag" : date.formatted(.dateTime.weekday(.abbreviated))
+        Calendar.current.isDateInToday(date)
+            ? "I dag"
+            : date.formatted(.dateTime.weekday(.abbreviated).locale(Locale(identifier: "nb_NO")))
     }
 }

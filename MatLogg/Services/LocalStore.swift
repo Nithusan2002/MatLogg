@@ -387,6 +387,24 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
     
+    func loadLoggingDates(userId: UUID) throws -> [Date] {
+        try queue.sync {
+            let sql = "SELECT DISTINCT loggedDate FROM logs WHERE userId = ?;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
+            var dates: [Date] = []
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                dates.append(Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)))
+                step = sqlite3_step(stmt)
+            }
+            guard step == SQLITE_DONE else { throw databaseError() }
+            return dates
+        }
+    }
+
     func loadSummaries(userId: UUID, dates: [Date]) throws -> [DailySummary] {
         let timing = PerformanceSignposts.begin("Store.Summaries.Total")
         defer { PerformanceSignposts.end(timing) }
