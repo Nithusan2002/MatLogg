@@ -12,7 +12,7 @@ final class SavedMealDetailUITests: XCTestCase {
         let library = app.buttons["food-search-saved-meals"]
         XCTAssertTrue(library.waitForExistence(timeout: 8))
         library.tap()
-        let meal = app.staticTexts["Yoghurtbolle med havre og blåbær"].firstMatch
+        let meal = app.staticTexts["Yoghurt med havre og bær"].firstMatch
         XCTAssertTrue(meal.waitForExistence(timeout: 8))
         meal.tap()
         let toggle = app.buttons["saved-meal-edit-toggle"]
@@ -32,6 +32,6 @@ final class SavedMealDetailUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Loggfør lagret måltid"].exists)
         XCTAssertTrue(app.buttons["saved-meal-log"].exists)
         toggle.tap()
-        XCTAssertEqual(name.value as? String, "Yoghurtbolle med havre og blåbær")
+        XCTAssertEqual(name.value as? String, "Yoghurt med havre og bær")
     }
 }

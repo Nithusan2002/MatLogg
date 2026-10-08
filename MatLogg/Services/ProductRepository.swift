@@ -52,8 +52,18 @@ protocol BarcodeProductService {
 
 extension APIService: BarcodeProductService {}
 
+nonisolated enum FoodSearchScope: String, Sendable {
+    case norway, global
+}
+
 protocol ProductNameSearchService {
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product]
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product]
+}
+
+extension ProductNameSearchService {
+    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] {
+        try await searchProductsByNameOpenFoodFacts(query, scope: .norway)
+    }
 }
 
 extension APIService: ProductNameSearchService {}

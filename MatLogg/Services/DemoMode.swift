@@ -47,7 +47,7 @@ final class DemoMode: ObservableObject {
                 let products = try await loadCatalog()
                 try Task.checkCancellation()
                 let user = AuthService(defaults: demoDefaults).activateLocalProfile()
-                let url = directory.appendingPathComponent("demo-v2.sqlite")
+                let url = directory.appendingPathComponent("demo-v3.sqlite")
                 let store = try await DemoDataset.prepare(at: url, userId: user.id, products: products, reset: reset)
                 try Task.checkCancellation()
                 if reset {
@@ -89,7 +89,7 @@ nonisolated enum DemoProductCatalog {
 
     static func load(bundle: Bundle = .main) async throws -> [Product] {
         let staples = try await MatvaretabellenService(bundle: bundle).fetchCommonFoods()
-        let selectedIDs: Set<String> = ["06.525", "06.502", "05.342", "06.010", "06.069", "04.342", "06.262", "06.725", "03.481", "05.337", "06.622", "05.381", "03.139", "06.736", "06.524"]
+        let selectedIDs: Set<String> = ["01.011", "06.525", "06.502", "05.342", "06.010", "06.069", "04.342", "06.262", "06.725", "03.481", "05.337", "06.622", "05.381", "03.139", "06.736", "06.524"]
         let selected = staples.filter { selectedIDs.contains($0.id) }
         guard selected.count == selectedIDs.count else { throw CocoaError(.fileReadCorruptFile) }
         let packaged = try await BackgroundWork.run {
@@ -148,6 +148,7 @@ nonisolated struct DemoDataset {
         let store = try LocalStore(databaseURL: url)
         let chosen = products
         let meals = try menu(products: products)
+        let oatsID = products.first { $0.externalID == "7044416013141" }?.id
         for product in chosen { try store.cacheCatalogProduct(product) }
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2200, proteinTargetG: 110, carbsTargetG: 275, fatTargetG: 73))
         let calendar = Calendar.current
@@ -162,11 +163,15 @@ nonisolated struct DemoDataset {
             let dinner = weekday == 6 ? 6 : offset % 2 == 0 ? 4 : 5
             let snack = offset % 2 == 0 ? 7 : 8
             var logs: [FoodLog] = []
-            for (mealIndex, menuIndex) in [breakfast, lunch, dinner, snack].enumerated() {
+            // Today's presentation is a day in progress; historical days stay complete.
+            let menuIndices = offset == 0 ? [breakfast, lunch] : [breakfast, lunch, dinner, snack]
+            for (mealIndex, menuIndex) in menuIndices.enumerated() {
                 let meal = meals[menuIndex]
                 let hour = [8, 12, 17, 20][mealIndex]
                 let time = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day) ?? day
                 for item in meal.items {
+                    // The recorded flow adds the oats once to complete this breakfast.
+                    if offset == 0 && item.productId == oatsID { continue }
                     logs.append(FoodLog(userId: userId, productId: item.productId, mealType: meal.type,
                         amountG: item.amountG, loggedDate: day, loggedTime: time,
                         calories: item.calories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG))
@@ -184,10 +189,12 @@ nonisolated struct DemoDataset {
         for product in chosen where favoriteCodes.contains(product.externalID ?? "") {
             try store.toggleFavorite(userId: userId, productId: product.id)
         }
+        let photos = try mealPhotos()
         for (index, meal) in meals.prefix(8).enumerated() {
             let created = today.addingTimeInterval(-Double(index + 1) * 86400)
             try store.saveSavedMeal(SavedMeal(userId: userId, name: meal.name,
-                suggestedMealType: meal.type, items: meal.items, createdAt: created, updatedAt: created))
+                suggestedMealType: meal.type, items: meal.items, localImageData: photos[index],
+                createdAt: created, updatedAt: created))
         }
     }
 
@@ -195,6 +202,15 @@ nonisolated struct DemoDataset {
         let name: String
         let type: String
         let items: [SavedMealItem]
+    }
+
+    private static func mealPhotos() throws -> [Int: Data] {
+        try Dictionary(uniqueKeysWithValues: [(0, "demo-meal-yoghurt"), (4, "demo-meal-salmon")].map { index, name in
+            guard let url = Bundle.main.url(forResource: name, withExtension: "jpg") else {
+                throw CocoaError(.fileReadNoSuchFile)
+            }
+            return (index, try Data(contentsOf: url))
+        })
     }
 
     /// Amounts refer to the exact catalog food, including cooked rice, meat and potatoes.
@@ -214,12 +230,12 @@ nonisolated struct DemoDataset {
             return Meal(name: name, type: type, items: items)
         }
         return try [
-            meal("Yoghurtbolle med havre og blåbær", "frokost", [("7038010045073", 200), ("7044416013141", 60), ("06.502", 75), ("06.525", 100)]),
-            meal("Grovbrød med ost og agurk", "frokost", [("05.342", 120), ("7038010053368", 40), ("06.010", 50)]),
-            meal("Matpakke med makrell i tomat", "lunsj", [("05.342", 120), ("7039010016322", 80), ("06.010", 50), ("06.622", 150)]),
-            meal("Knekkebrød med ost og tomat", "lunsj", [("7300400129459", 48), ("7038010053368", 40), ("06.069", 100), ("06.525", 120)]),
-            meal("Ovnsbakt laks med poteter", "middag", [("04.342", 180), ("06.262", 300), ("06.725", 150)]),
-            meal("Kylling med ris og brokkoli", "middag", [("03.481", 180), ("05.337", 250), ("06.725", 150), ("06.524", 70)]),
+            meal("Yoghurt med havre og bær", "frokost", [("01.011", 200), ("7044416013141", 60), ("06.502", 75), ("06.525", 100)]),
+            meal("Grovbrød med ost", "frokost", [("05.342", 120), ("7038010053368", 40), ("06.010", 50)]),
+            meal("Matpakke med makrell", "lunsj", [("05.342", 120), ("7039010016322", 80), ("06.010", 50), ("06.622", 150)]),
+            meal("Knekkebrød med ost", "lunsj", [("7300400129459", 48), ("7038010053368", 40), ("06.069", 100), ("06.525", 120)]),
+            meal("Laks med poteter", "middag", [("04.342", 180), ("06.262", 300), ("06.725", 150)]),
+            meal("Kylling med ris", "middag", [("03.481", 180), ("05.337", 250), ("06.725", 150), ("06.524", 70)]),
             meal("Fredagstaco", "middag", [("05.381", 100), ("03.139", 120), ("7038010053368", 25), ("06.069", 80), ("06.736", 50), ("06.524", 60)]),
             meal("Cottage cheese med bær", "snacks", [("7038010054471", 150), ("06.502", 75), ("7036110008844", 20)]),
             meal("Turpause med Kvikk Lunsj", "snacks", [("7622210816672", 47), ("06.622", 150)])

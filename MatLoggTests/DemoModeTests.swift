@@ -24,7 +24,11 @@ struct DemoModeTests {
         let products = try await DemoProductCatalog.load()
         let reloaded = try await DemoProductCatalog.load()
         #expect(products.count == 23)
-        #expect(products.filter { $0.source == "matvaretabellen" }.count == 15)
+        #expect(products.filter { $0.source == "matvaretabellen" }.count == 16)
+        #expect(!products.contains { $0.externalID == "7038010045073" })
+        let yoghurt = try #require(products.first { $0.externalID == "01.011" })
+        #expect(yoghurt.nutritionSource == .matvaretabellen)
+        #expect(yoghurt.fatGPer100g == 3.4)
         #expect(Set(products.map(\.id)).count == products.count)
         #expect(products.map(\.id) == reloaded.map(\.id))
         for product in products {
@@ -74,7 +78,19 @@ struct DemoModeTests {
                 #expect(item.nutritionSource == source.nutritionSource)
             }
         }
-        #expect(Set(demo.getSummary(userId: demoOwner, date: Date()).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
+        let today = demo.getSummary(userId: demoOwner, date: Date()).logs
+        #expect(Set(today.map(\.mealType)) == Set(["frokost", "lunsj"]))
+        let oats = try #require(catalog.first { $0.externalID == "7044416013141" })
+        #expect(!today.contains { $0.productId == oats.id })
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
+        #expect(Set(demo.getSummary(userId: demoOwner, date: yesterday).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
+        let pictured = meals.filter { $0.localImageData != nil }
+        #expect(Set(pictured.map(\.name)) == Set(["Yoghurt med havre og bær", "Laks med poteter"]))
+        for meal in pictured {
+            let data = try #require(meal.localImageData)
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
+        }
         let weight = WeightEntry(userId: demoOwner, date: Date(), weightKg: 99)
         try demo.saveWeightEntry(weight)
         let reopened = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [])

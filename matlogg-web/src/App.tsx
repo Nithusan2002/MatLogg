@@ -129,19 +129,19 @@ export default function App() {
 
         <section id="funksjoner" className="mx-auto max-w-6xl px-5">
           <Feature eyebrow="Favoritter" title="Favorittene dine, klare igjen" visual={
-            <AppScreenshot screen="meals" label="Hjem – registrerte måltider" />
+            <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
           }>
             <p>Lagre måltidene du spiser ofte, kontroller mengdene og loggfør dem på nytt.</p>
             <p>Nylig brukte matvarer ligger klare øverst, så hverdagen går raskere.</p>
           </Feature>
           <Feature flip eyebrow="Oversikt" title="Oversikt på dine premisser" visual={
-            <AppScreenshot screen="overview" label="Oversikt – historikk og næringsoversikt" />
+            <AppScreenshot screen="overview" label="Utvikling – historikk og næringsoversikt" />
           }>
             <p>Se dagens energi og makronæringsstoffer, og følg oversikten gjennom uken.</p>
             <p>Mål er valgfrie. Ingen røde tall, ingen «bra» eller «dårlig» mat – bare tydelig oversikt.</p>
           </Feature>
           <Feature eyebrow="Lokalt" title="På iPhonen. Også uten nett." visual={
-            <AppScreenshot screen="search" label="Søk – matvarer og favoritter" />
+            <AppScreenshot screen="diary" label="Dagbok – dagens måltider lagret på iPhonen" />
           }>
             <p>Loggen og lagrede matvarer ligger på iPhonen din, så logging av det du allerede har fungerer uten nett.</p>
             <p>Oppslag av nye produkter kan kreve internett. Synkronisering mellom enheter og sikkerhetskopi er ikke en del av MVP-en.</p>
@@ -179,4 +179,3 @@ export default function App() {
     </div>
   );
 }
-

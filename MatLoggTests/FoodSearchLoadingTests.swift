@@ -4,6 +4,23 @@ import Testing
 
 @MainActor
 struct FoodSearchLoadingTests {
+    @Test func countryAndGlobalSearchHaveSeparateCaches() async throws {
+        let products = LoadingSearchProducts()
+        let remote = CountingNameSearch()
+        let repository = DefaultFoodSearchRepository(products: products, catalog: LoadingCatalog(),
+            remote: remote, recentFoods: products)
+        let norwegian = Product(name: "Havre norsk", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+        let global = Product(name: "Havre global", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+        remote.result = [norwegian]
+        _ = try await repository.searchRemote(query: "havre", owner: nil)
+        remote.result = [global]
+        let expanded = try await repository.searchRemote(query: "havre", owner: nil, scope: .global)
+        let cached = try await repository.searchRemote(query: " HAVRE ", owner: nil)
+        #expect(expanded.map(\.id) == [global.id])
+        #expect(cached.map(\.id) == [norwegian.id])
+        #expect(remote.calls == 2)
+    }
+
     @Test func catalogStartsBeforeLocalReadCompletesAndLibraryIsReadOnlyOnce() async throws {
         let products = LoadingSearchProducts()
         let catalog = LoadingCatalog()
@@ -187,7 +204,7 @@ private final class LoadingSearchProducts: ProductRepository, RecentFoodReposito
 }
 
 private struct LoadingNameSearch: ProductNameSearchService {
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] { [] }
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] { [] }
 }
 
 
@@ -197,7 +214,7 @@ private final class CountingNameSearch: ProductNameSearchService {
     var result: [Product] = []
     var suspend = false
     var pending: CheckedContinuation<[Product], Error>?
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] {
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] {
         calls += 1
         if suspend { return try await withCheckedThrowingContinuation { pending = $0 } }
         return result

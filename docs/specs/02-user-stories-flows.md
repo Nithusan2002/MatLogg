@@ -509,3 +509,12 @@ Eksportkopier utenfor appen omfattes ikke av lokal sletting.
 - Matlogg, logghendelse og fjerning av utkast lagres atomisk med stabile entitets-ID-er.
 - Utkast synkroniseres ikke og slettes ved forkasting, fullført logging eller lokal profilsletting.
 - Måltidsmalbygging og øvrige redigeringsskjermer omfattes ikke av første leveranse.
+
+### Navnesøk med global utvidelse
+
+- Lokale treff vises mens brukeren skriver; «Søk» henter norske Open Food Facts-treff.
+- Etter et eksternt søk kan brukeren velge «Søk i hele verden», også ved null treff.
+- Globale treff legges i en egen seksjon etter eksisterende treff. Produkt-ID og strekkode dedupliseres.
+- Global lasting og nettfeil beholder eksisterende treff; feil tilbyr nytt globalt forsøk.
+- Endret søketekst eller profil forkaster gamle svar og nullstiller global utvidelse.
+- Næringsdata, enheter og kilde følger samme validering som norske treff.

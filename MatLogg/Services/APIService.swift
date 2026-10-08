@@ -378,11 +378,12 @@ class APIService {
     
     // MARK: - Open Food Facts Lookup
 
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] {
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope = .norway) async throws -> [Product] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        var components = URLComponents(string: "https://no.openfoodfacts.org/cgi/search.pl")
+        let host = scope == .norway ? "no.openfoodfacts.org" : "world.openfoodfacts.org"
+        var components = URLComponents(string: "https://\(host)/cgi/search.pl")
         components?.queryItems = [
             URLQueryItem(name: "search_terms", value: trimmed),
             URLQueryItem(name: "search_simple", value: "1"),

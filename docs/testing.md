@@ -414,3 +414,16 @@ Testene bruker syntetiske data. UI-testen bruker debugprofilen på dedikert
 simulator og forkaster eventuelt et tidligere utkast der, beholder et
 syntetisk produkt og logger én testregistrering. Fysisk systemterminering og
 VoiceOver må vurderes separat; UI-testen modellerer prosessavbrudd.
+
+### Skjermbilder til landingssiden
+
+`LandingCaptureUITests/testCaptureLandingScreens` er et eksplisitt opptaksverktøy.
+Bruk en dedikert simulator og sett `TEST_RUNNER_MATLOGG_LANDING_CAPTURE=1`
+foran `xcodebuild test` med `-only-testing:MatLoggUITests/LandingCaptureUITests`.
+Testen tilbakestiller bare demoen og lagrer åtte navngitte `landing-*`-bilder
+i xcresult. Den logger 60 g havregryn til dagens frokost én gang. Alle bildene tas uten
+tastatur. Søkebildet bruker et presist produktsøk; et eget dagbokbilde tas
+etter at bekreftelsen er lukket. Mengdebildet tas ved å åpne produktet igjen med den huskede
+mengden på 60 g, uten å fokusere feltet eller logge en ekstra registrering.
+Eksporter vedlegg med `xcrun xcresulttool export attachments` og kontroller
+bildene visuelt før de erstatter `matlogg-web/public/screenshots/`.

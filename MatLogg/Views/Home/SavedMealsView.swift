@@ -172,6 +172,7 @@ struct SavedMealsListView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .listRowBackground(AppColors.background)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Slett", role: .destructive) { deleteCandidate = meal }
                                 Button("Rediger") { editingMeal = meal }.tint(AppColors.action)
@@ -179,11 +180,15 @@ struct SavedMealsListView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                     .refreshable { await viewModel.load(userId: authViewModel.currentUser?.id) }
                 }
             }
             .background(AppColors.background)
             .navigationTitle("Lagrede måltider")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 if viewModel.showsLoadingFeedback && !viewModel.meals.isEmpty {
                     ToolbarItem(placement: .topBarLeading) {
@@ -191,7 +196,8 @@ struct SavedMealsListView: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Ferdig") { dismiss() }
+                    Button("Lukk") { dismiss() }
+                        .frame(minWidth: 44, minHeight: 44)
                 }
             }
             .task(id: authViewModel.currentUser?.id) {
@@ -676,6 +682,7 @@ private struct SavedMealNutritionSummary: View {
 }
 
 struct SavedMealRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let meal: SavedMeal
     @StateObject private var itemsModel: SavedMealItemsViewModel
 
@@ -691,21 +698,30 @@ struct SavedMealRow: View {
                     ProductThumbnailView(url: nil, localData: data, size: 44, imagePadding: 0)
                 } else {
                     Image(systemName: "square.stack.3d.up.fill")
-                        .foregroundStyle(AppColors.actionText)
+                        .font(.body)
+                        .foregroundStyle(AppColors.textSecondary)
                         .frame(width: 44, height: 44)
-                        .background(AppColors.mutedSurface, in: Circle())
+                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(meal.name).font(AppTypography.bodyEmphasis).foregroundStyle(AppColors.deepInk)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(itemsModel.subtitle).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary).lineLimit(2)
+                Text(itemsModel.subtitle)
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityHidden(true)
         }
+        .frame(minHeight: 56)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityHint("Åpner måltidet før loggføring")

@@ -63,6 +63,12 @@ og samme menyradstil. Den åpner en side med lokale vanlige spørsmål,
 der svarene er lukket fra start og foldes ut/inn per spørsmål,
 e-postkontakt og appversjon/build. Kontakt krever ikke konto og legger ikke
 automatisk ved brukerdata. Adressen kan kopieres dersom e-postappen ikke åpnes.
+Hjelpesiden prioriterer spørsmål, deretter kontaktraden «Kontakt oss» med
+«Send oss en e-post» og en pil. E-postadressen deles eller kopieres via
+radens kontekstmeny. «Datakilder og lisenser» beholdes under «Om MatLogg».
+En liten logo og «Versjon 1.0 (1)» med faktisk versjon/build avslutter siden
+som diskret metadata. Seksjonsavstanden er 20 pt; tekst skalerer med Dynamic
+Type og kontaktraden beholder minst 44 pt trykkflate.
 Raden viser lagret kalorimål i kcal per dag, eller «Valgfritt · Sett opp mål»
 når mål mangler. Hele raden åpner målskjermen, som viser detaljene for kalorier
 og makroer. Underteksten bryter over flere linjer ved stor tekst.

@@ -53,13 +53,17 @@ protocol FoodSearchRepository {
     func loadQuickChoices(owner: UUID?) async throws -> FoodSearchLibrary
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary
     func loadLibrary(owner: UUID?, onLocalLoaded: (FoodSearchLibrary) -> Void) async throws -> FoodSearchLibrary
-    func searchRemote(query: String, owner: UUID?) async throws -> [Product]
+    func searchRemote(query: String, owner: UUID?, scope: FoodSearchScope) async throws -> [Product]
     func saveManual(_ product: Product, owner: UUID) async throws
     func prepare(_ product: Product, owner: UUID) async throws
     func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome
 }
 
 extension FoodSearchRepository {
+    func searchRemote(query: String, owner: UUID?) async throws -> [Product] {
+        try await searchRemote(query: query, owner: owner, scope: .norway)
+    }
+
     func loadQuickChoices(owner: UUID?) async throws -> FoodSearchLibrary {
         try await loadLocalLibrary(owner: owner)
     }
@@ -157,13 +161,13 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         )
     }
 
-    func searchRemote(query: String, owner: UUID?) async throws -> [Product] {
+    func searchRemote(query: String, owner: UUID?, scope: FoodSearchScope) async throws -> [Product] {
         let timing = PerformanceSignposts.begin("Search.Remote")
         defer { PerformanceSignposts.end(timing) }
         let result = try await { () async throws -> [Product] in
             let timing = PerformanceSignposts.begin("Search.RemoteProviderOrCache")
             defer { PerformanceSignposts.end(timing) }
-            return try await remoteResults(query: query)
+            return try await remoteResults(query: query, scope: scope)
         }()
         try Task.checkCancellation()
         let filtered = try await BackgroundWork.run {
@@ -181,18 +185,19 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
 
     // Only public provider results are cached. Owner-specific overrides are read
     // on every search so edits and profile switches never reuse another owner's data.
-    private func remoteResults(query: String) async throws -> [Product] {
-        let key = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func remoteResults(query: String, scope: FoodSearchScope) async throws -> [Product] {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        guard !key.isEmpty else { return [] }
+        guard !normalizedQuery.isEmpty else { return [] }
+        let key = scope.rawValue + ":" + normalizedQuery
         searchCache = searchCache.filter { $0.value.expiresAt > now() }
         if let cached = searchCache[key] { return cached.products }
         if let pending = searches[key] { return try await pending.value }
         let task = Task { [remote] in
             let timing = PerformanceSignposts.begin("Search.RemoteAPI")
             defer { PerformanceSignposts.end(timing) }
-            return try await remote.searchProductsByNameOpenFoodFacts(key)
+            return try await remote.searchProductsByNameOpenFoodFacts(normalizedQuery, scope: scope)
         }
         searches[key] = task
         defer { searches[key] = nil }

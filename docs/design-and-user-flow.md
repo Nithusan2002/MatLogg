@@ -96,7 +96,8 @@ endringen påvirker ikke mål eller lagring. Ingen daglig innsjekk tilbys.
 på Hjem åpner dagsloggen ved det aktuelle måltidet. Dagsloggen har ingen
 måltidssnarveier; brukeren scroller mellom måltidene.
 Skjermen viser valgt dato, en kompakt dagsoppsummering og
-varer samlet i én flate per måltid. Dagsoppsummeringen gjenbruker energitall og
+varer samlet i én lys kortflate per måltid med 24 pt avrundede hjørner.
+Overskrift og «Legg til» inngår i kortet, også når måltidet er tomt. Dagsoppsummeringen gjenbruker energitall og
 makrooppsett fra Hjem, med samme korall–aprikos-gradient, 24 pt hjørner
 og 20 pt padding. Den viser registrert næring uten målstatus og vann. Varerader viser navn, mengde med lagret
 enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
@@ -106,7 +107,8 @@ en skjult handling for å nullstille søk eller filter.
 Dagsloggen har én •••-meny i skjermhodet og ingen søkeknapp. Søk etter mat
 er tilgjengelig fra Søk-fanen og loggingarket.
 Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
-«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen.
+«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen og beholder
+valgt dato. Dagsloggen har ingen egen stor «Legg til mat»-knapp.
 •••-menyen samler «Lagre som måltid»,
 «Kopier hele dagen fra i går» når tilgjengelig, og «Gå til i dag».
 Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
@@ -164,6 +166,13 @@ produkter med Open Food Facts for pakkevarer og merkevarer. Lokale treff vises
 mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller innsending
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
 Private produkter fra andre profiler er ikke søkbare.
+
+Eksternt navnesøk bruker først det norske Open Food Facts-endepunktet. Etter
+søk tilbys «Finner du ikke varen? Søk i hele verden», også uten treff. Globale
+treff vises i en egen seksjon etter eksisterende treff, uten duplikater på
+produkt-ID eller strekkode. Global lasting og feil beholder eksisterende treff
+og tilbyr retry. Endret søketekst nullstiller den globale utvidelsen. Cache
+skiller mellom norsk og globalt søk; samme næringsvalidering gjelder begge.
 
 «Nylig brukt» i Søk viser kompakte produktrader som åpner produktkortet.
 Hurtiglogging ligger under «Nylig logget» i Loggfør-menyen, med siste

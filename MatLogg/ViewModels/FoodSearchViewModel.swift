@@ -32,6 +32,17 @@ final class FoodSearchViewModel: ObservableObject {
     @Published private(set) var preparingProductID: UUID?
     @Published var selectedProduct: Product?
 
+    @Published private(set) var globalResults: [Product] = []
+    @Published private(set) var isSearchingGlobally = false
+    @Published private(set) var hasSearchedGlobally = false
+    @Published private(set) var globalSearchError: String?
+    private var globalTask: Task<Void, Never>?
+    private var globalID = UUID()
+
+    var canSearchGlobally: Bool {
+        hasQuery && !isLoading && phase != .local && phase != .searching && !hasSearchedGlobally
+    }
+
     private let repository: any FoodSearchRepository
     private var library: [Product] = []
     private var remoteProducts: [Product] = []
@@ -157,6 +168,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func cancelSearch() {
+        cancelGlobalSearch()
         searchID = UUID()
         searchTask?.cancel()
         searchTask = nil
@@ -165,6 +177,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func suspend() {
+        cancelGlobalSearch()
         searchID = UUID()
         searchTask?.cancel()
         searchTask = nil
@@ -178,6 +191,41 @@ final class FoodSearchViewModel: ObservableObject {
         preparationIndicatorTask = nil
         preparingProductID = nil
         isPreparing = false
+    }
+
+    private func cancelGlobalSearch() {
+        globalID = UUID()
+        globalTask?.cancel()
+        globalTask = nil
+        globalResults = []
+        isSearchingGlobally = false
+        hasSearchedGlobally = false
+        globalSearchError = nil
+    }
+
+    func searchGlobally() {
+        guard canSearchGlobally, !isSearchingGlobally else { return }
+        let request = UUID()
+        globalID = request
+        let submittedQuery = query
+        let submittedOwner = owner
+        isSearchingGlobally = true
+        globalSearchError = nil
+        globalTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let products = try await repository.searchRemote(query: submittedQuery, owner: submittedOwner, scope: .global)
+                guard globalID == request, owner == submittedOwner, !Task.isCancelled else { return }
+                globalResults = FoodSearchMatcher.unique(results + products).filter { product in
+                    !self.results.contains { $0.id == product.id }
+                }
+                hasSearchedGlobally = true
+            } catch {
+                guard globalID == request, owner == submittedOwner, !Task.isCancelled else { return }
+                globalSearchError = Self.message(for: error)
+            }
+            isSearchingGlobally = false
+        }
     }
 
     func saveManual(_ product: Product) async throws {
@@ -241,6 +289,9 @@ final class FoodSearchViewModel: ObservableObject {
             defer { PerformanceSignposts.end(timing) }
             guard let computed = try? await index.results(library: library, remote: remote, query: query), let self, resultsID == request, !Task.isCancelled else { return }
             results = computed
+            globalResults = FoodSearchMatcher.unique(computed + globalResults).filter { product in
+                !computed.contains { $0.id == product.id }
+            }
         }
     }
 

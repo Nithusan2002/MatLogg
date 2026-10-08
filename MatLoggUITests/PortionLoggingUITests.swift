@@ -8,8 +8,8 @@ final class PortionLoggingUITests: XCTestCase {
         app.launchArguments = ["--skip-auth", "--portion-qa", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         openBreakfast(app)
-        let add = app.buttons["meal-room-add"]
-        reveal(add, in: app)
+        let add = app.buttons["tab-log-food"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
         app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]
@@ -68,8 +68,8 @@ final class PortionLoggingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["first-log-skip"].waitForExistence(timeout: 8))
         app.buttons["first-log-skip"].tap()
         openBreakfast(app)
-        let add = app.buttons["meal-room-add"]
-        reveal(add, in: app)
+        let add = app.buttons["tab-log-food"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
         app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]

@@ -71,8 +71,8 @@ final class RepeatFoodUITests: XCTestCase {
     }
 
     private func openSearch(_ app: XCUIApplication) {
-        let add = app.buttons["meal-room-add"]
-        reveal(add, in: app)
+        let add = app.buttons["tab-log-food"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
         XCTAssertTrue(app.buttons["Søk etter mat"].waitForExistence(timeout: 5))
         app.buttons["Søk etter mat"].tap()

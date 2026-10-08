@@ -131,6 +131,22 @@ Oversikten bruker trykk på raden for å åpne detaljen og sveip til venstre for
 «Rediger» og «Slett». Det finnes ingen separat ⋯-meny eller langt-trykk-meny.
 Fullt sveip utløser ingen handling; «Slett» krever fortsatt bekreftelse.
 
+### Forbedringsplan for oversikten – 8. oktober 2026
+
+- Bruk kompakt navigasjonstittel og «Lukk» for å gi listen mer plass.
+- Samle navigasjonslinje og liste på `background`, med native skillelinjer.
+- Behold lagret bilde; demp standardikonet med `textSecondary` på `mutedSurface`.
+- Prioriter hele måltidsnavnet. Matvareoppsummeringen bruker `secondary` og én
+  linje ved vanlig tekststørrelse, uten linjegrense ved tilgjengelighetsstørrelser.
+  Lagrede produktnavn endres ikke. Hele oppsummeringen er tilgjengelig for VoiceOver.
+- Behold forhåndsvisning, sveipehandlinger, slettebekreftelse og eksisterende
+  laste-, tom- og feiltilstander. Ingen nye søke- eller sorteringsfunksjoner.
+
+Planen er implementert i oversikten og den delte `SavedMealRow`, som også
+brukes i hurtigvalg. Akseptansekriterier: hele navn kan brytes, rad og lukkeknapp
+har minst 44 pt trykkflate, dekorative ikoner skjules for VoiceOver, og stor
+tekst får økt radhøyde uten skriftkrymping.
+
 Detaljflaten beholder måltidsnavnet som tittel i begge moduser. «Rediger»/
 «Avbryt» ligger fast over scrollinnholdet sammen med modusmarkeringen.
 Navnet vises i samme felt, skrivebeskyttet før logging. Eksisterende bilde har

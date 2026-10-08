@@ -121,7 +121,7 @@ private struct ProgressTabContent: View {
                 eyebrow: "I DAG",
                 value: "\(NutritionDisplay.wholeCalories(today?.totalCalories ?? 0))",
                 detail: goal == nil ? "kcal" : "av \(goal?.dailyCalories ?? 0) kcal",
-                fill: AppColors.warmSurface
+                fill: AppColors.surface
             )
             highlightCard(
                 eyebrow: "SNITT SISTE 7 DAGER",

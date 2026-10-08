@@ -38,6 +38,7 @@ private struct FoodSearchContent: View {
     @StateObject private var viewModel: FoodSearchViewModel
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var draftViewModel: FoodLoggingDraftViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSavedMeals = false
     @State private var showManualProduct = false
@@ -85,6 +86,9 @@ private struct FoodSearchContent: View {
             await viewModel.load(owner: authViewModel.currentUser?.id)
             guard !Task.isCancelled else { return }
             if focusOnAppear { searchFocused = true }
+        }
+        .task(id: authViewModel.currentUser?.id) {
+            await draftViewModel.load(owner: authViewModel.currentUser?.id)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await reload() } }
@@ -254,7 +258,8 @@ private struct FoodSearchContent: View {
 
     private var searchList: some View {
         List {
-            if productSelectionContent == nil {
+            if productSelectionContent == nil,
+               draftViewModel.draft != nil || draftViewModel.errorMessage != nil {
                 Section { LoggingDraftBanner(onLogComplete: onLogComplete) }
                     .listRowBackground(AppColors.background)
                     .listRowSeparator(.hidden)
@@ -411,6 +416,45 @@ private struct FoodSearchContent: View {
                         .font(AppTypography.body).foregroundColor(AppColors.textSecondary)
                 }
                 .padding(.vertical, 8)
+            }
+            .listRowBackground(AppColors.surface)
+        }
+        globalSearchSection
+    }
+
+    @ViewBuilder
+    private var globalSearchSection: some View {
+        if viewModel.canSearchGlobally || (viewModel.hasSearchedGlobally && viewModel.globalResults.isEmpty) {
+            Section {
+                if let error = viewModel.globalSearchError {
+                    ErrorMessageView(error).font(AppTypography.body)
+                }
+                if viewModel.isSearchingGlobally {
+                    ProgressView("Søker i hele verden …")
+                        .frame(minHeight: 44)
+                } else if viewModel.hasSearchedGlobally {
+                    if viewModel.globalResults.isEmpty {
+                        Text("Ingen flere treff i det globale søket.")
+                            .font(AppTypography.body)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                } else {
+                    Text("Finner du ikke varen?")
+                        .font(AppTypography.body)
+                        .foregroundStyle(AppColors.textSecondary)
+                    Button(viewModel.globalSearchError == nil ? "Søk i hele verden" : "Prøv globalt søk igjen") {
+                        searchFocused = false
+                        viewModel.searchGlobally()
+                    }
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("food-search-global")
+                }
+            }
+            .listRowBackground(AppColors.surface)
+        }
+        if !viewModel.globalResults.isEmpty {
+            Section("Flere treff fra hele verden") {
+                productRows(viewModel.globalResults)
             }
             .listRowBackground(AppColors.surface)
         }

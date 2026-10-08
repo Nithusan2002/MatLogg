@@ -4,7 +4,7 @@ import { AppScreenshot } from "./AppScreenshot";
 const STEPS = [
   { tab: "Søk", screen: "flow-search", title: "Søk eller skann", text: "Finn matvaren du vil loggføre. Her søker vi etter havregryn.", label: "Søk – havregryn i appens matsøk" },
   { tab: "Mengde", screen: "flow-amount", title: "Velg mengde", text: "Kontroller matvaren, mengden og måltidet før du legger den til.", label: "Mengde – produktvisning før logging" },
-  { tab: "Logg", screen: "flow-log", title: "Se maten i loggen", text: "Registreringen vises i måltidet på Hjem etter at den er lagret.", label: "Logg – måltidet etter registrering" },
+  { tab: "Logg", screen: "flow-log", title: "Se maten i loggen", text: "Registreringen vises i måltidsloggen etter at den er lagret på enheten.", label: "Logg – måltidet etter registrering" },
 ] as const;
 
 export function DemoSection() {

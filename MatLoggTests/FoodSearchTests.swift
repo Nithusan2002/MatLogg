@@ -4,6 +4,58 @@ import Testing
 
 @MainActor
 struct FoodSearchTests {
+    @Test func globalExpansionPreservesFirstResultsDeduplicatesAndResetsOnEdit() async {
+        let repository = SearchRepositoryStub()
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        vm.setQuery("havre")
+        #expect(!vm.canSearchGlobally)
+        vm.search()
+        await repository.waitForRequests(1)
+        let norwegian = product("Havre norsk")
+        repository.requests[0].resume(returning: [norwegian])
+        await waitUntil { vm.phase == .complete }
+        vm.searchGlobally()
+        await repository.waitForRequests(2)
+        #expect(repository.scopes == [.norway, .global])
+        #expect(vm.results.map(\.id) == [norwegian.id])
+        let international = product("Havre global")
+        repository.requests[1].resume(returning: [norwegian, international, international])
+        await waitUntil { vm.hasSearchedGlobally }
+        #expect(vm.globalResults.map(\.id) == [international.id])
+        #expect(vm.results.map(\.id) == [norwegian.id])
+        vm.setQuery("melk")
+        #expect(vm.globalResults.isEmpty)
+        #expect(!vm.hasSearchedGlobally)
+        #expect(!vm.canSearchGlobally)
+    }
+
+    @Test func globalFailureKeepsResultsAndRetryDiscardsStaleResponse() async {
+        let repository = SearchRepositoryStub()
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        vm.setQuery("havre")
+        vm.search()
+        await repository.waitForRequests(1)
+        let norwegian = product("Havre norsk")
+        repository.requests[0].resume(returning: [norwegian])
+        await waitUntil { vm.phase == .complete }
+        vm.searchGlobally()
+        await repository.waitForRequests(2)
+        repository.requests[1].resume(throwing: URLError(.notConnectedToInternet))
+        await waitUntil { vm.globalSearchError != nil }
+        #expect(vm.results.map(\.id) == [norwegian.id])
+        #expect(vm.canSearchGlobally)
+        vm.searchGlobally()
+        await repository.waitForRequests(3)
+        vm.setQuery("melk")
+        repository.requests[2].resume(returning: [product("Havre gammel")])
+        await Task.yield()
+        #expect(vm.globalResults.isEmpty)
+        #expect(!vm.isSearchingGlobally)
+        #expect(vm.globalSearchError == nil)
+    }
+
     @Test func localProductsRemainUsableWhileCatalogIsLoadingAndAfterFailure() async {
         let repository = SearchRepositoryStub()
         let owner = UUID()
@@ -254,6 +306,7 @@ struct FoodSearchTests {
 @MainActor
 private final class SearchRepositoryStub: FoodSearchRepository {
     var library = FoodSearchLibrary(products: [], recent: [], favorites: [], suggestions: [])
+    var scopes: [FoodSearchScope] = []
     var requests: [CheckedContinuation<[Product], Error>] = []
     var delayedOwner: UUID?
     var libraryRequest: CheckedContinuation<FoodSearchLibrary, Error>?
@@ -269,8 +322,9 @@ private final class SearchRepositoryStub: FoodSearchRepository {
         }
         return library
     }
-    func searchRemote(query: String, owner: UUID?) async throws -> [Product] {
-        try await withCheckedThrowingContinuation { requests.append($0) }
+    func searchRemote(query: String, owner: UUID?, scope: FoodSearchScope) async throws -> [Product] {
+        scopes.append(scope)
+        return try await withCheckedThrowingContinuation { requests.append($0) }
     }
     func saveManual(_ product: Product, owner: UUID) async throws {}
     func prepare(_ product: Product, owner: UUID) async throws {
@@ -296,5 +350,5 @@ private final class SearchRepositoryStub: FoodSearchRepository {
 }
 
 private struct SearchNameServiceStub: ProductNameSearchService {
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] { [] }
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] { [] }
 }

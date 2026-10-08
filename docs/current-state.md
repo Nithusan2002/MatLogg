@@ -419,24 +419,39 @@ Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksj
 DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
 Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
 serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
-åtte favoritter og åtte sammensatte lagrede måltider. Fra 2026-10-04 brukes
-åtte Open Food Facts-produkter med lokale frontbilder og 15 råvarer fra den
+åtte favoritter og åtte sammensatte lagrede måltider. Fra 2026-10-08 brukes
+sju Open Food Facts-produkter med lokale frontbilder og 16 råvarer fra den
 bundlete Matvaretabellen. Utvalget dekker yoghurtbolle, grovbrød, matpakke med
 makrell, knekkebrød, ovnsbakt laks, kylling med ris, fredagstaco og cottage cheese
 med bær. Kvikk Lunsj og eple varierer kveldsmaten i historikken. Mengder for
 stekt kjøtt/fisk, kokt ris og kokte poteter bruker tilsvarende tilberedt katalogvare.
 Næringsverdier per 100 g, kilde og verifiseringsstatus bevares; ingen verdier
 gjettes. Produktbildene fungerer offline; råvarer og måltider bruker eksisterende
-fallback uten egne måltidsbilder. OFF-snapshot og bildeattribusjon finnes i
-`MatLogg/Resources/demo-openfoodfacts*`. Datasettet bruker `demo-v2.sqlite`, som
+fallback. Yoghurt med havre og bær og laks med poteter har lokale, AI-genererte
+illustrasjonsbilder i demoen. OFF-snapshot og bildeattribusjon finnes i
+`MatLogg/Resources/demo-openfoodfacts*`. Fra 2026-10-08 bruker datasettet `demo-v3.sqlite`, som
 opprettes ved neste åpning av demo. Tidligere demo og vanlige data overskrives
 ikke. «Tilbakestill demodata» i Profil tilbakestiller det aktive demodatasettet.
+Dagens demo viser frokost og lunsj med tre glass vann; middag og kveldsmat er
+foreløpig tomme. Havregryn i dagens frokost er utelatt slik at opptaksflyten kan
+loggføre 60 g én gang. Historiske dager beholder komplette måltider.
+Naturell yoghurt hentes fra Matvaretabellen (`01.011`), siden OFF-produktets
+navn/bilde og næringsverdier ikke samsvarte. Lagrede måltider har kortere navn.
 Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
 bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
 profilen ikke har registreringer fra før.
 
-Verifisert på iOS 26.5-simulator: 15 målrettede Swift-tester (demo og profil) og
-én UI-test for bytte begge veier og gjenoppretting av demomodus etter omstart.
+Oppdateringen 2026-10-08 er verifisert på iPhone 17 Pro / iOS 26.5 med seks
+målrettede demotester og én UI-test for redigering/forkasting av lagret måltid.
+Landingsopptak kjøres eksplisitt med `LandingCaptureUITests` på egen simulator;
+vanlige testkjøringer hopper over opptaket. Opptakstesten bestod og leverte åtte
+nye simulatorbilder til den lokale landingssiden. Alle bildene er uten tastatur,
+og måltidsloggen er tatt opp på nytt etter siste skjermoppdatering. Søkebildet
+viser ett presist produkttreff, og et eget dagbokbilde viser loggen uten
+bekreftelse over innholdet. Det finnes
+også et separat videoklipp på omtrent ti sekunder fra det første opptaket. Nettsiden er ikke publisert som del av oppgaven.
+Tidligere kontroll av bytte mellom
+vanlig modus og demo samt gjenoppretting etter omstart ble utført 2026-09-30.
 Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifisert.
 
 ## Søk og produktbilder (kontrollert mot kode 2026-10-01)

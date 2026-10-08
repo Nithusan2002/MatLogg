@@ -18,7 +18,7 @@ struct HelpSupportView: View {
             }
             .listRowBackground(AppColors.surface)
 
-            Section("Kontakt oss") {
+            Section {
                 Button {
                     guard var components = URLComponents(string: "mailto:\(contactAddress)") else {
                         showEmailUnavailable = true
@@ -37,19 +37,24 @@ struct HelpSupportView: View {
                         Image(systemName: "envelope")
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Send e-post")
+                            Text("Kontakt oss")
                                 .font(AppTypography.bodyEmphasis)
-                            Text(contactAddress)
+                            Text("Send oss en e-post")
                                 .font(AppTypography.secondary)
                                 .foregroundStyle(AppColors.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(AppTypography.secondaryEmphasis)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .accessibilityHidden(true)
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .accessibilityIdentifier("help-send-email")
+                .accessibilityHint("Åpner e-postappen. Hold inne for å dele eller kopiere e-postadressen.")
                 .contextMenu {
                     ShareLink("Del e-postadresse", item: contactAddress)
                 }
@@ -57,8 +62,6 @@ struct HelpSupportView: View {
             .listRowBackground(AppColors.surface)
 
             Section("Om MatLogg") {
-                LabeledContent("Versjon", value: version)
-                LabeledContent("Build", value: build)
                 DisclosureGroup("Datakilder og lisenser") {
                     Text("Næringsdata kommer fra Matvaretabellen, Open Food Facts eller opplysninger du legger inn selv. Tallene kan inneholde feil eller være utdaterte. Kontroller emballasjen ved behov.")
                         .foregroundStyle(AppColors.textSecondary)
@@ -79,19 +82,25 @@ struct HelpSupportView: View {
             .listRowBackground(AppColors.surface)
 
             Section {
-                Image("MatLoggLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72, height: 72)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .accessibilityHidden(true)
+                VStack(spacing: 8) {
+                    Image("MatLoggLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .accessibilityHidden(true)
+                    Text("Versjon \(version) (\(build))")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityLabel("Versjon \(version), build \(build)")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
         }
         .font(AppTypography.body)
+        .listSectionSpacing(.custom(20))
         .foregroundStyle(AppColors.deepInk)
         .scrollContentBackground(.hidden)
         .background(AppColors.background)

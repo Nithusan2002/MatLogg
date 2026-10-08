@@ -143,7 +143,7 @@ private final class QuickLibraryStub: FoodSearchRepository {
         fullLibraryCalls += 1
         return library
     }
-    func searchRemote(query: String, owner: UUID?) async throws -> [Product] { [] }
+    func searchRemote(query: String, owner: UUID?, scope: FoodSearchScope) async throws -> [Product] { [] }
     func saveManual(_ product: Product, owner: UUID) async throws {
         savedOwner = owner
         savedProduct = product

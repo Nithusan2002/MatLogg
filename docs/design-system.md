@@ -333,7 +333,10 @@ Minuskoppen er alltid synlig og vises dempet og deaktivert ved null glass.
 
 ### Måltidsrom
 
-Loggskjermen bruker eksisterende tema og en horisontal, rullbar MealChip-velger.
+Dagsloggen viser alle måltider uten måltidsvelger. Hvert måltid samles i én
+lys `surface`-kortflate med 24 pt kontinuerlige hjørner, 16 pt skjerminnrykk
+og luft mellom kortene. Overskrift, «Legg til» og tomtilstand inngår i kortet;
+varer skilles med diskrete linjer uten egne kort.
 Produktbilder er 52 pt med 2 pt innvendig luft og hele varen synlig; matnavn og mengde står over en sekundær næringslinje.
 Radene har 10 pt vertikal padding uten ekstra vertikale List-innrykk.
 Trykk på raden, VoiceOver-handlingen Rediger og sveiping åpner redigering;

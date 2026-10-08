@@ -7,7 +7,11 @@ https://world.openfoodfacts.org/terms-of-use
 https://opendatacommons.org/licenses/odbl/1-0/
 https://creativecommons.org/licenses/by-sa/3.0/
 
-All nutrition values are the source snapshot per 100 g.
+Active OFF nutrition values are the source snapshot per 100 g.
+The yoghurt entry 7038010045073 is excluded from the active demo as of
+2026-10-08: its name/image and nutrition disagree. Meals use Matvaretabellen
+01.011 (plain yoghurt) instead. Retained historical image credits below do
+not imply that every listed product is active.
 Potetmos is the dry product, not prepared mashed potatoes.
 Missing optional nutrients remain absent. This is presentation data, not a verified food catalogue.
 
@@ -58,3 +62,18 @@ https://images.openfoodfacts.org/images/products/762/221/081/6672/front_en.18.40
 Philadelphia naturell — 4000339697908
 https://world.openfoodfacts.org/product/4000339697908
 https://images.openfoodfacts.org/images/products/400/033/969/7908/front_en.24.400.jpg
+
+Saved meal illustration assets — 2026-10-08
+Generated with the built-in OpenAI imagegen tool for fictional demo data.
+These are illustrative meal photos, not photographs of a user’s meals.
+No nutrition values are inferred from these images.
+
+demo-meal-yoghurt.jpg
+Prompt: Square natural food photo of plain yoghurt with oat flakes, blueberries
+and banana slices in a white bowl, pale wooden table, soft window daylight,
+elevated three-quarter angle, centered close framing, no text/logos/extra food.
+
+demo-meal-salmon.jpg
+Prompt: Square natural food photo of oven-baked salmon, boiled potatoes and
+steamed broccoli on a white plate, pale wooden table, soft window daylight,
+elevated three-quarter angle, centered close framing, no text/logos/extra food.

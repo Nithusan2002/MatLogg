@@ -5,6 +5,25 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProductSearchTests {
+    @Test func nameSearchUsesSelectedCountryOrGlobalEndpoint() async throws {
+        SearchURLProtocolStub.handler = { request in
+            let url = try #require(request.url)
+            #expect(["no.openfoodfacts.org", "world.openfoodfacts.org"].contains(url.host ?? ""))
+            let response = try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            let name = url.host == "no.openfoodfacts.org" ? "Norway" : "Global"
+            let body = "{\"products\":[{\"code\":\"123\",\"product_name\":\"" + name + "\",\"nutriments\":{\"energy-kcal_100g\":100,\"proteins_100g\":2,\"carbohydrates_100g\":10,\"fat_100g\":4}}]}"
+            return (response, Data(body.utf8))
+        }
+        defer { SearchURLProtocolStub.handler = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchURLProtocolStub.self]
+        let service = APIService(httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)), catalogRetryLimit: 0)
+        let norwegian = try await service.searchProductsByNameOpenFoodFacts("havre")
+        let global = try await service.searchProductsByNameOpenFoodFacts("havre", scope: .global)
+        #expect(norwegian.first?.name == "Norway")
+        #expect(global.first?.name == "Global")
+    }
+
     @Test func matvaretabellenParserUsesOfficialNutrientIdsAndDoesNotInventMissingMacros() throws {
         let data = Data(#"""
         {
@@ -726,7 +745,7 @@ private struct ProductCatalogServiceStub: ProductCatalogService {
 }
 
 private struct ProductNameSearchServiceStub: ProductNameSearchService {
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] { [] }
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] { [] }
 }
 
 private final class ProductRepositorySpy: ProductRepository {

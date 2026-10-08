@@ -73,11 +73,8 @@ final class MatLoggUITests: XCTestCase {
         }
         app.buttons["Forrige dag"].tap()
         let dateLabel = app.buttons["day-navigation-date"].label
-        let addFood = app.buttons["meal-room-add"]
-        for _ in 0..<8 {
-            if addFood.isHittable { break }
-            app.swipeUp()
-        }
+        let addFood = app.buttons["tab-log-food"]
+        XCTAssertTrue(addFood.waitForExistence(timeout: 5))
         addFood.tap()
         app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]

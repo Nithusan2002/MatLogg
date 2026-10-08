@@ -250,13 +250,17 @@ private struct LoggContent: View {
                                 .disabled(group.logs.isEmpty)
                                 .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                             }
-                            .listRowBackground(AppColors.background)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32))
+                            .listRowBackground(mealCardBackground(top: true))
                             .listRowSeparator(.hidden)
                             if group.logs.isEmpty {
                                 Text("Ingen mat registrert")
                                     .font(AppTypography.secondary)
                                     .foregroundStyle(AppColors.textSecondary)
-                                    .listRowBackground(AppColors.background)
+                                    .padding(.bottom, 16)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32))
+                                    .listRowBackground(mealCardBackground(bottom: true))
+                                    .listRowSeparator(.hidden)
                             }
                             ForEach(group.logs) { log in
                                 LogRowView(
@@ -272,10 +276,25 @@ private struct LoggContent: View {
                                 )
                                 .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
                                 .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                                .listRowBackground(AppColors.surface)
-                                .listRowSeparatorTint(AppColors.separator)
+                                .padding(.bottom, log.id == group.logs.last?.id ? 6 : 0)
+                                .overlay(alignment: .bottom) {
+                                    if log.id != group.logs.last?.id {
+                                        Rectangle()
+                                            .fill(AppColors.separator)
+                                            .frame(height: 0.5)
+                                            .padding(.horizontal, 16)
+                                    }
+                                }
+                                .listRowBackground(mealCardBackground(bottom: log.id == group.logs.last?.id))
+                                .listRowSeparator(.hidden)
                             }
+                            Color.clear
+                                .frame(height: 16)
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(AppColors.background)
+                                .listRowSeparator(.hidden)
                         }
+                        .listSectionSeparator(.hidden)
                         .id(group.mealType)
                     }
                     if groups.isEmpty {
@@ -290,15 +309,6 @@ private struct LoggContent: View {
                         .listRowSeparator(.hidden)
                     }
                 }
-                Section {
-                    PrimaryButton(title: "Legg til mat", systemImage: "plus") {
-                        beginAdding(to: appState.selectedMealType)
-                    }
-                    .accessibilityIdentifier("meal-room-add")
-
-                }
-                .listRowBackground(AppColors.background)
-                .listRowSeparator(.hidden)
             }
             .refreshable {
                 isPullRefreshing = true
@@ -306,6 +316,7 @@ private struct LoggContent: View {
                 await logViewModel.loadSelectedSummary(userId: authViewModel.currentUser?.id, date: selectedDate)
             }
             .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
             .scrollContentBackground(.hidden)
             .matLoggTabBarScrollClearance()
             .task(id: "\(hasCurrentSummary)-\(pendingMealScroll ?? "")") {
@@ -322,6 +333,19 @@ private struct LoggContent: View {
         }
     }
 
+
+    private func mealCardBackground(top: Bool = false, bottom: Bool = false) -> some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: top ? 24 : 0,
+            bottomLeadingRadius: bottom ? 24 : 0,
+            bottomTrailingRadius: bottom ? 24 : 0,
+            topTrailingRadius: top ? 24 : 0,
+            style: .continuous
+        )
+        .fill(AppColors.surface)
+        .padding(.horizontal, 16)
+        .background(AppColors.background)
+    }
 
     private func beginAdding(to meal: String) {
         appState.selectedMealType = meal

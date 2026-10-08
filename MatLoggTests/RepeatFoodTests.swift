@@ -199,7 +199,7 @@ struct RepeatFoodTests {
 }
 
 private struct RepeatRemoteStub: ProductNameSearchService {
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] { [] }
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] { [] }
 }
 
 @MainActor
@@ -211,7 +211,7 @@ private final class RepeatSearchStub: FoodSearchRepository {
     func loadLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         FoodSearchLibrary(products: [], recent: [], favorites: [], suggestions: [])
     }
-    func searchRemote(query: String, owner: UUID?) async throws -> [Product] { [] }
+    func searchRemote(query: String, owner: UUID?, scope: FoodSearchScope) async throws -> [Product] { [] }
     func saveManual(_ product: Product, owner: UUID) async throws {}
     func prepare(_ product: Product, owner: UUID) async throws {}
     func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome {
