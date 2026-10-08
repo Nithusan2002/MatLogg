@@ -868,3 +868,20 @@ Siste ikke-lagrede endringer kan gå tapt ved brå terminering. Utkast er ikke b
 Bruk eksisterende komponenter og semantiske tokens, Dynamic Type, VoiceOver og
 44-punkters touchflater. Ingen automatisk åpning av utkast over onboarding eller
 innlogging. Ved lagringsfeil beholdes input og brukeren kan prøve igjen.
+
+## Landingsside (2026-10-08)
+
+Landingssiden bruker den varme paletten, store ekte appbilder og korte
+budskap om bruk uten konto, lokal logging og valgfrie mål. Toppseksjonen har
+et telefonbilde og små forklarende kort. Alle appbilder har en diskret mørk
+telefonramme som bevarer hele skjermbildet. En åpen måltidsseksjon bruker
+store yoghurt- og lakseillustrasjoner og viser gjenbruk av lagrede måltider.
+Oversiktsseksjonen har en mørk kontrastflate med egne lyse teksttokens;
+lokal logging vises på en varm, lys flate. Måltidsbilder merkes som
+AI-genererte illustrasjoner. Primærhandlingen er «Se demoen» så lenge betapåmelding ikke er
+åpnet. Den lover ikke tilgang eller samler inn kontaktopplysninger.
+
+Bildedemoen viser søk → mengde → logg. Brukeren velger steg manuelt;
+ingen automatisk avspilling eller spillknapp vises. Ved redusert bevegelse
+er CSS-animasjoner slått av. Appbilder beholder original tekst, tall og
+merking som demodata.

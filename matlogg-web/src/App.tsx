@@ -64,7 +64,7 @@ function Faq() {
 
 function Feature({ eyebrow, title, children, visual, flip }: { eyebrow: string; title: string; children: ReactNode; visual: ReactNode; flip?: boolean }) {
   return (
-    <div className="grid items-center gap-12 border-t py-20 lg:grid-cols-2">
+    <div className="feature-panel grid items-center gap-12 rounded-[2.5rem] border p-7 sm:p-12 lg:grid-cols-2">
       <div className={flip ? "lg:order-2" : ""}>
         <p className="eyebrow">{eyebrow}</p>
         <h3 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h3>
@@ -77,7 +77,7 @@ function Feature({ eyebrow, title, children, visual, flip }: { eyebrow: string; 
 
 export default function App() {
   const [menu, setMenu] = useState(false);
-  const [dlg, setDlg] = useState<null | "beta" | "contact">(null);
+  const [dlg, setDlg] = useState<null | "contact">(null);
   const close = () => setDlg(null);
   const links = [["#slik", "Slik fungerer det"], ["#funksjoner", "Funksjoner"], ["#faq", "Spørsmål"]];
 
@@ -89,7 +89,7 @@ export default function App() {
           <a href="#top" className="flex min-h-11 items-center"><Logo /></a>
           <div className="hidden items-center gap-8 md:flex">
             {links.map(([h, l]) => <a key={h} href={h} className="text-sm text-muted-foreground hover:text-foreground">{l}</a>)}
-            <button onClick={() => setDlg("beta")} className="btn-primary !min-h-11 text-sm">Meld interesse</button>
+            <a href="#slik" className="btn-primary !min-h-11 text-sm">Se demoen <span aria-hidden>↗</span></a>
           </div>
           <button className="grid h-11 w-11 place-items-center rounded-full border md:hidden" aria-expanded={menu} aria-controls="mobilmeny" aria-label={menu ? "Lukk meny" : "Åpne meny"} onClick={() => setMenu(!menu)}>
             <span aria-hidden className="text-lg">{menu ? "✕" : "☰"}</span>
@@ -98,42 +98,63 @@ export default function App() {
         {menu && (
           <div id="mobilmeny" className="border-t bg-background px-5 pb-5 md:hidden">
             {links.map(([h, l]) => <a key={h} href={h} onClick={() => setMenu(false)} className="flex min-h-12 items-center border-b">{l}</a>)}
-            <button onClick={() => { setMenu(false); setDlg("beta"); }} className="btn-primary mt-4 w-full">Meld interesse for beta</button>
+            <a href="#slik" onClick={() => setMenu(false)} className="btn-primary mt-4 w-full">Se demoen</a>
           </div>
         )}
       </header>
 
       <main id="main">
-        <section id="top" className="mx-auto grid max-w-6xl items-center gap-14 px-5 pb-16 pt-14 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
+        <section id="top" className="hero-section mx-auto grid max-w-6xl items-center gap-14 px-5 pb-16 pt-14 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />Norsk matlogging · Under utvikling
             </span>
-            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Matlogging som passer hverdagen din.</h1>
+            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Matlogging som passer <span className="hero-highlight">hverdagen din.</span></h1>
             <p className="mt-6 max-w-lg text-lg text-muted-foreground">Søk etter mat, skann strekkoder og få oversikt over dagen. Enkelt, rolig og på norsk.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button onClick={() => setDlg("beta")} className="btn-primary">Meld interesse for beta</button>
-              <a href="#slik" className="btn-ghost">Se hvordan det fungerer</a>
+              <a href="#slik" className="btn-primary">Se MatLogg i bruk <span aria-hidden>→</span></a>
+              <a href="#funksjoner" className="btn-ghost">Utforsk appen</a>
             </div>
           </div>
-          <AppScreenshot screen="home" label="Hjem – matlogg for valgt dag" priority />
+          <div className="hero-stage">
+            <div className="hero-orbit" aria-hidden="true" />
+            <div className="hero-phone"><AppScreenshot screen="home" label="Dagen din, samlet på ett sted" priority /></div>
+            <div className="hero-note hero-note-top"><span aria-hidden="true">✦</span><div><strong>Din dag. Din oversikt.</strong><span>Mål er helt valgfrie.</span></div></div>
+            <div className="hero-note hero-note-bottom"><span aria-hidden="true">↗</span><div><strong>Enklere neste gang</strong><span>Lagre måltider du bruker ofte.</span></div></div>
+          </div>
         </section>
 
-        <ul className="mx-auto grid max-w-6xl gap-px overflow-hidden px-5 sm:grid-cols-3">
-          {[["Bruk uten konto", "Kom i gang uten å registrere deg."], ["Lagre på iPhonen", "Loggen din ligger lokalt på enheten."], ["Norske råvarer", "Basert på Matvaretabellen."]].map(([t, d]) => (
-            <li key={t} className="border-t py-6 sm:pr-6"><p className="font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></li>
+        <ul className="mx-auto grid max-w-6xl gap-4 px-5 sm:grid-cols-3">
+          {[["01", "Uten konto", "Start med maten. Registrering er valgfritt."], ["02", "Også uten nett", "Logg med matvarene som er lagret på iPhonen."], ["03", "På dine premisser", "Få oversikt, med eller uten mål."]].map(([n, t, d]) => (
+            <li key={t} className="benefit-card rounded-3xl border bg-card p-6"><span className="eyebrow">{n}</span><p className="mt-5 text-xl font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></li>
           ))}
         </ul>
 
         <DemoSection />
 
-        <section id="funksjoner" className="mx-auto max-w-6xl px-5">
-          <Feature eyebrow="Favoritter" title="Favorittene dine, klare igjen" visual={
-            <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
-          }>
-            <p>Lagre måltidene du spiser ofte, kontroller mengdene og loggfør dem på nytt.</p>
-            <p>Nylig brukte matvarer ligger klare øverst, så hverdagen går raskere.</p>
-          </Feature>
+        <section id="funksjoner" className="mx-auto max-w-6xl space-y-8 px-5">
+          <section className="meal-story" aria-labelledby="meal-story-title">
+            <div className="meal-story-heading">
+              <p className="eyebrow">Dine gjengangere</p>
+              <h2 id="meal-story-title">Favorittfrokosten din.<br /><span>Klar igjen i morgen.</span></h2>
+              <p>Det du spiser ofte, trenger du ikke å legge inn fra bunnen hver gang. Lagre måltidet, juster mengdene og loggfør det på nytt.</p>
+              <a href="#slik" className="btn-ghost mt-6">Se hvordan du logger <span aria-hidden>↗</span></a>
+            </div>
+            <div className="meal-story-pictures">
+              <figure className="meal-photo meal-photo-breakfast">
+                <img src="./meals/yoghurt.jpg" alt="Illustrasjon av yoghurt med havre, blåbær og banan" width="640" height="640" loading="lazy" />
+                <figcaption><span>01 / Frokost</span><strong>Yoghurt med havre og bær</strong></figcaption>
+              </figure>
+              <figure className="meal-photo meal-photo-dinner">
+                <img src="./meals/salmon.jpg" alt="Illustrasjon av laks med poteter og brokkoli" width="640" height="640" loading="lazy" />
+                <figcaption><span>02 / Middag</span><strong>Laks med poteter</strong></figcaption>
+              </figure>
+            </div>
+            <div className="meal-story-app">
+              <div><p className="eyebrow">Fra favoritt til matlogg</p><h3>Samme måltid.<br />En ny dag.</h3><p>Lagrede måltider ligger klare i appen. Du velger selv hva og hvor mye du vil loggføre.</p><p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p></div>
+              <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
+            </div>
+          </section>
           <Feature flip eyebrow="Oversikt" title="Oversikt på dine premisser" visual={
             <AppScreenshot screen="overview" label="Utvikling – historikk og næringsoversikt" />
           }>
@@ -153,9 +174,9 @@ export default function App() {
 
         <section className="mx-auto max-w-6xl px-5 pb-24">
           <div className="rounded-[2.5rem] border border-primary/20 bg-primary-soft px-6 py-16 text-center">
-            <h2 className="text-4xl font-bold tracking-tight">Vil du prøve MatLogg først?</h2>
-            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Vi bygger MatLogg i rolig tempo. Betaen er ikke åpnet ennå.</p>
-            <button onClick={() => setDlg("beta")} className="btn-primary mt-8">Meld interesse for beta</button>
+            <h2 className="text-4xl font-bold tracking-tight">Litt mindre styr. Litt mer oversikt.</h2>
+            <p className="mx-auto mt-4 max-w-md text-muted-foreground">MatLogg er under utvikling. Utforsk hvordan appen fungerer mens vi gjør den klar for lansering.</p>
+            <a href="#slik" className="btn-primary mt-8">Se demoen <span aria-hidden>→</span></a>
           </div>
         </section>
       </main>
@@ -163,18 +184,18 @@ export default function App() {
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Prototype</span></div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <a href="./personvern.html" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</a>
+            <a href="./personvern.html#bildekilder" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Bildekilder</a>
             <button onClick={() => setDlg("contact")} className="min-h-11 px-3 text-sm text-muted-foreground hover:text-foreground">Kontakt</button>
           </div>
         </div>
       </footer>
 
-      <Modal open={dlg === "beta"} onClose={close} title="Betapåmelding">
-        <p>Dette er en prototype. Betapåmelding åpnes senere.</p>
-      </Modal>
       <Modal open={dlg === "contact"} onClose={close} title="Kontakt">
-        <p>Kontaktinformasjon er ikke publisert ennå. Dette er en plassholder i prototypen.</p>
+        <p>MatLogg drives av Nithusan Krishnasamymudali.</p>
+        <p><a className="underline" href="mailto:nithusank.2002@gmail.com">nithusank.2002@gmail.com</a></p>
+        <p className="text-sm">Unngå å sende matlogger, vekt eller andre helseopplysninger på vanlig e-post.</p>
       </Modal>
     </div>
   );

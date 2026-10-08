@@ -16,7 +16,7 @@ export function DemoSection() {
         <div>
           <p className="eyebrow">Slik fungerer det</p>
           <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">Fra matvare til matlogg</h2>
-          <p className="mt-4 max-w-md text-muted-foreground">Se de tre stegene i appen. Bildene er tatt i MatLogg med fiktive demodata.</p>
+          <p className="mt-4 max-w-md text-muted-foreground">Finn maten. Velg mengden. Ferdig. Velg et steg for å se ekte appbilder med fiktive demodata.</p>
           <ol className="mt-10 space-y-3">
             {STEPS.map((item, index) => (
               <li key={item.tab}>
@@ -36,9 +36,12 @@ export function DemoSection() {
                 className={`min-h-11 rounded-full px-5 text-sm font-semibold ${selected === index ? "bg-foreground text-background" : "text-muted-foreground"}`}>{item.tab}</button>
             ))}
           </div>
-          <div id="flow-screenshot" aria-live="polite" aria-atomic="true">
+          <div id="flow-screenshot" className="demo-stage" aria-live="polite" aria-atomic="true">
+            <div key={step.screen} className="demo-frame">
             <AppScreenshot screen={step.screen} label={step.label} />
+            </div>
           </div>
+          <p className="mt-5 text-center text-sm text-muted-foreground">{selected + 1} / 3 · {step.title}</p>
         </div>
       </div>
     </section>

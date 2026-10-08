@@ -306,3 +306,21 @@ iOS-tester er ikke kjørt på nytt. Ingen produksjons- eller nettpublisering.
 Arkitekturkontroll: eksisterende IO-grenser og lokal slettetransaksjon er
 bevart. Serverens domenepurge er atomisk; Auth følger etter og feil kan
 prøves igjen. Ingen synkkontraktendring eller nye arkitekturavvik.
+
+
+## Landingsside: tekst og kildekreditering (2026-10-08)
+
+Lokal nettside beskriver nå manuell bildedemo uten betapåmelding.
+Kontaktvinduet viser samme ansvarlige navn og e-postadresse som erklæringen.
+Personlige detaljer beskrives med påkrevd fødselsdato ved lagring, i samsvar
+med appens juridiske tekst. Bunnmenyen lenker til Open Food Facts-kreditering,
+CC BY-SA 3.0 / ODbL, produktkilder og originalfotografier. Måltidsillustrasjoner
+merkes som AI-genererte. Ingen ny datainnsamling eller ekstern tjeneste innført.
+
+HTTP-kontroll bekreftet 200 på `https://nithusan.no/MatLogg/personvern.html`
+og 404 på `https://nithusan.no/matlogg`; appens eksisterende URL beholdes.
+Dette bekrefter lenkens tilgjengelighet, ikke full produksjonsetterlevelse.
+Kontakt og kildekreditering er kontrollert i lokal nettleser; TypeScript/Vite
+og diffkontroll bestod. Ingen publisering av disse endringene er utført.
+Push til main vil utløse nettstedets publiseringsworkflow. Åpne produksjons-,
+leverandør-, risiko-/DPIA- og App Store-porter gjelder fortsatt.

@@ -7,7 +7,7 @@ export function AppScreenshot({ screen, label, priority = false }: {
 }) {
   return (
     <figure className="mx-auto w-full max-w-[300px]">
-      <div className="overflow-hidden rounded-[2.5rem] border border-foreground/10 bg-cream shadow-device">
+      <div className="phone-frame">
         <img
           src={`./screenshots/${screen}.png`}
           alt={`Skjermbilde fra MatLogg: ${label}. Vist med fiktive demodata.`}
@@ -15,7 +15,7 @@ export function AppScreenshot({ screen, label, priority = false }: {
           height={2622}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
-          className="block h-auto w-full"
+          className="block h-auto w-full rounded-[1.9rem]"
         />
       </div>
       <figcaption className="mt-4 text-center text-xs leading-relaxed text-muted-foreground">
