@@ -15,11 +15,11 @@ insert into public.saved_meals(id,owner_id,name,updated_at) values ('c0000000-00
 insert into public.saved_meal_items(id,saved_meal_id,product_id,product_name,amount,unit,kcal,protein,carbs,fat,nutrition_source,sort_index) values ('c0000000-0000-4000-8000-000000000005','c0000000-0000-4000-8000-000000000004','b0000000-0000-4000-8000-000000000001','Private item',100,'g',100,1,2,3,'user',0);
 insert into public.event_inbox(event_id,owner_id,device_id,type,created_at,schema_version,payload_json) values ('c0000000-0000-4000-8000-000000000006','a0000000-0000-4000-8000-000000000001','c0000000-0000-4000-8000-000000000007','log.upsert',now(),1,'{}');
 insert into private.sync_rate_windows(owner_id,window_start,request_count) values ('a0000000-0000-4000-8000-000000000001',now(),1);
-select is(has_function_privilege('anon','public.is_account_active_v1()','execute'),false,'anonymous callers cannot inspect account status');
+select is(has_function_privilege('anon','matlogg_internal.is_account_active_v1()','execute'),false,'anonymous callers cannot inspect account status');
 set local role authenticated;
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"a0000000-0000-4000-8000-000000000001"}',true);
 select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000001',true);
-select is(public.is_account_active_v1(),true,'active account can read');
+select is(matlogg_internal.is_account_active_v1(),true,'active account can read');
 select is(((select count(*) from public.profiles where id='a0000000-0000-4000-8000-000000000001') +
   (select count(*) from public.event_inbox where owner_id='a0000000-0000-4000-8000-000000000001') +
   (select count(*) from public.food_logs where owner_id='a0000000-0000-4000-8000-000000000001') +
@@ -35,7 +35,7 @@ select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select public.request_account_deletion_admin_v1('a0000000-0000-4000-8000-000000000001');
 set local role authenticated;
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"a0000000-0000-4000-8000-000000000001"}',true);
-select is(public.is_account_active_v1(),false,'deletion immediately deactivates read access');
+select is(matlogg_internal.is_account_active_v1(),false,'deletion immediately deactivates read access');
 select is(((select count(*) from public.profiles where id='a0000000-0000-4000-8000-000000000001') +
   (select count(*) from public.event_inbox where owner_id='a0000000-0000-4000-8000-000000000001') +
   (select count(*) from public.food_logs where owner_id='a0000000-0000-4000-8000-000000000001') +
@@ -48,7 +48,7 @@ select is(((select count(*) from public.profiles where id='a0000000-0000-4000-80
   (select count(*) from public.saved_meal_items where saved_meal_id='c0000000-0000-4000-8000-000000000004'))::integer,0,'old token cannot read any owned category before purge');
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"a0000000-0000-4000-8000-000000000002"}',true);
 select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000002',true);
-select is(public.is_account_active_v1(),true,'other owner remains active');
+select is(matlogg_internal.is_account_active_v1(),true,'other owner remains active');
 select is((select count(*)::integer from public.products where owner_id='a0000000-0000-4000-8000-000000000002'),1,'other owner retains read access');
 select * from finish();
 rollback;

@@ -848,3 +848,15 @@ beholdes; tilleggsfeltet `deletionCompleted` beskriver faktisk første forsøk.
 E-postmottaker er nithusank.2002@gmail.com. Resend-adapter er klargjort, men
 ingen tjeneste, avtale, avsender eller secret er opprettet. Aktivering krever
 dette og en verifisert leveransetest. Ingen brukerdata inngår i varsler.
+
+## 2026-10-08 – Privilegerte RPC-implementasjoner i internt skjema
+
+Security Advisor varslet authenticated SECURITY DEFINER EXECUTE for
+synk og kontostatus. Implementasjonene flyttes til `matlogg_internal`,
+som ikke eksponeres via PostgREST. RLS-avhengigheter bevares med ALTER
+FUNCTION SET SCHEMA. Offentlig synk-RPC beholder signaturen som SECURITY
+INVOKER-wrapper; JWT-identitet, eierskap og transaksjonsgrenser er uendret.
+Kontostatus har ikke lenger et offentlig RPC-endepunkt. Ingen arkitekturavvik.
+Direkte synk-RPC omgår fortsatt Edge-kvoten; dette er fortsatt en blocker
+før aktivering. Leaked-password protection krever planoppgradering og
+endres ikke. Migrasjonen er bare verifisert i en isolert lokal database.

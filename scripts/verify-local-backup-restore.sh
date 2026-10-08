@@ -12,7 +12,7 @@ cleanup() {
 trap cleanup EXIT
 
 docker exec "$container" pg_dump -U supabase_admin -d postgres -Fc \
-  --schema=auth --schema=public --schema=private > "$work/backup.dump"
+  --schema=auth --schema=public --schema=private --schema=matlogg_internal > "$work/backup.dump"
 docker exec "$container" createdb -U supabase_admin -T template0 "$restore_db"
 docker exec "$container" psql -U supabase_admin -d "$restore_db" -v ON_ERROR_STOP=1 -q \
   -c 'drop schema public; create schema extensions; create extension pgcrypto with schema extensions;'
@@ -23,7 +23,7 @@ cat > "$work/fingerprint.sql" <<'SQL'
 select format(
   'select %L || ''|'' || count(*) || ''|'' || md5(coalesce(string_agg(to_jsonb(t)::text, '''' order by to_jsonb(t)::text), '''')) from %I.%I t;',
   schemaname || '.' || tablename, schemaname, tablename
-) from pg_tables where schemaname in ('auth', 'public', 'private') order by schemaname, tablename
+) from pg_tables where schemaname in ('auth', 'public', 'private', 'matlogg_internal') order by schemaname, tablename
 \gexec
 SQL
 for database in postgres "$restore_db"; do
@@ -31,5 +31,5 @@ for database in postgres "$restore_db"; do
     -v ON_ERROR_STOP=1 < "$work/fingerprint.sql" > "$work/$database.txt"
 done
 cmp "$work/postgres.txt" "$work/$restore_db.txt"
-echo "PASS: auth/public/private restored with identical table counts and row fingerprints."
+echo "PASS: auth/public/private/matlogg_internal restored with identical table counts and row fingerprints."
 echo "This verifies a local logical backup only; hosted backup/PITR, Storage and operational recovery remain separate gates."

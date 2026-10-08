@@ -88,7 +88,17 @@ fjernes først etter stabil produksjonspilot.
 
 `scripts/verify-local-backup-restore.sh` bruker bare den isolerte
 `supabase_db_matlogg-sync-readiness`-containeren med syntetiske QA-data.
-Den dumper `auth`, `public` og `private`, gjenoppretter til en ny database,
+Den dumper `auth`, `public`, `private` og `matlogg_internal`, gjenoppretter til en ny database,
 sammenligner radkontrollsummer og rydder opp i restore-databasen og dumpen.
 Hosted backup/PITR og recovery skal i tillegg verifiseres etter
 `docs/production-readiness.md` før pilot.
+
+## Privilegerte interne funksjoner
+
+`matlogg_internal` skal ikke legges til PostgRESTs eksponerte skjemaer.
+RLS bruker `matlogg_internal.is_account_active_v1()`, og den offentlige
+synk-RPC-en er en SECURITY INVOKER-wrapper rundt den interne SECURITY
+DEFINER-implementasjonen. JWT-identitet, eierskap, nødstopp og atomisk
+inbox-/domeneskriving beholdes. Direkte synk-RPC er fortsatt tilgjengelig
+for innloggede brukere og omgår fortsatt Edge-kvoten; dette må sikres
+separat før synk aktiveres.

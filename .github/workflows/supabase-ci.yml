@@ -26,7 +26,7 @@ jobs:
       - name: Start disposable Supabase
         run: npx supabase start
       - name: Lint application schemas
-        run: npx supabase db lint --local --schema public --schema private --level warning
+        run: npx supabase db lint --local --schema public --schema private --schema matlogg_internal --level warning
       - name: Run pgTAP tests
         run: npx supabase test db
       - name: Test Auth and account deletion end to end
