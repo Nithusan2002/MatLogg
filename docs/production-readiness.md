@@ -643,3 +643,500 @@ backup-/logglagring og restore-prosedyre, aktiverte og leveransetestede varsler
 samt separat overvåking av uteblitte kjøringer gjenstår. Varslingsmottaker er
 avklart; begrunnelse for gammel 30-dagersfrist er ikke lenger relevant for
 nye forespørsler.
+
+## Fysisk kandidatkontroll 2026-10-08
+
+Kandidat fra commit `4a749fa` i separat QA-app
+`com.nithusan.MatLogg.QA1008.MatLogg`, fysisk iPhone 17 / iOS 27.0
+(24A435). Kildekopi, hashmanifest, bygg-/testlogger og xcresult er bevart i
+`/Users/nithu/MatLogg-QA/2026-10-08-physical/`. Apple-entitlement er beholdt.
+Hashkontroll mot arbeidsområdet viser bare avvik i Xcodes brukergrensesnittstate;
+klientkode, konfigurasjon og tester samsvarer.
+
+- Første `build-for-testing` feilet fordi Mac-en gikk tom for diskplass.
+  Etter frigjort plass bestod samme bygg ved nytt forsøk.
+- `test-without-building` med `ProfileTests`, `PortionLoggingTests`,
+  `PortionImportTests`, `LoggingDraftTests` og `RepeatFoodTests`:
+  **47 tester bestod, 0 feil, 0 hoppet over** (52 kjøringer med parameterisering).
+- Samlet `test-without-building` for kritiske UI-flyter:
+  **11 tester bestod, 0 feil, 0 hoppet over**. Dekker første logging/omstart,
+  intro med stor tekst, lokal lagringsinformasjon, manuell registrering og
+  redigering på tidligere dato, porsjoner etter omstart/redigering,
+  gjenlogging/Angre, vannlogging og tre utkastgjenopprettingsflyter.
+  Utkastflyten med største tekststørrelse og automatisk tilgjengelighetsaudit
+  bestod; dette erstatter ikke manuell VoiceOver. Termineringstesten
+  beviser ikke gjenoppretting innen autosave-vinduet på 300 ms.
+- Seks runtime-advarsler om `Invalid frame dimension (negative or non-finite)`
+  er registrert i UI-resultatet; ingen testfeil eller krasj i denne kjøringen.
+
+Kommandoene brukte scheme `MatLogg`, fysisk device-destination, eget
+DerivedData og `-parallel-testing-enabled NO`. Testantall og resultat er
+kontrollert med `xcresulttool get test-results summary`; kommandoenes
+exit-status alene er ikke brukt som bevis.
+
+**Go for videre intern QA; ekstern pilot er fortsatt ikke godkjent.**
+Ekte Apple-innlogging/kontokobling/utlogging, kamera-/etikettbaseline,
+manuell VoiceOver og faktisk offline-/låsekontroll av denne kandidaten er
+ikke utført. Tidligere manuell offlinekontroll gjelder kandidaten fra 7. oktober.
+Konto-/personvern-/driftsporter og forståelses-/frafallsobservasjoner er heller
+ikke lukket av disse testene. Dette er et signert Debug-testbygg, ikke
+verifisering av et TestFlight-distribusjonsbygg.
+
+Skills: `ios-swiftui` og `qa-release`. Kun denne statusdokumentasjonen er
+endret; ingen endring i avhengighetsretning, IO, local-first, transaksjonsgrenser,
+eierskap eller synkkontrakt.
+
+### Utvidet fysisk QA 2026-10-08
+
+Samme signerte QA-kandidat og fysisk iPhone som over, uten endringer i app
+eller tester. `test-without-building`, scheme `MatLogg`, eksplisitt fysisk
+destination og `-parallel-testing-enabled NO`. Resultatene er kontrollert
+med `xcresulttool get test-results summary`.
+
+- `ExtendedStorage.xcresult`: **64 tester bestod, 0 feil, 0 hoppet over**
+  (81 kjøringer med parameterisering) i `DailyGoalsTests`, `SavedMealsTests`,
+  `SavedMealStorageTests`, `MealReuseTests` og `ProfileTests`. Dekker blant annet
+  målvalidering/bevaring, måltidsgjenbruk, lagrede måltider og lokal
+  eksport/sletting med eierisolasjon. ProfileTests ble gjentatt fra første runde;
+  testantallene skal derfor ikke summeres som unik dekning. Dette er
+  repository-/ViewModel-tester, ikke manuell kontroll av systemets delingsark
+  eller ekte kontosletting.
+- `ExtendedUI.xcresult`: **6 bestod, 1 feilet, 0 hoppet over**. Grønne flyter:
+  egendefinerte mål etter lagring/omstart, ugyldig input/Avbryt, eksplisitt
+  godkjenning av forslag, eldre launch-argumenter, inngang til lagrede måltider
+  og lokalt søk/produktåpning. Måltidsbibliotekets UI-test kontrollerer
+  oppdagbarhet; full opprettelse/redigering/sletting i UI er ikke testet her.
+- `DailyGoalsUITests/testLargeTextKeepsFieldsAndSaveReachable` feilet i
+  `openGoals` ved forventning om navigation bar «Daglige mål».
+  `LargeGoalsRetest.xcresult`: uendret test alene feilet på samme punkt
+  (0 bestod, 1 feilet). Appen endte på «Utvikling» etter trykk på
+  `profile-edit-goals`, dokumentert i eksportert UI-hierarki. Mulig
+  treffpunkt/overlapp ved bunnmenyen; appfeil versus automatiseringsfeil er
+  ikke avklart. Behandles som åpent QA-funn, ikke som bestått målskjerm.
+- Dimensjonsadvarselen er reprodusert tre ganger i den utvidede UI-kjøringen.
+  Målrettet gjennomgang av frame-uttrykk og xcresult-issues ga ingen sikker
+  årsak eller kildekodelinje. Ingen krasj; ingen rettelse utført.
+
+Logger, xcresult og eksporterte UI-hierarkier ligger i samme QA-mappe.
+**No-go for ekstern pilot består.** Avklar stor-tekstnavigasjon før denne
+flyten godkjennes, og følg opp dimensjonsadvarselen. Øvrige tidligere åpne
+porter er uendret. Kun statusdokumentasjon er endret; ingen arkitekturavvik.
+Skills: `ios-swiftui`, `nutrition-privacy`, `qa-release`.
+
+### Oppfølging av stor-tekstnavigasjon 2026-10-08
+
+`DailyGoalsUITests.openGoals` ruller nå målraden helt over bunnmenyen
+før trykk, og kontrollerer både `isHittable` og radens plassering. Gesten
+går innenfor profilinnholdet, utenfor bunnmenyen. Testens forventninger om
+åpnet målskjerm, tilgjengelige felt og lagring er beholdt. Ingen appkode
+er endret; tidligere feil peker mot testens treffpunkt på delvis dekket rad.
+
+`xcodebuild test` på samme separate QA-app / fysisk iPhone 17, iOS 27.0:
+**alle 5 DailyGoalsUITests bestod, 0 feil, 0 hoppet over**, inkludert
+`testLargeTextKeepsFieldsAndSaveReachable`. Resultatet er kontrollert med
+xcresulttool; `GoalsNavigationFix.xcresult`, logg og skjermbilder ligger i
+den eksisterende QA-mappen. Skjermbildet av lagringsområdet med stor tekst
+er visuelt kontrollert. Deler av lagreknappen ligger bak menyen i dette
+snapshotet; testen bekrefter vellykket trykk/lagring, ikke full synlighet av
+hele knappen samtidig. Manuell VoiceOver/full visuell tilgjengelighetskontroll
+er derfor fortsatt en separat port.
+
+Det konkrete automatiserte navigasjonsfunnet er lukket for den korrigerte
+testinteraksjonen. To dimensjonsadvarsler forekommer fortsatt; årsaken er
+uavklart. Øvrige pilotporter og no-go er uendret. `git diff --check` bestod.
+Skills: product-design, ios-swiftui, qa-release. Arkitekturkontroll:
+kun testinteraksjon/dokumentasjon endret; ingen påvirkning på MVVM, IO,
+local-first, transaksjoner eller eierskap.
+
+### Full synlighet av lagreknapp ved største tekststørrelse – 2026-10-08
+
+UI-testen krever nå at hele lagreknappen ligger over den faktiske
+bunnmenyen før lagring. Fanebytte i testhjelperen ruller eksplisitt Profil
+inn i den horisontale menyen før trykk. Første kjøring
+(`FullSaveVisibility.xcresult`) feilet fordi Profil-trykket lot appen bli
+på Hjem, før målskjermen. Etter eksplisitt fanerulling bestod
+`FullSaveVisibilityRetry.xcresult`: **1 test, 0 feil, 0 hoppet over**,
+på samme fysiske iPhone og uendret appkode. Resultatet er kontrollert
+med xcresulttool og skjermbildet visuelt: hele «Lagre endringer» ligger
+fritt over menyen. Lagring og bekreftelse bestod.
+
+Tidligere delvis skjult knapp i screenshot skyldtes at testen sluttet
+å rulle ved `isHittable`; en fast appoverlapping er ikke bekreftet.
+Kun testinteraksjonen er rettet, ingen produkt-/layoutendring.
+
+Dimensjonsadvarselen er lokalisert i eksisterende logg til overgangen
+fra intro til første søk. Målrettet gjennomgang av onboarding og frame-
+uttrykk gir fortsatt ingen bevist årsak. Den siste testen, som starter
+med lokal debugprofil uten intro, hadde ingen runtime-advarsler; det
+lukker ikke onboarding-funnet. Ingen spekulativ apprettelse er utført.
+Dette punktet er fortsatt uferdig og krever videre diagnose av introovergangen.
+
+`git diff --check` bestod. Skills: product-design, ios-swiftui, qa-release.
+Kun tester og dokumentasjon endret; ingen arkitekturavvik eller endret IO,
+lagring, ernæringsberegning eller databruk. Pilotens øvrige no-go består.
+
+### Debuggerforsøk på introovergangen – 2026-10-08
+
+LLDB ble koblet til separat fysisk QA-app med stoppunkt på runtime-logging.
+Flere prosesser mistet forbindelsen med «Resume timed out»; ny debuggerøkt
+fikk kjøre etter at brukeren bekreftet opplåst telefon/kabel. En midlertidig
+QA-only task utløste `flow.startLogging()` etter åtte sekunder. Også en
+separat tom diagnoseapp ble brukt for å unngå tidligere onboarding-status.
+Ingen brukbar kallstakk for dimensjonsadvarselen ble fanget. Automatisk
+overgang ved direkte devicectl/LLDB-launch reproduserte ikke det observerte
+UI-testfunnet; dette er ikke bevis for at advarselen er borte.
+
+Diagnoseendringen er fjernet fra kildekopien, debuggeren er frakoblet og
+ordinær QA-app er bygget/installert igjen. Diagnoseappen har separat
+bundle-ID `com.nithusan.MatLogg.Diagnose1008.MatLogg`; ingen ekte brukerdata
+er berørt. Ingen diagnosekode lagt i repo eller layoutrettelse utført.
+Dimensjonsfunnet er fortsatt åpent. Neste diagnose må fange samme
+UI-testutløste overgang med testens runtime-diagnostikk aktiv.
+
+### Dimensjonsadvarsel: årsak fanget og søk rettet – 2026-10-08
+
+Oppfølging erstatter det tidligere uavklarte funnet for intro → søk.
+LLDB koblet til den faktisk UI-teststartede appen før introovergangen.
+Stopp på `os_log_fault_default_callback` fanget kallstakken via
+`XCTAutomationSupport.runtime_issue_os_log_fault_callback`,
+`SwiftUICore._FrameLayout.init` og **SwiftUI.InputAccessoryBar.body**.
+Utdrag bevart som `runtime-backtrace.txt` i QA-mappen.
+Dette lokaliserer advarselen til systemets tastaturverktøylinje, ikke
+MatLoggs bunnmeny. Den interne ugyldige dimensjonens verdi er ikke målt.
+
+Å fjerne Spacer alene beholdt advarselen (`KeyboardToolbarCandidate`).
+Søkets «Ferdig» er derfor flyttet fra keyboard-toolbar til navigasjonslinjen
+mens søkefeltet har fokus. Samme handling fjerner fokus; søk/lagring og
+databruk er uendret. Ingen globale runtime-varsler er deaktivert.
+
+- `SearchDismissCandidate.xcresult`: **3 UI-tester bestod, ingen
+  runtime-advarsler**, inkludert stor tekst og intro → første logging.
+- `SearchDismissFinal.xcresult`: **2 UI-tester bestod, ingen
+  runtime-advarsler**. Første logging kontrollerer nå eksplisitt at «Ferdig»
+  lukker tastaturet og at feltet kan fokuseres igjen før søk/logging/omstart.
+  Ordinær Søk-fane/produktåpning er også grønn.
+- Testantall/advarsler er kontrollert med xcresulttool, fysisk iPhone 17
+  / iOS 27.0. `xcodebuild test`, eget QA-bygg og serial testing.
+- Første diagnosekjøring feilet under runner-oppstart; den regnes ikke som
+  bestått. Midlertidig 35-sekunders pause for debugger-attach er fjernet fra
+  QA-testkopien og finnes ikke i repoet.
+
+Aksept: Tastaturet kan lukkes eksplisitt, søk kan gjenopptas, og den
+reproduserte introovergangen gir ikke dimensjonsadvarsel i de målrettede
+testene. Andre skjermers keyboard-toolbars er ikke vurdert som rettet.
+Pilotens konto-, kamera-, offline-, VoiceOver- og driftsporter gjenstår.
+Skills: product-design, ios-swiftui, qa-release. Arkitekturkontroll:
+kun view-lokal fokus/UI og regresjonstest endret; ingen ny IO, featurelogikk
+i AppState, endret local-first, transaksjon, eierskap eller synkkontrakt.
+`git diff --check` bestod.
+
+### Ekte Apple-forsøk i QA-app – 2026-10-08
+
+Brukerens fysiske forsøk viste «Kontohandlingen kunne ikke fullføres».
+Read-only staging Auth-logg for 16:40–16:50 UTC bekrefter HTTP 400:
+`Unacceptable audience in id_token: [com.nithusan.MatLogg.QA1008.MatLogg]`
+ved 16:44:02 UTC. Ingen kontoidentifikator, token eller nettverksadresse
+er kopiert til repoet. Apple-token kom fram til Supabase, men QA-bundle-ID
+var ikke tillatt av provideroppsettet. Kontokobling/utlogging kunne derfor
+ikke verifiseres i dette forsøket. Dette er ikke en bekreftet feil for vanlig distribusjons-ID.
+
+Etter eksplisitt brukergodkjenning ble Apple-providerens Client IDs i
+MatLogg Staging 2026-10-08 utvidet til
+`com.nithusan.MatLogg,com.nithusan.MatLogg.QA1008.MatLogg`.
+Dashboardet bekreftet lagring, og gjenåpnet innstilling viste begge ID-er.
+Øvrige providerinnstillinger ble beholdt.
+
+Nytt fysisk forsøk nådde dialogen for kontokobling; brukerens skjermbilde
+viste én lokal loggføring. Etter «Knytt til konto» bekreftet brukeren at
+samme loggføring fortsatt viste riktig mengde. Brukeren bekreftet deretter
+alle tre kontroller: loggføringen bestod full lukking og gjenåpning av appen,
+kontodata var ikke synlige i lokal profil etter utlogging, og samme
+loggføring kom tilbake med riktig mengde etter innlogging med samme
+Apple-konto. Denne manuelle kontoflyten er bestått i QA-app mot staging.
+Resultatet er brukerobservert; det dekker ikke TestFlight/produksjon,
+en annen konto eller skybackup/synk.
+
+### Intern TestFlight-kandidat – 2026-10-08
+
+Release-arkiv og App Store Connect-eksport bestod med vanlig bundle-ID
+`com.nithusan.MatLogg`, versjon 1.0 og bygg 2026100801. Arkivet inkluderer
+den fysisk testede rettelsen for tastaturlukking i søk. Release manglet lokal
+Supabase-konfigurasjon; kandidaten ble derfor bygget med eksplisitt
+`-xcconfig Config/Supabase-Debug.xcconfig` mot MatLogg Staging.
+Ferdig Info.plist ble kontrollert for bundle-ID, versjon, byggnummer og
+staging-konfigurasjon uten utskrift av nøkkelen. Domenesynk er fortsatt av,
+og app-roten bruker `localOnly`. Ingen backend eller migrasjoner ble endret.
+
+`xcodebuild archive` og `xcodebuild -exportArchive` (først lokal eksport,
+deretter destination upload) bestod. App Store Connect bekreftet
+«Upload succeeded» og behandling startet kl. 18:58 Oslo. Dette bekrefter
+opplasting, ikke ferdig behandling eller tilgjengelighet for testere.
+Arkiv, IPA, logger og kandidatmanifest med SHA-256 ligger utenfor repoet i
+`/Users/nithu/MatLogg-QA/2026-10-08-testflight/`.
+
+Go for videre intern TestFlight-QA når Apple har behandlet kandidaten.
+Ekstern testing og produksjon er fortsatt ikke godkjent. Neste kontroll på
+dette bygget: ekte Apple-innlogging/kontokobling, logging i flymodus og
+bevaring etter omstart, søk/tastaturlukking og stor tekst. Tidligere grønne
+tester ble ikke kjørt på nytt fordi appkoden var uendret etter fysisk QA;
+distribusjonsbygget krever egne manuelle observasjoner. Arkitekturkontroll:
+ingen endret avhengighetsretning, IO-grense, lokal transaksjon eller eierskap.
+Skills: ios-swiftui og qa-release. `git diff --check` bestod.
+
+### Brukerbekreftet TestFlight-kontroll – 2026-10-08
+
+Brukeren bekreftet installasjon gjennom TestFlight etter opplastingen av
+1.0 (2026100801), og rapporterte at alle fire avtalte kontroller bestod:
+
+- Logging med flymodus og Wi-Fi av; mengden bestod full lukking og gjenåpning.
+- Søk, «Ferdig» for tastaturlukking og logging fra søkeresultat fungerte.
+- Apple-innlogging, eventuell kontokobling og ut-/innlogging bevarte loggen.
+- Stor tekst: Profil → Daglige mål kunne åpnes og lagres med tilgjengelig knapp.
+
+Dette er brukerobserverte manuelle resultater. Byggnummeret på den installerte
+appen ble ikke separat bekreftet; kandidaten over er antatt installert ut fra
+testforløpet. Ingen nye automatiske tester eller kodeendringer var nødvendige
+for denne dokumentasjonsoppdateringen. Intern TestFlight-røyketest er bestått;
+det er ikke samlet godkjenning av ekstern pilot eller produksjon. Resterende
+akseptkrav øverst gjelder fortsatt, inkludert skanning, manuell registrering,
+næringssummer, redigering/sletting/Angre og eksport på kandidatbygget samt
+konto-/personvern- og driftsavklaringer. Neste steg er å lukke disse hullene
+før en eksplisitt go/no-go for ekstern testing. Skill brukt: qa-release.
+
+### Supplerende fysisk automatisert QA – 2026-10-08
+
+TestFlight-appen ble ikke erstattet. Fysiske UI-tester kjørte på isolerte
+QA-ID-er, samme appkode som kandidaten, uten Apple-entitlement i de nye
+testinstallasjonene. `RemainingCleanFlows.xcresult` bekrefter bestått
+førstegangslogging/Angre/gjenåpning og manuell registrering/direkte redigering
+med flytting til annet måltid på tidligere dato. Første kjøring på den
+innloggede QA-appen feilet onboardingforventninger; ren installasjon løste det.
+
+Søkets manuelle reserveflyt feilet en gammel forventning om knappeteksten
+«Legg til …». Eksportert UI-hierarki viste korrekt «Velg mengde», produktnavn,
+100 g og `logging-draft-save`. Testen i `MatLoggUITests/MatLoggUITests.swift`
+ble oppdatert til denne stabile ID-en og 15 sekunders overgangsfrist;
+5 sekunder var ikke tilstrekkelig i retest. Et gjenbrukt, bevart utkast ga
+også en feil før produktregistrering. Ren installasjon med oppdatert test
+bestod i `ManualFallbackWaitRetest.xcresult` (én test, null feil).
+Dette lukker funksjonskontrollen på QA-kandidaten, men den korte
+overgangsfristens ustabilitet er ikke dokumentert som en ytelsesfeil eller
+løst appfeil. Appkode og opplastet TestFlight-bygg er uendret.
+
+Eksport-/eierskaps-/porsjonslogikk støttes av tidligere grønne målrettede
+resultater; disse ble ikke gjentatt uten kodeendring. Ekte vare/etikett,
+eksport via delingsarket og øvrige manglende TestFlight-observasjoner er
+fortsatt åpne. Supabase-DPA, SMTP-leverandør og relevante driftsfrister er
+fortsatt uavklart i datakartet; automatiserte app-tester lukker ikke disse.
+No-go for ekstern pilot består. Skills: qa-release, ios-swiftui,
+nutrition-privacy. Kun test og dokumentasjon endret; ingen nye IO-grenser,
+endret local-first, eierskap eller transaksjoner. `git diff --check` bestod.
+
+Brukeren bekreftet deretter at ekte vareskanning i TestFlight fungerte,
+at navn og næringsverdier ble kontrollert mot etiketten, og at en kjent
+mengde kunne logges. Dette er brukerobservert bestått for én vare;
+vare/GTIN og konkrete etikettverdier ble ikke oppgitt. Resultatet lukker
+denne enkle skannkontrollen, ikke en bred strekkode-/datakvalitetsbaseline.
+Brukeren leverte deretter eksportfilen fra den avtalte TestFlight-kontrollen.
+Lokal JSON-parsing bestod: schema-versjon 2, to loggføringer og to
+skannhistorikkposter. Begge loggføringer hadde positive, endelige mengder,
+enhet og dato samt ikke-negative, endelige kalori-/makroverdier. Dette
+bekrefter en lesbar eksport med loggdata; eksakt samsvar med appens verdier
+ble ikke kontrollert uten en uavhengig fasit. Ingen personopplysninger eller
+filinnhold er kopiert til repoet. De øvrige åpne pilotkravene gjenstår.
+
+### Konto- og driftsport for ekstern TestFlight – 2026-10-08
+
+**No-go for ekstern pilot; go for fortsatt intern QA.** TestFlight-resultatene
+ovenfor er grønne for de gjennomførte kontrollene, men leverandør-/driftsporten
+kan ikke godkjennes ut fra disse.
+
+Supabase-connectoren bekreftet at MatLogg Staging er `ACTIVE_HEALTHY` i
+`eu-north-1`. Kandidatens staging-konfigurasjon er tidligere kontrollert i
+arkivet. Dette bekrefter miljø og region, ikke avtaler eller overføringsgrunnlag.
+Dashboardåpning i Chrome feilet med timeout to ganger; faktisk SMTP-oppsett,
+organisasjonens avtaledokumenter og gjeldende logg-/backupfrister kunne ikke
+kontrolleres. Ingen konfigurasjon, avtaler eller produksjonsdata ble endret.
+
+Gjeldende primærkilder ble kontrollert:
+
+- [Supabase DPA](https://supabase.com/legal/customer-resources/data-processing-addendum)
+  beskriver avtalen som del av tjenestevilkårene. Dokumentet alene bekrefter
+  ikke kundens gjeldende avtalegrunnlag; ukjent aksept er ikke bevis på manglende DPA.
+- [Auth SMTP](https://supabase.com/docs/guides/auth/auth-smtp) begrenser standard
+  e-posttjeneste til organisasjonsmedlemmer. Ekstern e-postregistrering og
+  passordgjenoppretting trenger dokumentert eget SMTP-oppsett og leveringstest.
+- [Auth audit logs](https://supabase.com/docs/guides/auth/audit-logs) skiller
+  plattformlogger fra valgfrie databasebaserte audit-logger. Frister må
+  kontrolleres for begge; generelle plangrenser er ikke dokumentasjon på
+  faktisk sletting i prosjektet.
+
+Neste steg: få dashboardtilgang til organisasjonens avtaledokumenter,
+Auth-e-post/SMTP og planens logg-/backupinnstillinger. Dokumenter faktisk
+leverandør og frister uten hemmeligheter. Dersom SMTP ikke er konfigurert,
+krever valg/opprettelse av leverandør og auth-konfigurasjonsendring separat
+avklaring. Risiko-/DPIA-beslutning og øvrige åpne akseptkrav i datakartet
+består. Ingen ekstern testerinvitasjon er sendt. Skills: backend-api,
+nutrition-privacy og qa-release. Verifisering: read-only prosjektliste,
+leverandørdokumentasjon og `git diff --check`; ingen build nødvendig for
+statusdokumentasjon. Ingen arkitekturendring.
+
+Oppfølging etter at brukeren åpnet dashboardet: prosjektoversikten kunne
+leses og bekreftet Free-plan, North EU (Stockholm), Healthy og «LAST BACKUP
+No backups». Det siste er ingen bekreftelse på at alle leverandørkopier er
+fraværende. Ved navigasjon mistet nettleserverktøyet forbindelsen. Direkte
+Chrome-kontroll og omlasting viste deretter tomt sideinnhold på både Auth og
+organisasjonssiden. SMTP, avtaledokumenter og loggfrister er fortsatt ikke
+verifisert. Ingen innstillinger endret; ekstern pilot er fortsatt no-go.
+
+Brukerens skjermbilde av MatLogg Staging → Authentication → Emails → SMTP
+Settings bekrefter 2026-10-08 at «Enable custom SMTP» er deaktivert.
+SMTP-status er dermed avklart: eget SMTP er ikke aktivert. Ekstern
+ e-postregistrering/passordgjenoppretting kan ikke godkjennes med dette
+oppsettet, gitt standardtjenestens mottakerbegrensning. Apple-flyten er
+separat og har bestått tidligere kontroller; dette lukker ikke øvrige
+pilotkrav. Neste steg er å avklare eksisterende SMTP-leverandør eller velge
+leverandør, verifisere avsenderdomene og dokumentere avtale/frister før
+konfigurasjonsendring og leveringstest. Ingen innstillinger er endret.
+
+### Apple-only-pilotbygg – 2026-10-08
+
+Brukeren godkjente pilotavgrensning til lokal bruk og Apple-innlogging.
+`FeatureFlags.emailAuthenticationEnabled = false` skjuler e-postfelter,
+passordfelt, e-postinnlogging, registreringslenke og tilhørende skille i
+LoginView. E-postimplementasjonen beholdes; ingen backend/provider endres.
+Dette fjerner e-postflyten fra kandidatens UI, ikke fra Supabase API.
+Eksisterende e-postkontoer må derfor tas hensyn til ved senere bred utrulling.
+
+Fysisk `PilotAppleOnlyFresh.xcresult`: én UI-test bestod, null feil.
+Kontrollen åpner Konto fra førstegangslogging, bekrefter Apple-knappen og
+fravær av alle e-posthandlinger. Første testforsøk kjørte null tester og
+regnes ikke som bestått; neste stoppet ved installasjon av runner. Kjøring
+med separat DerivedData ga faktisk testresultat. Ny ekte Apple-autentisering
+ble ikke gjentatt; knappehåndtering og auth-tjenester er uendret.
+
+Release-arkiv og opplasting bestod for 1.0 (2026100802), vanlig bundle-ID
+`com.nithusan.MatLogg`, mot MatLogg Staging med eksplisitt xcconfig som
+forrige kandidat. Arkivets Info.plist bekreftet ID, versjon, bygg og staging.
+App Store Connect bekreftet «Upload succeeded» og processing kl. 19:33 Oslo.
+Artefakter og kandidatmanifest ligger utenfor repoet i
+`/Users/nithu/MatLogg-QA/2026-10-08-testflight-apple-only/`.
+
+Go for intern QA av dette bygget. Før videre pilot: installer 2026100802 i
+TestFlight og bekreft Apple-only-kontoskjermen. DPA, leverandør-/driftsfrister
+og øvrige åpne pilotkrav består; SMTP er utsatt sammen med e-postflyten.
+Skills: product-review, product-design, ios-swiftui, backend-api,
+nutrition-privacy og qa-release. Arkitekturkontroll: endringen styrer bare
+UI-tilgjengelighet; ingen ny IO, endret avhengighetsretning, eierskap,
+transaksjon, local-first eller synkkontrakt. Ingen arkitekturavvik.
+`git diff --check` bestod; ingen backendbuild nødvendig uten backendendring.
+
+Brukeren bekreftet etter oppdateringsinstruksen at kontoskjermen i TestFlight
+bare tilbyr Apple. Pilotens UI-avgrensning er dermed brukerbekreftet.
+Installert byggnummer ble ikke separat oppgitt; 2026100802 er antatt ut fra
+forløpet. Dette bekrefter skjermen, ikke en ny Apple-autentisering eller
+samlet pilotgodkjenning. Kun dokumentasjon endret; ingen ny build nødvendig.
+
+### Avtale- og loggkontroll etter Apple-only-pilot – 2026-10-08
+
+Organisasjonsnavigasjon i Chrome ble avbrutt av meldinger om endret appkontroll;
+organisasjonens konkrete avtaledokumenter er ikke lest. Ingen avtale er
+akseptert og ingen lagringsinnstilling er endret.
+
+[Supabase Data Residency and Transfers FAQ](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq)
+oppgir at Customer Data slettes innen 30 dager etter prosjektsletting.
+Dette er leverandørens regel for hele prosjektet, ikke fristen for sletting
+av én MatLogg-konto. Appens testede kontosletting forsøker hard-delete i samme
+kall med varig retry ved feil, som dokumentert over.
+
+[Supabase MAU-veiledning](https://supabase.com/docs/guides/troubleshooting/check-usage-for-monthly-active-users-mau-MwZaBs)
+beskriver tilgang til siste dags logger på Free-plan. Dette er et
+synlighetsvindu, ikke tilstrekkelig bevis for full sletting av alle kopier.
+[Auth Audit Logs](https://supabase.com/docs/guides/auth/audit-logs) beskriver
+separat valgfri lagring i `auth.audit_log_entries`. Aktiv innstilling og
+sletterutine for denne tabellen må kontrolleres separat.
+
+Neste konkrete bevis: organisasjon → dokumenter/DPA-status og Auth → Audit
+Logs-innstilling. Ingen antakelse om signert DPA eller automatisk sletting
+av databasebaserte audit-logger. Ekstern pilot er fortsatt no-go; intern
+QA kan fortsette. Kun dokumentasjon; `git diff --check` bestod.
+
+Brukerens skjermbilde 2026-10-08 av MatLogg Staging → Authentication →
+Audit Logs viser «Write audit logs to the database» deaktivert. Nåværende
+innstilling for databasebasert audit-logging er dermed bekreftet av.
+Dette beviser ikke at eldre poster i `auth.audit_log_entries` er fjernet,
+eller at plattformens Auth-logger er deaktivert. Ingen innstilling endret.
+Organisasjonens konkrete DPA-status er fortsatt ikke verifisert.
+Dokumentasjonsoppdatering; `git diff --check` bestod.
+
+
+## Leverandørkontroll 8. oktober 2026 – standardvilkår
+
+[Supabase Terms of Service](https://supabase.com/terms) blir effektive ved
+aksept eller bruk av tjenesten og inkluderer gjeldende DPA.
+[DPA, versjon 1 av 1. august 2026](https://supabase.com/legal/customer-resources/data-processing-addendum)
+punkt 11.2 angir sletting av dekkede data etter en 30 dagers periode ved
+avtalens utløp. Dette er ikke en slettefrist for individuelle appkontoer.
+Vurderingen forutsetter vanlig nettpåmelding under standardvilkår; en særavtale
+kan ha andre bestemmelser. En separat signert DPA er derfor ikke et eget
+pilotkrav ut fra de kontrollerte standardvilkårene. Tidligere formuleringer om
+uavklart DPA-status skal leses med denne presiseringen.
+
+[Underleverandørlisten av 1. juni 2026](https://supabase.com/legal/subprocessor-list/June-1-2026.pdf)
+er kontrollert. Den omfatter blant annet AWS og Cloudflare (hosting),
+Sentry og Braintrust (overvåking), samt støtte-, analyse- og AI-tjenester.
+Listen alene beviser ikke at hver tjeneste mottar MatLogg-appbrukeres data.
+Stockholm-regionen beviser heller ikke at all behandling skjer i EØS:
+DPA punkt 6.1 åpner for behandling andre steder, og punkt 12/Schedule 2
+beskriver SCC-er. Faktiske dataflyter og overføringsvurdering gjenstår.
+
+Brukerskjermbildet bekrefter databasebasert Auth-audit av; Supabases
+[Auth-dokumentasjon](https://supabase.com/docs/guides/auth/audit-logs)
+bekrefter at plattformlogger er en separat lagringsvei. Historiske poster og
+full lagringstid for driftslogger er ikke verifisert. Ingen avtale akseptert,
+abonnement opprettet, innstilling endret eller data slettet i denne kontrollen.
+
+Ekstern pilot er fortsatt no-go inntil de øvrige dokumenterte personvern- og
+releaseportene er avklart. Neste leverandørkontroll er aggregert kontroll av
+eldre audit-poster og dokumentasjon fra Supabase av driftsloggenes lagring og
+sletting. Egen auth-SMTP er utsatt sammen med e-postinnlogging.
+Skill: nutrition-privacy (tidligere releasevurdering: qa-release).
+Kun dokumentasjon; ingen ny kodeverifisering nødvendig.
+
+### Oppfølging: database-audit og driftslogger 8. oktober 2026
+
+Read-only SQL mot MatLogg Staging (`hvwktobxgarxptefzwbq`):
+`SELECT count(*) AS audit_row_count FROM auth.audit_log_entries;`
+returnerte **0**. Sammen med deaktivert database-audit er kontrollen av
+historiske databaseposter lukket for dette tidspunktet. Ingen rå logger,
+persondata eller tokens hentet; ingen sletting eller innstillingsendring.
+
+[Supabases Data Residency and Transfers FAQ](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq)
+oppgir operasjonelle/sikkerhetsmessige formål for logger og telemetri, men
+henviser til `privacy@supabase.io` for konkrete frister. FAQ-innholdet ble
+tilgjengelig via nettsøk; direkte sideåpning feilet. Et tilgjengelighetsvindu
+i dashboardet beviser fortsatt ikke sletting av alle leverandørkopier.
+Full loggretensjon kan derfor ikke lukkes med offentlig dokumentasjon alene.
+
+Forespørsel klar for behandlingsansvarlig å sende til `privacy@supabase.io`:
+
+> We use hosted Supabase on the Free plan in eu-north-1 for an Apple-only
+> iOS pilot. Auth audit writes to the database are disabled and the audit
+> table is empty. Please confirm the retention and deletion periods for
+> Auth/API/Edge Function logs and related telemetry, including any copies
+> retained for security or backup purposes. Does deleting an individual
+> Auth user delete or anonymize their identifiers in these logs? Please
+> also confirm where these logs are processed and stored, and which
+> subprocessors receive them.
+
+Forespørselen er utarbeidet, **ikke sendt**. Brukeren har autorisert
+undersøkelsen, men har ikke gitt eksplisitt instruks om å sende e-post.
+Ekstern pilotstatus er uendret; database-audit er ikke lenger et åpent funn.
+Skills: backend-api, nutrition-privacy og qa-release. Verifisering:
+read-only aggregat i staging; dokumentasjonskontroll med `git diff --check`.
+
+Brukeravklaring 8. oktober 2026: forespørselen til Supabases personvernkontakt
+skal ikke sendes. Leverandørens fulle loggretensjon forblir uavklart; dette
+er ikke bevis på manglende sletting eller et selvstendig dokumentert
+releaseavvik. E-post er ikke et påkrevd neste steg. Øvrige pilotporter
+må vurderes separat før go/no-go.

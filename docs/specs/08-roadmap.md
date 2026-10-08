@@ -48,7 +48,7 @@ avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
 
 ### **MVP Features (Frozen)**
 
-✅ Valgfri konto (Apple eller e-post/passord) og full lokal bruk uten konto
+✅ Valgfri Apple-konto og full lokal bruk uten konto i pilot; e-post/passord utsettes til SMTP og levering er verifisert
 ✅ Onboarding (mål, kalorier, makroer)  
 ✅ Home: status + logg-liste + måltidsrad  
 ✅ Strekkode-skanning  

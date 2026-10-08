@@ -63,48 +63,50 @@ struct LoginView: View {
                     .font(AppTypography.caption)
                     .foregroundStyle(AppColors.textSecondary)
 
-                HStack {
-                    Rectangle().fill(AppColors.separator).frame(height: 1)
-                    Text("eller").font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                    Rectangle().fill(AppColors.separator).frame(height: 1)
-                }
-
-                CardContainer {
-                    VStack(alignment: .leading, spacing: 14) {
-                        authLabel("E-post")
-                        TextField("navn@eksempel.no", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .authFieldStyle()
-                        authLabel("Passord")
-                        HStack(spacing: 4) {
-                            Group {
-                                if showPassword { TextField("Passord", text: $password) }
-                                else { SecureField("Passord", text: $password) }
-                            }
-                            .textContentType(.password)
-                            Button { showPassword.toggle() } label: {
-                                Image(systemName: showPassword ? "eye.slash" : "eye").frame(width: 44, height: 44)
-                            }
-                            .foregroundColor(AppColors.textSecondary)
-                            .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
-                        }
-                        .authFieldStyle()
+                if FeatureFlags.emailAuthenticationEnabled {
+                    HStack {
+                        Rectangle().fill(AppColors.separator).frame(height: 1)
+                        Text("eller").font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                        Rectangle().fill(AppColors.separator).frame(height: 1)
                     }
-                }
 
-                PrimaryButton(title: authViewModel.isLoading ? "Logger inn …" : "Logg inn med e-post") {
-                    Task { await authViewModel.login(email: email, password: password) }
-                }
-                .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 14) {
+                            authLabel("E-post")
+                            TextField("navn@eksempel.no", text: $email)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .authFieldStyle()
+                            authLabel("Passord")
+                            HStack(spacing: 4) {
+                                Group {
+                                    if showPassword { TextField("Passord", text: $password) }
+                                    else { SecureField("Passord", text: $password) }
+                                }
+                                .textContentType(.password)
+                                Button { showPassword.toggle() } label: {
+                                    Image(systemName: showPassword ? "eye.slash" : "eye").frame(width: 44, height: 44)
+                                }
+                                .foregroundColor(AppColors.textSecondary)
+                                .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
+                            }
+                            .authFieldStyle()
+                        }
+                    }
 
-                NavigationLink(destination: SignUpView()) {
-                    Text("Ny i MatLogg? Opprett konto med e-post")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.actionText)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                    PrimaryButton(title: authViewModel.isLoading ? "Logger inn …" : "Logg inn med e-post") {
+                        Task { await authViewModel.login(email: email, password: password) }
+                    }
+                    .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
+
+                    NavigationLink(destination: SignUpView()) {
+                        Text("Ny i MatLogg? Opprett konto med e-post")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.actionText)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
                 }
             }
             .padding(20)

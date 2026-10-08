@@ -376,3 +376,13 @@ Manglende klassifisering vises som «Ikke tilgjengelig» uten NOVA-nummer,
 med samme brikkeform og tekststil på nøytral grå `processingUnknownSurface`
 (lys: `#EEEEEE`, mørk: `#303030`). Raden viser «Kilde: Open Food Facts» i `caption`. Kildelenke,
 hentetidspunkt og oppdatering samles under en skillelinje.
+
+Søk viser «Ferdig» i navigasjonslinjen når søkefeltet har fokus.
+Handlingen lukker tastaturet uten å sende et søk. Keyboard-toolbar brukes
+ikke på denne flaten, etter fysisk verifisert layoutadvarsel fra SwiftUIs
+InputAccessoryBar ved introovergangen på iOS 27.0.
+
+Pilot 8. oktober 2026: Kontoskjermen viser Apple-innlogging og forklaringen
+om lokal lagring. Når e-postauth er av, skjules felter, e-posthandlinger,
+registreringslenke og «eller»-skille samlet. Bruk eksisterende typografi,
+farger og Apple-knapp; ingen ny deaktivert e-posthandling vises.

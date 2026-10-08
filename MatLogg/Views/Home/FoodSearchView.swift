@@ -122,10 +122,11 @@ private struct FoodSearchContent: View {
             }
         }
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Ferdig") { searchFocused = false }
-                    .foregroundColor(AppColors.actionText)
+            if searchFocused {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Ferdig") { searchFocused = false }
+                        .foregroundColor(AppColors.actionText)
+                }
             }
         }
     }

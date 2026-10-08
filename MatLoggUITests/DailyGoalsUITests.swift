@@ -7,13 +7,25 @@ final class DailyGoalsUITests: XCTestCase {
     private func openGoals(_ app: XCUIApplication) {
         let profile = app.buttons.matching(NSPredicate(format: "label == 'Profil' AND identifier != 'person.crop.circle'")).firstMatch
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
+        let tabBar = app.scrollViews["matlogg-tab-bar-scroll"]
+        if tabBar.exists {
+            for _ in 0..<4 {
+                if tabBar.frame.contains(profile.frame) { break }
+                tabBar.swipeLeft()
+            }
+        }
         profile.tap()
         let goals = app.buttons["profile-edit-goals"]
+        XCTAssertTrue(goals.waitForExistence(timeout: 5))
         for _ in 0..<8 {
-            if goals.isHittable { break }
-            app.swipeUp()
+            let visibleBottom = tabBar.exists ? tabBar.frame.minY : profile.frame.minY
+            if goals.isHittable && goals.frame.maxY < visibleBottom { break }
+            // Keep the gesture inside profile content, clear of the persistent tab bar.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.65))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3)))
         }
-        XCTAssertTrue(goals.waitForExistence(timeout: 3))
+        XCTAssertTrue(goals.isHittable)
+        XCTAssertLessThan(goals.frame.maxY, tabBar.exists ? tabBar.frame.minY : profile.frame.minY)
         goals.tap()
         XCTAssertTrue(app.navigationBars["Daglige mål"].waitForExistence(timeout: 3))
     }
@@ -120,11 +132,15 @@ final class DailyGoalsUITests: XCTestCase {
         top.lifetime = .keepAlways
         add(top)
         let saveButton = app.buttons["daily-goals-save"]
+        let tabBar = app.scrollViews["matlogg-tab-bar-scroll"]
         for _ in 0..<8 {
-            if saveButton.isHittable { break }
-            app.swipeUp()
+            if saveButton.isHittable && saveButton.frame.maxY < tabBar.frame.minY { break }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.65))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3)))
         }
         XCTAssertTrue(saveButton.isHittable)
+        XCTAssertTrue(tabBar.exists)
+        XCTAssertLessThan(saveButton.frame.maxY, tabBar.frame.minY)
         let bottom = XCTAttachment(screenshot: app.screenshot())
         bottom.name = "Daglige mål – lagring med stor tekst"
         bottom.lifetime = .keepAlways

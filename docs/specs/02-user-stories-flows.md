@@ -18,12 +18,12 @@ beskrevet i [lagrede måltider](../saved-meals.md).
 #### US-1.1: Bruker velger lokal profil eller konto
 ```
 SOM: ny bruker
-ØNSKER: å kunne starte lokalt uten konto, eller logge inn med Apple/e-post
+ØNSKER: å kunne starte lokalt uten konto, eller logge inn med Apple i piloten
 SÅ AT: jeg kan prøve kjerneverdien uten å dele unødvendige persondata
 
 Acceptance Criteria:
 □ Ny installasjon oppretter lokal profil automatisk etter sesjonsgjenoppretting; lokal bruk er tidsubegrenset
-□ Apple Sign in og e-post/passord er tilgjengelig; Google er senere scope
+□ Pilot 8. oktober 2026: Apple Sign in er tilgjengelig; e-post/passord skjules til eget SMTP og e-postflytene er verifisert. Google er senere scope
 □ E-postregistrering krever bare e-post og passord; navn er ikke påkrevd
 □ Apple-innlogging ber om navn og e-post i Apples dialog. Delt navn beholdes som et lokalt forslag per konto og brukes bare når brukeren velger «Bruk navn fra Apple» i Personlige detaljer. Eksisterende visningsnavn overskrives ikke. Innloggingsskjermen forklarer «Skjul e-post», og kontoinnstillingene forklarer den private videresendingsadressen. Ernæringsprofil fylles ut separat.
 □ Validering: e-post format, passord >8 tegn

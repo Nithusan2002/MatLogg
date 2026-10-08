@@ -1,12 +1,13 @@
 # Datakart og kontrollstatus
 
-Oppdatert: 3. oktober 2026. Behandlingsansvarlig oppgitt av bruker:
+Oppdatert: 8. oktober 2026. Behandlingsansvarlig oppgitt av bruker:
 Nithusan Krishnasamymudali. Kontakt i eksisterende erklæring:
 nithusank.2002@gmail.com.
 
 Brukeravklaringer 3. oktober: målgruppen er 16 år og eldre. Aksept av
-Supabase-DPA og SMTP-leverandør er ukjent; dette betyr uavklart, ikke at en avtale
-mangler. Aldersgrensen er en produktbeslutning, ikke et artikkel 9-grunnlag.
+Supabases standardvilkår inkluderer DPA, kontrollert 8. oktober (se nedenfor).
+Piloten tilbyr nå bare Apple-innlogging; egen SMTP er ikke konfigurert.
+Aldersgrensen er en produktbeslutning, ikke et artikkel 9-grunnlag.
 Onboarding, vilkår og håndtering av eksisterende profiler under 16 må avklares
 samlet før aldersgrensen regnes som implementert. Ingen profiler slettes på
 grunnlag av denne beslutningen.
@@ -66,7 +67,7 @@ fra konto-/serverbehandling; «lokalt» betyr ikke automatisk GDPR-unntak.
 | --- | --- | --- |
 | P0-1 Ansvar | Juridisk navn oppgitt og erklæring oppdatert; delvis ferdig | Tildel operativ sikkerhetsansvarlig og vurder personvernombud. |
 | P0-2 Datakart | Teknisk første kart ferdig; juridisk protokoll uferdig | Avklar grunnlag, lokal rolle, dataminimering, frister og leverandører per rad. |
-| P0-3 Leverandører | Ikke verifisert | Kontroller gjeldende Supabase-DPA, underleverandører, SMTP og OFF-lagring i faktisk miljø. |
+| P0-3 Leverandører | Delvis verifisert 8. oktober | Standard DPA og publisert underleverandørliste kontrollert; avklar driftslogger, overføringer og OFF-lagring. Apple-only-pilot har ikke behov for egen auth-SMTP. |
 | P0-4 Risiko/DPIA | Ikke ferdig | Vurder barns bruk, fødselsdato, helseprofilering og omfang; dokumenter DPIA-beslutning. |
 | P0-5/6 Lagring, eksport og sletting | Konkrete kontrollfunn identifisert | Rett og test eksport/sletting; kontroller fysisk enhet og staging med syntetiske data. |
 
@@ -324,3 +325,43 @@ Kontakt og kildekreditering er kontrollert i lokal nettleser; TypeScript/Vite
 og diffkontroll bestod. Ingen publisering av disse endringene er utført.
 Push til main vil utløse nettstedets publiseringsworkflow. Åpne produksjons-,
 leverandør-, risiko-/DPIA- og App Store-porter gjelder fortsatt.
+
+
+## Leverandørkontroll 8. oktober 2026 – standardvilkår
+
+[Supabase Terms of Service](https://supabase.com/terms) blir effektive ved
+aksept eller bruk av tjenesten og inkluderer gjeldende DPA.
+[DPA, versjon 1 av 1. august 2026](https://supabase.com/legal/customer-resources/data-processing-addendum)
+punkt 11.2 angir sletting av dekkede data etter en 30 dagers periode ved
+avtalens utløp. Dette er ikke en slettefrist for individuelle appkontoer.
+Vurderingen forutsetter vanlig nettpåmelding under standardvilkår; en særavtale
+kan ha andre bestemmelser. En separat signert DPA er derfor ikke et eget
+pilotkrav ut fra de kontrollerte standardvilkårene. Tidligere formuleringer om
+uavklart DPA-status skal leses med denne presiseringen.
+
+[Underleverandørlisten av 1. juni 2026](https://supabase.com/legal/subprocessor-list/June-1-2026.pdf)
+er kontrollert. Den omfatter blant annet AWS og Cloudflare (hosting),
+Sentry og Braintrust (overvåking), samt støtte-, analyse- og AI-tjenester.
+Listen alene beviser ikke at hver tjeneste mottar MatLogg-appbrukeres data.
+Stockholm-regionen beviser heller ikke at all behandling skjer i EØS:
+DPA punkt 6.1 åpner for behandling andre steder, og punkt 12/Schedule 2
+beskriver SCC-er. Faktiske dataflyter og overføringsvurdering gjenstår.
+
+Brukerskjermbildet bekrefter databasebasert Auth-audit av; Supabases
+[Auth-dokumentasjon](https://supabase.com/docs/guides/auth/audit-logs)
+bekrefter at plattformlogger er en separat lagringsvei. Historiske poster og
+full lagringstid for driftslogger er ikke verifisert. Ingen avtale akseptert,
+abonnement opprettet, innstilling endret eller data slettet i denne kontrollen.
+
+Ekstern pilot er fortsatt no-go inntil de øvrige dokumenterte personvern- og
+releaseportene er avklart. Neste leverandørkontroll er aggregert kontroll av
+eldre audit-poster og dokumentasjon fra Supabase av driftsloggenes lagring og
+sletting. Egen auth-SMTP er utsatt sammen med e-postinnlogging.
+Skill: nutrition-privacy (tidligere releasevurdering: qa-release).
+Kun dokumentasjon; ingen ny kodeverifisering nødvendig.
+
+Oppfølging 8. oktober: read-only `count(*)` i staging-tabellen
+`auth.audit_log_entries` returnerte **0**. Historiske database-auditposter
+er dermed ikke et åpent kontrollfunn på dette tidspunktet. Full retensjon
+for plattformlogger er fortsatt uavklart; forespørsel til Supabases
+personvernkontakt er klargjort i `docs/production-readiness.md`, ikke sendt.

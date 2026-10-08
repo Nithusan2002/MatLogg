@@ -23,6 +23,22 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testPilotAccountOffersAppleWithoutEmailForms() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ml_local_profile", "", "-ml_local_mode_active", "NO", "-demoModeActive", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["onboarding-skip-intro"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-skip-intro"].tap()
+        XCTAssertTrue(app.buttons["first-log-login"].waitForExistence(timeout: 10))
+        app.buttons["first-log-login"].tap()
+        XCTAssertTrue(app.buttons["Logg inn med Apple"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.textFields["navn@eksempel.no"].exists)
+        XCTAssertFalse(app.secureTextFields["Passord"].exists)
+        XCTAssertFalse(app.buttons["Logg inn med e-post"].exists)
+        XCTAssertFalse(app.buttons["Ny i MatLogg? Opprett konto med e-post"].exists)
+    }
+
+    @MainActor
     func testMealRoomShowsWholeDayAndMealActionsKeepLoggingContext() throws {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
@@ -129,6 +145,13 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["local-storage-explanation"].exists)
         XCTAssertTrue(app.buttons["first-log-login"].exists)
         XCTAssertTrue(app.buttons["first-log-skip"].exists)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Ferdig"].tap()
+        let keyboardDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardDismissed], timeout: 5), .completed)
+        field.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         field.typeText("havregryn")
         let result = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
@@ -528,7 +551,7 @@ final class MatLoggUITests: XCTestCase {
         if !save.isHittable { app.swipeUp() }
         XCTAssertTrue(save.isHittable)
         save.tap()
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["logging-draft-save"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Søktest '")).firstMatch.exists)
     }
 

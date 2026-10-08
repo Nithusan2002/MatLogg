@@ -32,7 +32,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
-| **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
+| **Valgfri konto** | P0 | Full lokal bruk uten konto. Pilot: Apple for konto. E-post/passord utsettes til eget SMTP og e-postflytene er verifisert; Google er senere scope. |
 | **Onboarding** | P0 | To korte, sveipbare introsider før første logging med automatisk lokal profil. Konto og mål er valgfrie; mål settes under Profil. |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
 | **Strekkode-skanning** | P0 | EAN- eller GS1 Data Matrix-skann → GTIN-oppslag → produktkort → logging |

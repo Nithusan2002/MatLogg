@@ -849,6 +849,16 @@ E-postmottaker er nithusank.2002@gmail.com. Resend-adapter er klargjort, men
 ingen tjeneste, avtale, avsender eller secret er opprettet. Aktivering krever
 dette og en verifisert leveransetest. Ingen brukerdata inngår i varsler.
 
+## 2026-10-08 – Pilot med lokal bruk og Apple-konto
+
+Brukeren godkjente å utsette e-postkontoer fordi eget SMTP ikke er aktivert.
+`FeatureFlags.emailAuthenticationEnabled` er av; kontoskjermen viser Apple
+uten e-post-/passordfelt eller registreringslenke. E-postimplementasjonen
+beholdes for senere reaktivering etter leverandøravklaring og leveringstest.
+Ingen Supabase-provider eller eksisterende konto endres. Dette er en
+klientavgrensning, ikke en serverbasert sperre for e-postauth. Lokal bruk,
+kontokobling og local-only-policy beholdes. Øvrige pilotporter gjelder fortsatt.
+
 ## 2026-10-08 – Privilegerte RPC-implementasjoner i internt skjema
 
 Security Advisor varslet authenticated SECURITY DEFINER EXECUTE for
