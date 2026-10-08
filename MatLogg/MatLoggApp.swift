@@ -248,7 +248,7 @@ struct MatLoggContent: View {
             if isDemo || skipAuthForDev {
                 HomeView()
             } else if authViewModel.isRestoringSession {
-                ProgressView("Åpner MatLogg …")
+                AppStartupLoadingView()
             } else if authViewModel.currentUser != nil {
                 HomeView()
             } else {

@@ -39,7 +39,7 @@ struct DemoAppRoot: View {
     }
 }
 
-private struct AppStartupLoadingView: View {
+struct AppStartupLoadingView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ScaledMetric(relativeTo: .largeTitle) private var titleSize = 48
 
