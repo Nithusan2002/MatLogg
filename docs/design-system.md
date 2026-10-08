@@ -22,6 +22,13 @@ tokens og komponenter.
 
 ## Farger
 
+Oppstartsvisningen viser logoen med transparent bakgrunn uten kort eller ramme,
+med «MatLogg» i stor, Dynamic Type-skalert tekst under og en liten spinner.
+I mørk modus vises logoen som en lys silhuett med `ink` for tydelig kontrast.
+Den bruker `background`, `ink` og `action`, og VoiceOver annonserer
+«Åpner MatLogg». Visningen varer bare mens lokal kontekst klargjøres;
+ingen kunstig forsinkelse eller ekstra animasjon legges til.
+
 Fargene defineres semantisk i `MatLogg/DesignSystem/Colors.swift`.
 
 Sekundærtekst bruker `#70656D` i lys modus for minst 4,5:1 kontrast på
@@ -291,9 +298,10 @@ På iOS 26 og nyere bruker den egendefinerte bunnmenyen systemets Liquid Glass
 som en avrundet, flytende navigasjonsflate. Eldre systemversjoner beholder den
 varme, ugjennomsiktige `surface`-flaten. Loggfør-knappen forblir en tydelig,
 korallfarget primærhandling i begge variantene.
-Etiketter bruker skalerbar caption-typografi opptil ordinær Dynamic Type XXXL.
-Den kompakte femknappsmenyen begrenser videre skalering slik at etikettene
-forblir lesbare i skjermbredden også når innholdet bruker tilgjengelighetsstørrelser.
+Etiketter bruker skalerbar caption-typografi også ved tilgjengelighetsstørrelser.
+Ved tilgjengelighetsstørrelser ruller menyen horisontalt, slik at hele etiketter
+får plass uten skalering eller oppdeling av ordene. Menyens målte høyde gir
+rulleklaring for innholdet over menyen.
 Alle knapper har minst 44 pt trykkflate og fullstendige VoiceOver-navn.
 Søk skjuler menyen mens søkefeltet redigeres.
 

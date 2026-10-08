@@ -15,6 +15,7 @@ struct MatLoggContent: View {
     @StateObject private var mealReuseViewModel: MealReuseViewModel
     @StateObject private var waterViewModel: WaterViewModel
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
+    @StateObject private var loggingDraftViewModel: FoodLoggingDraftViewModel
     @StateObject private var quickLogViewModel: QuickLogViewModel
     @StateObject private var productViewModel: ProductViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
@@ -41,6 +42,7 @@ struct MatLoggContent: View {
         let timing = PerformanceSignposts.begin("Startup.Compose")
         defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
+        _loggingDraftViewModel = StateObject(wrappedValue: FoodLoggingDraftViewModel(repository: databaseService))
         foodLogRepository = databaseService
         #if DEBUG
         portionQARepository = databaseService
@@ -221,6 +223,7 @@ struct MatLoggContent: View {
                 Task { await authViewModel.handleAuthCallback(url) }
             }
             .task(id: authViewModel.currentUser?.id) { await loadHealthProfile() }
+            .task(id: authViewModel.currentUser?.id) { await loggingDraftViewModel.load(owner: authViewModel.currentUser?.id) }
     }
 
     private func loadHealthProfile() async {
@@ -261,6 +264,7 @@ struct MatLoggContent: View {
         .environmentObject(waterViewModel)
         .environmentObject(productViewModel)
         .environmentObject(quickLogViewModel)
+        .environmentObject(loggingDraftViewModel)
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
         .environment(\.foodLogRepository, foodLogRepository)

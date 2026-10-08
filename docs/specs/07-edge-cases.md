@@ -400,10 +400,14 @@ Presses Home button (minimizes app)
 ```
 
 **Handling:**
-1. App state preserved (AppState saved to UserDefaults)
-2. User returns to produktkort
-3. Mengde still = 150g
-4. No data loss
+1. Bakgrunnslegging kan beholde UI-state så lenge prosessen lever.
+2. Manuell produktregistrering og mengdevalg har lokal SQLite-utkastlagring
+   (2026-10-07), med autosave etter omtrent 300 ms og flush ved Lukk/bakgrunn.
+3. Etter terminering tilbys Fortsett/Forkast for aktiv profil. Siste vellykkede
+   lagring gjenopprettes med opprinnelig dato og måltid.
+4. Ikke-lagrede endringer og bildeimport som ikke er fullført kan gå tapt.
+5. Dette er ikke generell UserDefaults-basert navigasjonsgjenoppretting; andre
+   redigeringsflyter og produktkort fra vanlig søk/skann omfattes ikke.
 
 ---
 

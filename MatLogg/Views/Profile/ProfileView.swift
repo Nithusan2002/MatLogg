@@ -370,12 +370,15 @@ private struct ProfileSettingsView: View {
                 }
             }
             .listRowBackground(AppColors.surface)
-            if !demoMode.isDemo && !authViewModel.isLocalMode {
+            if !demoMode.isDemo {
                 Section("Sletting") {
-                    Button("Fjern lokale data", role: .destructive) { showRemoveLocalConfirm = true }
-                    if authViewModel.isDeletingAccount { ProgressView("Sletter konto …") }
-                    Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
-                        .disabled(authViewModel.isDeletingAccount)
+                    Button(authViewModel.isLocalMode ? "Slett alle lokale data" : "Fjern lokale data", role: .destructive) { showRemoveLocalConfirm = true }
+                        .disabled(authViewModel.isDeletingAccount || exportViewModel.isExporting)
+                    if authViewModel.isDeletingAccount { ProgressView("Sletter …") }
+                    if !authViewModel.isLocalMode {
+                        Button("Slett konto", role: .destructive) { showDeleteConfirm = true }
+                            .disabled(authViewModel.isDeletingAccount || exportViewModel.isExporting)
+                    }
                 }
                 .listRowBackground(AppColors.surface)
             }
@@ -399,6 +402,7 @@ private struct ProfileSettingsView: View {
         .alert("Slett konto?", isPresented: $showDeleteConfirm) {
             Button(authViewModel.isDeletingAccount ? "Sletter …" : "Slett", role: .destructive) {
                 Task {
+                    exportViewModel.reset()
                     if !(await authViewModel.deleteAccount()) {
                         appState.presentError(title: "Kunne ikke slette kontoen", message: authViewModel.errorMessage)
                     }
@@ -406,11 +410,12 @@ private struct ProfileSettingsView: View {
             }
             Button("Avbryt", role: .cancel) {}
         } message: {
-            Text("Lokale data slettes umiddelbart. Kontoen markeres for permanent sletting etter 30 dager. Dette kan ikke angres i appen.")
+            Text("Når serveren bekrefter forespørselen, fjernes lokale profildata og kontoen sperres for innlogging. Serverkontoen og tilknyttede data forsøkes slettet permanent med en gang. Ved teknisk feil prøver serveren igjen automatisk. Dette kan ikke angres i appen.")
         }
-        .alert("Fjern data fra denne iPhonen?", isPresented: $showRemoveLocalConfirm) {
-            Button("Fjern og logg ut", role: .destructive) {
+        .alert("Slett lokale data fra denne iPhonen?", isPresented: $showRemoveLocalConfirm) {
+            Button("Slett lokale data", role: .destructive) {
                 Task {
+                    exportViewModel.reset()
                     if !(await authViewModel.removeAccountDataFromDevice()) {
                         appState.presentError(title: "Kunne ikke fjerne data", message: authViewModel.errorMessage)
                     }
@@ -418,7 +423,7 @@ private struct ProfileSettingsView: View {
             }
             Button("Avbryt", role: .cancel) {}
         } message: {
-            Text("Dataene fjernes bare fra denne iPhonen. Du kan ikke hente dem tilbake fra kontoen din ennå.")
+            Text("Alle data for den aktive profilen fjernes fra denne iPhonen, inkludert logger, mål, bilder og personlige detaljer. Dette kan ikke angres. En eventuell serverkonto slettes ikke. Eksporter du selv har lagret eller delt, må slettes der du har kopiert dem.")
         }
         .sheet(item: $exportViewModel.document, onDismiss: { exportViewModel.clearDocument() }) { document in
             ShareSheet(activityItems: [document.url])

@@ -31,6 +31,7 @@ struct QuickLogSheet: View {
         GeometryReader { geometry in
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 18) {
+                    if productSelectionContent == nil { LoggingDraftBanner(onLogComplete: onLogComplete) }
                     HStack {
                         Text(productSelectionContent == nil ? "Loggfør mat" : "Legg til i måltidet")
                             .font(AppTypography.title)
@@ -420,7 +421,11 @@ struct LoggingFlowView: View {
                 }
                 }
             case .manual:
-                ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+                if productSelectionContent == nil {
+                    RecoverableManualLoggingView(onLogComplete: complete)
+                } else {
+                    ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+                }
             case .scan:
                 CameraView(onLogComplete: complete, onSearch: { destination = .search },
                            productSelectionContent: productSelectionContent)

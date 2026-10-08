@@ -102,7 +102,16 @@ enum AccountAuthError: LocalizedError {
     }
 }
 
+nonisolated struct PendingProfileDeletion: Codable, Equatable, Sendable {
+    let ownerId: UUID
+    let isLocalProfile: Bool
+    var serverConfirmed: Bool
+}
+
 protocol AuthSessionStore {
+    func pendingProfileDeletion() -> PendingProfileDeletion?
+    func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?)
+    func removeOnboardingCompletion(userId: UUID)
     func storeUser(_ user: User)
     func getStoredUser() -> User?
     @discardableResult func storeToken(_ token: String) -> Bool

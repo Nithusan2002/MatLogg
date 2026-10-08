@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleLocalizations</key>
-	<array><string>nb</string></array>
+	<array>
+		<string>nb</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

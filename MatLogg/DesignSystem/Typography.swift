@@ -2,6 +2,9 @@ import SwiftUI
 
 enum AppTypography {
     static let display = Font.system(size: 48, weight: .medium, design: .default)
+    static func startupTitle(size: CGFloat) -> Font {
+        .system(size: size, weight: .medium, design: .default)
+    }
     static let hero = Font.system(.largeTitle, design: .rounded, weight: .heavy)
     static let heroValue = Font.system(.largeTitle, design: .default, weight: .medium).monospacedDigit()
     static let title = Font.system(.title2, design: .rounded, weight: .semibold)

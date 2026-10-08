@@ -5,6 +5,25 @@ import SwiftUI
 
 @MainActor
 struct ProfileTests {
+    @Test func deletingOwnedExportsPreservesOtherProfilesAndUnrelatedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let owner = UUID()
+        let owned = directory.appendingPathComponent("matlogg-export-\(owner.uuidString)-one.json")
+        let other = directory.appendingPathComponent("matlogg-export-\(UUID().uuidString)-two.json")
+        let unrelated = directory.appendingPathComponent("notes.json")
+        let legacy = directory.appendingPathComponent("matlogg-export-legacy.json")
+        try JSONSerialization.data(withJSONObject: ["user_id": owner.uuidString]).write(to: legacy)
+        for url in [owned, other, unrelated] { try Data("{}".utf8).write(to: url) }
+        try UserDataExportService.removeOwnedExports(ownerId: owner, in: directory)
+        #expect(!FileManager.default.fileExists(atPath: owned.path))
+        #expect(!FileManager.default.fileExists(atPath: legacy.path))
+        #expect(FileManager.default.fileExists(atPath: other.path))
+        #expect(FileManager.default.fileExists(atPath: unrelated.path))
+        try UserDataExportService.removeOwnedExports(ownerId: owner, in: directory)
+    }
+
     @Test func appearanceDefaultsToSystemAndPersistsAllChoices() throws {
         let suite = "AppearanceTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

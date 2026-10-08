@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 5. oktober 2026
+Sist oppdatert: 7. oktober 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -81,7 +81,7 @@ Før en eventuell tjeneste tas i bruk, skal leverandør, datatyper, formål, lag
 
 9. Hvor lenge lagrer vi data?
 
-Vi lagrer data sa lenge kontoen din er aktiv eller til du sletter dem. Nar du sletter kontoen, fjernes lokale data umiddelbart. Serverkontoen markeres for sletting, innlogging sperres og kontodata slettes permanent etter 30 dager. Brukeropprettede produktbidrag kan beholdes anonymisert for datakvalitet. Du kan nar som helst:
+Vi lagrer data sa lenge kontoen din er aktiv eller til du sletter dem. Nar du sletter kontoen, fjernes lokale data umiddelbart. Serverkontoen markeres for sletting, innlogging sperres og kontodata forsøkes slettet permanent i samme forespørsel, uten fast ventetid. Ved tekniske feil prøver en slettejobb igjen hvert femte minutt. Egne produkter som er knyttet til kontoen på serveren, slettes også ved permanent kontosletting. Du kan nar som helst:
   - Laste ned dataene dine.
   - Slette konto og tilknyttede data (se punkt 10).
 
@@ -94,7 +94,12 @@ Du har rett til:
   - Dataportabilitet (eksport av data).
   - A trekke tilbake samtykke til valgfrie data nar som helst.
 
-Du kan gjore dette i appen (Profil) eller ved a kontakte oss pa e-post.
+Du kan gjore dette i appen (Profil → Innstillinger) eller ved a kontakte oss pa e-post.
+  - Uten konto kan du velge «Slett alle lokale data». Dette fjerner data for den aktive lokale profilen, inkludert bilder og personlige detaljer.
+  - Med konto kan du velge «Slett konto» for å be om serversletting og fjerne lokale profildata. «Fjern lokale data» fjerner bare data på denne iPhonen.
+  - Kontosletting krever nett for bekreftelse fra serveren. Hvis serverslettingen er bekreftet, men lokal opprydding avbrytes, forsøker appen lokal opprydding igjen ved neste oppstart. Du kan også fullføre den fra velkomstskjermen uten ny innlogging.
+  - Hvis serversvaret uteblir, kan kontostatus være usikker. Lokal sletting alene bekrefter ikke serversletting; kontakt oss for kontroll.
+  - Kopier av eksporter du selv har lagret eller delt utenfor appen, må slettes der de er lagret.
 
 11. Kontakt og klage
 
@@ -104,3 +109,13 @@ Du kan ogsa klage til Datatilsynet hvis du mener behandlingen bryter regelverket
 Lokal lagring og eksport
   - Data kan gå tapt hvis du sletter appen eller mister telefonen. Enhetens eventuelle sikkerhetskopier styres av Apple-/iOS-innstillingene dine; MatLogg har ikke demonstrert gjenoppretting fra dem.
   - Du kan eksportere data som JSON under Profil. Eksportfilen kan inneholde sensitive opplysninger og bilder. Du velger delingsmottaker. Appen støtter ikke import av filen.
+
+Uferdige registreringer
+  - Når du registrerer en matvare manuelt, lagres et utkast på denne iPhonen med
+    feltene du fyller ut, valgt bilde og dato/måltid, slik at du kan fortsette
+    etter et avbrudd. Utkast lastes bare for den aktuelle lokale profilen og
+    sendes ikke til en server. Det inngår i eksport av dine lokale data.
+  - Utkastet beholdes til du forkaster det, fullfører loggingen eller sletter
+    profilens lokale data. Et produkt du allerede har lagret, beholdes når du
+    forkaster utkastet. Utkast gir ingen skybackup, og de siste endringene kan
+    gå tapt dersom appen avsluttes før lokal lagring er fullført.

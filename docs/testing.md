@@ -365,3 +365,52 @@ layout eller rendering. Bruk SwiftUI-instrumentet sammen med Time Profiler for
 å se view-grafarbeid mellom intervallene og antall gjentatte evalueringer.
 `Startup.Compose` dekker initializer-arbeid, men StateObject kan opprette
 objektene senere; intervallet dekker derfor ikke hele objektinitialiseringen.
+
+## Kontosletting og lokal opprydding
+
+Målrettede iOS-suiter: `AuthViewModelTests`, `AuthServiceTests` og
+`ProfileTests`. Kontroller at xcresult faktisk inneholder kjørte tester;
+en vellykket testkommando med null tester er ikke verifisering.
+`account_deletion.test.sql`, `account_deletion_access.test.sql` og
+`002_sync_security.test.sql` dekker purge,
+produkter, rate-limit-rader, alle domenekategorier, eierisolasjon og retry.
+
+`bash supabase/tests/run-account-deletion-e2e.sh <lokalt-supabase-prosjekt>`
+setter opp en midlertidig cron-secret og functions-server, kjører HTTP-testen
+og rydder egne prosesser/hemmeligheter. Samme kontroll inngår i Supabase CI.
+
+For manuell lokal ende-til-ende-kontroll må Supabase være startet med migrasjonene,
+og funksjonene må serves med en lokal `PURGE_CRON_SECRET` i en ignorert eller
+midlertidig env-fil. Kjør:
+
+```sh
+python3 supabase/tests/account-deletion-e2e.py \
+  --workdir <lokalt-supabase-prosjekt> --env-file <lokal-env-fil>
+```
+
+Testen godtar bare localhost, leser lokale CLI-nøkler uten å skrive dem ut,
+og oppretter/rydder syntetiske kontoer og produkter. Den tester innlogging,
+serverbekreftelse, sperret innlogging, umiddelbar lesesperring med gammelt
+token, purge, Auth hard-delete og eierisolasjon.
+Bruk et isolert lokalt prosjekt: purge behandler alle forfalte kontoer i
+testmiljøet. Hosted tester skal avgrenses til staging og syntetiske kontoer;
+kontroller at ingen andre kontoer forfaller før en bulk-purge kjøres.
+
+### Registreringsutkast
+
+Målrettet verifisering på en dedikert simulator:
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=MatLogg Draft QA' \
+  -derivedDataPath /tmp/MatLoggDraftQA \
+  -only-testing:MatLoggTests/LoggingDraftTests \
+  -only-testing:MatLoggTests/MatLoggTests/schemaVersionSixMigratesAndReopensWithoutDeletingDrafts \
+  -only-testing:MatLoggUITests/LoggingDraftUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Testene bruker syntetiske data. UI-testen bruker debugprofilen på dedikert
+simulator og forkaster eventuelt et tidligere utkast der, beholder et
+syntetisk produkt og logger én testregistrering. Fysisk systemterminering og
+VoiceOver må vurderes separat; UI-testen modellerer prosessavbrudd.

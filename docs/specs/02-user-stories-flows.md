@@ -488,3 +488,24 @@ flertrinnsbeskrivelsen er erstattet av denne flyten. Se også
 
 Dette utvider tidligere avgrensning om ingen egne nye porsjoner for manuelt
 opprettede produkter; generell porsjonseditor for andre produkter er fortsatt utenfor scope.
+
+### Profilsletting (7. oktober 2026)
+
+Under Profil → Innstillinger tilbys «Slett alle lokale data» uten konto.
+Bekreftelsen forklarer at logger, mål, bilder og personlige detaljer for aktiv
+profil fjernes permanent; andre profiler bevares. Med konto skilles «Fjern
+lokale data» fra «Slett konto». Kontosletting krever nett for serverbekreftelse.
+Bekreftet serversletting lagres før lokal opprydding; oppryddingen gjenopptas
+ved omstart uten ny innlogging. Ved feil finnes «Fullfør lokal sletting» på
+velkomstskjermen. Uteblitt serversvar vises som usikker kontostatus og må
+kontrolleres via support; lokal opprydding omtales ikke som serversletting.
+Eksportkopier utenfor appen omfattes ikke av lokal sletting.
+
+### Uferdig manuell registrering (2026-10-07)
+
+- Ufullstendig og ugyldig input lagres som lokalt utkast uten å inngå i matloggen.
+- Omstart tilbyr Fortsett/Forkast for aktiv profil og beholder dato og måltid.
+- Produkt, produkthendelse og overgang til mengdevalg lagres atomisk.
+- Matlogg, logghendelse og fjerning av utkast lagres atomisk med stabile entitets-ID-er.
+- Utkast synkroniseres ikke og slettes ved forkasting, fullført logging eller lokal profilsletting.
+- Måltidsmalbygging og øvrige redigeringsskjermer omfattes ikke av første leveranse.

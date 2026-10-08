@@ -30,6 +30,25 @@ final class UserDataExportService: UserDataExporting {
         }
     }
 
+    nonisolated static func removeOwnedExports(ownerId: UUID, in directory: URL) throws {
+        let manager = FileManager.default
+        let prefix = "matlogg-export-\(ownerId.uuidString)-"
+        let files = try manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
+        for file in files where file.lastPathComponent.hasPrefix("matlogg-export-") && file.pathExtension == "json" {
+            guard try file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else { continue }
+            if file.lastPathComponent.hasPrefix(prefix) {
+                try manager.removeItem(at: file)
+            } else {
+                // Earlier exports used random filenames; resolve their owner from the payload.
+                let data = try Data(contentsOf: file)
+                if let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let id = payload["user_id"] as? String, UUID(uuidString: id) == ownerId {
+                    try manager.removeItem(at: file)
+                }
+            }
+        }
+    }
+
     func removeExport(at url: URL) {
         try? FileManager.default.removeItem(at: url)
     }
@@ -148,7 +167,7 @@ final class UserDataExportService: UserDataExporting {
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted]) else {
             return nil
         }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export-\(UUID().uuidString).json")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("matlogg-export-\(user.id.uuidString)-\(UUID().uuidString).json")
         do {
             try data.write(to: url, options: [.atomic, .completeFileProtection])
             return url

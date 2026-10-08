@@ -111,7 +111,11 @@ private struct FoodSearchContent: View {
             viewModel.finishManualCreation()
             Task { await reload() }
         }) {
-            ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+            if productSelectionContent == nil {
+                RecoverableManualLoggingView(onLogComplete: onLogComplete)
+            } else {
+                ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -250,6 +254,11 @@ private struct FoodSearchContent: View {
 
     private var searchList: some View {
         List {
+            if productSelectionContent == nil {
+                Section { LoggingDraftBanner(onLogComplete: onLogComplete) }
+                    .listRowBackground(AppColors.background)
+                    .listRowSeparator(.hidden)
+            }
             if !isFirstLog && dynamicTypeSize.isAccessibilitySize {
                 Section { searchControls }
                     .listRowBackground(AppColors.background)
@@ -434,6 +443,7 @@ private struct FoodSearchContent: View {
 private struct FoodSearchProductRow: View {
     let product: Product
     let isPreparing: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var context: String {
         let source = switch product.nutritionSource {
@@ -445,10 +455,33 @@ private struct FoodSearchProductRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ProductThumbnailView(url: product.imageUrl.flatMap(URL.init(string:)), localData: product.localImageData,
-                                 placeholderSystemImage: product.kind == .genericFood ? "fork.knife" : "shippingbox")
-            VStack(alignment: .leading, spacing: 4) {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack { thumbnail; Spacer(); trailingIndicator }
+                    labels.frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    thumbnail
+                    labels
+                    Spacer(minLength: 4)
+                    trailingIndicator
+                }
+            }
+        }
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private var thumbnail: some View {
+        ProductThumbnailView(url: product.imageUrl.flatMap(URL.init(string:)), localData: product.localImageData,
+                             placeholderSystemImage: product.kind == .genericFood ? "fork.knife" : "shippingbox")
+    }
+
+    private var labels: some View {
+        VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)
                 if let brand = product.brand, !brand.isEmpty {
                     Text(brand).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
@@ -456,8 +489,10 @@ private struct FoodSearchProductRow: View {
                 Text(context).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
             }
             .multilineTextAlignment(.leading)
-            Spacer(minLength: 4)
-            ZStack {
+    }
+
+    private var trailingIndicator: some View {
+        ZStack {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
@@ -468,9 +503,5 @@ private struct FoodSearchProductRow: View {
             }
             .frame(width: 20, height: 20)
             .accessibilityHidden(true)
-        }
-        .frame(minHeight: 52)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
     }
 }

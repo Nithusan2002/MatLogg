@@ -9,7 +9,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 7
+    static let latestSchemaVersion = 8
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
     
@@ -63,7 +63,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["food_logging_drafts", "product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -83,6 +83,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
                 scans: countLocked(table: "scans", ownerId: ownerId),
                 weights: countLocked(table: "weights", ownerId: ownerId),
                 waterGlasses: countLocked(table: "water_logs", ownerId: ownerId),
+                loggingDrafts: countLocked(table: "food_logging_drafts", ownerId: ownerId),
                 savedMeals: countLocked(table: "saved_meals", ownerId: ownerId),
                 products: countLocked(table: "products", ownerColumn: "ownerUserId", ownerId: ownerId)
             )
@@ -94,10 +95,10 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["goals", "logs", "weights", "water_logs", "saved_meals"] {
+                for table in ["goals", "logs", "weights", "water_logs", "saved_meals", "food_logging_drafts"] {
                     try rewriteUserIdInJSONLocked(table: table, from: localOwnerId, to: accountOwnerId)
                 }
-                for table in ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals"] {
+                for table in ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "food_logging_drafts"] {
                     try updateOwnerLocked(table: table, column: "userId", from: localOwnerId, to: accountOwnerId)
                 }
                 try updateOwnerLocked(table: "sync_queue", column: "ownerUserId", from: localOwnerId, to: accountOwnerId)
@@ -119,6 +120,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
                 }
                 try deleteOwnerRowsLocked(table: "sync_queue", column: "ownerUserId", ownerId: ownerId)
                 try deleteOwnerRowsLocked(table: "products", column: "ownerUserId", ownerId: ownerId)
+                try deleteOwnerRowsLocked(table: "food_logging_drafts", column: "userId", ownerId: ownerId)
                 for table in ["product_drafts", "catalog_submissions"] {
                     try deleteOwnerRowsLocked(table: table, column: "ownerUserId", ownerId: ownerId)
                 }
@@ -130,6 +132,124 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
     
+    // MARK: - Recoverable manual logging
+
+    func loadLoggingDraft(owner: UUID) throws -> FoodLoggingDraft? {
+        try queue.sync { try loggingDraftLocked(owner: owner) }
+    }
+
+    private func loggingDraftLocked(owner: UUID) throws -> FoodLoggingDraft? {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT json FROM food_logging_drafts WHERE userId = ?", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+        let status = sqlite3_step(stmt)
+        if status == SQLITE_DONE { return nil }
+        guard status == SQLITE_ROW, let data = readBlob(stmt, index: 0) else { throw databaseError() }
+        let draft = try decoder.decode(FoodLoggingDraft.self, from: data)
+        guard draft.schemaVersion == 1, draft.userId == owner,
+              draft.revision >= 0, draft.product == nil || draft.product?.id == draft.productId,
+              draft.step != .amount || draft.product != nil else { throw LoggingDraftError.invalidData }
+        return draft
+    }
+
+    func createLoggingDraft(_ draft: FoodLoggingDraft) throws {
+        try performTransaction {
+            guard draft.schemaVersion == 1, try loggingDraftLocked(owner: draft.userId) == nil else { throw LoggingDraftError.conflict }
+            try writeLoggingDraftLocked(draft, create: true)
+        }
+    }
+
+    func updateLoggingDraft(_ draft: FoodLoggingDraft) throws {
+        try performTransaction {
+            try requireLoggingDraftLocked(draft)
+            try writeLoggingDraftLocked(draft, create: false)
+        }
+    }
+
+    private func requireLoggingDraftLocked(_ draft: FoodLoggingDraft, allowsTransition: Bool = false) throws {
+        guard draft.schemaVersion == 1,
+              let current = try loggingDraftLocked(owner: draft.userId),
+              current.id == draft.id, current.productId == draft.productId,
+              current.logId == draft.logId, draft.revision >= current.revision,
+              (current.step == draft.step || (allowsTransition && current.step == .product && draft.step == .amount)) else { throw LoggingDraftError.conflict }
+    }
+
+    private func writeLoggingDraftLocked(_ draft: FoodLoggingDraft, create: Bool) throws {
+        let sql = create ? "INSERT INTO food_logging_drafts(json, id, userId) VALUES(?, ?, ?)" : "UPDATE food_logging_drafts SET json = ? WHERE id = ? AND userId = ?"
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        bindBlob(stmt, index: 1, data: try encoder.encode(draft))
+        sqlite3_bind_text(stmt, 2, draft.id.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 3, draft.userId.uuidString, -1, SQLITE_TRANSIENT)
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    func discardLoggingDraft(id: UUID, owner: UUID) throws {
+        try performTransaction { try deleteLoggingDraftLocked(id: id, owner: owner) }
+    }
+
+    private func deleteLoggingDraftLocked(id: UUID, owner: UUID) throws {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "DELETE FROM food_logging_drafts WHERE id = ? AND userId = ?", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 2, owner.uuidString, -1, SQLITE_TRANSIENT)
+        try requireDone(sqlite3_step(stmt))
+    }
+
+    private func requireDraftEntityOwnerLocked(table: String, id: UUID, ownerColumn: String, owner: UUID) throws {
+        precondition(table == "products" || table == "logs")
+        precondition(ownerColumn == "ownerUserId" || ownerColumn == "userId")
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT \(ownerColumn) FROM \(table) WHERE id = ?", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+        let status = sqlite3_step(stmt)
+        if status == SQLITE_DONE { return }
+        guard status == SQLITE_ROW, let value = sqlite3_column_text(stmt, 0),
+              String(cString: value) == owner.uuidString else { throw LoggingDraftError.conflict }
+    }
+
+    func advanceLoggingDraft(_ draft: FoodLoggingDraft, product: Product) throws {
+        try performTransaction {
+            try requireLoggingDraftLocked(draft, allowsTransition: true)
+            guard draft.step == .amount, product.id == draft.productId, draft.product?.id == product.id else { throw LoggingDraftError.invalidData }
+            try requireDraftEntityOwnerLocked(table: "products", id: product.id, ownerColumn: "ownerUserId", owner: draft.userId)
+            // A committed transition must not create a second product event on retry.
+            if try loggingDraftLocked(owner: draft.userId)?.step == .product {
+                try saveProductLocked(product, data: encoder.encode(product), ownerUserId: draft.userId, storageKind: "user")
+                try enqueueSyncEventLocked(ownerUserId: draft.userId, type: .productUpsert, entityId: product.id.uuidString, payload: syncEncoder.encode(ProductSyncPayload(product: product)))
+            }
+            try writeLoggingDraftLocked(draft, create: false)
+        }
+    }
+
+    func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) throws {
+        try performTransaction {
+            guard log.userId == draft.userId, log.id == draft.logId, log.productId == draft.productId,
+                  draft.step == .amount, draft.product != nil,
+                  log.portionSelection == nil || log.portionSelection?.matches(amount: Double(log.amountG), unit: log.resolvedAmountUnit) == true else { throw LoggingDraftError.invalidData }
+            if try loggingDraftLocked(owner: draft.userId) == nil {
+                var stmt: OpaquePointer?
+                guard sqlite3_prepare_v2(db, "SELECT id FROM logs WHERE id = ? AND userId = ? AND productId = ?", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_text(stmt, 1, log.id.uuidString, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 2, log.userId.uuidString, -1, SQLITE_TRANSIENT)
+                sqlite3_bind_text(stmt, 3, log.productId.uuidString, -1, SQLITE_TRANSIENT)
+                guard sqlite3_step(stmt) == SQLITE_ROW else { throw LoggingDraftError.conflict }
+                return
+            }
+            try requireLoggingDraftLocked(draft)
+            guard try loggingDraftLocked(owner: draft.userId)?.step == .amount else { throw LoggingDraftError.conflict }
+            try requireDraftEntityOwnerLocked(table: "logs", id: log.id, ownerColumn: "userId", owner: log.userId)
+            try saveLogLocked(log, data: encoder.encode(log))
+            try enqueueSyncEventLocked(ownerUserId: log.userId, type: .logUpsert, entityId: log.id.uuidString, payload: syncEncoder.encode(LogSyncPayload(log: log)))
+            try deleteLoggingDraftLocked(id: draft.id, owner: draft.userId)
+        }
+    }
+
     // MARK: - Goals
 
     /// Export owned rows strictly: corrupt or unreadable data must not yield a partial success.
@@ -139,6 +259,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             let tables = [("goal_history", "goals", "userId"),
                           ("owned_products", "products", "ownerUserId"),
                           ("product_drafts", "product_drafts", "ownerUserId"),
+                          ("food_logging_drafts", "food_logging_drafts", "userId"),
                           ("catalog_submissions", "catalog_submissions", "ownerUserId")]
             let exportEncoder = JSONEncoder()
             exportEncoder.dateEncodingStrategy = .iso8601
@@ -1414,6 +1535,8 @@ nonisolated final class LocalStore: @unchecked Sendable {
                         try migrateToVersion5Locked()
                     case 6:
                         try migrateToVersion6Locked()
+                    case 8:
+                        try execute("CREATE TABLE food_logging_drafts(id TEXT PRIMARY KEY, userId TEXT NOT NULL UNIQUE, json BLOB NOT NULL);")
                     case 7:
                         try execute("CREATE TABLE water_logs(id TEXT PRIMARY KEY, userId TEXT NOT NULL, json BLOB NOT NULL);")
                         try execute("CREATE INDEX water_logs_owner_idx ON water_logs(userId);")
@@ -1778,12 +1901,12 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     private func countLocked(table: String, ownerId: UUID) -> Int {
-        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals"].contains(table))
+        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals", "food_logging_drafts"].contains(table))
         return countLocked(table: table, ownerColumn: "userId", ownerId: ownerId)
     }
 
     private func countLocked(table: String, ownerColumn: String, ownerId: UUID) -> Int {
-        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals", "products"].contains(table))
+        precondition(["logs", "goals", "favorites", "scans", "weights", "water_logs", "saved_meals", "products", "food_logging_drafts"].contains(table))
         precondition(ownerColumn == "userId" || ownerColumn == "ownerUserId")
         var stmt: OpaquePointer?
         guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table) WHERE \(ownerColumn) = ?;", -1, &stmt, nil) == SQLITE_OK else { return 0 }
@@ -1794,7 +1917,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     private func updateOwnerLocked(table: String, column: String, from: UUID, to: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products", "food_logging_drafts"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?
@@ -1807,7 +1930,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     private func deleteOwnerRowsLocked(table: String, column: String, ownerId: UUID) throws {
-        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products", "product_drafts", "catalog_submissions"]
+        let allowedTables = ["goals", "logs", "favorites", "scans", "weights", "water_logs", "saved_meals", "sync_queue", "products", "product_drafts", "catalog_submissions", "food_logging_drafts"]
         precondition(allowedTables.contains(table))
         precondition(column == "userId" || column == "ownerUserId")
         var stmt: OpaquePointer?
@@ -1819,7 +1942,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
 
     private func rewriteUserIdInJSONLocked(table: String, from: UUID, to: UUID) throws {
-        precondition(["goals", "logs", "weights", "water_logs", "saved_meals"].contains(table))
+        precondition(["goals", "logs", "weights", "water_logs", "saved_meals", "food_logging_drafts"].contains(table))
         var select: OpaquePointer?
         let selectSQL = "SELECT id, json FROM \(table) WHERE userId = ?;"
         guard sqlite3_prepare_v2(db, selectSQL, -1, &select, nil) == SQLITE_OK else { throw databaseError() }

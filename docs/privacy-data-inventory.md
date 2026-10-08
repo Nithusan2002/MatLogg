@@ -195,3 +195,114 @@ JSON-eksporter eldre enn 24 timer best-effort; nyere filer beholdes slik at en
 Den hvilende køen bevarer payload per endring og vokser med bruk. Det innføres
 ikke destruktiv komprimering i denne leveransen. Følg faktisk SQLite-/køstørrelse
 under pilot før en separat, tapsfri vedlikeholdsstrategi vurderes.
+
+## Kontroll 7. oktober 2026 – personvernlenke og sletteflyt
+
+Appens felles lenke er endret til `https://nithusan.no/MatLogg/personvern.html`
+(HTTP 200 ved kontroll). Lokal profilsletting tilbys også uten konto.
+Klienten lagrer slettefremdrift og gjenopptar bekreftet lokal opprydding etter
+omstart; ubekreftet serversvar behandles som usikker status. Eieravgrensede
+midlertidige eksporter fjernes; delte/eksterne kopier kontrolleres av brukeren.
+
+Brukeren godkjente sletting av egne serverprodukter. Migrasjonen
+`20261007054620_account_deletion_products.sql` erstatter `owner_id = null`
+med faktisk sletting og bevarer opprinnelig purge-frist ved retry. Dette gjelder
+eierknyttede produkter; tidligere frakoblede produkter kan ikke automatisk
+knyttes tilbake til en konto og krever separat vurdering.
+
+Read-only kontroll i MatLogg Staging viste aktiv cron med `15 2 * * *`, sju
+registrerte vellykkede kjøringer siste sju dager og ett nylig HTTP 200-svar
+med purge-resultat. Cron-status alene beviser ikke kontosletting. Hosted
+backup/loggretensjon og slettinger etter restore er fortsatt uverifisert.
+Den publiserte nettsidens tekst må oppdateres sammen med utrulling; endring av
+`matlogg-legal/privacy.md` publiserer ikke nettsiden automatisk.
+
+Verifisering 7. oktober: første målrettede iOS-kjøring bestod med **47 tester**,
+0 feil. Lokal databasekontroll bestod med **27 pgTAP-kontroller**. Lokal Auth/
+Edge Function-test bestod: serverbekreftelse, sperret innlogging, permanent
+Auth-/produktsletting, gjentatt purge og bevaring av annen eier. Legacy-backend
+bygget og målrettet auth-maintenance-test bestod.
+
+Migrasjonene `20261007054620_account_deletion_products.sql` og
+`20261007054925_account_deletion_rate_windows.sql` er anvendt i MatLogg Staging.
+Den siste inkluderer `private.sync_rate_windows`, som inneholder eier-ID uten
+FK-cascade. Hosted kontroll med syntetiske kontoer bestod: `delete-account`
+bekreftet forespørselen, ny innlogging ble avvist, og faktisk `purge-accounts`
+returnerte HTTP 200 med `purged: 1, failed: 0`. Etterkontroll via Auth Admin API
+og REST bekreftet hard-delete og produktsletting, mens annen konto/produkt var
+bevart. Testkontoene ble ryddet. Separat transaksjon med rollback kontrollerte
+alle domenekategorier, rate-limit-rader og bevart retry-frist i staging.
+
+`matlogg-web/src/PrivacyPage.tsx` er også oppdatert: publisert side omtalte
+konto og serversletting som fremtidige funksjoner. Nettside/app er ikke
+publisert i denne oppgaven. Backup-/loggfrister, håndtering etter restore og
+varsling til en konkret mottaker gjenstår før produksjonsgodkjenning.
+
+### Lokale registreringsutkast (2026-10-07)
+
+Manuell registrering lagrer rå input, nærings-/porsjonsgrunnlag, ferdig importert
+bilde, produktreferanse, mengde, dato og måltid i `food_logging_drafts` per lokal
+profil. Formålet er å fortsette en avbrutt registrering. Utkast lastes bare for
+aktiv profil, eksporteres som eid JSON og slettes ved Forkast, fullført logging
+eller sletting av profildata. Ingen automatisk utløp eller opplasting.
+Bilder ligger i samme SQLite-snapshot og følger samme sletting og filbeskyttelse.
+Dette er lokal gjenoppretting; avinstallering eller tap av telefonen dekkes ikke.
+
+Tilgangskontroll samme dag: gammelt JWT kunne lese produktdata etter soft-delete
+før rettelsen. Brukeren godkjente RLS-endringen. Migrasjonen
+`20261007055901_account_deletion_read_access.sql` er anvendt i staging og
+krever aktiv profil på alle brukeravgrensede lesepolicyer. **95 lokale
+pgTAP-kontroller i sju filer** bestod etter endringen, inkludert umiddelbar
+lesesperring med gammelt token for alle datakategorier. Lokal HTTP-test og
+hosted staging HTTP-test bestod med ekte Auth-token: slettet konto fikk tomt
+RLS-resultat straks, mens annen aktiv konto beholdt lesetilgangen.
+Ingen produksjonsutrulling er utført.
+
+Historisk kontroll i staging fant ingen frakoblede `source = user`-produkter,
+men fire rate-limit-rader uten tilhørende Auth-konto. Nye sletteforespørsler
+rydder slike rader som del av purge. Brukeren godkjente separat opprydding,
+og `supabase/ops/cleanup-orphan-rate-windows.sql` fjernet nøyaktig fire rader i
+staging. Skriptet berører bare eier-ID-er som ikke finnes i Auth og stopper
+hvis det gjennomgåtte antallet har endret seg.
+
+Sluttkontroll etter gjenopptakelse: **48 iOS-tester i tre relevante suiter**
+bestod uten feil på egen MatLogg Deletion QA-simulator. Midlertidig scheme
+utelot UI-testtargetet for å isolere enhetstestene fra annet pågående arbeid.
+Logg og xcresult ligger under ignorert `build/privacy-deletion-qa/`.
+Etter ny reset av det isolerte lokale testmiljøet bestod **95 databasetester**
+og databaselint uten feil. CI-skriptet for HTTP-testen bestod også: faktisk
+Auth-sletting, avvist innlogging, sletting av egne produkter, eierisolasjon
+og gjentatt purge. Det midlertidige testmiljøet og test-schemet ryddes etter
+kontrollen; testloggene beholdes i den ignorerte build-mappen.
+Read-only etterkontroll i staging viste **0 foreldreløse rate-limit-rader**.
+Identiteter, økter og refresh-tokens for den tidligere purgede syntetiske
+kontoen ble også kontrollert i staging: alle tre kategorier hadde 0 rader.
+Arkitekturkontroll: views sender handlinger til AuthViewModel; repository/
+services håndterer IO. Lokal eieravgrenset transaksjon er bevart; slettemarkør
+og fil-/UserDefaults-opprydding er gjenopptakbare separate operasjoner.
+Synkkontrakt og produksjonsflagg er uendret. Ingen nye arkitekturavvik.
+
+## Oppfølging – serversletting uten fast ventetid
+
+Ny implementasjon fjerner 30-dagersventetid for nye forespørsler.
+Serverslettingen forsøkes i samme forespørsel; ufullført sletting beholdes for
+retry. RLS-sperren oppheves ikke ved Auth-feil. Varslingsmottaker er
+nithusank.2002@gmail.com; e-postadapter er klargjort, men leverandør/avsender
+og secret er ikke konfigurert. Aktuelle backup-/loggfrister i produksjon er
+fortsatt ukjent: connector viser bare staging, og dashboard krever innlogging.
+Historiske funn og 30-dagersbeskrivelser ovenfor gjelder tidligere versjon.
+
+Verifisering av ny flyt: **95 databasekontroller**, **15 Deno-tester**,
+Deno check/lint, databaselint, målrettet legacy auth-maintenance-test og
+backend-/nettbygg bestod. Lokal HTTP-test bekreftet sletting i samme kall,
+eierisolasjon og køet retry. Staging-migrasjonen
+`20261007144356_account_deletion_without_wait` og begge Edge Functions er
+utrullet. Cron er kontrollert aktiv med `*/5 * * * *`.
+Hosted HTTP-test med syntetisk konto bekreftet Auth-hard-delete og
+produktsletting i samme kall og avvist lesing med gammelt token; testkontoen
+ble ryddet. Seks eldre sletteforespørsler beholdt fristene, ingen var due.
+Denne iOS-endringen er bare bekreftelsestekst; tidligere 48 målrettede
+iOS-tester er ikke kjørt på nytt. Ingen produksjons- eller nettpublisering.
+Arkitekturkontroll: eksisterende IO-grenser og lokal slettetransaksjon er
+bevart. Serverens domenepurge er atomisk; Auth følger etter og feil kan
+prøves igjen. Ingen synkkontraktendring eller nye arkitekturavvik.

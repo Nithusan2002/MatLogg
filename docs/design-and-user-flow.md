@@ -389,6 +389,8 @@ registrering fungerer uten nett; eksterne katalogoppslag krever nett.
 Ingen introduksjons- eller målveiviser blokkerer første logging. Mål settes
 valgfritt under Profil → Daglige mål; oppstart oppretter ikke et skjult mål.
 Ved stor tekst stables søkehandlingene vertikalt, og innholdet kan rulles.
+Søkeresultatets bilde og fremdriftsindikator ligger over teksten ved
+tilgjengelighetsstørrelser, slik at navn, enhet og kilde får hele radbredden.
 Detaljer om fullføring, gjenåpning og kjent konto finnes under
 [Første logging](#første-logging-2026-10-02).
 
@@ -610,6 +612,8 @@ Introen krever to trykk før logging, eller ett med «Hopp over intro»; målber
 etter valgt skanning. Produktkortet beholder mengde, enhet, kilde og måltid.
 
 Bekreftet lokal lagring åpner Hjem med eksisterende kvittering og Angre.
+Kvitteringen har også en synlig «Lukk bekreftelse»-knapp, slik at brukeren
+kan frigjøre de underliggende matradene uten å angre loggingen eller vente.
 «Gå til Hjem» avslutter også førstegangsvisningen; ellers starter den på introen ved
 neste åpning. Angre starter ikke onboarding på nytt. Tidligere fullført
 onboarding bevares. Normalflyten har fire skjermer og fire trykk pluss tekstinntasting
@@ -629,6 +633,9 @@ input deaktiverer lagring, og mislykket redigering beholder utkastet for retry.
 Pakkevekt vises som hel pakke; navn alene bestemmer ikke stykkvekt.
 Ingen gram/ml-konvertering uten dokumentert grunnlag, og ingen porsjonseditor
 inngår i denne versjonen. Produktkortet brukes likt fra skanning og søk.
+Ved tilgjengelighetsstørrelser står enhetsvelgeren under etiketten og får
+tilgjengelig bredde. Tallfelt og øk/reduser-kontroller skal ikke bli bredere
+enn skjermen når Dynamic Type skalerer opp.
 
 ## Lokal lansering – 3. oktober 2026
 
@@ -833,3 +840,22 @@ Bildene er lokalt bundlet (1000 px bredde), uten nettverkskall.
 - OnboardingBreakfast: Livilla Latini, [Pexels](https://www.pexels.com/photo/a-bowl-of-oatmeal-with-berries-and-raspberries-27850094/).
 - OnboardingMeal: ROMAN ODINTSOV, [Pexels](https://www.pexels.com/photo/a-whole-pizza-on-a-wooden-table-5902953/).
 - Bruksgrunnlag: [Pexels License](https://www.pexels.com/license/), kontrollert 2026-10-05.
+
+### Gjenoppretting av manuell logging (2026-10-07)
+
+Manuell produktregistrering og påfølgende mengdevalg har ett lokalt utkast per
+profil, også uten konto. Hjem, Søk og Loggfør viser Fortsett/Forkast. Et nytt
+manuelt forsøk tilbyr først å fortsette eller forkaste et eksisterende utkast.
+Lukk beholder utkastet; Forkast krever bekreftelse og sletter ikke et allerede
+lagret produkt. Første logging og ukjent strekkode bruker samme flyt. Manuell
+oppretting som del av bygging av en måltidsmal beholder eksisterende adferd.
+
+Tekst, næringsgrunnlag, porsjon, ferdig importert bilde og registreringskontekst
+lagres etter omtrent 300 ms uten nye endringer. Bakgrunnslegging og Lukk forsøker
+å lagre straks. Fortsett gjenoppretter siste vellykkede lokale lagring og riktig
+steg. Mengdeskjermen viser opprinnelig dato og eksplisitt dato-/måltidsvalg.
+Siste ikke-lagrede endringer kan gå tapt ved brå terminering. Utkast er ikke backup.
+
+Bruk eksisterende komponenter og semantiske tokens, Dynamic Type, VoiceOver og
+44-punkters touchflater. Ingen automatisk åpning av utkast over onboarding eller
+innlogging. Ved lagringsfeil beholdes input og brukeren kan prøve igjen.

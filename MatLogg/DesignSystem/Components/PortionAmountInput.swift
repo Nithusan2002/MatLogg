@@ -5,6 +5,12 @@ struct PortionAmountInput: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showsServingSource = false
     @ScaledMetric(relativeTo: .body) private var amountControlWidth: CGFloat = 120
+    private var fittedControlWidth: CGFloat { min(amountControlWidth, 200) }
+    private var unitLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout())
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -17,15 +23,16 @@ struct PortionAmountInput: View {
                     Button("\(displayLabel(selected.portionLabel)) (lagret grunnlag)") { model.select(selected) }
                 }
             } label: {
-                HStack {
+                unitLayout {
                     Text("Enhet")
-                    Spacer()
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     HStack(spacing: 8) {
                         Text(displayLabel(model.selectedServing?.portionLabel ?? model.unit.spokenName))
                         Image(systemName: "chevron.down")
                     }
                     .padding(.horizontal, 12)
-                    .frame(width: amountControlWidth)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : fittedControlWidth)
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 44)
                     .background(AppColors.surface)
@@ -58,7 +65,7 @@ struct PortionAmountInput: View {
                     Spacer(minLength: 0)
                     increaseButton
                 }
-                .frame(width: amountControlWidth)
+                .frame(width: fittedControlWidth)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             } else {
                 amountField
@@ -110,7 +117,7 @@ struct PortionAmountInput: View {
 
     private var countControls: some View {
         AmountInputRow(title: "Antall", gramsText: $model.text, unit: "", showsTitle: false,
-                       controlWidth: amountControlWidth)
+                       controlWidth: fittedControlWidth)
     }
 
     private func sourceLabel(_ source: ServingSource) -> String {
@@ -124,7 +131,7 @@ struct PortionAmountInput: View {
     private var amountField: some View {
         AmountInputRow(title: model.selectedServing == nil ? "Mengde" : "Antall",
                        gramsText: $model.text, unit: model.selectedServing == nil ? model.unit.rawValue : "",
-                       controlWidth: amountControlWidth)
+                       controlWidth: fittedControlWidth)
     }
 
     private var decreaseButton: some View {

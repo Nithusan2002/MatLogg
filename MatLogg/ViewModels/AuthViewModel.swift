@@ -27,6 +27,8 @@ final class AuthViewModel: ObservableObject {
     @Published private(set) var pendingVerificationEmail: String?
     @Published private(set) var verificationMessage: String?
 
+    @Published private(set) var pendingDeletion: PendingProfileDeletion?
+
     private let authRepository: any AccountAuthRepository
     private let localStore: any AuthSessionStore
     private let localProfileManager: any LocalProfileManaging
@@ -77,11 +79,16 @@ final class AuthViewModel: ObservableObject {
         self.authRepository = authRepository
         self.localStore = localStore
         self.localProfileManager = localProfileManager
+        self.pendingDeletion = localStore.pendingProfileDeletion()
     }
 
     func restoreSession() async {
         isRestoringSession = true
         defer { isRestoringSession = false }
+        if let pendingDeletion, pendingDeletion.serverConfirmed || pendingDeletion.isLocalProfile {
+            _ = await finishPendingLocalDeletion()
+            return
+        }
         if let restored = await authRepository.restoreSession() {
             let user = restored.preservingAppleNameSuggestion(previous: localStore.getStoredUser())
             localStore.storeUser(user)
@@ -100,6 +107,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func continueLocally() {
+        guard pendingDeletion == nil else { return }
         errorMessage = nil
         pendingVerificationEmail = nil
         show(user: localStore.activateLocalProfile(), account: false)
@@ -110,6 +118,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func signUp(email: String, password: String) async {
+        guard canStartAccountOperation() else { return }
         isLoading = true
         errorMessage = nil
         verificationMessage = nil
@@ -155,7 +164,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func handleAuthCallback(_ url: URL) async {
-        guard url.scheme == "matlogg", url.host == "auth" else { return }
+        guard url.scheme == "matlogg", url.host == "auth", canStartAccountOperation() else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -236,28 +245,72 @@ final class AuthViewModel: ObservableObject {
 
     @discardableResult
     func deleteAccount() async -> Bool {
-        guard !isDeletingAccount, let currentUser, !currentUser.isLocalProfile else { return false }
+        guard !isDeletingAccount, !isLoading, let currentUser, !currentUser.isLocalProfile else { return false }
         isDeletingAccount = true
         errorMessage = nil
         defer { isDeletingAccount = false }
+        if pendingDeletion?.serverConfirmed != true {
+            savePendingDeletion(.init(ownerId: currentUser.id, isLocalProfile: false, serverConfirmed: false))
+            do {
+                _ = try await authRepository.deleteAccount()
+                savePendingDeletion(.init(ownerId: currentUser.id, isLocalProfile: false, serverConfirmed: true))
+            } catch {
+                errorMessage = "Vi kunne ikke bekrefte kontoslettingen. Dataene på denne iPhonen er beholdt. Prøv igjen, eller kontakt oss hvis kontoen ikke lenger kan brukes."
+                return false
+            }
+        }
+        return await performPendingLocalDeletion()
+    }
+
+    /// Also available after restart, without a working account session.
+    @discardableResult
+    func finishPendingLocalDeletion() async -> Bool {
+        guard !isDeletingAccount, pendingDeletion != nil else { return false }
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        return await performPendingLocalDeletion()
+    }
+
+    private func performPendingLocalDeletion() async -> Bool {
+        guard let deletion = pendingDeletion else { return false }
         do {
-            _ = try await authRepository.deleteAccount()
-            try await localProfileManager.deleteLocalData(ownerId: currentUser.id)
-            logout()
+            try await localProfileManager.deleteLocalData(ownerId: deletion.ownerId)
+            localStore.removeOnboardingCompletion(userId: deletion.ownerId)
+            if deletion.isLocalProfile { localStore.consumeLocalProfile() }
+            guard logout() else { return false }
+            // The explicit recovery action completes local cleanup only.
+            savePendingDeletion(nil)
+            if !deletion.serverConfirmed && !deletion.isLocalProfile {
+                errorMessage = "Lokale data er fjernet. Serverslettingen er ikke bekreftet. Kontakt oss for å kontrollere kontoslettingen."
+            }
             return true
         } catch {
-            errorMessage = "Slettingen kunne ikke fullføres. Kontroller kontostatus før du prøver igjen."
+            errorMessage = "Lokale data kunne ikke slettes. Prøv lokal opprydding igjen; du trenger ikke logge inn."
+            currentUser = nil
+            isOnboarding = false
+            authState = .notAuthenticated
             return false
         }
     }
 
+    private func savePendingDeletion(_ deletion: PendingProfileDeletion?) {
+        localStore.setPendingProfileDeletion(deletion)
+        pendingDeletion = deletion
+    }
+
     @discardableResult
     func removeAccountDataFromDevice() async -> Bool {
-        guard let currentUser, !currentUser.isLocalProfile else { return false }
+        guard !isDeletingAccount, !isLoading, let currentUser else { return false }
+        if currentUser.isLocalProfile {
+            savePendingDeletion(.init(ownerId: currentUser.id, isLocalProfile: true, serverConfirmed: false))
+            return await finishPendingLocalDeletion()
+        }
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
         do {
             try await localProfileManager.deleteLocalData(ownerId: currentUser.id)
-            logout()
-            return true
+            localStore.removeOnboardingCompletion(userId: currentUser.id)
+            return logout()
         } catch {
             errorMessage = "Dataene kunne ikke fjernes fra denne iPhonen."
             return false
@@ -280,7 +333,16 @@ final class AuthViewModel: ObservableObject {
         authState = .authenticated(user: user)
     }
 
+    private func canStartAccountOperation() -> Bool {
+        guard pendingDeletion == nil, !isDeletingAccount else {
+            errorMessage = "Fullfør lokal sletting før du logger inn på en konto."
+            return false
+        }
+        return true
+    }
+
     private func authenticate(operation: () async throws -> User) async {
+        guard canStartAccountOperation() else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }

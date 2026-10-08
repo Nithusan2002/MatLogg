@@ -817,3 +817,14 @@ ingen database- eller synkkontraktsendring.
 Nutri-Score-metadata inkluderer valgfritt beregningsgrunnlag: komponent-ID,
 verdi/enhet, poeng/maksimum, kildesummer, estimatstatus, tilberedningsgrunnlag
 og årsak til utelatt protein. Bevares i produkt-JSON uten kontraktsmigrasjon.
+
+**Registreringsutkast 7. oktober 2026:** Lokal SQLite v8 legger til
+`food_logging_drafts(id, userId UNIQUE, json)`. JSON har egen `schemaVersion: 1`,
+revisjon, stabile utkast-/produkt-/logg-ID-er, rå produktfelter, bilde,
+produktreferanse, mengde/porsjon og dato/måltid. Tidspunkter i dette interne
+snapshotet følger JSONEncoder/JSONDecoder sitt Date-format. Tabellen er separat
+fra kompatibilitetstabellen `product_drafts`. Den inngår i profileierskap,
+profiloverføring, lokal sletting og JSON-eksport som `food_logging_drafts`
+(additiv kategori i eksport v2), men aldri i synkkøen. Overføring til en profil
+som allerede har et utkast avvises atomisk fremfor å overskrive noen av dem.
+Eksisterende canonical product/log upsert-hendelser og synkkontrakt er uendret.

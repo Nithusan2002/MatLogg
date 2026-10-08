@@ -86,7 +86,7 @@ struct MatLoggOnboardingFlowView: View {
                         .overlay(alignment: .leading) {
                             Capsule()
                                 .fill(AppColors.brand)
-                                .frame(width: geometry.size.width * onboardingViewModel.progressFraction)
+                                .frame(width: max(0, geometry.size.width) * onboardingViewModel.progressFraction)
                         }
                 }
                 .frame(height: 6)

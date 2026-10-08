@@ -4,6 +4,7 @@ struct MatLoggTabBar: View {
     static let defaultScrollContentBottomMargin: CGFloat = 104
     static let scrollContentSpacing: CGFloat = 16
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var selection: AppTab
 
     private let tabs: [(AppTab, String, String)] = [
@@ -39,7 +40,20 @@ struct MatLoggTabBar: View {
         }
     }
 
-    private var tabBarContent: some View {
+    @ViewBuilder private var tabBarContent: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            ScrollView(.horizontal) {
+                tabButtons
+            }
+            .scrollIndicators(.hidden)
+            .accessibilityIdentifier("matlogg-tab-bar-scroll")
+            .fixedSize(horizontal: false, vertical: true)
+        } else {
+            tabButtons
+        }
+    }
+
+    private var tabButtons: some View {
         HStack(spacing: 4) {
             tabButton(tabs[0])
             tabButton(tabs[1])
@@ -56,6 +70,8 @@ struct MatLoggTabBar: View {
                         .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
                     Text("Loggfør")
                         .font(AppTypography.captionEmphasis)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize, vertical: true)
                         .foregroundColor(AppColors.deepInk)
                 }
                 .frame(maxWidth: .infinity, minHeight: 70)
@@ -69,8 +85,6 @@ struct MatLoggTabBar: View {
             tabButton(tabs[3])
         }
         .frame(minHeight: 70)
-        // Compact navigation labels retain full names without exceeding the screen width.
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
@@ -81,7 +95,7 @@ struct MatLoggTabBar: View {
                 Text(tab.1)
                     .font(selection == tab.0 ? AppTypography.captionEmphasis : AppTypography.caption)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize, vertical: true)
             }
             .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 52)

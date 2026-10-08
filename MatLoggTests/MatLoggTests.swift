@@ -580,7 +580,7 @@ struct MatLoggTests {
         store = nil
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP TABLE product_drafts; DROP TABLE catalog_submissions; DROP TABLE water_logs; PRAGMA user_version = 5;", nil, nil, nil) == SQLITE_OK)
+        try #require(sqlite3_exec(db, "DROP TABLE product_drafts; DROP TABLE catalog_submissions; DROP TABLE water_logs; DROP TABLE food_logging_drafts; PRAGMA user_version = 5;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
 
         store = try LocalStore(databaseURL: url)
@@ -1614,6 +1614,79 @@ struct AuthViewModelTests {
         #expect(viewModel.errorMessage != nil)
     }
 
+    @Test func confirmedDeletionResumesAfterLocalFailureWithoutCallingBackendAgain() async {
+        let user = makeUser()
+        let api = AuthAPIClientSpy(user: user)
+        let store = AuthSessionStoreSpy(user: user, token: "token")
+        let resetter = LocalProfileManagerSpy()
+        resetter.deleteError = TestRepositoryError.saveFailed
+        let first = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await first.restoreSession()
+        #expect(!(await first.deleteAccount()))
+        #expect(store.pendingDeletion?.serverConfirmed == true)
+        #expect(first.currentUser == nil)
+
+        resetter.deleteError = nil
+        let restarted = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await restarted.restoreSession()
+        #expect(api.deleteCallCount == 1)
+        #expect(resetter.deletedOwners == [user.id, user.id])
+        #expect(store.pendingDeletion == nil)
+        #expect(store.user == nil)
+        #expect(store.token == nil)
+    }
+
+    @Test func unconfirmedDeletionIsNotAutomaticallyTreatedAsServerSuccess() async {
+        let user = makeUser()
+        let api = AuthAPIClientSpy(user: user)
+        api.deleteError = TestRepositoryError.saveFailed
+        let store = AuthSessionStoreSpy(user: user, token: "token")
+        let resetter = LocalProfileManagerSpy()
+        let first = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await first.restoreSession()
+        #expect(!(await first.deleteAccount()))
+        #expect(store.pendingDeletion?.serverConfirmed == false)
+        let restarted = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        await restarted.restoreSession()
+        #expect(resetter.deleteCallCount == 0)
+        #expect(api.deleteCallCount == 1)
+        #expect(await restarted.finishPendingLocalDeletion())
+        #expect(restarted.errorMessage?.contains("Serverslettingen er ikke bekreftet") == true)
+    }
+
+    @Test func pendingCleanupCannotBeReplacedByAnotherAccountCallback() async throws {
+        let old = makeUser()
+        let other = makeUser()
+        let store = AuthSessionStoreSpy()
+        store.pendingDeletion = .init(ownerId: old.id, isLocalProfile: false, serverConfirmed: true)
+        let repository = AccountAuthRepositorySpy()
+        repository.callbackUser = other
+        let model = AuthViewModel(authRepository: repository, localStore: store,
+                                  localProfileManager: LocalProfileManagerSpy())
+        let callback = try #require(URL(string: "matlogg://auth/callback"))
+        await model.handleAuthCallback(callback)
+        #expect(model.currentUser == nil)
+        #expect(store.user == nil)
+        #expect(model.pendingDeletion?.ownerId == old.id)
+        #expect(model.errorMessage != nil)
+    }
+
+    @Test func localProfileDeletionWorksWithoutBackendAndRemovesOnboarding() async {
+        let api = AuthAPIClientSpy(user: makeUser())
+        let store = AuthSessionStoreSpy()
+        let resetter = LocalProfileManagerSpy()
+        let model = AuthViewModel(apiClient: api, sessionStore: store, localProfileManager: resetter)
+        model.continueLocally()
+        let owner = model.currentUser!.id
+        model.finishOnboarding()
+        #expect(await model.removeAccountDataFromDevice())
+        #expect(api.deleteCallCount == 0)
+        #expect(resetter.deletedOwners == [owner])
+        #expect(store.localUser == nil)
+        #expect(!store.hasCompletedOnboarding(userId: owner))
+        #expect(store.pendingDeletion == nil)
+    }
+
     @Test func signupWaitsForVerifiedEmailBeforeCreatingAccountSession() async {
         let repository = AccountAuthRepositorySpy()
         repository.registrationResult = .pendingEmailVerification(email: "test@example.com")
@@ -1762,7 +1835,13 @@ private final class LocalProfileManagerSpy: LocalProfileManaging {
         claimedFrom = localOwnerId
         claimedTo = accountOwnerId
     }
-    func deleteLocalData(ownerId: UUID) async throws { deleteCallCount += 1 }
+    var deleteError: Error?
+    var deletedOwners: [UUID] = []
+    func deleteLocalData(ownerId: UUID) async throws {
+        deleteCallCount += 1
+        deletedOwners.append(ownerId)
+        if let deleteError { throw deleteError }
+    }
 }
 
 @MainActor
@@ -1787,6 +1866,11 @@ struct AppStateTests {
 }
 
 private final class AuthSessionStoreSpy: AuthSessionStore {
+    var pendingDeletion: PendingProfileDeletion?
+    func pendingProfileDeletion() -> PendingProfileDeletion? { pendingDeletion }
+    func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) { pendingDeletion = deletion }
+    func removeOnboardingCompletion(userId: UUID) { setOnboardingCompleted(false, userId: userId) }
+
     var user: User?
     var token: String?
     var tokenStorageSucceeds: Bool

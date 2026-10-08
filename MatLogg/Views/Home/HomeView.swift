@@ -406,6 +406,7 @@ private struct HomeTabContent: View {
                                 .frame(height: 1)
                                 .accessibilityHidden(true)
                         }
+                        LoggingDraftBanner(onLogComplete: onLogComplete)
                         HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
                     }
                     .padding(20)
@@ -1284,6 +1285,9 @@ struct CameraView: View {
                 showProductDetail = true
             }
         }) {
+            if productSelectionContent == nil {
+                RecoverableManualLoggingView(barcode: scannedBarcode, onLogComplete: onLogComplete)
+            } else {
             ManualProductView(
                 barcode: scannedBarcode,
                 saveProduct: { product in
@@ -1300,6 +1304,7 @@ struct CameraView: View {
                         await appState.refreshSyncStatus()
                     }
                 }
+            }
             }
         }
         .alert(productViewModel.scanFailure?.title ?? "Produktoppslag", isPresented: $showProductNotFound) {
@@ -1711,6 +1716,7 @@ struct SearchHubView: View {
     HomeView()
         .environmentObject(AppState(databaseService: database))
         .environmentObject(LogViewModel(repository: database))
+        .environmentObject(FoodLoggingDraftViewModel(repository: database))
         .environmentObject(MealReuseViewModel(repository: database))
         .environmentObject(SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database, photoRepository: LocalMealPhotoRepository()))
         .environmentObject(ProductViewModel(repository: database))

@@ -53,6 +53,18 @@ struct LogToastView: View {
             }
             .buttonStyle(.plain)
             .disabled(isUndoing)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(AppTypography.body)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isUndoing)
+            .accessibilityLabel("Lukk bekreftelse")
+            .accessibilityIdentifier("log-receipt-close")
         }
         .padding(14)
         .matLoggCardSurface(cornerRadius: 16)
@@ -61,6 +73,7 @@ struct LogToastView: View {
         .opacity(1 - min(dragOffset / 180, 0.55))
         .simultaneousGesture(dismissGesture)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("log-receipt")
         .accessibilityAction(named: "Lukk bekreftelse") {
             onDismiss()
         }

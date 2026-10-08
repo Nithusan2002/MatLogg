@@ -47,6 +47,23 @@ final class AuthService {
         self.keychain = keychain
     }
     
+    func pendingProfileDeletion() -> PendingProfileDeletion? {
+        guard let data = defaults.data(forKey: "ml_pending_profile_deletion") else { return nil }
+        return try? JSONDecoder().decode(PendingProfileDeletion.self, from: data)
+    }
+
+    func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) {
+        if let deletion, let data = try? JSONEncoder().encode(deletion) {
+            defaults.set(data, forKey: "ml_pending_profile_deletion")
+        } else {
+            defaults.removeObject(forKey: "ml_pending_profile_deletion")
+        }
+    }
+
+    func removeOnboardingCompletion(userId: UUID) {
+        defaults.removeObject(forKey: onboardingKey(userId))
+    }
+
     func storeUser(_ user: User) {
         if let encoded = try? JSONEncoder().encode(user) {
             defaults.set(encoded, forKey: userDefaultsKey)

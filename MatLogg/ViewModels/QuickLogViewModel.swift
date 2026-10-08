@@ -103,6 +103,9 @@ final class QuickLogViewModel: ObservableObject {
             guard repeatID == request, self.owner == owner, !Task.isCancelled else { return nil }
             switch outcome {
             case .logged(let product, let log):
+                recentFoods = recentFoods.map { choice in
+                    choice.id == product.id ? RecentFood(product: product, log: log) : choice
+                }
                 dismissRepeatReceipt()
                 repeatReceipt = ReceiptPayload(product: product, amountG: Double(log.amountG),
                     amountUnit: log.resolvedAmountUnit, mealType: log.mealType,

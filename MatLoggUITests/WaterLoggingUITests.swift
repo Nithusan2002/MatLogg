@@ -8,7 +8,7 @@ final class WaterLoggingUITests: XCTestCase {
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         setEnergyVisibility(false, in: app)
-        let count = app.staticTexts["water-count"]
+        let count = app.descendants(matching: .any)["water-count"]
         XCTAssertTrue(count.waitForExistence(timeout: 8))
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.staticTexts["Registrert energi"])
         waitForExpectations(timeout: 5)
@@ -45,7 +45,7 @@ final class WaterLoggingUITests: XCTestCase {
         let ready = NSPredicate(format: "enabled == true")
         expectation(for: ready, evaluatedWith: add)
         waitForExpectations(timeout: 5)
-        let count = app.staticTexts["water-count"]
+        let count = app.descendants(matching: .any)["water-count"]
         let initial = try XCTUnwrap(Int(count.value as? String ?? ""))
         add.tap()
         expectation(for: NSPredicate(format: "value == %@", String(initial + 1)), evaluatedWith: count)

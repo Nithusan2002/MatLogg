@@ -405,6 +405,11 @@ struct APIServiceTests {
 }
 
 private final class APIAuthSessionStore: AuthSessionStore {
+    var pendingDeletion: PendingProfileDeletion?
+    func pendingProfileDeletion() -> PendingProfileDeletion? { pendingDeletion }
+    func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) { pendingDeletion = deletion }
+    func removeOnboardingCompletion(userId: UUID) { setOnboardingCompleted(false, userId: userId) }
+
     var tokens: AuthTokens?
     private var user: User?
 

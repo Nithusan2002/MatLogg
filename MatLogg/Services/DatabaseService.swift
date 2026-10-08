@@ -1,6 +1,6 @@
 import Foundation
 
-class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodRepository {
+class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataExportRepository, RecentFoodRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
     private let ioQueue: DispatchQueue
@@ -89,6 +89,25 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
         }
         PerformanceSignposts.end(resumeTiming)
         return try result.get()
+    }
+
+    func loadLoggingDraft(owner: UUID) async throws -> FoodLoggingDraft? {
+        try await perform { try $0.loadLoggingDraft(owner: owner) }
+    }
+    func createLoggingDraft(_ draft: FoodLoggingDraft) async throws {
+        try await perform { try $0.createLoggingDraft(draft) }
+    }
+    func updateLoggingDraft(_ draft: FoodLoggingDraft) async throws {
+        try await perform { try $0.updateLoggingDraft(draft) }
+    }
+    func discardLoggingDraft(id: UUID, owner: UUID) async throws {
+        try await perform { try $0.discardLoggingDraft(id: id, owner: owner) }
+    }
+    func advanceLoggingDraft(_ draft: FoodLoggingDraft, product: Product) async throws {
+        try await perform { try $0.advanceLoggingDraft(draft, product: product) }
+    }
+    func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) async throws {
+        try await perform { try $0.completeLoggingDraft(draft, log: log) }
     }
 
     func getWaterGlasses(userId: UUID) async throws -> [WaterGlass] {
@@ -345,7 +364,10 @@ class DatabaseService: WaterRepository, ProfileDataExportRepository, RecentFoodR
     }
 
     func deleteLocalData(ownerId: UUID) async throws {
-        try await perform { try $0.deleteLocalData(ownerId: ownerId) }
+        try await perform {
+            try $0.deleteLocalData(ownerId: ownerId)
+            try UserDataExportService.removeOwnedExports(ownerId: ownerId, in: FileManager.default.temporaryDirectory)
+        }
         defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
         defaults.removeObject(forKey: UserDefaultsMorningCheckInStore.key(ownerId))
         let profilePrefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]

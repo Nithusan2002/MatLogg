@@ -150,8 +150,8 @@ reset role;
 
 select is((select count(*)::integer from public.food_logs where owner_id = '10000000-0000-4000-8000-000000000001'),
   0, 'purge removes personal domain data');
-select is((select owner_id from public.products where id = '80000000-0000-4000-8000-000000000008'),
-  null::uuid, 'purge anonymizes contributed products');
+select is((select count(*)::integer from public.products where id = '80000000-0000-4000-8000-000000000008'),
+  0, 'purge removes owned product content');
 select is((select count(*)::integer from public.event_inbox where owner_id = '10000000-0000-4000-8000-000000000001'),
   0, 'purge removes inbox events');
 

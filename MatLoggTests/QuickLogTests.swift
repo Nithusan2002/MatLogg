@@ -4,6 +4,26 @@ import Testing
 
 @MainActor
 struct QuickLogTests {
+    @Test func consecutiveRepeatsUseTheLatestPersistedLog() async {
+        let repository = QuickLibraryStub()
+        let food = product("Gjenlogging"), owner = UUID()
+        let original = FoodLog(userId: owner, productId: food.id, mealType: "frokost", amountG: 150,
+                               loggedDate: Date(), calories: 150, proteinG: 3, carbsG: 15, fatG: 6)
+        repository.latestLogID = original.id
+        repository.library = FoodSearchLibrary(products: [], recent: [food], favorites: [], suggestions: [],
+                                               recentFoods: [RecentFood(product: food, log: original)])
+        let model = QuickLogViewModel(repository: repository)
+        await model.load(userId: owner)
+        let first = await model.logAgain(model.recentFoods[0], mealType: "frokost", date: original.loggedDate)
+        #expect(first != nil)
+        let second = await model.logAgain(model.recentFoods[0], mealType: "frokost", date: original.loggedDate)
+        #expect(second != nil)
+        #expect(repository.repeatedLogs.count == 2)
+        #expect(model.repeatReceipt?.logID == second?.1.id)
+        #expect(repository.repeatedLogs.allSatisfy { $0.userId == owner && $0.amountG == 150 && $0.calories == 150 })
+        #expect(model.selectedQuickProduct == nil)
+    }
+
     @Test func repeatChoicesOnlyContainLoggedFoods() async {
         let repository = QuickLibraryStub()
         let recent = product("Nylig vare"), favorite = product("Ulogget favoritt"), owner = UUID()
@@ -99,6 +119,19 @@ private final class QuickLibraryStub: FoodSearchRepository {
     var fullLibraryCalls = 0
     var savedOwner: UUID?
     var savedProduct: Product?
+    var latestLogID: UUID?
+    var repeatedLogs: [FoodLog] = []
+
+    func logAgain(_ food: RecentFood, owner: UUID, mealType: String, date: Date) async throws -> RepeatFoodOutcome {
+        guard food.log.id == latestLogID else { return .review(food.product) }
+        let log = FoodLog(userId: owner, productId: food.id, mealType: mealType, amountG: food.log.amountG,
+                          amountUnit: food.log.resolvedAmountUnit, portionSelection: food.log.portionSelection,
+                          loggedDate: date, calories: food.log.calories, proteinG: food.log.proteinG,
+                          carbsG: food.log.carbsG, fatG: food.log.fatG)
+        latestLogID = log.id
+        repeatedLogs.append(log)
+        return .logged(food.product, log)
+    }
 
     func loadLocalLibrary(owner: UUID?) async throws -> FoodSearchLibrary {
         if suspend { await withCheckedContinuation { pending = $0 } }

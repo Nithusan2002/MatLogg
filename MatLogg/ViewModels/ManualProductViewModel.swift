@@ -7,10 +7,10 @@ import SwiftUI
 @MainActor
 final class ManualProductViewModel: ObservableObject {
     static let maximumNameLength = 80
-    @Published var basis: ManualNutritionBasis = .per100g
-    @Published var servingName = ""
-    @Published var servingAmount = ""
-    @Published var servingUnit: AmountUnit = .grams
+    @Published var basis: ManualNutritionBasis = .per100g { didSet { inputChanged?() } }
+    @Published var servingName = "" { didSet { inputChanged?() } }
+    @Published var servingAmount = "" { didSet { inputChanged?() } }
+    @Published var servingUnit: AmountUnit = .grams { didSet { inputChanged?() } }
     @Published var showBasisConfirmation = false
     private var pendingBasis: ManualNutritionBasis?
     private var pendingServingUnit: AmountUnit?
@@ -52,11 +52,11 @@ final class ManualProductViewModel: ObservableObject {
         errorMessage = nil
     }
 
-    @Published var name = ""
-    @Published var calories = ""
-    @Published var protein = ""
-    @Published var carbs = ""
-    @Published var fat = ""
+    @Published var name = "" { didSet { inputChanged?() } }
+    @Published var calories = "" { didSet { inputChanged?() } }
+    @Published var protein = "" { didSet { inputChanged?() } }
+    @Published var carbs = "" { didSet { inputChanged?() } }
+    @Published var fat = "" { didSet { inputChanged?() } }
     @Published private(set) var errorMessage: String?
     @Published private(set) var isSaving = false
 
@@ -65,7 +65,9 @@ final class ManualProductViewModel: ObservableObject {
     @Published var showCamera = false
     @Published var imageError: String?
     private var imageRequestID = UUID()
-    private var imageData: Data?
+    private var imageData: Data? { didSet { inputChanged?() } }
+    var inputChanged: (() -> Void)?
+    var productID = UUID()
     private let cameraAuthorization: any CameraAuthorizationProviding
 
     func openCamera() async {
@@ -134,6 +136,21 @@ final class ManualProductViewModel: ObservableObject {
         self.saveProduct = saveProduct
     }
 
+    var input: ManualProductInput {
+        ManualProductInput(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat,
+                           basis: basis, servingName: servingName, servingAmount: servingAmount,
+                           servingUnit: servingUnit, imageData: imageData)
+    }
+
+    func restoreInput(_ input: ManualProductInput, productID: UUID) {
+        self.productID = productID
+        name = input.name; calories = input.calories; protein = input.protein
+        carbs = input.carbs; fat = input.fat; basis = input.basis
+        servingName = input.servingName; servingAmount = input.servingAmount
+        servingUnit = input.servingUnit; imageData = input.imageData
+        productImage = input.imageData.flatMap(UIImage.init(data:))
+    }
+
     func save() async -> Product? {
         guard !isLoadingImage else { return nil }
         errorMessage = nil
@@ -147,6 +164,7 @@ final class ManualProductViewModel: ObservableObject {
                           source: .user, isDefaultSuggestion: true)
         ] : nil
         let product = Product(
+            id: productID,
             name: values.name,
             barcodeEan: barcode,
             source: "user",

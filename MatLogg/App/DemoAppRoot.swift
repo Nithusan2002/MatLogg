@@ -19,10 +19,7 @@ struct DemoAppRoot: View {
             if mode.isReady {
                 MatLoggContent(databaseService: mode.database, defaults: mode.defaults, isDemo: mode.isDemo)
             } else {
-                ProgressView("Åpner MatLogg …")
-                    .tint(AppColors.action)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppColors.background.ignoresSafeArea())
+                AppStartupLoadingView()
             }
         }
             .id(mode.revision) // Explicitly resets all feature state when the storage context changes.
@@ -40,4 +37,50 @@ struct DemoAppRoot: View {
                 Button("OK") { mode.errorMessage = nil }
             } message: { Text(mode.errorMessage ?? "") }
     }
+}
+
+private struct AppStartupLoadingView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize = 48
+
+    var body: some View {
+        VStack(spacing: 32) {
+            VStack(spacing: 8) {
+                Image("MatLoggStartupLogo")
+                    .renderingMode(colorScheme == .dark ? .template : .original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 160, height: 160)
+                    .foregroundStyle(AppColors.ink)
+                    .accessibilityHidden(true)
+
+                Text("MatLogg")
+                    .font(AppTypography.startupTitle(size: titleSize))
+                    .foregroundStyle(AppColors.ink)
+                    .multilineTextAlignment(.center)
+            }
+
+            ProgressView()
+                .tint(AppColors.action)
+                .accessibilityLabel("Åpner MatLogg")
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppColors.background.ignoresSafeArea())
+    }
+}
+
+#Preview("Oppstart · lys") {
+    AppStartupLoadingView()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Oppstart · mørk") {
+    AppStartupLoadingView()
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Oppstart · stor tekst") {
+    AppStartupLoadingView()
+        .environment(\.dynamicTypeSize, .accessibility3)
 }

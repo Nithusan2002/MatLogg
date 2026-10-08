@@ -60,8 +60,13 @@ final class PortionLoggingUITests: XCTestCase {
     func testTwoPiecesSurviveRelaunchAndEditToThree() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["--skip-auth", "--portion-qa", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = ["--portion-qa", "-ml_local_profile", "", "-ml_local_mode_active", "NO",
+                               "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
+        XCTAssertTrue(app.buttons["onboarding-skip-intro"].waitForExistence(timeout: 10))
+        app.buttons["onboarding-skip-intro"].tap()
+        XCTAssertTrue(app.buttons["first-log-skip"].waitForExistence(timeout: 8))
+        app.buttons["first-log-skip"].tap()
         openBreakfast(app)
         let add = app.buttons["meal-room-add"]
         reveal(add, in: app)
@@ -91,17 +96,21 @@ final class PortionLoggingUITests: XCTestCase {
         reveal(two, in: app)
         let loggedRowID = two.identifier
         app.terminate()
-        app.launchArguments[app.launchArguments.count - 1] = "UICTContentSizeCategoryAccessibilityXXXL"
+        app.launchArguments = ["--portion-qa", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
         openBreakfast(app)
         reveal(two, in: app)
         two.tap()
+        XCTAssertTrue(app.scrollViews["log-editor-scroll"].waitForExistence(timeout: 5))
+        reveal(app.staticTexts["portion-total"], in: app)
         XCTAssertTrue(app.staticTexts["portion-total"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["portion-total"].label.contains("2 Polarbrød · 75 g"), app.staticTexts["portion-total"].label)
         reveal(increase, in: app)
         increase.tap()
         reveal(app.staticTexts["portion-total"], in: app)
-        XCTAssertTrue(app.staticTexts["portion-total"].label.contains("3 Polarbrød · 112,5 g"), app.staticTexts["portion-total"].label)
+        let updatedTotal = NSPredicate(format: "label CONTAINS %@", "3 Polarbrød · 112,5 g")
+        expectation(for: updatedTotal, evaluatedWith: app.staticTexts["portion-total"])
+        waitForExpectations(timeout: 5)
         app.buttons["Lagre endringer"].tap()
         let three = app.buttons[loggedRowID]
         reveal(three, in: app)
@@ -123,13 +132,32 @@ final class PortionLoggingUITests: XCTestCase {
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         _ = element.waitForExistence(timeout: 5)
         for _ in 0..<10 {
-            if element.exists && element.isHittable { return }
             let editor = app.scrollViews["log-editor-scroll"]
             let scroll = editor.exists ? editor : app.scrollViews["product-detail-scroll"]
+            if !scroll.exists {
+                let tab = app.buttons["tab-log-food"]
+                if element.exists && element.isHittable && element.frame.minY >= 102
+                    && element.frame.maxY < (tab.exists ? tab.frame.minY : app.frame.maxY) { return }
+                if element.exists && element.frame.midY < app.frame.midY { app.swipeDown() }
+                else { app.swipeUp() }
+                continue
+            }
+            var visibleFrame = scroll.frame.intersection(app.frame)
+            let save = editor.exists ? app.buttons["Lagre endringer"] : app.buttons["product-log-save"]
+            if save.exists && save.frame.minY > visibleFrame.minY {
+                visibleFrame.size.height = min(visibleFrame.maxY, save.frame.minY) - visibleFrame.minY
+            }
+            if element.exists && element.isHittable {
+                if !scroll.exists || (element.frame.minY >= visibleFrame.minY + 8
+                    && element.frame.maxY <= visibleFrame.maxY - 8) { return }
+            }
             if scroll.exists {
-                let upwards = !element.exists || element.frame.midY >= scroll.frame.midY
-                let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upwards ? 0.65 : 0.4))
-                let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: upwards ? 0.4 : 0.65))
+                let upwards = !element.exists || element.frame.midY >= visibleFrame.midY
+                let origin = app.coordinate(withNormalizedOffset: .zero)
+                let start = origin.withOffset(CGVector(dx: visibleFrame.minX + 8,
+                    dy: visibleFrame.minY + visibleFrame.height * (upwards ? 0.65 : 0.4)))
+                let end = origin.withOffset(CGVector(dx: visibleFrame.minX + 8,
+                    dy: visibleFrame.minY + visibleFrame.height * (upwards ? 0.4 : 0.65)))
                 start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
             } else { app.swipeUp() }
         }

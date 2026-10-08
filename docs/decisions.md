@@ -804,3 +804,47 @@ og lagrer onboarding som fullført for kontoen. Har den lokale profilen data,
 fullføres overgangen først etter eksplisitt bekreftet kontokobling. Feil eller
 avbrudd beholder lokal profil og onboarding. E-postregistrering beholder sin
 eksisterende førstegangs- og bekreftelsesflyt.
+
+## 2026-10-07 – Sletting av egne serverprodukter og gjenopptakbar lokal opprydding
+
+Brukeren godkjente at egne serverprodukter slettes ved permanent kontosletting.
+Dette erstatter tidligere beslutning om å beholde dem med fjernet eier-ID,
+siden fritekst ikke er dokumentert anonymisert. Supabase får versjonert
+purge-migrasjon; legacy-purge følger samme regel. Opprinnelig 30-dagersfrist
+beholdes og forlenges ikke ved retry.
+
+Klienten lagrer fremdrift per profileier før serverforespørselen og bekreftelse
+før lokal sletting. Bekreftet opprydding gjenopptas ved oppstart; ubekreftede
+forespørsler sletter ikke automatisk lokale data. Lokal sletting uten konto
+bruker samme repository og eksisterende eieravgrensede transaksjon.
+Produksjonsutrulling og faktisk backup-/loggretensjon krever separat kontroll.
+
+### 2026-10-07 — Lokal gjenoppretting av manuell logging
+
+Brukerautorisasjon: implementer utkastplanen. Ett registreringsutkast per profil
+lagres i egen SQLite v8-tabell, med rå input og stabile produkt-/logg-ID-er.
+Kompatibilitetstabellen product_drafts beholdes. Fortsett/Forkast gjenoppretter
+manuell produktregistrering og mengdevalg; Lukk beholder utkastet. Produktets
+lagring/stegovergang og loggens lagring/utkastfjerning er atomiske med eksisterende
+synkhendelser. Utkast har ingen synkhendelser eller automatisk utløp.
+Revisjonskontroll og update-only autosave hindrer eldre skriving og gjenoppståtte
+utkast. Eksport er en additiv kategori i eksisterende v2. Ingen backend- eller
+authkontrakt endres. Måltidsmalbygging og andre redigeringsflyter er senere scope.
+
+Tillegg samme dag: Brukeren godkjente umiddelbar sperring av lesetilgang etter
+sletteforespørsel. En lokal HTTP-test viste at gammelt JWT fortsatt kunne lese
+produkter før purge. RLS krever nå både riktig eier og en aktiv profil, via
+en parameterløs, security-definer-funksjon med fast search_path. Alle
+brukereide lesepolicyer er oppdatert; service-role-purge påvirkes ikke.
+
+## 2026-10-07 – Kontosletting uten fast ventetid
+
+Brukeren godkjente å fjerne den faste 30-dagersfristen. Nye forespørsler er
+umiddelbart kvalifisert for purge: domenedata slettes atomisk, deretter Auth.
+Feil beholder slettemarkør og RLS-sperre og prøves igjen hvert femte minutt.
+Soft-delete-feil opphever ikke lenger en allerede registrert sletteforespørsel.
+Eksisterende forespørsler fremskyndes ikke av migrasjonen. API-responskoden
+beholdes; tilleggsfeltet `deletionCompleted` beskriver faktisk første forsøk.
+E-postmottaker er nithusank.2002@gmail.com. Resend-adapter er klargjort, men
+ingen tjeneste, avtale, avsender eller secret er opprettet. Aktivering krever
+dette og en verifisert leveransetest. Ingen brukerdata inngår i varsler.

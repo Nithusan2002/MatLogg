@@ -133,7 +133,7 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
-- Gjeldende lokalt skjema er v7, med vannlogging. Migrasjonen til v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
+- Gjeldende lokalt skjema er v8, med vannlogging og lokale registreringsutkast. Migrasjonen til v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
@@ -476,3 +476,23 @@ verifisert fysisk, og gamle eksporttempfiler ryddes best-effort etter 24 timer.
 76 målrettede enhetstester og tre fysiske UI-flyter bestod. Ingen backenddeploy,
 kjøp eller produksjonsutrulling. Restore, aktive konto-/personvernporter og
 visuell runtime-advarsel gjenstår; se [QA-resultater](production-readiness.md).
+
+### Gjenoppretting av manuell logging (2026-10-07)
+
+Manuell produktregistrering og påfølgende mengdevalg har ett lokalt
+registreringsutkast per profil. Hjem, Søk og Loggfør tilbyr Fortsett/Forkast.
+Samme flyt brukes ved første logging og ukjent strekkode. Lukk beholder
+utkastet; siste vellykkede lokale snapshot gjenopprettes etter omstart.
+Rå input, næringsgrunnlag, ferdig importert bilde, mengde/porsjon, dato og
+måltid beholdes. Autosave venter omtrent 300 ms; Lukk/bakgrunn forsøker flush.
+Ikke-lagrede endringer kan fortsatt gå tapt ved brå terminering.
+
+Produkt/stegovergang og logg/utkastfjerning er atomiske med eksisterende
+synkhendelser. Utkast er egne lokale data uten opplasting, med profileierskap,
+eksport og sletting. Måltidsmalbygging og andre redigeringsflyter omfattes ikke.
+Se `draft-recovery-improvement-plan.md` for verifisering og resterende kontroller.
+
+Utkastverifisering 2026-10-07: ni målrettede iOS-enhetstester og én UI-test
+med terminering/omstart er grønne. Åtte direkte macOS-lagringstester, inkludert
+migrasjon, er grønne. Ingen full testpakke er kjørt. Fysisk iPhone var offline;
+fysisk systemterminering, bildeimport og manuell tilgjengelighetskontroll gjenstår.

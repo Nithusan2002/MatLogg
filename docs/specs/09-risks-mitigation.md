@@ -317,7 +317,7 @@ GDPR violations found
 2. **Data hygiene**:
    - Minimal data collection (name, email, logs only)
    - No third-party tracking (no Google Analytics)
-   - User deletion: supported (30-day retention before purge)
+   - User deletion: immediate purge attempt, durable retry on failure (no fixed retention delay)
 3. **Security**:
    - Encryption in transit (TLS 1.2+)
    - Local storage uses SQLite, not CoreData. Verify actual iOS Data Protection

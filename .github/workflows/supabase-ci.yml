@@ -29,6 +29,8 @@ jobs:
         run: npx supabase db lint --local --schema public --schema private --level warning
       - name: Run pgTAP tests
         run: npx supabase test db
+      - name: Test Auth and account deletion end to end
+        run: bash supabase/tests/run-account-deletion-e2e.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.5.4
@@ -54,4 +56,6 @@ jobs:
           xcodebuild -project MatLogg.xcodeproj -scheme MatLogg
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
           -only-testing:MatLoggTests/AuthViewModelTests
+          -only-testing:MatLoggTests/AuthServiceTests
+          -only-testing:MatLoggTests/ProfileTests
           -only-testing:MatLoggTests/SyncRetryTests test

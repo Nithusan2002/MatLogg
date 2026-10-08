@@ -1,4 +1,5 @@
 import { authenticatedUser, jsonResponse, serviceClient } from "../_shared/client.ts";
+import { notifyDeletionFailure, purgeAccount } from "../_shared/account-deletion.ts";
 
 Deno.serve(async (request) => {
   if (request.method !== "DELETE" && request.method !== "POST") {
@@ -18,14 +19,23 @@ Deno.serve(async (request) => {
 
   const { error: deleteError } = await admin.auth.admin.deleteUser(authenticated.user.id, true);
   if (deleteError) {
-    await admin.rpc("cancel_account_deletion_admin_v1", { p_owner_id: authenticated.user.id });
     console.error("auth soft delete failed", { status: deleteError.status });
-    return jsonResponse({ code: "SERVER_ERROR", message: "Kontoen kunne ikke deaktiveres" }, 500);
+  }
+
+  // The persisted request and RLS block survive failures; cron retries the purge.
+  const deletionCompleted = await purgeAccount(admin, authenticated.user.id);
+  if (!deletionCompleted) await notifyDeletionFailure("immediate_purge_failed", 1);
+  if (deleteError && !deletionCompleted) {
+    return jsonResponse({
+      code: "SERVER_ERROR",
+      message: "Sletteforespørselen er lagret, men deaktivering kunne ikke bekreftes. Serveren prøver igjen.",
+    }, 500);
   }
 
   return jsonResponse({
     code: "ACCOUNT_PENDING_DELETION",
-    message: "Kontoen er markert for sletting",
+    message: deletionCompleted ? "Kontoen er slettet" : "Sletteforespørselen er lagret og blir forsøkt igjen",
     permanentDeletionAt: new Date(String(purgeAt)).toISOString(),
+    deletionCompleted,
   });
 });

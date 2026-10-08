@@ -2,35 +2,40 @@ import SwiftUI
 import PhotosUI
 
 struct ManualProductView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: ManualProductViewModel
-
-    @State private var selectedPhoto: PhotosPickerItem?
-    @State private var showPhotoOptions = false
-    @State private var showPhotoLibrary = false
-
     let barcode: String?
     let onSaved: (Product) -> Void
 
-    init(
-        barcode: String?,
-        saveProduct: @escaping (Product) async throws -> Void,
-        onSaved: @escaping (Product) -> Void
-    ) {
+    init(barcode: String?, saveProduct: @escaping (Product) async throws -> Void,
+         onSaved: @escaping (Product) -> Void) {
         self.barcode = barcode
         self.onSaved = onSaved
-        _viewModel = StateObject(
-            wrappedValue: ManualProductViewModel(barcode: barcode, saveProduct: saveProduct)
-        )
+        _viewModel = StateObject(wrappedValue: ManualProductViewModel(barcode: barcode, saveProduct: saveProduct))
     }
+
+    var body: some View {
+        ManualProductForm(viewModel: viewModel, barcode: barcode, onSaved: onSaved)
+    }
+}
+
+struct ManualProductForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: ManualProductViewModel
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showPhotoOptions = false
+    @State private var showPhotoLibrary = false
+    let barcode: String?
+    let onSaved: (Product) -> Void
+    var keepsFlowOpen = false
+    var onClose: (() async -> Bool)? = nil
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    productFields
+                    productFields.disabled(viewModel.isSaving)
                     photoControls.disabled(viewModel.isSaving || viewModel.isLoadingImage)
-                    nutritionFields
+                    nutritionFields.disabled(viewModel.isSaving)
 
                     if let errorMessage = viewModel.errorMessage {
                         ErrorMessageView(errorMessage)
@@ -45,13 +50,18 @@ struct ManualProductView: View {
                         Task {
                             if let product = await viewModel.save() {
                                 onSaved(product)
-                                dismiss()
+                                if !keepsFlowOpen { dismiss() }
                             }
                         }
                     }
                     .disabled(viewModel.isSaving || viewModel.isLoadingImage)
                     .opacity(viewModel.isSaving ? 0.6 : 1)
 
+                    if keepsFlowOpen {
+                        Text("Utkastet lagres automatisk på denne iPhonen.")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
                     Text("Merket som brukerregistrert.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
@@ -63,7 +73,13 @@ struct ManualProductView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Avbryt") { dismiss() }
+                    Button(keepsFlowOpen ? "Lukk" : "Avbryt") {
+                        Task {
+                            if let onClose { if await onClose() { dismiss() } }
+                            else { dismiss() }
+                        }
+                    }
+                    .disabled(viewModel.isSaving)
                 }
             }
             .fullScreenCover(isPresented: $viewModel.showCamera) {
@@ -83,6 +99,7 @@ struct ManualProductView: View {
             } message: {
                 Text("Fyll inn verdiene på nytt fra emballasjen for det nye grunnlaget.")
             }
+            .interactiveDismissDisabled(keepsFlowOpen)
             .scrollDismissesKeyboard(.interactively)
         }
     }

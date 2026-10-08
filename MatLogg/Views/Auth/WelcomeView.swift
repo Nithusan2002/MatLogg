@@ -3,6 +3,8 @@ import SwiftUI
 struct WelcomeView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
 
+    @State private var showDeletionRecovery = false
+
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
@@ -49,10 +51,25 @@ struct WelcomeView: View {
                         Spacer(minLength: 8)
 
                         VStack(spacing: 4) {
+                            if let error = authViewModel.errorMessage {
+                                ErrorMessageView(error)
+                            }
+                            if authViewModel.pendingDeletion != nil {
+                                Button("Fullfør lokal sletting", role: .destructive) {
+                                    showDeletionRecovery = true
+                                }
+                                .frame(minHeight: 44)
+                                .disabled(authViewModel.isDeletingAccount)
+                                if let contact = URL(string: "mailto:nithusank.2002@gmail.com") {
+                                    Link("Kontakt oss om kontosletting", destination: contact)
+                                        .frame(minHeight: 44)
+                                }
+                            }
                             PrimaryButton(title: "Fortsett på denne iPhonen") {
                                 authViewModel.continueLocally()
                             }
                             .accessibilityIdentifier("welcome-continue-local")
+                            .disabled(authViewModel.pendingDeletion != nil)
 
                             NavigationLink {
                                 LoginView()
@@ -65,6 +82,7 @@ struct WelcomeView: View {
                                     .overlay(Capsule().stroke(AppColors.separator, lineWidth: 1))
                             }
                             .accessibilityIdentifier("welcome-login")
+                            .disabled(authViewModel.pendingDeletion != nil)
 
                             if let url = PrivacyConstants.privacyPolicyURL {
                                 Link("Les personvernerklæringen", destination: url)
@@ -83,6 +101,16 @@ struct WelcomeView: View {
                 .scrollBounceBehavior(.basedOnSize)
                 .background(AppColors.background.ignoresSafeArea())
             }
+        }
+        .alert("Fullfør lokal sletting?", isPresented: $showDeletionRecovery) {
+            Button("Slett lokale data", role: .destructive) {
+                Task { await authViewModel.finishPendingLocalDeletion() }
+            }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            Text(authViewModel.pendingDeletion?.serverConfirmed == true
+                 ? "Serveren har bekreftet sletteforespørselen. Fjern nå de gjenværende dataene fra denne iPhonen."
+                 : "Dette fjerner profildata fra denne iPhonen. Det bekrefter ikke sletting på serveren. Kontakt oss hvis kontostatus er usikker.")
         }
     }
 }
