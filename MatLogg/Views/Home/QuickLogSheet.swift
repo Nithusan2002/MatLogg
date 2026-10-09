@@ -65,8 +65,10 @@ struct QuickLogSheet: View {
                     .accessibilityIdentifier("quick-log-manual")
 
                     if productSelectionContent == nil {
-                        mealPicker
-                        reuseListPicker
+                        VStack(alignment: .leading, spacing: 12) {
+                            mealPicker
+                            reuseListPicker
+                        }
                         if selectedReuseList == .recent { recentContent }
                         else { savedContent }
                     }
@@ -136,71 +138,73 @@ struct QuickLogSheet: View {
                 ErrorMessageView(error).font(AppTypography.caption)
             }
             ForEach(viewModel.recentFoods) { food in
-                VStack(alignment: .leading, spacing: 8) {
-                    Button {
-                        guard !viewModel.isRepeating else { return }
-                        viewModel.selectedQuickProduct = food.product
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(food.product.name)
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundStyle(AppColors.deepInk)
-                                Spacer()
-                                Image(systemName: "chevron.right").foregroundStyle(AppColors.textSecondary)
-                            }
-                            if !food.canRepeat {
-                                Text("Sist logget: \(food.amountLabel)")
-                                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
-                            }
-                        }
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Åpner mengdevalg og loggføring")
-                    Button {
-                        guard !viewModel.isRepeating else { return }
-                        if food.canRepeat { repeatFood(food) }
-                        else { viewModel.selectedQuickProduct = food.product }
-                    } label: {
-                        HStack(spacing: 8) {
-                            ZStack(alignment: .leading) {
-                                Text(viewModel.confirmedProductID == food.id ? "Lagt til ✓" :
-                                    (food.canRepeat ? "Loggfør \(food.amountLabel)" : "Kontroller mengde"))
-                                    .opacity(viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id ? 0 : 1)
-                                Text("Lagrer …").hidden()
-                                if viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id {
-                                    Text("Lagrer …")
-                                }
-                            }
-                            ActivityIndicatorSlot(isActive: viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id,
-                                                  label: "Lagrer på enheten")
-                        }
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundStyle(AppColors.actionText)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(AppColors.chipFillSelected, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(AppColors.chipStroke, lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(food.canRepeat
-                        ? "Loggfør \(food.product.name), \(food.amountLabel)"
-                        : "Kontroller mengde for \(food.product.name)")
-                    .accessibilityValue(viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id ? "Lagrer på enheten" : "")
-                    .accessibilityHint("Til \(selectedMealTitle), \(logDateLabel)")
-                    .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
+                let layout = dynamicTypeSize >= .xxxLarge
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                    : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+                layout {
+                    recentFoodDetails(food)
+                    repeatButton(food)
                 }
                 .padding(12)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .allowsHitTesting(!viewModel.isRepeating && !viewModel.isUndoingRepeat)
             }
         }
+    }
+
+    private func recentFoodDetails(_ food: RecentFood) -> some View {
+        Button {
+            guard !viewModel.isRepeating else { return }
+            viewModel.selectedQuickProduct = food.product
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(food.product.name)
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.deepInk)
+                    Text("Sist logget: \(food.amountLabel)")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary.opacity(0.65))
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Åpner mengdevalg og loggføring")
+    }
+
+    private func repeatButton(_ food: RecentFood) -> some View {
+        let isSaving = viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id
+        let isConfirmed = viewModel.confirmedProductID == food.id
+        return Button {
+            guard !viewModel.isRepeating else { return }
+            if food.canRepeat { repeatFood(food) }
+            else { viewModel.selectedQuickProduct = food.product }
+        } label: {
+            Text(isSaving ? "Lagrer …" : isConfirmed ? "Lagt til ✓" : food.canRepeat ? "Loggfør" : "Kontroller mengde")
+            .fixedSize(horizontal: false, vertical: true)
+            .font(AppTypography.secondaryEmphasis)
+            .foregroundStyle(AppColors.actionText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(AppColors.chipFillSelected, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: dynamicTypeSize < .xxxLarge, vertical: false)
+        .accessibilityLabel(food.canRepeat
+            ? "Loggfør \(food.product.name), \(food.amountLabel)"
+            : "Kontroller mengde for \(food.product.name)")
+        .accessibilityValue(isSaving ? "Lagrer på enheten" : isConfirmed ? "Lagt til" : "")
+        .accessibilityHint("Til \(selectedMealTitle), \(logDateLabel)")
+        .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
     }
 
     private func repeatFood(_ food: RecentFood) {
@@ -274,13 +278,28 @@ struct QuickLogSheet: View {
             : AnyLayout(HStackLayout(spacing: 8))
         return layout {
             ForEach(ReuseList.allCases, id: \.self) { list in
-                MealChip(title: list.rawValue, isSelected: selectedReuseList == list, fillsWidth: true) {
+                Button {
                     hasSelectedReuseList = true
                     selectedReuseList = list
+                } label: {
+                    Text(list.rawValue)
+                        .font(AppTypography.secondaryEmphasis)
+                        .foregroundStyle(selectedReuseList == list ? AppColors.deepInk : AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selectedReuseList == list ? AppColors.surface : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedReuseList == list ? .isSelected : [])
                 .accessibilityIdentifier(list == .recent ? "quick-log-show-recent" : "quick-log-show-saved")
             }
         }
+        .padding(4)
+        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityLabel("Velg gjenbruk")
     }
 
@@ -317,13 +336,17 @@ struct QuickLogSheet: View {
 
     private var mealPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Måltid")
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.deepInk)
-
-            Label(logDateLabel, systemImage: "calendar")
-                .font(AppTypography.secondary)
-                .foregroundColor(AppColors.textSecondary)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    mealPickerTitle
+                    Spacer()
+                    mealPickerDate
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    mealPickerTitle
+                    mealPickerDate
+                }
+            }
 
             let layout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
@@ -345,6 +368,20 @@ struct QuickLogSheet: View {
                 }
             }
         }
+    }
+
+    private var mealPickerTitle: some View {
+        Text("Måltid")
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.deepInk)
+            .fixedSize()
+    }
+
+    private var mealPickerDate: some View {
+        Label(logDateLabel, systemImage: "calendar")
+            .font(AppTypography.secondary)
+            .foregroundStyle(AppColors.textSecondary)
+            .fixedSize()
     }
 
     private var selectedMealTitle: String {

@@ -187,7 +187,11 @@ skiller mellom norsk og globalt søk; samme næringsvalidering gjelder begge.
 
 «Nylig brukt» i Søk viser kompakte produktrader som åpner produktkortet.
 Hurtiglogging ligger under «Nylig logget» i Loggfør-menyen, med siste
-registrerte mengde/enhet og valgt måltid og dato ved hver loggeknapp.
+registrerte mengde/enhet ved varen og valgt måltid og dato over listen.
+Kompakte kort viser navn og «Sist logget: [mengde]» til venstre og «Loggfør»
+til høyre. Navn og mengde åpner mengdevalg. Ved ekstra stor tekst stables
+handlingen under innholdet. Loggeknappens VoiceOver-tekst inkluderer vare,
+mengde, måltid og dato.
 Favoritter og øvrige nylig brukte varer finnes i Søk; «Andre hurtigvalg» vises ikke i Loggfør-arket.
 Ved tilgjengelighetstekst ruller søkekontrollene sammen med listen, slik at
 kontrollene ikke skyver Nylig brukt utenfor tilgjengelig skjermplass.

@@ -646,8 +646,12 @@ redigering. Midtknappen er merket «Loggfør». Alle Legg til-innganger bruker
 samme ark med søk, skann, Registrer manuelt, måltid/dato og en todelt velger
 for «Nylig logget» / «Lagrede måltider». Bare valgt liste vises; øvrige
 favoritter og nylig brukt er tilgjengelige i Søk. Arket stabler måltidsvalg ved tilgjengelighetsstørrelser.
-I «Nylig logget» vises «Loggfør [mengde]» som en knapp i kortets bredde,
-med avrundet, diskret ramme, svak merkevarebakgrunn og minst 44 punkters trykkflate.
+I «Nylig logget» viser kompakte kort navn og «Sist logget: [mengde]» til
+venstre, med en mindre «Loggfør»-knapp til høyre på svak merkevarebakgrunn.
+Navn og mengde åpner produktets mengdevalg. Ved ekstra stor tekst stables
+innhold og handling. Alle handlinger har minst 44 punkters trykkflate.
+Listevelgeren har én samlet, dempet flate med lys markering av valgt liste;
+VoiceOver formidler valgt tilstand. Måltid og dato deler overskriftsrad når plassen tillater det.
 Listen starter direkte under velgeren uten å gjenta «Nylig logget» som overskrift.
 Hjems næringsfelt viser registrert energi uten mål når visningsvalget er på.
 Dagsloggen har en •••-meny for gjenbruk og dagsvalg; måltidsmaler har en 44-punkters
