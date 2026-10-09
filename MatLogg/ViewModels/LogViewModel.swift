@@ -52,6 +52,28 @@ final class LogViewModel: ObservableObject {
         return true
     }
 
+    /// A multi-selection is one receipt, independent of earlier single deletions.
+    @discardableResult
+    func deleteBatchWithUndo(_ logs: [FoodLog], userId: UUID) async -> Bool {
+        guard !isDeletingOrRestoring, !logs.isEmpty else { return false }
+        guard logs.allSatisfy({ $0.userId == userId }), Set(logs.map(\.id)).count == logs.count else {
+            errorMessage = "Kunne ikke slette registreringene: Ugyldig utvalg."
+            return false
+        }
+        let contextRevision = deletionContextRevision
+        isDeletingOrRestoring = true
+        defer { isDeletingOrRestoring = false }
+        let success = await persist(errorPrefix: "Kunne ikke slette registreringene") {
+            try await repository.deleteLogs(logs.map(\.id))
+        }
+        guard success else { return false }
+        guard contextRevision == deletionContextRevision else { return true }
+        deletedLogs = logs
+        deletedLogCount = logs.count
+        deletionReceiptID = UUID()
+        return true
+    }
+
     @discardableResult
     func undoDeletion(userId: UUID) async -> Bool {
         guard !isDeletingOrRestoring, !deletedLogs.isEmpty else { return false }

@@ -438,3 +438,17 @@ framtidige registreringer, eierskap, sletting og uendret synkkø ved lesing.
 `RepeatFoodUITests/testRepeatPortionAndUndoKeepsOriginalLog` kontrollerer også
 «Tidligere logget», unik produktrad og åpning av produktkort med største tekst.
 Kjør disse målrettet på en dedikert QA-simulator.
+
+### Flervalg i dagsloggen
+
+Målrettet kontroll: `LogViewModelTests`, `RenderPresentationTests`,
+`SavedMealsTests` og `MealBatchStorageTests`. Disse dekker valg per logg-ID,
+måltidsgrupper/dato, 50-varegrense, uavhengig batchkvittering, feil og
+atomisk sletting/gjenoppretting med synkhendelser.
+
+På en ledig dedikert QA-simulator kjøres også
+`MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch` og
+`MatLoggUITests/testDiarySelectionSavesOnlyChosenEntryWithLargeText`.
+Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
+Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
+må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.

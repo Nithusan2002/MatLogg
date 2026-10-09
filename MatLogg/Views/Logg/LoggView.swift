@@ -25,12 +25,14 @@ private struct LoggContent: View {
     @StateObject private var screen: LogScreenViewModel
     @State private var isPullRefreshing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingMealScroll: String?
     @State private var showAddActions = false
     @State private var editingLog: FoodLog?
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
+    @State private var showBatchDeletion = false
 
     init(appState: AppState, logViewModel: LogViewModel, authViewModel: AuthViewModel,
          savedMealsViewModel: SavedMealsViewModel, initialDate: Date, initialMeal: String?) {
@@ -50,19 +52,36 @@ private struct LoggContent: View {
 
             logList
         }
-        .overlay(alignment: .bottom) { receiptOverlay }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if screen.isSelecting { selectionActions.padding(.bottom, tabBarScrollMargin) }
+        }
+        .overlay(alignment: .bottom) { if !screen.isSelecting { receiptOverlay } }
+        .confirmationDialog("Slette \(screen.selectedLogIDs.count) registreringer?", isPresented: $showBatchDeletion, titleVisibility: .visible) {
+            Button("Slett", role: .destructive) { deleteSelection() }
+            Button("Avbryt", role: .cancel) {}
+        }
         .navigationTitle("Måltider")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { navigationToolbar }
         .sheet(isPresented: $showAddActions) { loggingSheet }
         .sheet(item: $editingLog) { log in logEditor(for: log) }
         .sheet(item: $savedMealSource) { source in
-            SaveMealFromLogsView(source: source)
+            SaveMealFromLogsView(source: source) { screen.endSelection() }
         }
         .onChange(of: authViewModel.currentUser?.id) { _, _ in
             logViewModel.dismissDeletionReceipt()
+            screen.endSelection()
+            savedMealSource = nil
+            showBatchDeletion = false
         }
-        .onDisappear { logViewModel.dismissDeletionReceipt() }
+        .onDisappear {
+            logViewModel.dismissDeletionReceipt()
+            screen.endSelection()
+        }
+        .onChange(of: selectedDate) { _, _ in
+            screen.endSelection()
+            showBatchDeletion = false
+        }
         .task(id: "\(authViewModel.currentUser?.id.uuidString ?? "local")-\(selectedDate.timeIntervalSince1970)") {
             appState.logSelectedDate = selectedDate
             await loadSelectedSummary()
@@ -90,35 +109,96 @@ private struct LoggContent: View {
 
     @ToolbarContentBuilder private var navigationToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
-            Menu {
-                Menu("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                    ForEach(MealPresentation.all) { meal in
-                        Button(meal.title) {
-                            savedMealSource = SavedMealCreationSource(mealType: meal.key, logs: logViewModel.logs(for: meal.key))
+            Button(screen.isSelecting ? "Avbryt" : "Velg") {
+                if screen.isSelecting { screen.endSelection() }
+                else { screen.beginSelection() }
+            }
+            .disabled(screen.isDeletingOrRestoring || (!screen.isSelecting && (screen.isLoading || !hasLogs)))
+            .accessibilityIdentifier("meal-room-select")
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            if !screen.isSelecting {
+                Menu {
+                    Menu("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                        ForEach(MealPresentation.all) { meal in
+                            Button(meal.title) {
+                                savedMealSource = SavedMealCreationSource(mealType: meal.key, logs: logViewModel.logs(for: meal.key))
+                            }
+                            .disabled(logViewModel.logs(for: meal.key).isEmpty)
                         }
-                        .disabled(logViewModel.logs(for: meal.key).isEmpty)
                     }
-                }
-                Button("Gå til i dag", systemImage: "calendar") {
-                    selectedDate = Date()
-                }
-                if canCopyFromYesterday {
-                    Section {
-                        Button("Kopier hele dagen fra i går", systemImage: "doc.on.doc") {
-                            Task {
-                                await copyLogsFromYesterday()
-                                await loadSelectedSummary()
+                    Button("Gå til i dag", systemImage: "calendar") {
+                        selectedDate = Date()
+                    }
+                    if canCopyFromYesterday {
+                        Section {
+                            Button("Kopier hele dagen fra i går", systemImage: "doc.on.doc") {
+                                Task {
+                                    await copyLogsFromYesterday()
+                                    await loadSelectedSummary()
+                                }
                             }
                         }
                     }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(minWidth: 44, minHeight: 44)
                 }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(minWidth: 44, minHeight: 44)
+                .tint(AppColors.ink)
+                .accessibilityLabel("Flere valg for dagsloggen")
+                .accessibilityIdentifier("meal-room-reuse")
             }
-            .tint(AppColors.ink)
-            .accessibilityLabel("Flere valg for dagsloggen")
-            .accessibilityIdentifier("meal-room-reuse")
+        }
+    }
+
+    private var selectionActions: some View {
+        VStack(spacing: 8) {
+            Text("\(screen.selectedLogIDs.count) valgt")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundStyle(AppColors.ink)
+                .accessibilityIdentifier("meal-room-selection-count")
+            if screen.selectedLogIDs.count > 50 {
+                Text("Velg opptil 50 matvarer for å lagre som måltid.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 8) { selectionButtons }
+            } else {
+                HStack(spacing: 16) { selectionButtons }
+            }
+        }
+        .padding(16)
+        .background(AppColors.background)
+    }
+
+    @ViewBuilder private var selectionButtons: some View {
+        Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
+            let logs = screen.selectedLogs
+            savedMealSource = SavedMealCreationSource(mealType: screen.selectionMealType, logs: logs,
+                allowsMealTypeChoice: screen.selectionSpansMeals)
+        }
+        .disabled(!screen.canSaveSelection || screen.isDeletingOrRestoring)
+        .accessibilityIdentifier("meal-room-save-selection")
+        .frame(minHeight: 44)
+        Button("Slett", systemImage: "trash", role: .destructive) { showBatchDeletion = true }
+            .disabled(screen.selectedLogIDs.isEmpty || screen.isDeletingOrRestoring)
+            .accessibilityIdentifier("meal-room-delete-selection")
+            .frame(minHeight: 44)
+    }
+
+    private func deleteSelection() {
+        let logs = screen.selectedLogs
+        guard let userId = authViewModel.currentUser?.id else { return }
+        Task {
+            if await logViewModel.deleteBatchWithUndo(logs, userId: userId) {
+                screen.endSelection()
+                dismissReceipt()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
+            }
+            await loadSelectedSummary()
         }
     }
 
@@ -200,6 +280,18 @@ private struct LoggContent: View {
             List {
                 Section {
                     DayNavigationBar(selection: $selectedDate)
+                        .disabled(screen.isDeletingOrRestoring)
+                    if screen.isSelecting {
+                        HStack {
+                            Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
+                                screen.toggleGroup()
+                            }
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("meal-room-select-all")
+                            Spacer()
+                        }
+                        .disabled(screen.isDeletingOrRestoring)
+                    }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Hele dagen")
                             .font(AppTypography.hero)
@@ -236,19 +328,28 @@ private struct LoggContent: View {
                                     .accessibilityAddTraits(.isHeader)
                                     .accessibilityIdentifier("meal-room-heading-\(group.mealType)")
                                 Spacer()
-                                Button("Legg til") { beginAdding(to: group.mealType) }
-                                    .accessibilityIdentifier("meal-room-add-\(group.mealType)")
-                                    .frame(minHeight: 44)
-                                    .tint(AppColors.action)
-                                Menu {
-                                    Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                                        savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: logViewModel.logs(for: group.mealType))
+                                if screen.isSelecting {
+                                    Button(screen.isGroupSelected(group.mealType) ? "Fjern valg" : "Velg alle") {
+                                        screen.toggleGroup(group.mealType)
                                     }
-                                } label: {
-                                    Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                                    .frame(minHeight: 44)
+                                    .disabled(group.logs.isEmpty || screen.isDeletingOrRestoring)
+                                    .accessibilityLabel("Velg eller fjern valg for \(LogSummaryService.title(for: group.mealType))")
+                                } else {
+                                    Button("Legg til") { beginAdding(to: group.mealType) }
+                                        .accessibilityIdentifier("meal-room-add-\(group.mealType)")
+                                        .frame(minHeight: 44)
+                                        .tint(AppColors.action)
+                                    Menu {
+                                        Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                                            savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: logViewModel.logs(for: group.mealType))
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                                    }
+                                    .disabled(group.logs.isEmpty)
+                                    .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                                 }
-                                .disabled(group.logs.isEmpty)
-                                .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                             }
                             .listRowInsets(EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32))
                             .listRowBackground(mealCardBackground(top: true))
@@ -270,10 +371,13 @@ private struct LoggContent: View {
                                     mealRoom: true,
                                     imageURL: screen.imageURLs[log.productId],
                                     imageData: screen.imageData[log.productId],
-                                    onEdit: { editingLog = log },
-                                    onMove: { editingLog = log },
-                                    onDelete: { deleteLog(log) }
+                                    isSelected: screen.selectedLogIDs.contains(log.id),
+                                    onSelect: screen.isSelecting ? { screen.toggleSelection(log.id) } : nil,
+                                    onEdit: screen.isSelecting ? nil : { editingLog = log },
+                                    onMove: screen.isSelecting ? nil : { editingLog = log },
+                                    onDelete: screen.isSelecting ? nil : { deleteLog(log) }
                                 )
+                                .disabled(screen.isDeletingOrRestoring)
                                 .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
                                 .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                                 .padding(.bottom, log.id == group.logs.last?.id ? 6 : 0)

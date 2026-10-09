@@ -6,6 +6,7 @@ struct SavedMealCreationSource: Identifiable {
     let id = UUID()
     let mealType: String
     let logs: [FoodLog]
+    var allowsMealTypeChoice = false
 }
 
 struct SaveMealFromLogsView: View {
@@ -14,7 +15,15 @@ struct SaveMealFromLogsView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var productViewModel: ProductViewModel
     let source: SavedMealCreationSource
+    var onSaved: () -> Void = {}
     @State private var name = ""
+    @State private var mealType: String
+
+    init(source: SavedMealCreationSource, onSaved: @escaping () -> Void = {}) {
+        self.source = source
+        self.onSaved = onSaved
+        _mealType = State(initialValue: source.mealType)
+    }
     private var productNames: [UUID: String] { viewModel.sourceProductNames }
 
     var body: some View {
@@ -42,6 +51,17 @@ struct SaveMealFromLogsView: View {
                             }
                         }
 
+                        if source.allowsMealTypeChoice {
+                            Picker("Foreslått måltid", selection: $mealType) {
+                                ForEach(MealPresentation.all) { meal in
+                                    Text(meal.title).tag(meal.key)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("saved-meal-category")
+                        }
+
                         SavedMealPhotoPicker()
                             .disabled(viewModel.isSaving)
 
@@ -67,6 +87,7 @@ struct SaveMealFromLogsView: View {
                                                 .fixedSize(horizontal: true, vertical: false)
                                         }
                                         .accessibilityElement(children: .combine)
+                                        .accessibilityIdentifier("saved-meal-source-row-\(log.id.uuidString)")
                                     }
                                 }
                             }
@@ -114,10 +135,11 @@ struct SaveMealFromLogsView: View {
         guard let userId = authViewModel.currentUser?.id else { return }
         if await viewModel.saveFromLogs(
             name: name,
-            mealType: source.mealType,
+            mealType: mealType,
             logs: source.logs,
             userId: userId
         ) {
+            onSaved()
             dismiss()
         }
     }

@@ -8,7 +8,7 @@ måltidsplanlegging eller automatiske anbefalinger.
 
 Første versjon omfatter:
 
-- «Lagre som måltid» fra en måltidsgruppe i Logg
+- «Lagre som måltid» fra en måltidsgruppe eller et utvalg på én dato i Logg
 - navn, matvarer, eksakte mengder, næringssnapshot, kilde og rekkefølge
 - ett valgfritt lokalt måltidsbilde fra iOS-bildevelgeren
 - «Lagrede måltider» i velgeren under dato/måltid i Loggfør-arket
@@ -172,3 +172,13 @@ produktregistrering. Dato, måltidskategori og gjenbruk av måltider skjules.
 Alle tre veier åpner mengdevalg for kladden uten matlogging. Manuell
 registrering lagrer produktet i eget matvarebibliotek før mengdevalg; avbryt
 av måltidskladden sletter ikke den registrerte matvaren.
+
+### Oppretting fra utvalg i dagsloggen (9. oktober 2026)
+
+«Velg» i dagsloggen lar brukeren markere individuelle registreringer, også på
+tvers av måltidsgrupper. «Lagre som måltid» åpner eksisterende opprettingsark
+med bare utvalget. Separate registreringer av samme produkt forblir separate
+varer i malen. Grensen er fortsatt 1–50 varer. Ved blandede grupper kan brukeren
+velge foreslått måltidskategori; første valgte registrerings kategori foreslås.
+Avbryt og lagringsfeil beholder valget. Vellykket lagring avslutter valgmodus.
+Dagbokregistreringene påvirkes ikke.

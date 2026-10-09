@@ -528,3 +528,13 @@ jordbær» utelater historikk som ikke matcher. Øvrige produkter, inkludert eld
 historikktreff, vises under «Andre treff» uten duplikater. Tomt søk beholder
 favoritter og seks nylige varer. Flyten fungerer offline og åpner vanlig
 produktkort med mengdevalg.
+
+### Flervalg i dagsloggen (9. oktober 2026)
+
+- «Velg» → marker individuelle registreringer, hele måltidsgrupper eller hele dagen.
+- «Lagre som måltid» → kontroller utvalget og navn, velg foreslått kategori ved
+  blandede grupper → lagre lokal mal. Dagboken påvirkes ikke; maks 50 varer.
+- «Slett» → bekreft antall → slett utvalget atomisk lokalt → samlet «Angre».
+- Avbrutt/feilet lagring beholder valget. Dato-/profilbytte og lukking nullstiller det.
+- Samme produkt kan markeres som separate registreringer. Flytting/kopiering av
+  utvalg inngår ikke.

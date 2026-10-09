@@ -6,6 +6,26 @@ import ImageIO
 
 @MainActor
 struct SavedMealsTests {
+    @Test func selectedLogsAcrossMealsPreserveEachEntryAndSuggestedCategory() async throws {
+        let fixture = SavedMealsFixture()
+        await fixture.vm.load(userId: fixture.userId)
+        let lunch = FoodLog(userId: fixture.userId, productId: fixture.product.id, mealType: "lunsj",
+            amountG: 75, loggedDate: fixture.log.loggedDate,
+            loggedTime: fixture.log.loggedTime.addingTimeInterval(60), calories: 300,
+            proteinG: 15, carbsG: 45, fatG: 6)
+        fixture.repository.logs = [fixture.log, lunch]
+        #expect(await fixture.vm.saveFromLogs(name: "Utvalgte varer", mealType: "middag",
+            logs: [fixture.log, lunch], userId: fixture.userId))
+        let saved = try #require(fixture.repository.savedMeals.first)
+        #expect(saved.suggestedMealType == "middag")
+        #expect(saved.items.count == 2)
+        #expect(saved.items.map(\.amountG) == [50, 75])
+        #expect(saved.items.map(\.calories) == [200, 300])
+        #expect(saved.items.allSatisfy { $0.nutritionSource == .matvaretabellen })
+        #expect(fixture.repository.logs.map(\.id) == [fixture.log.id, lunch.id])
+        #expect(fixture.repository.savedLogs.isEmpty)
+    }
+
     @Test func addedFoodSavesTemplateWithoutCreatingLogs() async {
         let fixture = SavedMealsFixture()
         fixture.repository.savedMeals = [fixture.meal]

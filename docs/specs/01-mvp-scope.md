@@ -43,7 +43,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 | **Favoritter** | P0 | Toggle fra produktkort, tilgjengelig i Søk og hurtigvalg på Home |
 | **Loggfør igjen i hurtigmenyen** | P1 | Loggfør-menyen har en eksplisitt knapp med siste registrerte mengde/enhet til valgt dato og måltid. Lokal lagring med Angre; uforenlig mengde-/porsjonsgrunnlag åpner produktkortet. |
 | **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
-| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
+| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid eller utvalgte registreringer fra én dato som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |
@@ -181,3 +181,7 @@ Ingen premier, varsler, ny datainnsamling eller synkkontrakt inngår.
 
 Profil → Innstillinger → Utseende tilbyr lys modus, mørk modus og å følge telefonens innstillinger
 (standard). Valget lagres lokalt på enheten og gjelder hele appen umiddelbart.
+
+Dagsloggen støtter flervalg for samlet sletting med Angre og lagring av utvalget
+som måltid (9. oktober 2026). Valg begrenses til én dato, men kan omfatte flere
+måltidsgrupper. Flytting og kopiering av utvalg er utenfor denne utvidelsen.

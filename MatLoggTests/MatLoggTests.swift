@@ -754,6 +754,54 @@ struct MatLoggTests {
 
 @MainActor
 struct LogViewModelTests {
+    @Test func batchDeletionIsOneIndependentReceiptAndRestoresSnapshots() async throws {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let previous = makeLog(userId: owner, productId: UUID(), date: Date())
+        let first = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj",
+            amountG: 123.45, amountUnit: .milliliters, loggedDate: Date(),
+            calories: 67.89, proteinG: 1.23, carbsG: 4.56, fatG: 7.89)
+        let second = makeLog(userId: owner, productId: first.productId, date: Date())
+        #expect(await vm.deleteWithUndo(previous, userId: owner))
+        #expect(await vm.deleteBatchWithUndo([first, second], userId: owner))
+        #expect(vm.deletedLogCount == 2)
+        #expect(repository.deletedIds == [previous.id, first.id, second.id])
+        #expect(await vm.undoDeletion(userId: owner))
+        #expect(repository.savedLogs.count == 2)
+        let restored = try #require(repository.savedLogs.first)
+        #expect(restored.id != first.id)
+        #expect(restored.productId == first.productId)
+        #expect(restored.amountG == first.amountG)
+        #expect(restored.amountUnit == first.amountUnit)
+        #expect(restored.portionSelection == first.portionSelection)
+        #expect(restored.loggedTime == first.loggedTime)
+        #expect(restored.calories == first.calories)
+        #expect(restored.proteinG == first.proteinG)
+        #expect(restored.carbsG == first.carbsG)
+        #expect(restored.fatG == first.fatG)
+        #expect(vm.deletionReceiptID == nil)
+    }
+
+    @Test func batchDeletionRejectsInvalidSelectionAndRetainsReceiptOnFailure() async {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        let first = makeLog(userId: owner, productId: UUID(), date: Date())
+        let second = makeLog(userId: owner, productId: UUID(), date: Date())
+        #expect(!(await vm.deleteBatchWithUndo([], userId: owner)))
+        #expect(!(await vm.deleteBatchWithUndo([first, first], userId: owner)))
+        #expect(!(await vm.deleteBatchWithUndo([first], userId: UUID())))
+        #expect(repository.deletedIds.isEmpty)
+        #expect(await vm.deleteWithUndo(first, userId: owner))
+        let receipt = vm.deletionReceiptID
+        repository.deleteError = NSError(domain: "test", code: 1)
+        #expect(!(await vm.deleteBatchWithUndo([second], userId: owner)))
+        #expect(vm.deletionReceiptID == receipt)
+        #expect(vm.deletedLogCount == 1)
+        #expect(repository.deletedIds == [first.id])
+    }
+
     @Test func mealRoomTotalsUseAllMealEntriesAndClearWithSession() async {
         let repository = FoodLogRepositorySpy()
         let vm = LogViewModel(repository: repository)
@@ -1197,6 +1245,7 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     }
 
     func deleteLogs(_ ids: [UUID]) async throws {
+        if let deleteError { throw deleteError }
         deletedIds.append(contentsOf: ids)
     }
 

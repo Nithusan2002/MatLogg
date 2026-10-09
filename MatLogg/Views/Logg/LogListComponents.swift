@@ -7,6 +7,8 @@ struct LogRowView: View {
     var mealRoom: Bool = false
     var imageURL: URL? = nil
     var imageData: Data? = nil
+    var isSelected: Bool = false
+    var onSelect: (() -> Void)? = nil
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
@@ -20,15 +22,18 @@ struct LogRowView: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { onEdit?() }
+        .onTapGesture { if let onSelect { onSelect() } else { onEdit?() } }
+        .accessibilityValue(onSelect != nil ? (isSelected ? "Valgt" : "Ikke valgt") : "")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityActions {
+            if let onSelect { Button(isSelected ? "Fjern markering" : "Velg", action: onSelect) }
             if let onEdit {
                 Button("Rediger", action: onEdit)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(mealRoom && onEdit != nil ? .isButton : [])
-        .accessibilityHint(mealRoom && onEdit != nil ? "Trykk for å redigere mengde eller flytte varen" : "")
+        .accessibilityAddTraits(mealRoom && (onEdit != nil || onSelect != nil) ? .isButton : [])
+        .accessibilityHint(onSelect != nil ? "Trykk for å endre markering" : (mealRoom && onEdit != nil ? "Trykk for å redigere mengde eller flytte varen" : ""))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if let onDelete {
                 Button(role: .destructive) {
@@ -59,6 +64,12 @@ struct LogRowView: View {
     private var rowContent: some View {
         if mealRoom {
             HStack(alignment: .top, spacing: 12) {
+                if onSelect != nil {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? AppColors.action : AppColors.textSecondary)
+                        .frame(width: 28, height: 52)
+                        .accessibilityHidden(true)
+                }
                 ProductThumbnailView(url: imageURL, localData: imageData, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {
                     productDescription

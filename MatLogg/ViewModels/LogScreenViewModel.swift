@@ -22,6 +22,44 @@ final class LogScreenViewModel: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var presentation = LogListPresentation(groups: [], mealLogs: [],
         totals: NutritionCalculator.totals(for: []))
+    @Published private(set) var isDeletingOrRestoring = false
+    @Published private(set) var isSelecting = false
+    @Published private(set) var selectedLogIDs: Set<UUID> = []
+
+    var selectedLogs: [FoodLog] { presentation.mealLogs.filter { selectedLogIDs.contains($0.id) } }
+    var canSaveSelection: Bool { (1...50).contains(selectedLogs.count) }
+    var selectionMealType: String { selectedLogs.first?.mealType ?? "frokost" }
+    var selectionSpansMeals: Bool { Set(selectedLogs.map(\.mealType)).count > 1 }
+
+    func isGroupSelected(_ mealType: String? = nil) -> Bool {
+        let ids = Set(presentation.mealLogs.filter { mealType == nil || $0.mealType == mealType }.map(\.id))
+        return !ids.isEmpty && ids.isSubset(of: selectedLogIDs)
+    }
+
+    func beginSelection() {
+        guard !isLoading, !isDeletingOrRestoring, !presentation.mealLogs.isEmpty else { return }
+        selectedLogIDs = []
+        isSelecting = true
+    }
+
+    func endSelection() {
+        if isSelecting { isSelecting = false }
+        if !selectedLogIDs.isEmpty { selectedLogIDs = [] }
+    }
+
+    func toggleSelection(_ id: UUID) {
+        guard isSelecting, !isDeletingOrRestoring, presentation.mealLogs.contains(where: { $0.id == id }) else { return }
+        if selectedLogIDs.contains(id) { selectedLogIDs.remove(id) }
+        else { selectedLogIDs.insert(id) }
+    }
+
+    func toggleGroup(_ mealType: String? = nil) {
+        guard isSelecting, !isDeletingOrRestoring else { return }
+        let ids = Set(presentation.mealLogs.filter { mealType == nil || $0.mealType == mealType }.map(\.id))
+        if ids.isSubset(of: selectedLogIDs) { selectedLogIDs.subtract(ids) }
+        else { selectedLogIDs.formUnion(ids) }
+    }
+
     private let includesEmptyMeals: Bool
     private var subscriptions = Set<AnyCancellable>()
 
@@ -31,6 +69,11 @@ final class LogScreenViewModel: ObservableObject {
         self.mealFilter = mealFilter
         logs.$selectedDay.sink { [weak self] day in
             guard let self else { return }
+            if day.summary == nil { self.endSelection() }
+            if let previous = self.summary, let next = day.summary,
+               !Calendar.current.isDate(previous.date, inSameDayAs: next.date) {
+                self.endSelection()
+            }
             self.summary = day.summary
             self.names = day.productNames
             self.updatePresentation(recomputeMeal: true)
@@ -39,8 +82,12 @@ final class LogScreenViewModel: ObservableObject {
         logs.$mealProductImageURLs.removeDuplicates().assign(to: &$imageURLs)
         logs.$mealProductImageData.removeDuplicates().assign(to: &$imageData)
         logs.$isSummaryLoading.removeDuplicates().assign(to: &$isLoading)
+        logs.$isDeletingOrRestoring.removeDuplicates().assign(to: &$isDeletingOrRestoring)
         if let appState { observe(appState.$logSelectedDate.removeDuplicates()) }
-        if let auth { observe(auth.$currentUser.map { $0?.id }.removeDuplicates()) }
+        if let auth {
+            auth.$currentUser.map { $0?.id }.removeDuplicates().dropFirst()
+                .sink { [weak self] _ in self?.endSelection() }.store(in: &subscriptions)
+        }
         observe(logs.$mutationRevision.removeDuplicates())
         observe(logs.$yesterdaySummary)
         if let savedMeals { observe(savedMeals.$mutationRevision.removeDuplicates()) }
@@ -63,6 +110,8 @@ final class LogScreenViewModel: ObservableObject {
                 (meal, groups.first(where: { $0.mealType == meal })?.logs ?? [])
             }
         }
+        let retained = selectedLogIDs.intersection(Set(logs.map(\.id)))
+        if retained != selectedLogIDs { selectedLogIDs = retained }
         presentation = LogListPresentation(groups: groups, mealLogs: logs, totals: totals)
     }
 

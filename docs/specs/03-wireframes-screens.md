@@ -687,3 +687,21 @@ historikktreff utenfor de tre øverste. Produkter dedupliseres på ID og strekko
 på tvers av seksjonene. Uten historikktreff skjules seksjonen og dagens
 resultatoverskrift beholdes. Historikktreff bruker eksisterende produktrader,
 kilde-/enhetsvisning og mengdevalg. Ingen ekstra nettverkskall er nødvendig.
+
+### Flervalg i dagsloggen (9. oktober 2026)
+
+«Velg» aktiverer valgmodus for registreringer på valgt dato. Trykk på hele
+vareraden markerer eller fjerner markering; vanlig redigering og sveiping er
+utilgjengelig i valgmodus. Brukeren kan velge alle varer eller en måltidsgruppe,
+se antall valgte og avslutte med «Avbryt». Valget følger logg-ID, ikke produkt-ID,
+og nullstilles ved dato-/profilbytte eller når dagboken lukkes.
+
+«Lagre som måltid» og «Slett» vises over bunnmenyen, med rulleklaring og et
+vertikalt alternativ ved stor tekst. Måltidslagring bruker bare utvalget og
+beholder mengder/enheter/porsjoner og eksisterende næringsgrunnlag. Ved blandede
+måltidsgrupper kan foreslått kategori velges i arket. Måltidsmalen har fortsatt
+grense på 1–50 varer; sletting har ikke denne grensen.
+
+Samlet sletting bekreftes med antall registreringer og lagres atomisk lokalt
+sammen med synkhendelser. Én Angre-operasjon gjenoppretter batchen med nye ID-er.
+Ved feil beholdes utvalget; avbrutt måltidslagring beholder også valget.

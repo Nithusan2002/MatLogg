@@ -5,6 +5,55 @@ import Testing
 
 @MainActor
 struct RenderPresentationTests {
+    @Test func selectionUsesLogIDsAndSupportsGroupsRefreshAndDateReset() async throws {
+        let repository = RenderLogRepository()
+        let logs = LogViewModel(repository: repository)
+        let screen = LogScreenViewModel(logs: logs, includesEmptyMeals: true)
+        let owner = UUID(), date = Date(), food = product("Brød")
+        let first = log(owner: owner, product: food, date: date, time: 10, calories: 100)
+        let second = log(owner: owner, product: food, date: date, time: 20, calories: 200)
+        let lunch = log(owner: owner, product: food, date: date, time: 30, calories: 300, meal: "lunsj")
+        repository.logs = [first, second, lunch]
+        await logs.loadSelectedSummary(userId: owner, date: date)
+        screen.beginSelection()
+        screen.toggleSelection(first.id)
+        #expect(screen.selectedLogs.map(\.id) == [first.id])
+        screen.toggleGroup("frokost")
+        #expect(screen.selectedLogIDs == [first.id, second.id])
+        screen.toggleGroup()
+        #expect(screen.selectedLogIDs == [first.id, second.id, lunch.id])
+        #expect(screen.canSaveSelection)
+        repository.logs = [second, lunch]
+        await logs.loadSelectedSummary(userId: owner, date: date)
+        #expect(screen.selectedLogIDs == [second.id, lunch.id])
+        screen.toggleGroup()
+        #expect(screen.selectedLogs.isEmpty)
+        #expect(!screen.canSaveSelection)
+        screen.toggleSelection(second.id)
+        let tomorrow = try #require(Calendar.current.date(byAdding: .day, value: 1, to: date))
+        await logs.loadSelectedSummary(userId: owner, date: tomorrow)
+        #expect(!screen.isSelecting)
+        #expect(screen.selectedLogIDs.isEmpty)
+    }
+
+    @Test func mealSelectionLimitDoesNotLimitBatchDeletion() async {
+        let repository = RenderLogRepository()
+        let logs = LogViewModel(repository: repository)
+        let screen = LogScreenViewModel(logs: logs)
+        let owner = UUID(), date = Date(), food = product("Brød")
+        repository.logs = (0..<51).map { log(owner: owner, product: food, date: date, time: Double($0), calories: 100) }
+        await logs.loadSelectedSummary(userId: owner, date: date)
+        screen.beginSelection()
+        screen.toggleGroup()
+        #expect(screen.selectedLogs.count == 51)
+        #expect(!screen.canSaveSelection)
+        screen.toggleSelection(repository.logs[0].id)
+        #expect(screen.canSaveSelection)
+        screen.endSelection()
+        #expect(!screen.isSelecting)
+        #expect(screen.selectedLogIDs.isEmpty)
+    }
+
     @Test func searchKeepsMealTotalsAndIDsAndUpdatesAfterDataChanges() async throws {
         let repository = RenderLogRepository()
         let owner = UUID(), date = Date()
