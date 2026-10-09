@@ -403,12 +403,20 @@ private struct FoodSearchContent: View {
             }
             .listRowBackground(AppColors.surface)
         }
-        if !viewModel.results.isEmpty {
-            Section(viewModel.phase == .complete ? "Resultater" : "Lagrede matvarer og råvarer") {
-                productRows(viewModel.results)
+        if !viewModel.resultSections.history.isEmpty {
+            Section("Tidligere logget") {
+                productRows(viewModel.resultSections.history, context: "history")
             }
             .listRowBackground(AppColors.surface)
-        } else if viewModel.phase != .searching && viewModel.phase != .failure {
+        }
+        if !viewModel.resultSections.other.isEmpty {
+            Section(viewModel.resultSections.history.isEmpty
+                    ? (viewModel.phase == .complete ? "Resultater" : "Lagrede matvarer og råvarer")
+                    : "Andre treff") {
+                productRows(viewModel.resultSections.other)
+            }
+            .listRowBackground(AppColors.surface)
+        } else if viewModel.results.isEmpty && viewModel.phase != .searching && viewModel.phase != .failure {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(viewModel.phase == .local ? "Ingen lokale treff" : "Ingen treff")

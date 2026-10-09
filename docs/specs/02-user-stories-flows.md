@@ -518,3 +518,13 @@ Eksportkopier utenfor appen omfattes ikke av lokal sletting.
 - Global lasting og nettfeil beholder eksisterende treff; feil tilbyr nytt globalt forsøk.
 - Endret søketekst eller profil forkaster gamle svar og nullstiller global utvidelse.
 - Næringsdata, enheter og kilde følger samme validering som norske treff.
+
+### Søk etter tidligere logget mat (2026-10-09)
+
+Som bruker som søker «yoghurt», skal jeg raskt finne en yoghurt jeg har logget
+tidligere. «Tidligere logget» viser opptil tre søkeordmatchende produkter fra
+hele min lokale logghistorikk, sist logget først. Presise søk som «yoghurt
+jordbær» utelater historikk som ikke matcher. Øvrige produkter, inkludert eldre
+historikktreff, vises under «Andre treff» uten duplikater. Tomt søk beholder
+favoritter og seks nylige varer. Flyten fungerer offline og åpner vanlig
+produktkort med mengdevalg.

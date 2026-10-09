@@ -469,6 +469,36 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
 
+    /// Compact, owner-scoped metadata for every previously logged searchable product.
+    func getLoggedProductTimes(owner: UUID, before: Date) throws -> [UUID: Date] {
+        try queue.sync {
+            let sql = """
+            SELECT l.productId, MAX(l.loggedTime)
+            FROM logs l JOIN products p ON p.id = l.productId
+            WHERE l.userId = ? AND l.loggedDate <= ? AND l.loggedTime <= ?
+              AND (p.storageKind = 'catalog' OR p.ownerUserId = ?)
+            GROUP BY l.productId;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_double(stmt, 2, Calendar.current.startOfDay(for: before).timeIntervalSince1970)
+            sqlite3_bind_double(stmt, 3, before.timeIntervalSince1970)
+            sqlite3_bind_text(stmt, 4, owner.uuidString, -1, SQLITE_TRANSIENT)
+            var result: [UUID: Date] = [:]
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                if let text = sqlite3_column_text(stmt, 0), let id = UUID(uuidString: String(cString: text)) {
+                    result[id] = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1))
+                }
+                step = sqlite3_step(stmt)
+            }
+            guard step == SQLITE_DONE else { throw databaseError() }
+            return result
+        }
+    }
+
     func getRecentFoods(owner: UUID, before: Date, limit: Int) throws -> [RecentFood] {
         try queue.sync {
             guard limit > 0 else { return [] }

@@ -31,6 +31,7 @@ nonisolated struct RecentFood: Identifiable, Sendable {
 
 protocol RecentFoodRepository {
     func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood]
+    func getLoggedProductTimes(owner: UUID, before: Date) async throws -> [UUID: Date]
     func saveLog(_ log: FoodLog) async throws
 }
 
@@ -45,6 +46,7 @@ nonisolated struct FoodSearchLibrary: Sendable {
     let favorites: [Product]
     let suggestions: [Product]
     var recentFoods: [RecentFood] = []
+    var loggedProductTimes: [UUID: Date] = [:]
 }
 
 @MainActor
@@ -114,8 +116,9 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         defer { PerformanceSignposts.end(timing) }
         let stored = try await products.getSearchableProducts(ownerUserId: owner)
         let choices = try await loadQuickChoices(owner: owner)
+        let times = if let owner { try await recentFoods.getLoggedProductTimes(owner: owner, before: now()) } else { [UUID: Date]() }
         return FoodSearchLibrary(products: stored, recent: choices.recent, favorites: choices.favorites,
-                                 suggestions: [], recentFoods: choices.recentFoods)
+                                 suggestions: [], recentFoods: choices.recentFoods, loggedProductTimes: times)
     }
 
     func loadQuickChoices(owner: UUID?) async throws -> FoodSearchLibrary {
@@ -157,7 +160,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         return FoodSearchLibrary(
             products: merged.0,
             recent: local.recent, favorites: local.favorites,
-            suggestions: merged.1, recentFoods: local.recentFoods
+            suggestions: merged.1, recentFoods: local.recentFoods, loggedProductTimes: local.loggedProductTimes
         )
     }
 
@@ -324,6 +327,14 @@ extension FoodSearchMatcher {
     }
 }
 
+nonisolated struct FoodSearchResultSections: Sendable {
+    let history: [Product]
+    let other: [Product]
+    let all: [Product]
+
+    static let empty = FoodSearchResultSections(history: [], other: [], all: [])
+}
+
 /// Actor-owned index reuses normalized fields across keystrokes and library loads.
 actor FoodSearchIndex {
     private struct Fields {
@@ -334,6 +345,20 @@ actor FoodSearchIndex {
         let searchable: String
     }
     private var fields: [UUID: Fields] = [:]
+
+    func sections(library: [Product], remote: [Product], query: String,
+                  loggedProductTimes: [UUID: Date]) throws -> FoodSearchResultSections {
+        let matches = try results(library: library, remote: remote, query: query)
+        let history = Array(matches.filter { loggedProductTimes[$0.id] != nil }.sorted {
+            let left = loggedProductTimes[$0.id] ?? .distantPast
+            let right = loggedProductTimes[$1.id] ?? .distantPast
+            if left != right { return left > right }
+            return $0.id.uuidString < $1.id.uuidString
+        }.prefix(3))
+        let historyIDs = Set(history.map(\.id))
+        let other = matches.filter { !historyIDs.contains($0.id) }
+        return FoodSearchResultSections(history: history, other: other, all: history + other)
+    }
 
     func results(library: [Product], remote: [Product], query: String) throws -> [Product] {
         let timing = PerformanceSignposts.begin("Search.Index")

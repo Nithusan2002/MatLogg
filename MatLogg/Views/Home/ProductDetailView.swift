@@ -66,6 +66,7 @@ private struct ProductDetailContent: View {
                         .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                     }
+                    .accessibilityIdentifier("product-detail-close")
                     Spacer()
 
                     Button(action: toggleFavorite) {

@@ -167,6 +167,17 @@ mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller inns
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
 Private produkter fra andre profiler er ikke søkbare.
 
+Ved aktivt søk vises «Tidligere logget» først, med maksimalt tre ulike produkter
+som matcher alle søkeord i navn eller merke. Treffene følger siste loggføring
+(`loggedTime`), med produkt-ID som stabil sortering ved likt tidspunkt.
+Grunnlaget er hele den tilgjengelige lokale historikken for aktiv profileier,
+ikke bare de seks nylige varene; framtidige registreringer utelates som i
+«Sist brukt». «Andre treff» beholder vanlig relevanssortering og inkluderer
+historikktreff utenfor de tre øverste. Produkter dedupliseres på ID og strekkode
+på tvers av seksjonene. Uten historikktreff skjules seksjonen og dagens
+resultatoverskrift beholdes. Historikktreff bruker eksisterende produktrader,
+kilde-/enhetsvisning og mengdevalg. Ingen ekstra nettverkskall er nødvendig.
+
 Eksternt navnesøk bruker først det norske Open Food Facts-endepunktet. Etter
 søk tilbys «Finner du ikke varen? Søk i hele verden», også uten treff. Globale
 treff vises i en egen seksjon etter eksisterende treff, uten duplikater på

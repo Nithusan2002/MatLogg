@@ -176,6 +176,7 @@ private final class LoadingSearchProducts: ProductRepository, RecentFoodReposito
         localReadCount += 1
         return try await withCheckedThrowingContinuation { pending = $0 }
     }
+    func getLoggedProductTimes(owner: UUID, before: Date) async throws -> [UUID: Date] { [:] }
     func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood] {
         recentReadCount += 1
         return []

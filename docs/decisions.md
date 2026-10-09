@@ -870,3 +870,13 @@ Kontostatus har ikke lenger et offentlig RPC-endepunkt. Ingen arkitekturavvik.
 Direkte synk-RPC omgår fortsatt Edge-kvoten; dette er fortsatt en blocker
 før aktivering. Leaked-password protection krever planoppgradering og
 endres ikke. Migrasjonen er bare verifisert i en isolert lokal database.
+
+### 2026-10-09 – Historikktreff først i matsøk
+
+Aktivt matsøk viser maksimalt tre relevante tidligere loggede produkter i
+«Tidligere logget», sortert etter siste `loggedTime` med produkt-ID som stabil
+tiebreaker. Vanlig søkeordmatching gjelder fortsatt. Et lokalt, profileieravgrenset
+oppslag av produkt-ID og siste loggføring dekker hele tilgjengelige historikken
+uten å laste loggobjekter eller gjøre databasekall per tastetrykk. Øvrige treff
+beholder relevanssortering og dedupliseres på tvers av seksjonene. Tomt søk
+beholder seks nylige varer. Hyppighetsvekting og synk-/backendendringer inngår ikke.

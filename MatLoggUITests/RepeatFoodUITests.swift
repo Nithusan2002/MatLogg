@@ -39,6 +39,21 @@ final class RepeatFoodUITests: XCTestCase {
         reveal(recent, in: app)
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-repeat-'")).firstMatch.exists)
         XCTAssertFalse(app.staticTexts["food-search-repeat-destination"].exists)
+        let historyField = app.textFields["food-search-field"]
+        historyField.tap()
+        historyField.typeText("Porsjonstestbrød\n")
+        let history = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-history-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
+        reveal(history, in: app)
+        XCTAssertTrue(app.staticTexts["Tidligere logget"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-history-' AND label CONTAINS 'Porsjonstestbrød'")).count, 1)
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-result-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch.exists)
+        let historyScreenshot = XCTAttachment(screenshot: app.screenshot())
+        historyScreenshot.name = "Tidligere logget – søk med stor tekst"
+        historyScreenshot.lifetime = .keepAlways
+        add(historyScreenshot)
+        history.tap()
+        XCTAssertTrue(app.buttons["product-log-save"].waitForExistence(timeout: 5))
+        app.buttons["product-detail-close"].tap()
         app.buttons["food-search-close"].tap()
         let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(repeatButton, in: app)

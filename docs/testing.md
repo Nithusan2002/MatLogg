@@ -427,3 +427,14 @@ etter at bekreftelsen er lukket. Mengdebildet tas ved å åpne produktet igjen m
 mengden på 60 g, uten å fokusere feltet eller logge en ekstra registrering.
 Eksporter vedlegg med `xcrun xcresulttool export attachments` og kontroller
 bildene visuelt før de erstatter `matlogg-web/public/screenshots/`.
+
+### Historikktreff i matsøk
+
+`FoodSearchTests` dekker tregrensen, presise søkeord, stabil rekkefølge,
+deduplisering og tømming ved søke-/profilbytte. `RepeatFoodTests` dekker lokalt
+historikkgrunnlag utover seks nylige varer, siste loggføring per produkt,
+framtidige registreringer, eierskap, sletting og uendret synkkø ved lesing.
+`FoodSearchLoadingTests` kontrollerer bevart lokal/katalog-lastestruktur.
+`RepeatFoodUITests/testRepeatPortionAndUndoKeepsOriginalLog` kontrollerer også
+«Tidligere logget», unik produktrad og åpning av produktkort med største tekst.
+Kjør disse målrettet på en dedikert QA-simulator.

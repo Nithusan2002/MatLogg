@@ -666,3 +666,16 @@ kort instruksjon over søkekontrollene. Lokal lagring, datatap, eksport og
 personvern samles i én dempet informasjonsflate under kontrollene. Den
 dupliserte tomtilstandsbeskjeden skjules ved første logging. Ved søk skjules
 introduksjon og lagringsinformasjon slik at treff får plass.
+
+### Historikktreff i matsøk (2026-10-09)
+
+Ved aktivt søk vises «Tidligere logget» først, med maksimalt tre ulike produkter
+som matcher alle søkeord i navn eller merke. Treffene følger siste loggføring
+(`loggedTime`), med produkt-ID som stabil sortering ved likt tidspunkt.
+Grunnlaget er hele den tilgjengelige lokale historikken for aktiv profileier,
+ikke bare de seks nylige varene; framtidige registreringer utelates som i
+«Sist brukt». «Andre treff» beholder vanlig relevanssortering og inkluderer
+historikktreff utenfor de tre øverste. Produkter dedupliseres på ID og strekkode
+på tvers av seksjonene. Uten historikktreff skjules seksjonen og dagens
+resultatoverskrift beholdes. Historikktreff bruker eksisterende produktrader,
+kilde-/enhetsvisning og mengdevalg. Ingen ekstra nettverkskall er nødvendig.

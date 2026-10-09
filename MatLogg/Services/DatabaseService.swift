@@ -169,6 +169,10 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         await performIfAvailable { $0?.getLogs(userId: userId, from: start, before: end) ?? [] }
     }
 
+    func getLoggedProductTimes(owner: UUID, before: Date) async throws -> [UUID: Date] {
+        try await perform { try $0.getLoggedProductTimes(owner: owner, before: before) }
+    }
+
     func getRecentFoods(owner: UUID, before: Date, limit: Int) async throws -> [RecentFood] {
         try await perform { try $0.getRecentFoods(owner: owner, before: before, limit: limit) }
     }

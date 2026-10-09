@@ -6,7 +6,8 @@ final class FoodSearchViewModel: ObservableObject {
     enum Phase { case local, searching, complete, offline, failure }
 
     @Published private(set) var query = ""
-    @Published private(set) var results: [Product] = []
+    @Published private(set) var resultSections = FoodSearchResultSections.empty
+    var results: [Product] { resultSections.all }
     @Published private(set) var recent: [Product] = []
     @Published private(set) var favorites: [Product] = []
     @Published private(set) var suggestions: [Product] = []
@@ -44,6 +45,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     private let repository: any FoodSearchRepository
+    private var loggedProductTimes: [UUID: Date] = [:]
     private var library: [Product] = []
     private var remoteProducts: [Product] = []
     private var pendingManualProduct: Product?
@@ -97,6 +99,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     private func apply(_ loaded: FoodSearchLibrary) {
+        loggedProductTimes = loaded.loggedProductTimes
         library = loaded.products
         recent = loaded.recent
         favorites = loaded.favorites
@@ -112,7 +115,7 @@ final class FoodSearchViewModel: ObservableObject {
         self.owner = owner
         selectionID = UUID()
         query = ""
-        library = []; remoteProducts = []; results = []
+        library = []; remoteProducts = []; resultSections = .empty; loggedProductTimes = [:]
         recent = []; favorites = []; suggestions = []
         selectedProduct = nil
         pendingManualProduct = nil
@@ -279,18 +282,19 @@ final class FoodSearchViewModel: ObservableObject {
         resultsTask?.cancel()
         let request = UUID()
         resultsID = request
-        guard hasQuery else { results = []; return }
+        guard hasQuery else { resultSections = .empty; return }
         let query = query
         let library = library
         let remote = remoteProducts
+        let times = loggedProductTimes
         let index = searchIndex
         resultsTask = Task { [weak self] in
             let timing = PerformanceSignposts.begin("Search.ResultsToState")
             defer { PerformanceSignposts.end(timing) }
-            guard let computed = try? await index.results(library: library, remote: remote, query: query), let self, resultsID == request, !Task.isCancelled else { return }
-            results = computed
-            globalResults = FoodSearchMatcher.unique(computed + globalResults).filter { product in
-                !computed.contains { $0.id == product.id }
+            guard let computed = try? await index.sections(library: library, remote: remote, query: query, loggedProductTimes: times), let self, resultsID == request, !Task.isCancelled else { return }
+            resultSections = computed
+            globalResults = FoodSearchMatcher.unique(computed.all + globalResults).filter { product in
+                !computed.all.contains { $0.id == product.id }
             }
         }
     }

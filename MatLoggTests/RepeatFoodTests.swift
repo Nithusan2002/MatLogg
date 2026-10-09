@@ -26,6 +26,9 @@ struct RepeatFoodTests {
             let count = store.pendingSyncCount()
             let rows = try await database.getRecentFoods(owner: owner, before: now, limit: 6)
             #expect(rows.map(\.id) == [item.id, second.id])
+            let times = try await database.getLoggedProductTimes(owner: owner, before: now)
+            #expect(Set(times.keys) == [item.id, second.id])
+            #expect(abs(try #require(times[item.id]).timeIntervalSince(time)) < 0.000001)
             #expect(rows.first?.log.id == latest.id)
             #expect(rows.first?.log.amountG == 150)
             #expect(try await database.getRecentFoods(owner: owner, before: now, limit: 1).count == 1)
@@ -160,6 +163,39 @@ struct RepeatFoodTests {
         repository.review = item
         #expect(await vm.logAgain(food, mealType: "lunsj", date: Date()) == nil)
         #expect(vm.selectedQuickProduct?.id == item.id && vm.logError == nil)
+    }
+
+    @Test func searchHistoryIncludesOlderProductsAndReloadsAfterDeletion() async throws {
+        try await withDatabase { store, database, _ in
+            let owner = UUID(), other = UUID(), old = product(), foreign = product(), future = product()
+            for item in [old, foreign, future] { try store.cacheCatalogProduct(item) }
+            let now = Date()
+            let original = log(old, owner: owner, time: now.addingTimeInterval(-1_000))
+            let latest = log(old, owner: owner, time: now.addingTimeInterval(-900))
+            try store.saveLogs([original, latest, log(foreign, owner: other, time: now.addingTimeInterval(-10)),
+                                log(future, owner: owner, date: now.addingTimeInterval(86_400), time: now)])
+            for offset in 1...7 {
+                let item = product()
+                try store.cacheCatalogProduct(item)
+                try store.saveLog(log(item, owner: owner, time: now.addingTimeInterval(Double(-offset))))
+            }
+            let pending = store.pendingSyncCount()
+            let repository = searchRepository(database)
+            let library = try await repository.loadLocalLibrary(owner: owner)
+            #expect(library.recent.count == 6)
+            #expect(!library.recent.contains { $0.id == old.id })
+            #expect(library.loggedProductTimes.count == 8)
+            #expect(abs(try #require(library.loggedProductTimes[old.id]).timeIntervalSince(latest.loggedTime)) < 0.001)
+            #expect(library.loggedProductTimes[foreign.id] == nil && library.loggedProductTimes[future.id] == nil)
+            #expect(store.pendingSyncCount() == pending)
+            try store.deleteLog(latest.id)
+            let reloaded = try await repository.loadLocalLibrary(owner: owner)
+            #expect(abs(try #require(reloaded.loggedProductTimes[old.id]).timeIntervalSince(original.loggedTime)) < 0.001)
+            try store.deleteLog(original.id)
+            #expect(try await repository.loadLocalLibrary(owner: owner).loggedProductTimes[old.id] == nil)
+            #expect(try await repository.loadLocalLibrary(owner: other).loggedProductTimes.keys.sorted { $0.uuidString < $1.uuidString } == [foreign.id])
+            #expect(try await repository.loadLocalLibrary(owner: nil).loggedProductTimes.isEmpty)
+        }
     }
 
     private func product(id: UUID = UUID(), unit: AmountUnit = .grams, servings: [ServingOption]? = nil) -> Product {

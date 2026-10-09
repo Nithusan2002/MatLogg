@@ -4,6 +4,56 @@ import Testing
 
 @MainActor
 struct FoodSearchTests {
+    @Test func historyMatchesAreLimitedPreciseAndResetWithOwnerOrQuery() async {
+        let repository = SearchRepositoryStub()
+        let foods = [product("Yoghurt vanilje"), product("Yoghurt jordbær"),
+                     product("Yoghurt naturell"), product("Yoghurt gresk"), product("Yoghurt ny")]
+        let times = Dictionary(uniqueKeysWithValues: foods.prefix(4).enumerated().map {
+            ($0.element.id, Date(timeIntervalSince1970: Double(100 + $0.offset)))
+        })
+        repository.library = FoodSearchLibrary(products: foods, recent: [], favorites: [], suggestions: [],
+                                                loggedProductTimes: times)
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        vm.setQuery("yoghurt")
+        await waitUntil { vm.resultSections.history.count == 3 }
+        #expect(vm.resultSections.history.map(\.id) == [foods[3].id, foods[2].id, foods[1].id])
+        #expect(Set(vm.results.map(\.id)).count == 5)
+        #expect(Set(vm.resultSections.other.map(\.id)) == [foods[0].id, foods[4].id])
+        #expect(repository.requests.isEmpty)
+        vm.setQuery("YOGHURT jordbær")
+        await waitUntil { vm.results.map(\.id) == [foods[1].id] }
+        #expect(vm.resultSections.history.map(\.id) == [foods[1].id])
+        #expect(vm.resultSections.other.isEmpty)
+        vm.setQuery("yoghurt ny")
+        await waitUntil { vm.results.map(\.id) == [foods[4].id] }
+        #expect(vm.resultSections.history.isEmpty)
+        vm.setQuery("")
+        #expect(vm.results.isEmpty && vm.resultSections.history.isEmpty)
+        repository.library = FoodSearchLibrary(products: foods, recent: [], favorites: [], suggestions: [])
+        await vm.load(owner: UUID())
+        vm.setQuery("yoghurt")
+        await waitUntil { vm.results.count == 5 }
+        #expect(vm.resultSections.history.isEmpty)
+        #expect(vm.resultSections.other.count == 5)
+    }
+
+    @Test func historyHasStableTiesAndDeduplicatesRemoteBarcodes() async throws {
+        let index = FoodSearchIndex()
+        let first = Product(id: try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001")),
+                            name: "Yoghurt A", barcodeEan: "123", caloriesPer100g: 100,
+                            proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3)
+        let second = product("Yoghurt B")
+        let duplicate = Product(name: "Yoghurt kopi", barcodeEan: "123", caloriesPer100g: 100,
+                                proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3)
+        let times = [first.id: Date(timeIntervalSince1970: 100), second.id: Date(timeIntervalSince1970: 100)]
+        let result = try await index.sections(library: [second, first], remote: [duplicate, first],
+                                              query: "yoghurt", loggedProductTimes: times)
+        #expect(result.history.map(\.id) == [first.id, second.id])
+        #expect(result.all.count == 2 && result.other.isEmpty)
+        #expect(try await index.sections(library: [first], remote: [], query: " ", loggedProductTimes: times).all.isEmpty)
+    }
+
     @Test func globalExpansionPreservesFirstResultsDeduplicatesAndResetsOnEdit() async {
         let repository = SearchRepositoryStub()
         let vm = FoodSearchViewModel(repository: repository)
