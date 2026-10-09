@@ -26,6 +26,8 @@ final class MatLoggUITests: XCTestCase {
     func testDiarySelectionDeletesAndRestoresWholeBatch() throws {
         let app = try prepareDiarySelection()
         app.buttons["meal-room-select"].tap()
+        XCTAssertTrue(app.otherElements["meal-room-selection-bar"].exists)
+        XCTAssertFalse(app.buttons["tab-log-food"].exists)
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
         let firstID = rows.element(boundBy: rows.count - 1).identifier
         let secondID = rows.element(boundBy: rows.count - 2).identifier
@@ -38,6 +40,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Slett"].waitForExistence(timeout: 5))
         app.buttons["Slett"].tap()
         XCTAssertTrue(app.buttons["Angre"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertFalse(app.buttons[firstID].exists)
         XCTAssertFalse(app.buttons[secondID].exists)
         let beforeUndo = rows.count
@@ -56,6 +59,7 @@ final class MatLoggUITests: XCTestCase {
     func testDiarySelectionSavesOnlyChosenEntryWithLargeText() throws {
         let app = try prepareDiarySelection(largeText: true)
         app.buttons["meal-room-select"].tap()
+        XCTAssertFalse(app.buttons["tab-log-food"].exists)
         let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
         revealDiaryElement(row, in: app)
         row.tap()
@@ -79,7 +83,12 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["saved-meal-save"].tap()
         XCTAssertTrue(app.buttons["meal-room-select"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["meal-room-select"].label, "Velg")
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertTrue(row.exists)
+        app.buttons["meal-room-select"].tap()
+        XCTAssertFalse(app.buttons["tab-log-food"].exists)
+        app.buttons["meal-room-select"].tap()
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
     }
 
     @MainActor

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct LogRowView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let log: FoodLog
     let productName: String
     var compact: Bool = false
@@ -21,6 +22,7 @@ struct LogRowView: View {
                 CardContainer { rowContent }
             }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isSelected)
         .contentShape(Rectangle())
         .onTapGesture { if let onSelect { onSelect() } else { onEdit?() } }
         .accessibilityValue(onSelect != nil ? (isSelected ? "Valgt" : "Ikke valgt") : "")
@@ -69,6 +71,7 @@ struct LogRowView: View {
                         .foregroundStyle(isSelected ? AppColors.action : AppColors.textSecondary)
                         .frame(width: 28, height: 52)
                         .accessibilityHidden(true)
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }
                 ProductThumbnailView(url: imageURL, localData: imageData, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {

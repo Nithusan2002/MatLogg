@@ -25,7 +25,6 @@ private struct LoggContent: View {
     @StateObject private var screen: LogScreenViewModel
     @State private var isPullRefreshing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var pendingMealScroll: String?
     @State private var showAddActions = false
     @State private var editingLog: FoodLog?
@@ -52,9 +51,13 @@ private struct LoggContent: View {
 
             logList
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if screen.isSelecting { selectionActions.padding(.bottom, tabBarScrollMargin) }
-        }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: screen.isSelecting)
+        .preference(key: MatLoggDiarySelectionKey.self, value: screen.isSelecting
+            ? MatLoggDiarySelectionPresentation(contextID: ObjectIdentifier(screen),
+                count: screen.selectedLogIDs.count, canSave: screen.canSaveSelection,
+                isBusy: screen.isDeletingOrRestoring, onSave: saveSelection,
+                onDelete: { showBatchDeletion = true })
+            : nil)
         .overlay(alignment: .bottom) { if !screen.isSelecting { receiptOverlay } }
         .confirmationDialog("Slette \(screen.selectedLogIDs.count) registreringer?", isPresented: $showBatchDeletion, titleVisibility: .visible) {
             Button("Slett", role: .destructive) { deleteSelection() }
@@ -151,40 +154,9 @@ private struct LoggContent: View {
         }
     }
 
-    private var selectionActions: some View {
-        VStack(spacing: 8) {
-            Text("\(screen.selectedLogIDs.count) valgt")
-                .font(AppTypography.bodyEmphasis)
-                .foregroundStyle(AppColors.ink)
-                .accessibilityIdentifier("meal-room-selection-count")
-            if screen.selectedLogIDs.count > 50 {
-                Text("Velg opptil 50 matvarer for å lagre som måltid.")
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) { selectionButtons }
-            } else {
-                HStack(spacing: 16) { selectionButtons }
-            }
-        }
-        .padding(16)
-        .background(AppColors.background)
-    }
-
-    @ViewBuilder private var selectionButtons: some View {
-        Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
-            let logs = screen.selectedLogs
-            savedMealSource = SavedMealCreationSource(mealType: screen.selectionMealType, logs: logs,
-                allowsMealTypeChoice: screen.selectionSpansMeals)
-        }
-        .disabled(!screen.canSaveSelection || screen.isDeletingOrRestoring)
-        .accessibilityIdentifier("meal-room-save-selection")
-        .frame(minHeight: 44)
-        Button("Slett", systemImage: "trash", role: .destructive) { showBatchDeletion = true }
-            .disabled(screen.selectedLogIDs.isEmpty || screen.isDeletingOrRestoring)
-            .accessibilityIdentifier("meal-room-delete-selection")
-            .frame(minHeight: 44)
+    private func saveSelection() {
+        savedMealSource = SavedMealCreationSource(mealType: screen.selectionMealType,
+            logs: screen.selectedLogs, allowsMealTypeChoice: screen.selectionSpansMeals)
     }
 
     private func deleteSelection() {

@@ -28,6 +28,9 @@ private struct HomeNavigationContent: View {
     @State private var showAddActions = false
     @State private var previousTab: AppTab = .home
     @State private var isTabEditing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var diarySelection: MatLoggDiarySelectionPresentation?
+    private var isDiarySelecting: Bool { diarySelection != nil }
     @State private var tabBarScrollMargin = MatLoggTabBar.defaultScrollContentBottomMargin
 
     init(appState: AppState, logViewModel: LogViewModel, authViewModel: AuthViewModel,
@@ -90,10 +93,15 @@ private struct HomeNavigationContent: View {
                 .matLoggSystemTabBarHidden()
         }
         .onPreferenceChange(MatLoggTabBarEditingKey.self) { isTabEditing = $0 }
+        .onPreferenceChange(MatLoggDiarySelectionKey.self) { presentation in
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.24)) {
+                diarySelection = presentation
+            }
+        }
         .environment(\.matLoggTabBarScrollMargin, isTabEditing ? 0 : tabBarScrollMargin)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !isTabEditing {
-                MatLoggTabBar(selection: tabSelection)
+                MatLoggTabBar(selection: tabSelection, diarySelection: diarySelection)
                     .onGeometryChange(for: CGFloat.self) { proxy in
                         proxy.size.height
                     } action: { height in
@@ -106,7 +114,7 @@ private struct HomeNavigationContent: View {
         }
         .environmentObject(appState)
         .overlay(alignment: .bottom) {
-            if let payload = receiptPayload {
+            if let payload = receiptPayload, !isDiarySelecting {
                 LogToastView(
                     payload: payload,
                     isUndoing: isUndoingReceipt,
@@ -116,7 +124,7 @@ private struct HomeNavigationContent: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, tabBarScrollMargin)
                 .transition(.logToast)
-            } else if let receipt = navigation.savedMealReceipt {
+            } else if let receipt = navigation.savedMealReceipt, !isDiarySelecting {
                 SavedMealToastView(
                     receipt: receipt,
                     isUndoing: isUndoingSavedMeal,

@@ -6,6 +6,7 @@ struct MatLoggTabBar: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var selection: AppTab
+    var diarySelection: MatLoggDiarySelectionPresentation? = nil
 
     private let tabs: [(AppTab, String, String)] = [
         (.home, "Hjem", "house"),
@@ -14,30 +15,18 @@ struct MatLoggTabBar: View {
         (.profile, "Profil", "person")
     ]
 
-    @ViewBuilder
     var body: some View {
-        if #available(iOS 26.0, *) {
-            tabBarContent
-                .padding(.vertical, 8)
-                .padding(.horizontal, 10)
-                .glassEffect(
-                    .regular,
-                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
-                )
-                .padding(.horizontal, 8)
-                .padding(.bottom, 4)
-                .offset(y: 14)
-        } else {
-            tabBarContent
-                .padding(.vertical, 8)
-                .padding(.horizontal, 10)
-                .background(AppColors.surface)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(AppColors.separator)
-                        .frame(height: 1)
-                }
+        ZStack {
+            if let diarySelection {
+                MatLoggSelectionBar(count: diarySelection.count,
+                    canSave: diarySelection.canSave, isBusy: diarySelection.isBusy,
+                    onSave: diarySelection.onSave, onDelete: diarySelection.onDelete)
+                    .transition(.opacity)
+            } else {
+                tabBarContent.transition(.opacity)
+            }
         }
+        .modifier(MatLoggBottomBarSurface())
     }
 
     @ViewBuilder private var tabBarContent: some View {
@@ -138,5 +127,130 @@ struct MatLoggTabBarEditingKey: PreferenceKey {
 
     static func reduce(value: inout Bool, nextValue: () -> Bool) {
         value = value || nextValue()
+    }
+}
+
+/// Shares the existing bottom navigation surface with contextual selection actions.
+private struct MatLoggBottomBarSurface: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .glassEffect(
+                    .regular,
+                    in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 4)
+                .offset(y: 14)
+        } else {
+            content
+                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .background(AppColors.surface)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(AppColors.separator)
+                        .frame(height: 1)
+                }
+        }
+    }
+}
+
+struct MatLoggSelectionBar: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let count: Int
+    let canSave: Bool
+    let isBusy: Bool
+    let onSave: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if count > 50 {
+                Text("Velg opptil 50 matvarer for å lagre som måltid.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            if dynamicTypeSize.isAccessibilitySize {
+                selectionCount.padding(.horizontal, 8)
+                HStack(spacing: 8) { actionButtons }
+            } else {
+                HStack(spacing: 8) {
+                    selectionCount.frame(maxWidth: .infinity)
+                    Divider().frame(height: 32)
+                    actionButtons
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 70)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("meal-room-selection-bar")
+    }
+
+    private var selectionCount: some View {
+        Text("\(count) valgt")
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .contentTransition(reduceMotion ? .identity : .numericText())
+            .accessibilityIdentifier("meal-room-selection-count")
+    }
+
+    @ViewBuilder private var actionButtons: some View {
+        Button(action: onSave) {
+            actionLabel("Lagre måltid", systemImage: "square.stack.3d.up")
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave || isBusy)
+        .opacity(canSave && !isBusy ? 1 : 0.4)
+        .accessibilityLabel("Lagre som måltid")
+        .accessibilityIdentifier("meal-room-save-selection")
+        Divider().frame(height: 32).accessibilityHidden(true)
+        Button(role: .destructive, action: onDelete) {
+            actionLabel("Slett", systemImage: "trash")
+        }
+        .buttonStyle(.plain)
+        .disabled(count == 0 || isBusy)
+        .opacity(count > 0 && !isBusy ? 1 : 0.4)
+        .accessibilityLabel("Slett valgte registreringer")
+        .accessibilityIdentifier("meal-room-delete-selection")
+    }
+
+    private func actionLabel(_ title: String, systemImage: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: systemImage).font(.system(size: 20, weight: .medium))
+            Text(title).font(AppTypography.captionEmphasis)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .foregroundStyle(AppColors.action)
+        .frame(maxWidth: .infinity, minHeight: 52)
+        .contentShape(Rectangle())
+    }
+}
+
+/// UI projection only; diary state and actions remain owned by the feature.
+struct MatLoggDiarySelectionPresentation: Equatable {
+    let contextID: ObjectIdentifier
+    let count: Int
+    let canSave: Bool
+    let isBusy: Bool
+    let onSave: () -> Void
+    let onDelete: () -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.contextID == rhs.contextID && lhs.count == rhs.count &&
+        lhs.canSave == rhs.canSave && lhs.isBusy == rhs.isBusy
+    }
+}
+
+struct MatLoggDiarySelectionKey: PreferenceKey {
+    static let defaultValue: MatLoggDiarySelectionPresentation? = nil
+    static func reduce(value: inout MatLoggDiarySelectionPresentation?,
+                       nextValue: () -> MatLoggDiarySelectionPresentation?) {
+        if let next = nextValue() { value = next }
     }
 }

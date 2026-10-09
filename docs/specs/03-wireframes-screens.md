@@ -704,8 +704,14 @@ utilgjengelig i valgmodus. Brukeren kan velge alle varer eller en måltidsgruppe
 se antall valgte og avslutte med «Avbryt». Valget følger logg-ID, ikke produkt-ID,
 og nullstilles ved dato-/profilbytte eller når dagboken lukkes.
 
-«Lagre som måltid» og «Slett» vises over bunnmenyen, med rulleklaring og et
-vertikalt alternativ ved stor tekst. Måltidslagring bruker bare utvalget og
+I valgmodus erstattes den vanlige bunnmenyen midlertidig av én valgmeny i
+samme avrundede flate: antall valgte, «Lagre måltid» og «Slett» (variant C).
+«Avbryt», datobytte eller fullført handling gjenoppretter vanlig bunnmeny.
+Listen holder klaring over valgmenyen uten et ekstra handlingsfelt eller
+avstand for begge menyer. Ved stor tekst vises antallet over handlingsraden.
+Begge menyer deler samme vert og bunnplass. Overgangen kryssfades kort, og
+markeringer/antall får korte overganger. «Reduser bevegelse» slår av disse
+animasjonene. Måltidslagring bruker bare utvalget og
 beholder mengder/enheter/porsjoner og eksisterende næringsgrunnlag. Ved blandede
 måltidsgrupper kan foreslått kategori velges i arket. Måltidsmalen har fortsatt
 grense på 1–50 varer; sletting har ikke denne grensen.
