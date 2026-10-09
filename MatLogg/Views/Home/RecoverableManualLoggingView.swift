@@ -1,49 +1,98 @@
 import SwiftUI
 
 struct LoggingDraftBanner: View {
+    enum Presentation { case card, row }
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var model: FoodLoggingDraftViewModel
     @EnvironmentObject private var auth: AuthViewModel
     @State private var showingFlow = false
     @State private var confirmsDiscard = false
     var continueTitle = "Fortsett"
+    var presentation: Presentation = .card
     var onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let draft = model.draft {
-                CardContainer {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Uferdig registrering")
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundStyle(AppColors.deepInk)
-                            .accessibilityAddTraits(.isHeader)
-                        let name = (draft.product?.name ?? draft.input.name).trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !name.isEmpty {
-                            Text(name).font(AppTypography.body).foregroundStyle(AppColors.deepInk)
+                if presentation == .row {
+                    HStack(spacing: 12) {
+                        Button { showingFlow = true } label: {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Fortsett registreringen")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundStyle(AppColors.deepInk)
+                                    let name = (draft.product?.name ?? draft.input.name).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if !name.isEmpty {
+                                        Text(name).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                                    }
+                                    (Text(LogSummaryService.title(for: draft.mealType)) + Text(" · ")
+                                     + Text(draft.date, format: .dateTime.day().month(.abbreviated).year()))
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "chevron.right")
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .accessibilityHidden(true)
+                            }
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                         }
-                        (Text(LogSummaryService.title(for: draft.mealType)) + Text(" · ")
-                         + Text(draft.date, format: .dateTime.day().month(.abbreviated).year()))
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                        let layout = dynamicTypeSize >= .xxxLarge
-                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                            : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
-                        layout {
-                            PrimaryButton(title: continueTitle, height: 44) { showingFlow = true }
-                                .disabled(model.isBusy)
-                                .accessibilityHint("Åpner den uferdige registreringen med lagrede verdier")
-                                .accessibilityIdentifier("logging-draft-continue")
-                            Button("Forkast", role: .destructive) { confirmsDiscard = true }
-                                .font(AppTypography.body)
-                                .foregroundStyle(AppColors.textSecondary)
-                                .frame(minWidth: 44, minHeight: 44)
-                                .disabled(model.isBusy)
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Åpner den uferdige registreringen med lagrede verdier")
+                        .accessibilityIdentifier("logging-draft-continue")
+                        Menu {
+                            Button("Forkast registreringen", role: .destructive) { confirmsDiscard = true }
                                 .accessibilityIdentifier("logging-draft-discard")
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundStyle(AppColors.textSecondary)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
+                        .accessibilityLabel("Valg for uferdig registrering")
+                        .accessibilityIdentifier("logging-draft-options")
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(model.isBusy)
+                } else {
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Uferdig registrering")
+                                .font(AppTypography.bodyEmphasis)
+                                .foregroundStyle(AppColors.deepInk)
+                                .accessibilityAddTraits(.isHeader)
+                            let name = (draft.product?.name ?? draft.input.name).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !name.isEmpty {
+                                Text(name).font(AppTypography.body).foregroundStyle(AppColors.deepInk)
+                            }
+                            (Text(LogSummaryService.title(for: draft.mealType)) + Text(" · ")
+                             + Text(draft.date, format: .dateTime.day().month(.abbreviated).year()))
+                                .font(AppTypography.caption)
+                                .foregroundStyle(AppColors.textSecondary)
+                            let layout = dynamicTypeSize >= .xxxLarge
+                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                : AnyLayout(HStackLayout(alignment: .center, spacing: 16))
+                            layout {
+                                PrimaryButton(title: continueTitle, height: 44) { showingFlow = true }
+                                    .disabled(model.isBusy)
+                                    .accessibilityHint("Åpner den uferdige registreringen med lagrede verdier")
+                                    .accessibilityIdentifier("logging-draft-continue")
+                                Button("Forkast", role: .destructive) { confirmsDiscard = true }
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .disabled(model.isBusy)
+                                    .accessibilityIdentifier("logging-draft-discard")
+                            }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
             if let error = model.errorMessage {

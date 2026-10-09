@@ -261,8 +261,8 @@ private struct FoodSearchContent: View {
         List {
             if productSelectionContent == nil,
                draftViewModel.draft != nil || draftViewModel.errorMessage != nil {
-                Section { LoggingDraftBanner(onLogComplete: onLogComplete) }
-                    .listRowBackground(AppColors.background)
+                Section { LoggingDraftBanner(presentation: .row, onLogComplete: onLogComplete) }
+                    .listRowBackground(AppColors.surface)
                     .listRowSeparator(.hidden)
             }
             if !isFirstLog && dynamicTypeSize.isAccessibilitySize {

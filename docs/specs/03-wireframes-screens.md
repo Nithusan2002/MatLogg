@@ -107,6 +107,10 @@ Handlingene stables ved stor tekst. Loggfør-arket viser samme påminnelse under
 overskriften, med «Fortsett registreringen». Begge innganger gjenopptar samme
 lagrede steg og verdier uten å endre dato eller måltid. Vellykket lagring eller
 forkasting fjerner påminnelsen; feil beholder utkastet og tilbyr «Prøv igjen».
+På Søk vises påminnelsen som en vanlig listerad med «Fortsett registreringen»,
+eventuelt matvarenavn, måltid og dato. Hele raden åpner utkastet; en egen
+•••-meny tilbyr forkasting med bekreftelse. Raden bruker listens flate og
+innrykk, uten et ekstra kort eller en stor primærknapp.
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Den sentrale «Loggfør»-knappen i bunnmenyen åpner bunnarket med eksisterende loggingvalg.
 En ferdig lastet dag uten matlogger viser «Ingen logget ennå» og «Loggfør første
