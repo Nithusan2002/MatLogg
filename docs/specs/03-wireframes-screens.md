@@ -99,6 +99,14 @@ starter med datovelgeren. Appnavn og profilknapp vises ikke her; Profil åpnes f
 samlet dagsstatusfelt med valgfri næring og vann som nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
 lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
+En uferdig manuell registrering vises i en egen kompakt flate mellom dagsstatus
+og måltidsområdet, aldri inne i nærings-/vannflaten. «Uferdig registrering»,
+eventuelt matvarenavn, måltid og faktisk registreringsdato forklarer konteksten.
+«Fortsett» er primærhandling; «Forkast» er sekundær og krever bekreftelse.
+Handlingene stables ved stor tekst. Loggfør-arket viser samme påminnelse under
+overskriften, med «Fortsett registreringen». Begge innganger gjenopptar samme
+lagrede steg og verdier uten å endre dato eller måltid. Vellykket lagring eller
+forkasting fjerner påminnelsen; feil beholder utkastet og tilbyr «Prøv igjen».
 Kveldsmat er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Den sentrale «Loggfør»-knappen i bunnmenyen åpner bunnarket med eksisterende loggingvalg.
 En ferdig lastet dag uten matlogger viser «Ingen logget ennå» og «Loggfør første

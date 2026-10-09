@@ -406,12 +406,13 @@ private struct HomeTabContent: View {
                                 .frame(height: 1)
                                 .accessibilityHidden(true)
                         }
-                        LoggingDraftBanner(onLogComplete: onLogComplete)
                         HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
                     }
                     .padding(20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+
+                    LoggingDraftBanner(onLogComplete: onLogComplete)
 
                     if let receipt = mealReuseViewModel.receipt {
                         CardContainer {

@@ -31,7 +31,6 @@ struct QuickLogSheet: View {
         GeometryReader { geometry in
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 18) {
-                    if productSelectionContent == nil { LoggingDraftBanner(onLogComplete: onLogComplete) }
                     HStack {
                         Text(productSelectionContent == nil ? "Loggfør mat" : "Legg til i måltidet")
                             .font(AppTypography.title)
@@ -48,6 +47,10 @@ struct QuickLogSheet: View {
                                 .background(AppColors.mutedSurface, in: Circle())
                         }
                         .accessibilityLabel("Lukk")
+                    }
+
+                    if productSelectionContent == nil {
+                        LoggingDraftBanner(continueTitle: "Fortsett registreringen", onLogComplete: onLogComplete)
                     }
 
                     QuickSearchBar(onSearch: onSearch, onScan: onScan)

@@ -39,8 +39,12 @@ final class LoggingDraftUITests: XCTestCase {
         name.typeText("Utkast QA")
         for (label, value) in [("Energi", "100"), ("Protein", "10"), ("Karbohydrat", "10"), ("Fett", "2")] {
             let field = app.textFields[label]
-            for _ in 0..<5 { if field.isHittable { break }; app.swipeUp() }
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            for _ in 0..<8 {
+                let keyboard = app.keyboards.firstMatch
+                if field.isHittable && (!keyboard.exists || field.frame.maxY < keyboard.frame.minY) { break }
+                app.scrollViews.firstMatch.swipeUp()
+            }
+            field.tap()
             XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
             field.typeText(value)
         }
@@ -91,10 +95,20 @@ final class LoggingDraftUITests: XCTestCase {
         app.buttons["Lukk"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(resume.waitForExistence(timeout: 12))
+        // The logging sheet resumes the same draft and keeps it after cancelling discard.
+        app.buttons["tab-log-food"].tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 8))
         for _ in 0..<8 {
-            if resume.isHittable && resume.frame.maxY < app.buttons["tab-log-food"].frame.minY { break }
+            if resume.isHittable { break }
             app.scrollViews.firstMatch.swipeUp()
         }
+        XCTAssertEqual(resume.label, "Fortsett registreringen")
+        app.buttons["logging-draft-discard"].tap()
+        XCTAssertTrue(app.buttons["Avbryt"].waitForExistence(timeout: 5))
+        app.buttons["Avbryt"].tap()
+        XCTAssertTrue(resume.exists)
+        let sheetRecovery = XCTAttachment(screenshot: app.screenshot())
+        sheetRecovery.name = "Fortsett registreringen i Loggfør"; sheetRecovery.lifetime = .keepAlways; add(sheetRecovery)
         resume.tap()
         XCTAssertTrue(app.buttons["logging-draft-save"].waitForExistence(timeout: 8))
         if largeText {
