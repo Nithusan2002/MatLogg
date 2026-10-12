@@ -14,8 +14,15 @@ struct PortionAmountInput: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if model.nutritionPreparation == .prepared {
+                Label("Næringsverdiene gjelder ferdig tilberedt mat. Oppgi vekten etter tilberedning.", systemImage: "info.circle")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("prepared-nutrition-notice")
+            }
             Menu {
-                Button(model.unit.spokenName) { model.select(nil) }
+                Button(model.unitTitle) { model.select(nil) }
                 ForEach(model.servings) { serving in
                     Button(displayLabel(serving.label)) { model.select(serving) }
                 }
@@ -27,11 +34,11 @@ struct PortionAmountInput: View {
                     Text("Enhet")
                     if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     HStack(spacing: 8) {
-                        Text(displayLabel(model.selectedServing?.portionLabel ?? model.unit.spokenName))
+                        Text(displayLabel(model.selectedServing?.portionLabel ?? model.unitTitle))
                         Image(systemName: "chevron.down")
                     }
                     .padding(.horizontal, 12)
-                    .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : fittedControlWidth)
+                    .frame(width: dynamicTypeSize.isAccessibilitySize || model.nutritionPreparation == .prepared ? nil : fittedControlWidth)
                     .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 44)

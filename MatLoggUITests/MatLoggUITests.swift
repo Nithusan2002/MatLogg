@@ -10,6 +10,43 @@ import XCTest
 final class MatLoggUITests: XCTestCase {
 
     @MainActor
+    func testPreparedProductUsesCookedWeightAndLogs() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--prepared-nutrition-qa", "-demoModeActive", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 10))
+        app.buttons["Søk"].tap()
+        let search = app.textFields["food-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Tilberedte testnudler")
+        let result = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-' AND label CONTAINS[c] 'Tilberedte testnudler'")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 8))
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        result.tap()
+        let notice = app.descendants(matching: .any)["prepared-nutrition-notice"].firstMatch
+        XCTAssertTrue(notice.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Gram tilberedt mat"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Hel pakke'")).firstMatch.exists)
+        let amount = app.textFields["Mengde"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        amount.tap()
+        amount.typeText("200")
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        let save = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Tilberedt produkt – 200 g og tydelig næringsgrunnlag"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        save.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["log-receipt"].firstMatch.waitForExistence(timeout: 8))
+    }
+
+
+
+
+    @MainActor
     func testManualBarcodeEntryWithoutCameraValidatesAndCancels() throws {
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]

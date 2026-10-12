@@ -154,6 +154,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let externalID: String?
     let manualNutritionInput: ManualNutritionInput?
     let nutritionBasis: NutritionBasis?
+    let nutritionPreparation: NutritionPreparation?
     let sourceUpdatedAt: Date?
     let sourceRevision: Int?
     let sourceSchemaVersion: Int?
@@ -193,6 +194,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         externalID: String? = nil,
         manualNutritionInput: ManualNutritionInput? = nil,
         nutritionBasis: NutritionBasis? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         sourceUpdatedAt: Date? = nil,
         sourceRevision: Int? = nil,
         sourceSchemaVersion: Int? = nil,
@@ -228,6 +230,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.externalID = externalID
         self.manualNutritionInput = manualNutritionInput
         self.nutritionBasis = nutritionBasis
+        self.nutritionPreparation = nutritionPreparation
         self.sourceUpdatedAt = sourceUpdatedAt
         self.sourceRevision = sourceRevision
         self.sourceSchemaVersion = sourceSchemaVersion
@@ -293,6 +296,12 @@ nonisolated enum ManualNutritionBasis: String, Codable, CaseIterable, Sendable {
         case .serving: "Porsjon/stykk"
         }
     }
+}
+
+/// Independent of the per-100 unit. Missing metadata preserves legacy behavior.
+nonisolated enum NutritionPreparation: String, Codable, Sendable {
+    case asSold = "as_sold"
+    case prepared
 }
 
 nonisolated enum NutritionBasis: String, Codable, Sendable {
@@ -501,6 +510,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
     let amountG: Float // exact, no rounding
     let amountUnit: AmountUnit?
     let portionSelection: PortionSelection?
+    let nutritionPreparation: NutritionPreparation?
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp
     
@@ -521,6 +531,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         amountG: Float,
         amountUnit: AmountUnit = .grams,
         portionSelection: PortionSelection? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         loggedDate: Date,
         loggedTime: Date = Date(),
         calories: Float,
@@ -537,6 +548,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         self.amountG = amountG
         self.amountUnit = amountUnit
         self.portionSelection = portionSelection
+        self.nutritionPreparation = nutritionPreparation
         self.loggedDate = loggedDate
         self.loggedTime = loggedTime
         self.calories = calories
@@ -593,6 +605,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
     var amountG: Float
     var amountUnit: AmountUnit?
     var portionSelection: PortionSelection?
+    var nutritionPreparation: NutritionPreparation?
     var calories: Float
     var proteinG: Float
     var carbsG: Float
@@ -607,6 +620,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
         amountG: Float,
         amountUnit: AmountUnit = .grams,
         portionSelection: PortionSelection? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         calories: Float,
         proteinG: Float,
         carbsG: Float,
@@ -620,6 +634,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
         self.amountG = amountG
         self.amountUnit = amountUnit
         self.portionSelection = portionSelection
+        self.nutritionPreparation = nutritionPreparation
         self.calories = calories
         self.proteinG = proteinG
         self.carbsG = carbsG

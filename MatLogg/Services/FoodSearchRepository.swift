@@ -10,12 +10,13 @@ nonisolated struct RecentFood: Identifiable, Sendable {
     init(product: Product, log: FoodLog) {
         self.product = product
         self.log = log
-        amountLabel = PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection)
+        amountLabel = PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation)
         canRepeat = Self.canRepeat(product: product, log: log)
     }
 
     private static func canRepeat(product: Product, log: FoodLog) -> Bool {
         guard product.id == log.productId, product.amountUnit == log.resolvedAmountUnit,
+              (product.nutritionPreparation ?? .asSold) == (log.nutritionPreparation ?? .asSold),
               NutritionCalculator.validatedCalculation(per100: NutritionBreakdown(
                 calories: product.caloriesPer100g, protein: product.proteinGPer100g,
                 carbs: product.carbsGPer100g, fat: product.fatGPer100g), amount: log.amountG) != nil else { return false }
@@ -238,7 +239,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         let log = FoodLog(userId: owner, productId: candidate.id, mealType: mealType,
                           amountG: candidate.log.amountG, amountUnit: candidate.log.resolvedAmountUnit,
                           portionSelection: candidate.log.portionSelection,
-                          loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
+                          nutritionPreparation: candidate.product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
                           calories: nutrition.calories, proteinG: nutrition.protein,
                           carbsG: nutrition.carbs, fatG: nutrition.fat)
         try await recentFoods.saveLog(log)

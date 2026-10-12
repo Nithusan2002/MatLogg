@@ -19,6 +19,7 @@ struct BarcodeProductCachePolicy {
 enum BarcodeLookupFailure: Error, Equatable {
     case notFound
     case incomplete
+    case unclearPreparation
     case rateLimited(Int?)
     case unavailable
     case protectedProduct
@@ -34,6 +35,7 @@ enum BarcodeLookupFailure: Error, Equatable {
         case .serverError(404): return .notFound
         case .backendError(let status, _, _) where status == 404: return .notFound
         case .incompleteProductData: return .incomplete
+        case .unclearPreparationData: return .unclearPreparation
         case .rateLimited(let seconds): return .rateLimited(seconds)
         default: return .unavailable
         }
@@ -43,6 +45,7 @@ enum BarcodeLookupFailure: Error, Equatable {
         switch self {
         case .notFound: return "Vi fant ikke produktet"
         case .incomplete: return "Produktet mangler næringsdata"
+        case .unclearPreparation: return "Uklart tilberedningsgrunnlag"
         case .rateLimited: return "Produktdatabasen trenger en pause"
         case .unavailable: return "Fikk ikke kontakt med produktdatabasen"
         case .protectedProduct: return "Egne produktdata beholdes"
@@ -53,6 +56,7 @@ enum BarcodeLookupFailure: Error, Equatable {
     var message: String {
         switch self {
         case .notFound: return "Denne strekkoden finnes ikke hos Open Food Facts. Du kan registrere produktet manuelt."
+        case .unclearPreparation: return "Produktet finnes, men vi kan ikke fastslå mengdegrunnlaget for tilberedte næringsverdier. Registrer verdiene fra pakken manuelt."
         case .incomplete: return "Vi fant ikke komplette næringsverdier per 100 g eller 100 ml. Registrer verdiene fra pakken manuelt."
         case .rateLimited(let seconds):
             if let seconds { return "Vent minst \(max(1, seconds)) sekunder før du prøver igjen. Lagrede produktdata beholdes." }

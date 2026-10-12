@@ -828,3 +828,14 @@ profiloverføring, lokal sletting og JSON-eksport som `food_logging_drafts`
 (additiv kategori i eksport v2), men aldri i synkkøen. Overføring til en profil
 som allerede har et utkast avvises atomisk fremfor å overskrive noen av dem.
 Eksisterende canonical product/log upsert-hendelser og synkkontrakt er uendret.
+
+## Tilberedt næringsgrunnlag (2026-10-12)
+
+Produkt, logg og lagret måltidsrad har valgfri `nutritionPreparation`
+(`as_sold`/`prepared`), separat fra `nutritionBasis` og mengdeenhet. Fravær
+bevarer eldre adferd. Logger og maler bevarer status sammen med næringssnapshot.
+Open Food Facts bruker komplette vanlige makroer først; ved fallback må alle
+makroer komme fra `*_prepared_100g` og `nutrition_data_prepared_per` eksplisitt
+være `100g`/`100ml`. Manglende data eller grunnlag avvises. Tilberedte produkter
+får ingen automatisk porsjon fra tørr pakkevekt eller tvetydig `serving_size`.
+Ingen automatisk omregning mellom tørr og tilberedt vekt inngår.

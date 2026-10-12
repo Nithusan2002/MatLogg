@@ -124,3 +124,17 @@ fravær av grunnlag betyr per100g for eldre klienter. Serveren lagrer metadata
 atomisk med produkt og inbox. Migrasjonen 20261003090000 og Edge-valideringen
 må rulles ut før klienten; schemaVersion forblir 1. Produksjonssynk forblir av
 inntil database- og integrasjonstester er verifisert.
+
+## Tilberedningsstatus (2026-10-12)
+
+`product.upsert`, logg-oppretting/-oppdatering og `saved_meal.upsert.items`
+har additivt valgfritt `nutritionPreparation`: `as_sold` eller `prepared`.
+Nye klienter sender eksplisitt status, også `as_sold`, slik at grunnlag kan
+endres uten at gammel status henger igjen. Fravær bevarer eksisterende status
+ved oppdatering av samme produktreferanse; nye rader bruker `as_sold`.
+Migrasjonen `20261012140000_nutrition_preparation.sql` lagrer metadata atomisk
+med domenedata og inbox, og bevarer eksisterende quota-/eierskapskontroller.
+Servermigrasjon og Edge-validering må være på plass før klienten synkroniserer
+de nye feltene. Schema-versjon er fortsatt 1. Toveis synk er ikke implementert;
+før dette innføres må eldre klienter hindres fra å motta tilberedte produkter
+som mister status ved dekoding. Produksjonssynk forblir deaktivert.

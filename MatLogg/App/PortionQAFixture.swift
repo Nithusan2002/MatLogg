@@ -3,6 +3,13 @@ import Foundation
 
 /// Synthetic catalog record available only under the explicit UI-test launch argument.
 enum PortionQAFixture {
+    static let preparedProduct = Product(
+        id: Product.catalogID(source: "qa", externalID: "prepared-noodles"),
+        name: "Tilberedte testnudler", barcodeEan: "1000000000009", source: "openfoodfacts",
+        caloriesPer100g: 76, proteinGPer100g: 1.9, carbsGPer100g: 10.6, fatGPer100g: 2.8,
+        nutritionSource: .openFoodFacts, imageSource: .none,
+        nutritionBasis: .per100g, nutritionPreparation: .prepared, fetchedAt: Date())
+
     static let product = Product(
         id: Product.catalogID(source: "qa", externalID: "portion-bread"),
         name: "Porsjonstestbrød", source: "openfoodfacts", kind: .packaged,

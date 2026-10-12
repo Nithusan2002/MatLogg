@@ -904,7 +904,7 @@ struct MealOverviewCard: View {
                                         .font(AppTypography.bodyEmphasis)
                                         .foregroundColor(AppColors.deepInk)
                                         .fixedSize(horizontal: false, vertical: true)
-                                    Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
+                                    Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
                                         .font(AppTypography.secondary)
                                         .foregroundColor(AppColors.textSecondary)
                                 }
@@ -913,7 +913,7 @@ struct MealOverviewCard: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Rediger \(productName(log.productId)), \(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))")
+                        .accessibilityLabel("Rediger \(productName(log.productId)), \(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))")
                         .accessibilityIdentifier("home-log-row-\(log.id.uuidString)")
                     }
                     if logs.count > 3 {

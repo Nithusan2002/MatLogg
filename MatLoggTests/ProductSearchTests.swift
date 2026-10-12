@@ -542,6 +542,66 @@ struct ProductSearchTests {
         #expect(products.first?.servings?.last?.label == "100 ml")
     }
 
+    @Test func preparedNutritionDoesNotUseDryPackageWeight() async throws {
+        SearchURLProtocolStub.handler = { request in
+            let url = try #require(request.url)
+            let body = """
+            {"status":"success","product":{"code":"1234567890123","product_name":"Testnudler",
+             "product_quantity":62,"product_quantity_unit":"g","serving_size":"1 portion (362 g)",
+             "nutrition_data_prepared_per":"100g","nutriments":{
+             "energy-kcal_prepared_100g":76,"proteins_prepared_100g":1.9,
+             "carbohydrates_prepared_100g":10.6,"fat_prepared_100g":2.8}}}
+            """
+            return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+        }
+        defer { SearchURLProtocolStub.handler = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchURLProtocolStub.self]
+        let service = APIService(httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)))
+        let product = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
+        #expect(product.caloriesPer100g == 76)
+        #expect(product.nutritionPreparation == .prepared)
+        #expect(product.servings == nil)
+        #expect(product.calculateNutrition(forAmount: 200).calories == 152)
+    }
+
+    @Test(arguments: ["100g", "100ml", "serving", "missing", "partial", "both", "missing-name"])
+    func preparedNutritionRequiresExplicitBasisAndCompleteMacros(mode: String) async throws {
+        SearchURLProtocolStub.handler = { request in
+            let url = try #require(request.url)
+            var nutrients: [String: Double] = ["energy-kcal_prepared_100g":76,
+                "proteins_prepared_100g":1.9, "carbohydrates_prepared_100g":10.6, "fat_prepared_100g":2.8, "sugars_100g":5]
+            if mode == "partial" { nutrients.removeValue(forKey: "fat_prepared_100g") }
+            if mode == "both" {
+                nutrients.merge(["energy-kcal_100g":400, "proteins_100g":10,
+                                 "carbohydrates_100g":60, "fat_100g":12, "sugars_100g":5]) { _, new in new }
+            }
+            var product: [String: Any] = ["product_name":"Testvare", "nutriments":nutrients]
+            if mode == "missing-name" { product.removeValue(forKey: "product_name") }
+            if mode != "missing" { product["nutrition_data_prepared_per"] = mode == "100ml" ? "100ml" : mode == "serving" ? "serving" : "100g" }
+            let data = try JSONSerialization.data(withJSONObject: ["status":"success", "product":product])
+            return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), data)
+        }
+        defer { SearchURLProtocolStub.handler = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchURLProtocolStub.self]
+        let service = APIService(httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)))
+        if ["serving", "missing", "partial", "missing-name"].contains(mode) {
+            do {
+                _ = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
+                Issue.record("Uklart eller manglende grunnlag skal avvises")
+            } catch let error as APIService.APIError {
+                #expect(BarcodeLookupFailure.classify(error) == (["partial", "missing-name"].contains(mode) ? .incomplete : .unclearPreparation))
+            }
+        } else {
+            let product = try await service.searchProductByBarcodeOpenFoodFacts("1234567890123")
+            #expect(product.nutritionPreparation == (mode == "both" ? .asSold : .prepared))
+            #expect(product.nutritionBasis == (mode == "100ml" ? .per100ml : .per100g))
+            #expect(product.caloriesPer100g == (mode == "both" ? 400 : 76))
+            #expect(product.sugarGPer100g == (mode == "both" ? 5 : nil))
+        }
+    }
+
     @Test func openFoodFactsBarcodeDoesNotReplaceMissingMacrosWithZero() async throws {
         SearchURLProtocolStub.handler = { request in
             let requestURL = try #require(request.url)

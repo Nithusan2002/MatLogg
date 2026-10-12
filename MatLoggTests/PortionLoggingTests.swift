@@ -125,6 +125,48 @@ struct PortionLoggingTests {
         #expect(model.amount == 500)
     }
 
+    @Test func preparedSnapshotSurvivesReopenEditAndMealReuse() async throws {
+        try await withDatabase { store, database, url in
+            let owner = UUID()
+            let product = Product(name: "Tilberedt testvare", source: "openfoodfacts",
+                caloriesPer100g: 76, proteinGPer100g: 1.9, carbsGPer100g: 10.6, fatGPer100g: 2.8,
+                nutritionSource: .openFoodFacts, nutritionBasis: .per100g, nutritionPreparation: .prepared)
+            try store.cacheCatalogProduct(product)
+            let vm = LogViewModel(repository: database)
+            #expect(await vm.logFood(product: product, amountG: 200, mealType: "middag", userId: owner))
+            let reopened = try LocalStore(databaseURL: url)
+            #expect(reopened.getProduct(product.id)?.nutritionPreparation == .prepared)
+            let log = try #require(reopened.getAllLogs(userId: owner).first)
+            #expect(log.nutritionPreparation == .prepared)
+            #expect(log.calories == 152)
+            let event = try #require(store.fetchPendingEvents(limit: 20).first)
+            let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            #expect(payload["nutritionPreparation"] as? String == "prepared")
+            let editor = EditLogViewModel(log: log)
+            #expect(editor.amount.unitTitle == "Gram tilberedt mat")
+            editor.amount.text = "300"
+            #expect(await editor.save { total, meal, _ in
+                await vm.updateLog(log, amountG: total, mealType: meal, userId: owner)
+            })
+            let edited = try #require(store.getAllLogs(userId: owner).first)
+            #expect(edited.nutritionPreparation == .prepared)
+            #expect(edited.calories == 228)
+            let meals = SavedMealsViewModel(savedMealRepository: database, foodLogRepository: database, photoRepository: LocalMealPhotoRepository())
+            await meals.load(userId: owner)
+            #expect(await meals.saveFromLogs(name: "Tilberedt måltid", mealType: "middag", logs: [edited], userId: owner))
+            let meal = try #require(store.getSavedMeals(userId: owner).first)
+            #expect(meal.items.first?.nutritionPreparation == .prepared)
+            #expect(await meals.log(meal, mealType: "lunsj", date: Date(), amounts: [meal.items[0].id: 200], userId: owner))
+            #expect(store.getAllLogs(userId: owner).first(where: { $0.mealType == "lunsj" })?.nutritionPreparation == .prepared)
+            #expect(!RecentFood(product: Product(id: product.id, name: "Ny tørrvare", caloriesPer100g: 400,
+                proteinGPer100g: 10, carbsGPer100g: 60, fatGPer100g: 12), log: log).canRepeat)
+            var legacy = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(product)) as? [String: Any])
+            legacy.removeValue(forKey: "nutritionPreparation")
+            let decoded = try JSONDecoder().decode(Product.self, from: JSONSerialization.data(withJSONObject: legacy))
+            #expect(decoded.nutritionPreparation == nil)
+        }
+    }
+
     @Test func historicalLogSurvivesReopenEditCopyUndoAndSavedMeal() async throws {
         try await withDatabase { store, database, url in
             let owner = UUID()

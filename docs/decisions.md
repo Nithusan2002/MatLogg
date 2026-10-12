@@ -880,3 +880,11 @@ oppslag av produkt-ID og siste loggføring dekker hele tilgjengelige historikken
 uten å laste loggobjekter eller gjøre databasekall per tastetrykk. Øvrige treff
 beholder relevanssortering og dedupliseres på tvers av seksjonene. Tomt søk
 beholder seks nylige varer. Hyppighetsvekting og synk-/backendendringer inngår ikke.
+
+### 2026-10-12 — Tilberedte Open Food Facts-produkter
+
+Tilberedningsstatus lagres separat fra gram/ml-grunnlag og bevares i logger
+og måltidsmaler. Fallback bruker kun komplette tilberedte næringsverdier med
+eksplisitt per-100-enhet. Første versjon tilbyr gram/ml ferdig tilberedt mat,
+ingen automatisk tørrvekt-, pakke- eller porsjonsomregning. Dette gjør
+produkter med bare tilberedt næring tilgjengelige uten å gjette vekten.

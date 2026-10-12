@@ -107,7 +107,7 @@ struct LogRowView: View {
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
+            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
                 .font(AppTypography.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }

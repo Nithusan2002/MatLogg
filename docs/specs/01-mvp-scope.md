@@ -185,3 +185,10 @@ Profil → Innstillinger → Utseende tilbyr lys modus, mørk modus og å følge
 Dagsloggen støtter flervalg for samlet sletting med Angre og lagring av utvalget
 som måltid (9. oktober 2026). Valg begrenses til én dato, men kan omfatte flere
 måltidsgrupper. Flytting og kopiering av utvalg er utenfor denne utvidelsen.
+
+### Tilberedt mat ved strekkodeoppslag (2026-10-12)
+
+Open Food Facts-produkter med bare komplette tilberedte næringsverdier kan
+logges i gram/ml ferdig tilberedt mat når mengdegrunnlaget er eksplisitt.
+Automatisk omregning fra tørrvare og «én tilberedt pakke» inngår ikke i denne
+leveransen. Tilberedningsstatus bevares i logger og måltidsmaler.

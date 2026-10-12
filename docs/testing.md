@@ -463,3 +463,16 @@ avbryt uten kameratilgang.
 demodata for inntasting → produktkort → loggføring. Kjør på egen QA-simulator.
 Pause/gjenopptakelse av kameradeteksjon og VoiceOver må også kontrolleres på
 fysisk iPhone.
+
+## Tilberedt næringsgrunnlag
+
+Målrettede iOS-suiter: `ProductSearchTests`, `PortionLoggingTests`,
+`LoggingDraftTests`, `SavedMealsTests`, `MealReuseTests`, `APIServiceTests`.
+Regresjonen `preparedNutritionDoesNotUseDryPackageWeight()` skal avvise varen
+uten prepared-fallback og godta tilberedte verdier med fallback, uten tørr
+pakkeporsjon. UI-test: `testPreparedProductUsesCookedWeightAndLogs`.
+Debug-argumentet `--prepared-nutrition-qa` legger inn en syntetisk lokal vare
+med strekkode `1000000000009`, uten behov for ekstern produktforespørsel.
+Kontraktstest: `supabase/functions/tests/nutrition_preparation_test.ts`.
+Databasetest: `supabase/tests/database/nutrition_preparation.test.sql`;
+kjøres bare mot bekreftet lokal/disponibel Supabase.

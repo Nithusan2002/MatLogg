@@ -54,6 +54,7 @@ const logPayload = z.object({
   carbs: nonNegative,
   fat: nonNegative,
   productRef: uuid.nullable().optional(),
+  nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
   portionSelection: portionSelection.nullable().optional(),
 }).refine((p) => portionMatches(p.portionSelection, p.grams, p.unit), "Porsjon samsvarer ikke med mengden");
 const goalPayload = z.object({
@@ -87,6 +88,7 @@ const productPayload = z.object({
   barcode: z.string().nullable().optional(),
   nutrientsPer100g: z.record(z.unknown()),
   nutritionBasis: z.enum(["per100g", "per100ml"]).optional(),
+  nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
   servings: z.array(productServing).max(100).nullable().optional(),
   manualNutritionInput: manualNutritionInput.nullable().optional(),
   imageUrl: z.string().nullable().optional(),
@@ -108,6 +110,7 @@ const savedMealPayload = z.object({
     carbs: nonNegative,
     fat: nonNegative,
     nutritionSource: z.enum(["matvaretabellen", "openFoodFacts", "user"]),
+    nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
     sortIndex: z.number().int().nonnegative(),
     portionSelection: portionSelection.nullable().optional(),
   }).refine((p) => portionMatches(p.portionSelection, p.amountG, p.amountUnit), "Porsjon samsvarer ikke med mengden")).min(1).max(50),
