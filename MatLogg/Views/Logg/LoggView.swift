@@ -85,6 +85,9 @@ private struct LoggContent: View {
             screen.endSelection()
             showBatchDeletion = false
         }
+        .onChange(of: screen.isSelecting) { _, isSelecting in
+            if isSelecting { dismissReceipt() }
+        }
         .task(id: "\(authViewModel.currentUser?.id.uuidString ?? "local")-\(selectedDate.timeIntervalSince1970)") {
             appState.logSelectedDate = selectedDate
             await loadSelectedSummary()

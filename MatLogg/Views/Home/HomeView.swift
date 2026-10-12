@@ -94,6 +94,7 @@ private struct HomeNavigationContent: View {
         }
         .onPreferenceChange(MatLoggTabBarEditingKey.self) { isTabEditing = $0 }
         .onPreferenceChange(MatLoggDiarySelectionKey.self) { presentation in
+            if presentation != nil { receiptPayload = nil }
             withAnimation(reduceMotion ? nil : .smooth(duration: 0.24)) {
                 diarySelection = presentation
             }

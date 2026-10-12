@@ -31,6 +31,7 @@ final class MatLoggUITests: XCTestCase {
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
         let firstID = rows.element(boundBy: rows.count - 1).identifier
         let secondID = rows.element(boundBy: rows.count - 2).identifier
+        let originalCount = rows.count
         revealDiaryElement(app.buttons[firstID], in: app)
         app.buttons[firstID].tap()
         revealDiaryElement(app.buttons[secondID], in: app)
@@ -41,17 +42,17 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["Slett"].tap()
         let deletionReceipt = app.otherElements.matching(identifier: "log-receipt")
             .containing(.staticText, identifier: "2 varer er slettet").firstMatch
-        let undoDeletion = deletionReceipt.buttons["Angre"]
-        XCTAssertTrue(undoDeletion.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["tab-log-food"].exists)
-        XCTAssertFalse(app.buttons[firstID].exists)
-        XCTAssertFalse(app.buttons[secondID].exists)
-        let beforeUndo = rows.count
+        XCTAssertTrue(deletionReceipt.waitForExistence(timeout: 8))
+        let undoDeletion = app.buttons["Angre"]
+        // The receipt expires after four seconds; verify the result after tapping.
         undoDeletion.tap()
-        let restored = NSPredicate(format: "count == %d", beforeUndo + 2)
+        revealDiaryElement(rows.firstMatch, in: app)
+        let restored = NSPredicate(format: "count == %d", originalCount)
         expectation(for: restored, evaluatedWith: rows)
         waitForExpectations(timeout: 8)
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertFalse(app.buttons[firstID].exists) // Restoration uses fresh IDs.
+        XCTAssertFalse(app.buttons[secondID].exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Dagbok – samlet Angre"
         screenshot.lifetime = .keepAlways
@@ -237,8 +238,8 @@ final class MatLoggUITests: XCTestCase {
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
         waitForExpectations(timeout: 8)
         let movedRow = app.buttons[loggedRowID]
-        XCTAssertTrue(movedRow.waitForExistence(timeout: 8))
         revealDiaryElement(movedRow, in: app)
+        XCTAssertTrue(movedRow.waitForExistence(timeout: 8))
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
@@ -261,11 +262,8 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["Forrige dag"].tap()
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let restoredRow = app.buttons[loggedRowID]
+        revealDiaryElement(restoredRow, in: app)
         XCTAssertTrue(restoredRow.waitForExistence(timeout: 8), "Den redigerte matloggen skal overleve omstart med samme ID og dato.")
-        for _ in 0..<8 {
-            if restoredRow.isHittable { break }
-            app.swipeUp()
-        }
         restoredRow.tap()
         XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
