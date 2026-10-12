@@ -33,6 +33,8 @@ Måling 2026-10-12 med Deno 2.5.4:
 | --- | --- | --- | --- |
 | Delte Edge-moduler før nye tester | 89,8 % | 76,3 % | 15 tester bestod |
 | Delte Edge-moduler etter nye tester | 97,1 % | 93,3 % | 19 tester bestod |
+| iOS app-target, enhetstester | 32,57 % | Ikke grenmålt | 380 tester bestod |
+| iOS Services + ViewModels | 82,33 % | Ikke grenmålt | Delmengde av app-targetet |
 | PostgreSQL/RLS | Ikke linjemålt | Ikke grenmålt | 101 kontroller i 8 filer bestod |
 | Legacy `backend/src`, vanlig `npm test` | 28,27 % | 70,51 % | 6 testskript bestod |
 
@@ -45,18 +47,47 @@ database-/HTTP-integrasjonstester; det er ikke dekningen av hele backend-testpak
 Kontoslettingens eksisterende ende-til-ende-test bestod mot samme lokale instans:
 Auth-sletting, nektet innlogging, produktsletting, eierskapsisolasjon og gjentatt purge.
 
-iOS-baseline med Xcode 27.0 / iOS 26.5 kjørte 380 tester i 46 suiter:
-378 bestod og to migrasjonstester feilet fordi fixture-databasene beholdt
-`food_logging_drafts` da de ble merket som eldre skjema. Fixture-oppsettet er
-rettet uten endring i produksjonsmigrasjonene. Xcode hang under avslutning av
-testsesjonen og skrev ikke en gyldig dekningsrapport. iOS-prosent, ny kjøring
-av de rettede testene og UI-kontrollen må derfor bekreftes før denne delen
-regnes som grønn. Testoppsettet i CI er endret, men CI er ikke kjørt lokalt.
-Ny QA-simulator og målrettet kjøring uten kode-dekning ble forsøkt;
-siste kjøring stoppet før teststart fordi Xcode ikke fant en tilgjengelig
-simulatordestinasjon. UI-testen for redigering er utvidet til å kontrollere
-samme logg-ID, dato og valgt måltid etter omstart, men denne nye kontrollen
-er ikke kjørt ferdig lokalt.
+Første lokale iOS-kjøring fant to feil i migrasjonstestgrunnlagene: de beholdt
+`food_logging_drafts` da de ble merket som eldre skjema. Testgrunnlagene ble
+rettet uten endring i produksjonsmigrasjonene. Lokal Xcode 27.0 / iOS 26.5
+hang under testavslutning; verifiseringen ble derfor flyttet til et rent CI-miljø.
+
+[CI-kjøring 38217326998](https://github.com/Nithusan2002/MatLogg/actions/runs/38217326998)
+på testcommit `1908c67` med Xcode 26.2 er grønn: alle 380 enhetstester i 46
+suiter, fire UI-tester, 101 databasekontroller, kontosletting ende-til-ende og
+19 Deno-tester bestod.
+Dekningsartifactene ble lastet opp og iOS-rapporten lest tilbake.
+App-targetet har 14 060 av 43 164 kjørbare linjer dekket. Gruppen Services +
+ViewModels er definert som filer under disse to mappene: 9 765 av 11 861
+linjer. Dette er en avgrenset gruppe, ikke en prosent for alle typer
+kjernelogikk. Enhetstestene gir lav dekning av SwiftUI-visninger, som inngår i
+app-targetets total. UI-testresultatene holdes separat fra denne baseline.
+
+UI-kjøringene avdekket to faktiske feil: en gammel loggbekreftelse i app-skallet
+kunne dekke slettingskvitteringens Angre, og appen krasjet ved redigeringslagring
+med `EXC_BAD_ACCESS` i callbacken som overførte valgfri `PortionSelection`.
+Tidligere loggbekreftelser lukkes nå når valgmodus starter. Redigeringen bruker
+én uforanderlig `LogEditRequest` og en eksplisitt `@MainActor`-callback på begge
+inngangene. Mengde, måltid og historisk porsjon overføres videre til samme
+ViewModel/repository; lagring, synkformat og næringsberegning endres ikke.
+UI-testen trykker Angre straks, kontrollerer opprinnelig antall og nye ID-er
+etter gjenoppretting, og ruller fram rader før de undersøkes. Kontrollen av
+samme logg-ID, dato og valgt måltid etter redigering og omstart beholdes.
+
+Workflowen laster nå opp enhetsrapporten før UI-testene og bruker
+`test-without-building` for UI, med eksplisitte tidsgrenser. Begge jobbene,
+simulatoropprettelsen og artifact-opplastingen er verifisert i sluttkjøringen.
+CI oppretter en egen iPhone 16 Pro via `scripts/create-qa-simulator.sh` fra
+nyeste tilgjengelige iOS-runtime som støttes av valgt SDK, og bruker dens ID.
+Dette erstatter antakelsen om hvilke simulatornavn runneren har ferdig opprettet.
+CI-verifiseringen gjelder testgrenen, og omfatter ikke øvrige lokale
+arbeidsendringer som ikke er med i dens commit.
+Måleskriptene er syntakskontrollert med `bash -n`, og egen diff med
+`git diff --check`. Simulatorhjelperens kommandoargumenter ble også kontrollert
+med erstatninger ved CLI-grensen: kontrollen fanget en feil før retting og
+returnerte bare simulator-ID etter retting. Ingen arkitekturavvik er innført:
+presentasjonstilstand håndteres i UI, redigeringsstate og input i ViewModel,
+og eksisterende repository-/transaksjonsgrenser er bevart.
 
 Prioritert oppfølging:
 
@@ -66,6 +97,8 @@ Prioritert oppfølging:
 2. Reell offline→online-synk og avbrudd mellom serverskriving og ACK,
    kontrollert fra klient til lokal Supabase. Lokal kø og SQL-idempotens
    testes allerede separat; hele kjeden må fortsatt verifiseres samlet.
+   iOS `SupabaseService.swift` har bare 9,68 % linjedekning i denne baseline,
+   mot 86,97 % for `LocalStore.swift` og 75,41 % for `SyncEngine.swift`.
 3. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
    Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
 
