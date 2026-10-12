@@ -39,12 +39,15 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["meal-room-delete-selection"].tap()
         XCTAssertTrue(app.buttons["Slett"].waitForExistence(timeout: 5))
         app.buttons["Slett"].tap()
-        XCTAssertTrue(app.buttons["Angre"].waitForExistence(timeout: 8))
+        let deletionReceipt = app.otherElements.matching(identifier: "log-receipt")
+            .containing(.staticText, identifier: "2 varer er slettet").firstMatch
+        let undoDeletion = deletionReceipt.buttons["Angre"]
+        XCTAssertTrue(undoDeletion.waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertFalse(app.buttons[firstID].exists)
         XCTAssertFalse(app.buttons[secondID].exists)
         let beforeUndo = rows.count
-        app.buttons["Angre"].tap()
+        undoDeletion.tap()
         let restored = NSPredicate(format: "count == %d", beforeUndo + 2)
         expectation(for: restored, evaluatedWith: rows)
         waitForExpectations(timeout: 8)
@@ -218,15 +221,24 @@ final class MatLoggUITests: XCTestCase {
         let loggedRowID = edit.identifier
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         edit.tap()
-        XCTAssertTrue(app.buttons["Flytt til Lunsj"].waitForExistence(timeout: 5))
-        app.buttons["Flytt til Lunsj"].tap()
-        app.buttons["Lagre endringer"].tap()
-        for _ in 0..<8 {
-            if edit.isHittable { break }
-            app.swipeUp()
+        let editor = app.scrollViews["log-editor-scroll"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let lunchChoice = app.buttons["Flytt til Lunsj"]
+        let saveChanges = app.buttons["Lagre endringer"]
+        for _ in 0..<5 {
+            if lunchChoice.isHittable && lunchChoice.frame.maxY < saveChanges.frame.minY { break }
+            editor.swipeUp()
         }
-        XCTAssertTrue(edit.isHittable)
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        XCTAssertTrue(lunchChoice.isHittable)
+        lunchChoice.tap()
+        XCTAssertTrue(lunchChoice.isSelected)
+        XCTAssertTrue(saveChanges.isEnabled)
+        saveChanges.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
+        waitForExpectations(timeout: 8)
+        let movedRow = app.buttons[loggedRowID]
+        XCTAssertTrue(movedRow.waitForExistence(timeout: 8))
+        revealDiaryElement(movedRow, in: app)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
