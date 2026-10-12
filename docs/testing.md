@@ -89,16 +89,35 @@ returnerte bare simulator-ID etter retting. Ingen arkitekturavvik er innført:
 presentasjonstilstand håndteres i UI, redigeringsstate og input i ViewModel,
 og eksisterende repository-/transaksjonsgrenser er bevart.
 
-Prioritert oppfølging:
+Supabase-transport og varig retry (2026-10-12):
 
-1. HTTP-grensene for aktiv synk: manglende/utløpt token, ugyldig request,
-   batchgrense, delvis avvisning og RPC-feil. De delte modulenes høye prosent
-   erstatter ikke disse kontrollene.
-2. Reell offline→online-synk og avbrudd mellom serverskriving og ACK,
-   kontrollert fra klient til lokal Supabase. Lokal kø og SQL-idempotens
-   testes allerede separat; hele kjeden må fortsatt verifiseres samlet.
-   iOS `SupabaseService.swift` har bare 9,68 % linjedekning i denne baseline,
-   mot 86,97 % for `LocalStore.swift` og 75,41 % for `SyncEngine.swift`.
+- `SupabaseTransportTests` bruker den ekte Swift-SDK-en med injisert URLSession
+  og isolert HTTP-stub. Den kontrollerer wire-format/base64, batch-/payloadgrenser,
+  delvise svar, 401/503/429/502, relay-feil, timeout og ugyldige suksessvar.
+- `SupabaseQueueIntegrationTests` kobler transporten til `SyncEngine`,
+  `DatabaseService` og en faktisk SQLite-fil. Den kontrollerer offline-lagring,
+  delvis ACK, vedvarende backoff, omstart, in-flight-gjenoppretting og ny levering
+  med samme event-ID/payload uten tap av lokale logger. Retry gjøres klar eksplisitt
+  i testen; dette er ingen måling av automatisk ventetid.
+- `bash supabase/tests/run-sync-http-e2e.sh <disponibel-lokal-workdir>` tester
+  ekte lokal Auth → Edge Function → PostgreSQL/RLS. Den kontrollerer manglende,
+  ugyldig og utløpt token, deaktivert synk, metode/JSON/envelope-validering,
+  delvis batch, ukjent schema, replay etter antatt tapt ACK, eierskap og 51-eventsgrensen.
+  Kun loopback godtas. Testen oppretter syntetiske brukere, gjenoppretter
+  `sync_enabled` og sletter testbrukerne etterpå. Bruk kun disponibelt QA-prosjekt.
+  Kontrollen inngår i Supabase CI og bestod også lokalt på port 56321.
+
+`SupabaseService` kan nå få SDK-klienten injisert. Produksjonsinitializer,
+auth-oppsett, wire-kontrakt og domenelagring er uendret. Ingen arkitekturavvik:
+IO-grensen er injiserbar, og eksisterende repository-/transaksjonsgrenser beholdes.
+
+Gjenværende oppfølging:
+
+1. Én sammenhengende kjøring fra iOS/SQLite til ekte lokal Supabase, med avbrudd
+   mellom serverskriving og lokal ACK. Klientkjeden og serverkjeden testes nå
+   hver for seg; dette er ikke en samlet ende-til-ende-verifisering.
+2. Kontrollerte infrastruktursvikt i HTTP-handlerens config-/quota-/apply-RPC,
+   samt automatisk retry-timing. Serverens feil-/eierskapssvar testes allerede.
 3. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
    Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
 
