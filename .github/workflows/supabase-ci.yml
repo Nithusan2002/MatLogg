@@ -54,24 +54,29 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Build app
-        run: xcodebuild -project MatLogg.xcodeproj -scheme MatLogg -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
       - name: Measure iOS unit test coverage
         run: >-
           bash scripts/measure-test-coverage.sh ios
           'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-unit-test-coverage
+          path: build/coverage/
       - name: Test logging, editing, deletion and persistence
         run: >-
-          xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg
+          xcodebuild test-without-building -project MatLogg.xcodeproj -scheme MatLogg
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
           -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch
           -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay
           -only-testing:MatLoggUITests/MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch
           -only-testing:MatLoggUITests/WaterLoggingUITests/testOneTapPersistsAndCanBeCorrected
           -parallel-testing-enabled NO -enableCodeCoverage NO
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 180
+          -maximum-test-execution-time-allowance 240
           -resultBundlePath build/coverage/ui-smoke.xcresult CODE_SIGNING_ALLOWED=NO
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ios-unit-test-coverage
-          path: build/coverage/
+          name: ios-ui-smoke
+          path: build/coverage/ui-smoke.xcresult
