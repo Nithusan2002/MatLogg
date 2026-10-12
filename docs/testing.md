@@ -91,6 +91,23 @@ og eksisterende repository-/transaksjonsgrenser er bevart.
 
 Supabase-transport og varig retry (2026-10-12):
 
+Verifisert på commit `b8d9273` i [grønn CI-kjøring](https://github.com/Nithusan2002/MatLogg/actions/runs/38223522816):
+392 iOS-enhetstester i 48 suites, alle fire UI-tester og serverjobben bestod.
+Ny linjedekning med samme målemetode:
+
+| Filomfang | Linjer | Dekning |
+| --- | --- | --- |
+| Hele iOS-app-targetet | 14 193 / 43 168 | 32,88 % |
+| `Services/` + `ViewModels/` | 9 898 / 11 865 | 83,42 % |
+| `SupabaseService.swift` | 84 / 190 | 44,21 % |
+| `SyncEngine.swift` | 153 / 183 | 83,61 % |
+| `LocalStore.swift` | 2 718 / 3 085 | 88,10 % |
+
+Dette erstatter iOS-tallene fra baseline ovenfor for den testede committen.
+Deno-modulenes måleomfang er uendret; HTTP-integrasjonstesten måles ikke med Deno-dekning.
+Lokal `xcodebuild build-for-testing` for iOS Simulator, shell-syntakskontroll,
+Python-kompilering og `git diff --check` bestod også.
+
 - `SupabaseTransportTests` bruker den ekte Swift-SDK-en med injisert URLSession
   og isolert HTTP-stub. Den kontrollerer wire-format/base64, batch-/payloadgrenser,
   delvise svar, 401/503/429/502, relay-feil, timeout og ugyldige suksessvar.
