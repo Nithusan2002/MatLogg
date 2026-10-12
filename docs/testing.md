@@ -128,14 +128,49 @@ Python-kompilering og `git diff --check` bestod også.
 auth-oppsett, wire-kontrakt og domenelagring er uendret. Ingen arkitekturavvik:
 IO-grensen er injiserbar, og eksisterende repository-/transaksjonsgrenser beholdes.
 
+Samlet iOS → lokal Supabase (2026-10-12):
+
+`LiveSupabaseSyncTests` og `scripts/run-live-sync-e2e.py` bestod med to separate
+iOS-testprosesser på Xcode 27.0 / iOS 26.5. Hver prosess kjørte nøyaktig én test;
+helperen avviser en grønn kjøring med null utførte tester.
+
+Første prosess logger et syntetisk produkt og en matlogg lokalt før opplasting,
+og kontrollerer at serveren ennå ikke har loggen. Den bruker ekte Supabase Auth,
+Swift-SDK, Edge Function og PostgreSQL. En testadapter holder det mottatte ACK-et
+ved transportgrensen, slik at SyncEngine ikke får lagre det lokalt. Køen står
+som in-flight når testverten avsluttes. Andre prosess krever en ny prosess-ID,
+åpner samme SQLite-fil, kontrollerer identiske event-ID-er/payloads og leverer
+på nytt gjennom SyncEngine. Resultatet er én matlogg og to inbox-rader (produkt
+og logg) på serveren, bevart mengde/enhet/kcal og ingen ubekreftede lokale events.
+Dette tester kontrollert prosessavslutning ved ACK-grensen, ikke fysisk nettutfall
+eller vilkårlig krasj. Nedlasting og flerenhetskonflikter inngår ikke.
+
+Testene er deaktivert i vanlig enhetstestkjøring. Helperen injiserer runtime-oppsett
+via en midlertidig xctestrun-fil som slettes etterpå. Den godtar bare loopback og
+QA-prosjekt-ID `matlogg-coverage-qa` eller `matlogg-live-sync-qa`, oppretter en syntetisk
+bruker og rydder egne serverdata/bruker og gjenoppretter serverflagget også ved feil.
+Den vanlige klientens produksjonsflagg endres ikke. Start kun en disponibel QA-database.
+
+```bash
+xcodebuild build-for-testing -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=<QA-ID>' CODE_SIGNING_ALLOWED=NO
+python3 scripts/run-live-sync-e2e.py \
+  --workdir <disponibel-lokal-QA-workdir> \
+  --xctestrun '<DerivedData/MatLogg-.../Build/Products/MatLogg_...xctestrun>' \
+  --simulator <QA-ID>
+```
+
+Suksessrapport og begge xcresult-bundler ligger lokalt under
+`build/coverage/live-sync.gx2lk_a4/`. Denne kjøringen gjelder lokal arbeidskopi;
+den er ikke kjørt i GitHub CI. CI har separate iOS-/serverjobber og mangler den
+samlede testens lokale Docker-backend. Ingen produksjonskode, kontrakt eller
+arkitekturgrenser er endret i denne runden; kun testkode, testhelper og dokumentasjon.
+
 Gjenværende oppfølging:
 
-1. Én sammenhengende kjøring fra iOS/SQLite til ekte lokal Supabase, med avbrudd
-   mellom serverskriving og lokal ACK. Klientkjeden og serverkjeden testes nå
-   hver for seg; dette er ikke en samlet ende-til-ende-verifisering.
-2. Kontrollerte infrastruktursvikt i HTTP-handlerens config-/quota-/apply-RPC,
+1. Kontrollerte infrastruktursvikt i HTTP-handlerens config-/quota-/apply-RPC,
    samt automatisk retry-timing. Serverens feil-/eierskapssvar testes allerede.
-3. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
+2. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
    Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
 
 Risikospesifikasjonens mål om over 60 % kjernelogikk kan først brukes som gate
