@@ -87,7 +87,7 @@ final class FoodLoggingDraftViewModel: ObservableObject {
         manual.inputChanged = { [weak self] in self?.changed() }
         manualModel = manual
         if let product = draft.product {
-            let amount = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [])
+            let amount = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [], nutritionPreparation: product.nutritionPreparation)
             if let serving = draft.selectedServing { amount.select(serving) }
             amount.text = draft.amountText
             amountModel = amount
@@ -198,7 +198,7 @@ final class FoodLoggingDraftViewModel: ObservableObject {
         guard generation == request, let snapshot = capture() else { return nil }
         let log = FoodLog(id: snapshot.logId, userId: snapshot.userId, productId: snapshot.productId,
                           mealType: snapshot.mealType, amountG: Float(amount), amountUnit: product.amountUnit,
-                          portionSelection: amountModel.portion, loggedDate: Calendar.current.startOfDay(for: snapshot.date),
+                          portionSelection: amountModel.portion, nutritionPreparation: product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: snapshot.date),
                           calories: nutrition.calories, proteinG: nutrition.protein,
                           carbsG: nutrition.carbs, fatG: nutrition.fat)
         do {

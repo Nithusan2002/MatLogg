@@ -56,6 +56,7 @@ class APIService {
         case credentialPersistenceFailed
         case rateLimited(retryAfterSeconds: Int?)
         case incompleteProductData
+        case unclearPreparationData
         
         var errorDescription: String? {
             switch self {
@@ -86,6 +87,8 @@ class APIService {
                     return "Tjenesten ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
                 }
                 return "Tjenesten ber oss vente litt før neste forsøk."
+            case .unclearPreparationData:
+                return "Produktet har tilberedte næringsverdier uten et tydelig mengdegrunnlag."
             case .incompleteProductData:
                 return "Produktet mangler komplette næringsverdier per 100 g eller 100 ml."
             }
@@ -392,7 +395,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -406,7 +409,7 @@ class APIService {
             "code", "product_name", "brands", "categories", "image_front_url",
             "nutriscore_grade", "nutriscore_version", "nutriscore", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
             "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
-            "nutrition_data_per", "nutriments", "last_modified_t", "rev", "schema_version",
+            "nutrition_data_per", "nutrition_data_prepared_per", "nutriments", "last_modified_t", "rev", "schema_version",
             "data_quality_errors_tags", "data_quality_warnings_tags"
         ].joined(separator: ",")
         var components = URLComponents(string: "https://world.openfoodfacts.org/api/v3/product/\(ean)")
@@ -553,6 +556,11 @@ nonisolated private enum OpenFoodFactsParser {
             throw APIService.APIError.serverError(404)
         }
         guard let mapped = makeOpenFoodFactsProduct(product, barcode: product.code ?? ean, requiresCompleteMacros: true) else {
+            if validatedNutrition(product.nutriments) == nil,
+               validatedNutrition(product.nutriments?.preparedValues) != nil,
+               preparedNutritionBasis(product.nutritionDataPreparedPer) == nil {
+                throw APIService.APIError.unclearPreparationData
+            }
             throw APIService.APIError.incompleteProductData
         }
         return mapped
@@ -566,20 +574,24 @@ nonisolated private enum OpenFoodFactsParser {
         let name = product.productName?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let name, !name.isEmpty else { return nil }
 
-        let nutriments = product.nutriments
+        let usesPrepared = validatedNutrition(product.nutriments) == nil
+        let preparedBasis = preparedNutritionBasis(product.nutritionDataPreparedPer)
+        // Prepared values require an explicit unit and must never inherit dry package portions.
+        if usesPrepared, preparedBasis == nil { return nil }
+        let nutriments = usesPrepared ? product.nutriments?.preparedValues : product.nutriments
         let completeNutrition = validatedNutrition(nutriments)
         if requiresCompleteMacros, completeNutrition == nil {
             return nil
         }
         guard let completeNutrition else { return nil }
 
-        let servings = buildServingOptions(
+        let servings = usesPrepared ? nil : buildServingOptions(
             identity: barcode ?? name,
             servingSize: product.servingSize,
             productQuantity: product.productQuantity?.value,
             productQuantityUnit: product.productQuantityUnit
         )
-        let nutritionBasis = nutritionBasis(
+        let nutritionBasis = usesPrepared ? (preparedBasis ?? .per100g) : nutritionBasis(
             nutritionDataPer: product.nutritionDataPer,
             productQuantityUnit: product.productQuantityUnit
         )
@@ -608,6 +620,7 @@ nonisolated private enum OpenFoodFactsParser {
             createdAt: Date(),
             externalID: barcode,
             nutritionBasis: nutritionBasis,
+            nutritionPreparation: usesPrepared ? .prepared : .asSold,
             sourceUpdatedAt: product.lastModifiedTimestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) },
             sourceRevision: product.revision,
             sourceSchemaVersion: product.schemaVersion,
@@ -616,6 +629,14 @@ nonisolated private enum OpenFoodFactsParser {
             processingInfo: product.processingInfo,
             dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? [])
         )
+    }
+
+    private static func preparedNutritionBasis(_ raw: String?) -> NutritionBasis? {
+        switch raw?.lowercased().replacingOccurrences(of: " ", with: "") {
+        case "100g": return .per100g
+        case "100ml": return .per100ml
+        default: return nil
+        }
     }
 
     private static func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
@@ -810,6 +831,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
     let productQuantityUnit: String?
     let nutriments: OpenFoodFactsNutriments?
     let nutritionDataPer: String?
+    let nutritionDataPreparedPer: String?
     let lastModifiedTimestamp: Int?
     let revision: Int?
     let schemaVersion: Int?
@@ -854,6 +876,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         productQuantityUnit = try c.decodeIfPresent(String.self, forKey: .productQuantityUnit)
         nutriments = try c.decodeIfPresent(OpenFoodFactsNutriments.self, forKey: .nutriments)
         nutritionDataPer = try c.decodeIfPresent(String.self, forKey: .nutritionDataPer)
+        nutritionDataPreparedPer = try c.decodeIfPresent(String.self, forKey: .nutritionDataPreparedPer)
         lastModifiedTimestamp = try c.decodeIfPresent(Int.self, forKey: .lastModifiedTimestamp)
         revision = try c.decodeIfPresent(Int.self, forKey: .revision)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion)
@@ -889,6 +912,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         case productQuantityUnit = "product_quantity_unit"
         case nutriments
         case nutritionDataPer = "nutrition_data_per"
+        case nutritionDataPreparedPer = "nutrition_data_prepared_per"
         case lastModifiedTimestamp = "last_modified_t"
         case revision = "rev"
         case schemaVersion = "schema_version"
@@ -913,6 +937,18 @@ nonisolated private struct OpenFoodFactsNutriments: Codable {
     let fiber100g: Double?
     let sodium100g: Double?
 
+    var energyKcalPrepared100g: Double? = nil
+    var proteinPrepared100g: Double? = nil
+    var carbsPrepared100g: Double? = nil
+    var fatPrepared100g: Double? = nil
+    var sugarsPrepared100g: Double? = nil
+    var fiberPrepared100g: Double? = nil
+    var sodiumPrepared100g: Double? = nil
+
+    var preparedValues: Self {
+        Self(energyKcal100g: energyKcalPrepared100g, protein100g: proteinPrepared100g, carbs100g: carbsPrepared100g, fat100g: fatPrepared100g, sugars100g: sugarsPrepared100g, fiber100g: fiberPrepared100g, sodium100g: sodiumPrepared100g)
+    }
+
     enum CodingKeys: String, CodingKey {
         case energyKcal100g = "energy-kcal_100g"
         case protein100g = "proteins_100g"
@@ -921,6 +957,14 @@ nonisolated private struct OpenFoodFactsNutriments: Codable {
         case sugars100g = "sugars_100g"
         case fiber100g = "fiber_100g"
         case sodium100g = "sodium_100g"
+        case energyKcalPrepared100g = "energy-kcal_prepared_100g"
+        case proteinPrepared100g = "proteins_prepared_100g"
+        case carbsPrepared100g = "carbohydrates_prepared_100g"
+        case fatPrepared100g = "fat_prepared_100g"
+        case sugarsPrepared100g = "sugars_prepared_100g"
+        case fiberPrepared100g = "fiber_prepared_100g"
+        case sodiumPrepared100g = "sodium_prepared_100g"
+
     }
 }
 

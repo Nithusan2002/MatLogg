@@ -87,7 +87,7 @@ final class LogViewModel: ObservableObject {
         let restored = deletedLogs.map { log in
             FoodLog(userId: log.userId, productId: log.productId, mealType: log.mealType,
                     amountG: log.amountG, amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
-                    loggedDate: log.loggedDate, loggedTime: log.loggedTime,
+                    nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate, loggedTime: log.loggedTime,
                     calories: log.calories, proteinG: log.proteinG,
                     carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
         }
@@ -251,7 +251,7 @@ final class LogViewModel: ObservableObject {
             amountG: amountG,
             amountUnit: product.amountUnit,
             portionSelection: portionSelection,
-            loggedDate: Calendar.current.startOfDay(for: date),
+            nutritionPreparation: product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date),
             loggedTime: date,
             calories: nutrition.calories,
             proteinG: nutrition.protein,
@@ -331,7 +331,7 @@ final class LogViewModel: ObservableObject {
             mealType: mealType,
             amountG: amountG,
             amountUnit: log.resolvedAmountUnit, portionSelection: portion,
-            loggedDate: log.loggedDate,
+            nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate,
             loggedTime: log.loggedTime,
             calories: nutrition.calories,
             proteinG: nutrition.protein,
@@ -359,7 +359,7 @@ final class LogViewModel: ObservableObject {
                     mealType: log.mealType,
                     amountG: log.amountG,
                     amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
-                    loggedDate: targetDay,
+                    nutritionPreparation: log.nutritionPreparation, loggedDate: targetDay,
                     loggedTime: Date(),
                     calories: log.calories,
                     proteinG: log.proteinG,

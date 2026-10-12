@@ -19,7 +19,7 @@ final class ProductDetailViewModel: ObservableObject {
 
     init(product: Product, repository: any BarcodeLookupRepository, favorites: (any ProductFavoriteRepository)? = nil) {
         self.product = product
-        amountModel = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [])
+        amountModel = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [], nutritionPreparation: product.nutritionPreparation)
         self.repository = repository
         self.favorites = favorites
     }
@@ -66,7 +66,7 @@ final class ProductDetailViewModel: ObservableObject {
     var excludedProteinValue: String? {
         guard let calculation = nutriScoreInfo?.calculation,
               calculation.proteinExclusionReason != nil,
-              calculation.preparation == "as_sold",
+              calculation.preparation == ((product.nutritionPreparation ?? .asSold) == .prepared ? "prepared" : "as_sold"),
               let basis = calculation.nutritionBasis,
               product.nutritionBasis == basis,
               product.proteinGPer100g.isFinite, product.proteinGPer100g >= 0 else { return nil }
@@ -116,6 +116,10 @@ final class ProductDetailViewModel: ObservableObject {
                 // Keep the approved amount unit stable while this card is open.
                 guard updated.amountUnit == product.amountUnit else {
                     refreshMessage = "Produktets måleenhet er endret hos kilden. Åpne produktet på nytt for å bruke de nye dataene."
+                    return
+                }
+                guard (updated.nutritionPreparation ?? .asSold) == (product.nutritionPreparation ?? .asSold) else {
+                    refreshMessage = "Produktets tilberedningsgrunnlag er endret hos kilden. Åpne produktet på nytt for å bruke de nye dataene."
                     return
                 }
                 let portionsChanged = updated.servings != product.servings

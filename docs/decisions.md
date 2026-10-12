@@ -881,6 +881,7 @@ uten å laste loggobjekter eller gjøre databasekall per tastetrykk. Øvrige tre
 beholder relevanssortering og dedupliseres på tvers av seksjonene. Tomt søk
 beholder seks nylige varer. Hyppighetsvekting og synk-/backendendringer inngår ikke.
 
+<<<<<<< HEAD
 ## 2026-10-12 – Felles databasekvote for synkhendelser
 
 Edge beholder 30 batcher/minutt. Databasen begrenser alle apply-forsøk til
@@ -894,3 +895,12 @@ RATE_LIMITED i et delvis batch-svar beholdes lokalt for retry etter 60 sekunder,
 med eksisterende maksimalt antall automatiske forsøk. Schema-versjon er fortsatt 1.
 Utrulling skjer bak avslått serverflagg; oppdatert klient må være på plass før
 opplasting åpnes. Hosted staging krever egen godkjenning av tilgangsendringen.
+=======
+### 2026-10-12 — Tilberedte Open Food Facts-produkter
+
+Tilberedningsstatus lagres separat fra gram/ml-grunnlag og bevares i logger
+og måltidsmaler. Fallback bruker kun komplette tilberedte næringsverdier med
+eksplisitt per-100-enhet. Første versjon tilbyr gram/ml ferdig tilberedt mat,
+ingen automatisk tørrvekt-, pakke- eller porsjonsomregning. Dette gjør
+produkter med bare tilberedt næring tilgjengelige uten å gjette vekten.
+>>>>>>> origin/main

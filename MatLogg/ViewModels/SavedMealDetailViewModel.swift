@@ -68,7 +68,7 @@ final class SavedMealDetailViewModel: ObservableObject {
               values.calories <= Float(Int32.max) else { return false }
         addedItems.append(SavedMealItem(productId: product.id, productName: product.name,
             amountG: amount, amountUnit: product.amountUnit,
-            calories: values.calories, proteinG: values.protein, carbsG: values.carbs,
+            nutritionPreparation: product.nutritionPreparation, calories: values.calories, proteinG: values.protein, carbsG: values.carbs,
             fatG: values.fat, nutritionSource: product.nutritionSource,
             sortIndex: (visibleItems.map(\.sortIndex).max() ?? -1) + 1))
         var draft = meal

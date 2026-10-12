@@ -29,7 +29,7 @@ Det du logger i appen
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
 
 Produktdata
-  - Nar du skanner, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
+  - Nar du skanner eller aktivt slar opp et inntastet strekkodenummer som ikke finnes lokalt, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
   - Ravaredelen fra Matvaretabellen folger med appen og sokes lokalt pa enheten. Nar du aktivt sender inn et navnesok etter merkevarer, sendes soketeksten til Open Food Facts. Sok sendes ikke for hvert tastetrykk.
   - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter lagres lokalt og lastes ikke opp i denne versjonen.
 
@@ -63,7 +63,7 @@ MatLogg er “offline-first”. Mat-, mål- og vektdata lagres lokalt på enhete
 
 Vi kan dele begrensede data med:
   - Supabase som databehandler for konto og autentisering. Database, Edge Functions, backup og opplastingssynk er del av serverplattformen, men opplastingssynk er deaktivert i dagens appversjon. Prosjektene skal ligge i en valgt EØS-region.
-  - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer eller skanner, inkludert nar du ber om oppdaterte produktdata. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
+  - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer, skanner eller slar opp et inntastet strekkodenummer, inkludert nar du ber om oppdaterte produktdata. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
 Vi selger ikke persondata.

@@ -45,6 +45,7 @@ private struct ProductDetailContent: View {
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
     @State private var showSourceDetails = false
+    @State private var showManualValues = false
     private var isLogging: Bool { detailModel.isLogging }
     private var logError: String? { detailModel.logError }
     @State private var hasConfiguredAmount = false
@@ -110,6 +111,15 @@ private struct ProductDetailContent: View {
                             nutritionForAmount: detailModel.nutrition)
                             .padding(.horizontal)
 
+                        if product.nutritionPreparation == .prepared {
+                            Button("Registrer verdier fra pakken") { showManualValues = true }
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.actionText)
+                                .frame(minHeight: 44)
+                                .disabled(isLogging)
+                                .accessibilityIdentifier("prepared-register-manual-values")
+                        }
+
                         CardContainer {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Produktinformasjon")
@@ -136,7 +146,7 @@ private struct ProductDetailContent: View {
                                     }
                                     .padding(.top, 8)
                                 } label: {
-                                    Text("Næringsinnhold per 100 \(product.amountUnit.rawValue)")
+                                    Text("Næringsinnhold per 100 \(product.amountUnit.rawValue)\(product.nutritionPreparation == .prepared ? " tilberedt mat" : "")")
                                     .font(AppTypography.bodyEmphasis)
                                     .foregroundColor(AppColors.ink)
                                     .frame(minHeight: 44, alignment: .leading)
@@ -344,7 +354,8 @@ private struct ProductDetailContent: View {
         .onAppear {
             guard !hasConfiguredAmount else { return }
             hasConfiguredAmount = true
-            if let userId = authViewModel.currentUser?.id,
+            if product.nutritionPreparation != .prepared,
+               let userId = authViewModel.currentUser?.id,
                let lastUsed = preferencesViewModel.lastUsedAmount(for: product.id, userId: userId) {
                 amountModel.restore(amount: lastUsed, portion: preferencesViewModel.lastUsedPortion(for: product.id, userId: userId))
             } else if let suggested = amountModel.servings.first(where: \.isDefaultSuggestion) {
@@ -356,6 +367,13 @@ private struct ProductDetailContent: View {
             showNutritionImproving = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
                 showNutritionImproving = false
+            }
+        }
+        .fullScreenCover(isPresented: $showManualValues) {
+            RecoverableManualLoggingView(barcode: product.barcodeEan) { receipt in
+                showManualValues = false
+                onLogComplete?(receipt)
+                dismiss()
             }
         }
         .sheet(isPresented: $showImagePreview) {
@@ -383,8 +401,10 @@ private struct ProductDetailContent: View {
                 guard let userId = authViewModel.currentUser?.id else { return false }
                 guard await logViewModel.logFood(product: product, amountG: Float(amount),
                     mealType: mealType, userId: userId, date: loggedDate, portionSelection: portion) else { return false }
-                preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
-                preferencesViewModel.setLastUsedPortion(portion, for: product.id, userId: userId)
+                if product.nutritionPreparation != .prepared {
+                    preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
+                    preferencesViewModel.setLastUsedPortion(portion, for: product.id, userId: userId)
+                }
                 HapticFeedbackService.shared.trigger(.loggingSuccess, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
                 SoundFeedbackService.shared.play(.loggingSuccess, isEnabled: preferencesViewModel.soundFeedbackEnabled)
                 onLogComplete?(ReceiptPayload(product: product, amountG: amount,

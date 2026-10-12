@@ -53,8 +53,8 @@ nonisolated enum PortionDisplay {
         value.formatted(.number.precision(.fractionLength(0...6)).locale(Locale(identifier: "nb_NO")))
     }
 
-    static func amount(_ amount: Double, unit: AmountUnit, portion: PortionSelection?) -> String {
-        let total = "\(number(amount)) \(unit.rawValue)"
+    static func amount(_ amount: Double, unit: AmountUnit, portion: PortionSelection?, preparation: NutritionPreparation? = nil) -> String {
+        let total = "\(number(amount)) \(unit.rawValue)\(preparation == .prepared ? " tilberedt" : "")"
         guard let portion, portion.matches(amount: amount, unit: unit) else { return total }
         return "\(portion.displayText) · \(total)"
     }

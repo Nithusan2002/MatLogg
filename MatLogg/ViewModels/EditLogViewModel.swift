@@ -39,7 +39,8 @@ final class EditLogViewModel: ObservableObject {
         original = log
         amount = AmountSelectionViewModel(unit: log.resolvedAmountUnit,
                                           servings: log.portionSelection.map { [$0.serving] } ?? [],
-                                          amount: Double(log.amountG), portion: log.portionSelection)
+                                          amount: Double(log.amountG), portion: log.portionSelection,
+                                          nutritionPreparation: log.nutritionPreparation)
         mealType = log.mealType
         amountChanges = amount.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()

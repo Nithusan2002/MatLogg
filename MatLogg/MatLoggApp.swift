@@ -194,6 +194,10 @@ struct MatLoggContent: View {
             }
             .task {
                 #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--prepared-nutrition-qa") {
+                    do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.preparedProduct) }
+                    catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }
+                }
                 if ProcessInfo.processInfo.arguments.contains("--portion-qa") {
                     do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.product) }
                     catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }

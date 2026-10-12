@@ -81,7 +81,7 @@ struct SaveMealFromLogsView: View {
                                                 .font(AppTypography.bodyEmphasis)
                                                 .foregroundStyle(AppColors.deepInk)
                                             Spacer(minLength: 8)
-                                            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection))
+                                            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
                                                 .font(AppTypography.body)
                                                 .foregroundStyle(AppColors.textSecondary)
                                                 .fixedSize(horizontal: true, vertical: false)
@@ -413,6 +413,11 @@ private struct SavedMealLogContent: View {
                                                 Text("Mengde")
                                                     .font(AppTypography.bodyEmphasis)
                                                     .foregroundStyle(AppColors.ink)
+                                            }
+                                            if item.nutritionPreparation == .prepared {
+                                                Text("Mengde ferdig tilberedt mat")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundStyle(AppColors.textSecondary)
                                             }
                                             AmountInputRow(
                                                 gramsText: amountBinding(for: item),
@@ -865,7 +870,8 @@ private struct SavedMealAddAmountView: View {
         let existing = detail.existingItem(for: product)
         _amount = StateObject(wrappedValue: AmountSelectionViewModel(
             unit: existing?.resolvedAmountUnit ?? product.amountUnit,
-            amount: Double(existing.flatMap { detail.nutrition.preview.validAmounts?[$0.id] } ?? 100)))
+            amount: Double(existing.flatMap { detail.nutrition.preview.validAmounts?[$0.id] } ?? 100),
+            nutritionPreparation: existing.map { $0.nutritionPreparation ?? .asSold } ?? product.nutritionPreparation))
     }
 
     var body: some View {
@@ -874,7 +880,7 @@ private struct SavedMealAddAmountView: View {
                 Section {
                     Text(detail.existingItem(for: product)?.productName ?? product.name)
                         .font(AppTypography.bodyEmphasis)
-                    AmountInputRow(gramsText: $amount.text, unit: amount.unit.rawValue)
+                    PortionAmountInput(model: amount)
                     if !amount.isValid { Text("Skriv en mengde over 0 og høyst 10 000 i oppgitt enhet.") }
                     if detail.existingItem(for: product) != nil {
                         Text("Matvaren finnes allerede. Mengden på eksisterende rad oppdateres.")

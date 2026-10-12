@@ -51,7 +51,7 @@ avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
 ✅ Valgfri Apple-konto og full lokal bruk uten konto i pilot; e-post/passord utsettes til SMTP og levering er verifisert
 ✅ Onboarding (mål, kalorier, makroer)  
 ✅ Home: status + logg-liste + måltidsrad  
-✅ Strekkode-skanning  
+✅ Strekkode-skanning og manuell inntasting av strekkodenummer
 ✅ Produktkort (100g prefill)  
 ✅ Logging + kompakt bekreftelse med angre
 ✅ Skann-historikk  

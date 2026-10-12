@@ -7,11 +7,16 @@ final class AmountSelectionViewModel: ObservableObject {
     @Published private(set) var selectedServing: ServingOption?
     @Published private(set) var servings: [ServingOption]
     let unit: AmountUnit
+    let nutritionPreparation: NutritionPreparation?
+    var unitTitle: String {
+        nutritionPreparation == .prepared ? "\(unit.spokenName.capitalized) tilberedt mat" : unit.spokenName
+    }
     private var hasChosenPortion = false
 
     init(unit: AmountUnit, servings: [ServingOption] = [], amount: Double = 100,
-         portion: PortionSelection? = nil) {
+         portion: PortionSelection? = nil, nutritionPreparation: NutritionPreparation? = nil) {
         self.unit = unit
+        self.nutritionPreparation = nutritionPreparation
         self.servings = Self.compatible(servings, unit: unit)
         if let portion, portion.matches(amount: amount, unit: unit) {
             selectedServing = portion.serving
@@ -59,7 +64,7 @@ final class AmountSelectionViewModel: ObservableObject {
     var isValid: Bool { amount != nil && (selectedServing == nil || portion != nil) }
     var amountSummary: String? {
         guard isValid, let amount else { return nil }
-        return PortionDisplay.amount(amount, unit: unit, portion: portion)
+        return PortionDisplay.amount(amount, unit: unit, portion: portion, preparation: nutritionPreparation)
     }
     var canDecrease: Bool { isValid && (value ?? 0) > 1 }
     var canIncrease: Bool {
