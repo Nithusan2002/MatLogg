@@ -2,9 +2,9 @@ name: Supabase CI
 
 on:
   push:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", ".github/workflows/supabase-ci.yml"]
   pull_request:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", ".github/workflows/supabase-ci.yml"]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +39,12 @@ jobs:
       - name: Lint Edge Functions
         run: deno lint supabase/functions
       - name: Test Edge Function contract
-        run: deno test --allow-env supabase/functions/tests
+        run: npm run functions:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: edge-function-coverage
+          path: build/coverage/
 
   ios:
     name: iOS auth and sync gate
@@ -51,11 +56,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build app
         run: xcodebuild -project MatLogg.xcodeproj -scheme MatLogg -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-      - name: Run auth and sync tests
+      - name: Measure iOS unit test coverage
         run: >-
-          xcodebuild -project MatLogg.xcodeproj -scheme MatLogg
+          bash scripts/measure-test-coverage.sh ios
+          'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
+      - name: Test logging, editing, deletion and persistence
+        run: >-
+          xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
-          -only-testing:MatLoggTests/AuthViewModelTests
-          -only-testing:MatLoggTests/AuthServiceTests
-          -only-testing:MatLoggTests/ProfileTests
-          -only-testing:MatLoggTests/SyncRetryTests test
+          -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch
+          -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay
+          -only-testing:MatLoggUITests/MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch
+          -only-testing:MatLoggUITests/WaterLoggingUITests/testOneTapPersistsAndCanBeCorrected
+          -parallel-testing-enabled NO -enableCodeCoverage NO
+          -resultBundlePath build/coverage/ui-smoke.xcresult CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-unit-test-coverage
+          path: build/coverage/

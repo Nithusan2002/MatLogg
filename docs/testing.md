@@ -4,6 +4,75 @@ MatLogg bruker risikobasert testing. Datatap, feil ernæringsberegning,
 auth/eierskap, synk/idempotens, sletting og personvernvalg prioriteres foran ren
 visuell dekning.
 
+## Måling av testdekning
+
+Kjør fra repo-roten med Deno 2.5.4 og en dedikert QA-simulator:
+
+```bash
+npm run functions:coverage
+bash scripts/measure-test-coverage.sh ios 'platform=iOS Simulator,name=<QA-simulator>'
+```
+
+Hver kjøring får en ny mappe under ignorert `build/coverage/`, med commit,
+arbeidstrestatus, verktøyversjon og testlogg. iOS kjører hele `MatLoggTests`
+med kode-dekning og skriver `tests.xcresult`, `report.json` og `report.txt`.
+Rapporter app-targetet `MatLogg.app` separat fra avhengigheter og testkode.
+Deno skriver linje-/grendekning, LCOV og HTML under `profiles/`. Dekningen
+omfatter bare lastede moduler; dagens tester laster `_shared/sync-contract.ts`
+og `_shared/account-deletion.ts`, ikke HTTP-handlerne eller `_shared/client.ts`.
+
+Supabase CI lagrer rapportene som artifacts, kjører hele iOS-enhetstesttargetet
+og fire UI-tester for første logging, redigering med omstart, samlet
+sletting/Angre og vannlogging med omstart. Testfeil stopper jobben; det er
+foreløpig ingen prosentbasert gate. pgTAP og HTTP-/integrasjonstester
+rapporteres som beståtte scenarioer, ikke som en felles kode-dekningsprosent.
+
+Måling 2026-10-12 med Deno 2.5.4:
+
+| Område | Linjer | Grener | Resultat |
+| --- | --- | --- | --- |
+| Delte Edge-moduler før nye tester | 89,8 % | 76,3 % | 15 tester bestod |
+| Delte Edge-moduler etter nye tester | 97,1 % | 93,3 % | 19 tester bestod |
+| PostgreSQL/RLS | Ikke linjemålt | Ikke grenmålt | 101 kontroller i 8 filer bestod |
+| Legacy `backend/src`, vanlig `npm test` | 28,27 % | 70,51 % | 6 testskript bestod |
+
+Databasemålingen brukte en ny lokal instans med prosjekt-ID
+`matlogg-coverage-qa`, nye migrasjoner og syntetiske testdata på port 56322.
+Eksisterende lokale instanser ble ikke endret. Legacy ble målt med Node 24,
+V8-profiler og c8 10.1.3 (`--all --src backend/src --include 'backend/src/**/*.ts'`).
+Legacy-tallet inkluderer umålte filer som 0 % og utelater egne Apple- og
+database-/HTTP-integrasjonstester; det er ikke dekningen av hele backend-testpakken.
+Kontoslettingens eksisterende ende-til-ende-test bestod mot samme lokale instans:
+Auth-sletting, nektet innlogging, produktsletting, eierskapsisolasjon og gjentatt purge.
+
+iOS-baseline med Xcode 27.0 / iOS 26.5 kjørte 380 tester i 46 suiter:
+378 bestod og to migrasjonstester feilet fordi fixture-databasene beholdt
+`food_logging_drafts` da de ble merket som eldre skjema. Fixture-oppsettet er
+rettet uten endring i produksjonsmigrasjonene. Xcode hang under avslutning av
+testsesjonen og skrev ikke en gyldig dekningsrapport. iOS-prosent, ny kjøring
+av de rettede testene og UI-kontrollen må derfor bekreftes før denne delen
+regnes som grønn. Testoppsettet i CI er endret, men CI er ikke kjørt lokalt.
+Ny QA-simulator og målrettet kjøring uten kode-dekning ble forsøkt;
+siste kjøring stoppet før teststart fordi Xcode ikke fant en tilgjengelig
+simulatordestinasjon. UI-testen for redigering er utvidet til å kontrollere
+samme logg-ID, dato og valgt måltid etter omstart, men denne nye kontrollen
+er ikke kjørt ferdig lokalt.
+
+Prioritert oppfølging:
+
+1. HTTP-grensene for aktiv synk: manglende/utløpt token, ugyldig request,
+   batchgrense, delvis avvisning og RPC-feil. De delte modulenes høye prosent
+   erstatter ikke disse kontrollene.
+2. Reell offline→online-synk og avbrudd mellom serverskriving og ACK,
+   kontrollert fra klient til lokal Supabase. Lokal kø og SQL-idempotens
+   testes allerede separat; hele kjeden må fortsatt verifiseres samlet.
+3. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
+   Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
+
+Risikospesifikasjonens mål om over 60 % kjernelogikk kan først brukes som gate
+når filomfang og målemetode er definert. Kritiske feilscenarioer skal være
+testet uansett prosent. Produksjonssynk holdes fortsatt deaktivert.
+
 ## Forutsetninger
 
 - Xcode med en kompatibel iOS-simulator

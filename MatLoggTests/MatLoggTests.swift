@@ -471,7 +471,8 @@ struct MatLoggTests {
 
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs;", nil, nil, nil) == SQLITE_OK)
+        // Remove later tables before marking this fixture as an older schema.
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs; DROP TABLE food_logging_drafts;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "PRAGMA user_version = 2;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
 
@@ -559,7 +560,8 @@ struct MatLoggTests {
 
         var db: OpaquePointer?
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
-        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs;", nil, nil, nil) == SQLITE_OK)
+        // Remove later tables before marking this fixture as unversioned.
+        try #require(sqlite3_exec(db, "DROP INDEX products_barcode_idx; DROP TABLE water_logs; DROP TABLE food_logging_drafts;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "DROP TABLE saved_meals;", nil, nil, nil) == SQLITE_OK)
         try #require(sqlite3_exec(db, "PRAGMA user_version = 0;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)

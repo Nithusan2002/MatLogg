@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { MAX_SYNC_EVENTS, validateEvent } from "../_shared/sync-contract.ts";
+import { MAX_SYNC_EVENTS, MAX_SYNC_PAYLOAD_BYTES, validateEvent } from "../_shared/sync-contract.ts";
 
 const id = "550e8400-e29b-41d4-a716-446655440000";
 const payload = btoa(JSON.stringify({
@@ -12,6 +12,44 @@ const payload = btoa(JSON.stringify({
   carbs: 20,
   fat: 5,
 }));
+
+Deno.test("invalid envelopes return stable errors even without an event ID", () => {
+  for (const input of [null, [], { eventId: id }, { eventId: "invalid" }]) {
+    const result = validateEvent(input);
+    assertEquals(result.success, false);
+    if (!result.success) {
+      assertEquals(result.code, "VALIDATION_ERROR");
+      assertEquals(result.message, "Ugyldig event-envelope");
+      assertEquals(result.eventId, input && "eventId" in input
+        ? input.eventId : "00000000-0000-0000-0000-000000000000");
+    }
+  }
+});
+
+Deno.test("payload errors preserve event identity and distinguish size from invalid data", () => {
+  const envelope = { eventId: id, type: "log.delete", createdAt: "2026-09-28T10:00:00Z", schemaVersion: 1 };
+  const validJson = JSON.stringify({ id });
+  const atLimit = validateEvent({ ...envelope,
+    payload: btoa(validJson.padEnd(MAX_SYNC_PAYLOAD_BYTES, " ")) });
+  assertEquals(atLimit.success, true);
+  const cases = [
+    ["", "Ugyldig base64"],
+    ["!!!!", "Ugyldig base64"],
+    ["Zh==", "Ugyldig base64"],
+    [btoa("not JSON"), "Ugyldig hendelsespayload"],
+    [btoa(JSON.stringify({ id: "invalid" })), "Ugyldig hendelsespayload"],
+    [btoa(validJson.padEnd(MAX_SYNC_PAYLOAD_BYTES + 1, " ")), "Payload for stor"],
+  ];
+  for (const [encoded, message] of cases) {
+    const result = validateEvent({ ...envelope, payload: encoded });
+    assertEquals(result.success, false);
+    if (!result.success) {
+      assertEquals(result.eventId, id);
+      assertEquals(result.code, "VALIDATION_ERROR");
+      assertEquals(result.message, message);
+    }
+  }
+});
 
 Deno.test("sync v1 accepts the canonical log envelope", () => {
   const result = validateEvent({

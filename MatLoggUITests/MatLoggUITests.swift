@@ -215,6 +215,7 @@ final class MatLoggUITests: XCTestCase {
         save.tap()
         let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let loggedRowID = edit.identifier
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         edit.tap()
         XCTAssertTrue(app.buttons["Flytt til Lunsj"].waitForExistence(timeout: 5))
@@ -230,6 +231,32 @@ final class MatLoggUITests: XCTestCase {
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
         add(attachment)
+
+        app.terminate()
+        app.launch()
+        let lunch = app.buttons["home-meal-open-lunsj"]
+        XCTAssertTrue(lunch.waitForExistence(timeout: 8))
+        for _ in 0..<8 {
+            if lunch.isHittable { break }
+            app.swipeUp()
+        }
+        lunch.tap()
+        XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].waitForExistence(timeout: 5))
+        for _ in 0..<8 {
+            if app.buttons["Forrige dag"].isHittable { break }
+            app.swipeDown()
+        }
+        app.buttons["Forrige dag"].tap()
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
+        let restoredRow = app.buttons[loggedRowID]
+        XCTAssertTrue(restoredRow.waitForExistence(timeout: 8), "Den redigerte matloggen skal overleve omstart med samme ID og dato.")
+        for _ in 0..<8 {
+            if restoredRow.isHittable { break }
+            app.swipeUp()
+        }
+        restoredRow.tap()
+        XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
     }
 
     @MainActor
