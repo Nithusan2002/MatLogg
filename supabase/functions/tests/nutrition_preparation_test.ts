@@ -23,8 +23,11 @@ Deno.test("preparation metadata is validated and preserved for products, logs an
       const result = validateEvent(event(type, payload));
       assertEquals(result.success, accepted);
       if (result.success && preparation !== undefined) {
-        const decoded = result.event.payloadJson as Record<string, any>;
-        assertEquals(type === "saved_meal.upsert" ? decoded.items[0].nutritionPreparation : decoded.nutritionPreparation, preparation);
+        const decoded = result.event.payloadJson as {
+          nutritionPreparation?: string;
+          items?: Array<{ nutritionPreparation?: string }>;
+        };
+        assertEquals(type === "saved_meal.upsert" ? decoded.items?.[0]?.nutritionPreparation : decoded.nutritionPreparation, preparation);
       }
     }
   }
