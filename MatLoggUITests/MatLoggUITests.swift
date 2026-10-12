@@ -9,6 +9,82 @@ import XCTest
 
 final class MatLoggUITests: XCTestCase {
 
+    @MainActor
+    func testManualBarcodeEntryWithoutCameraValidatesAndCancels() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 8))
+        app.buttons["Søk"].tap()
+        let scan = app.buttons.matching(NSPredicate(format: "label == 'Skann strekkode' OR label == 'Skann'")).firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5))
+        for _ in 0..<5 {
+            if scan.isHittable && scan.frame.minY >= 130 && scan.frame.maxY < app.frame.height * 0.75 { break }
+            if scan.frame.minY < 130 {
+                app.collectionViews.firstMatch.swipeDown()
+            } else {
+                app.collectionViews.firstMatch.swipeUp()
+            }
+        }
+        let cameraEntryScreenshot = XCTAttachment(screenshot: app.screenshot())
+        cameraEntryScreenshot.name = "Skann-inngang med stor tekst"
+        cameraEntryScreenshot.lifetime = .keepAlways
+        add(cameraEntryScreenshot)
+        scan.tap()
+        let enter = app.buttons["Skriv inn strekkode"]
+        for _ in 0..<5 {
+            if enter.exists && enter.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(enter.waitForExistence(timeout: 5))
+        enter.tap()
+        let field = app.textFields["manualBarcodeInput"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("7035620067708")
+        let find = app.buttons["findManualBarcode"]
+        if !find.isHittable { app.swipeUp() }
+        find.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch.waitForExistence(timeout: 5))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Strekkodeinntasting – stor tekst og validering"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Avbryt"].firstMatch.tap()
+        XCTAssertTrue(enter.waitForExistence(timeout: 5))
+        XCTAssertFalse(field.exists)
+    }
+
+    @MainActor
+    func testManualBarcodeFindsLocalDemoProductAndLogs() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "YES"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 10))
+        app.buttons["Søk"].tap()
+        let scan = app.buttons.matching(NSPredicate(format: "label == 'Skann strekkode' OR label == 'Skann'")).firstMatch
+        XCTAssertTrue(scan.waitForExistence(timeout: 5))
+        scan.tap()
+        let enter = app.buttons["Skriv inn strekkode"]
+        XCTAssertTrue(enter.waitForExistence(timeout: 8))
+        if !enter.isHittable { app.swipeUp() }
+        enter.tap()
+        let field = app.textFields["manualBarcodeInput"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("7044416013141")
+        app.buttons["findManualBarcode"].tap()
+        let logButton = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
+        XCTAssertTrue(logButton.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Lettkokte havregryn"].exists)
+        logButton.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["log-receipt"].firstMatch.waitForExistence(timeout: 8))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Strekkodeinntasting – lokal vare loggført"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 

@@ -264,6 +264,38 @@ struct ProductSearchTests {
         #expect(remote.callCount == 0)
     }
 
+    @Test func manualEntryRejectsInvalidInputBeforeLookupAndUsesOfflineCache() async {
+        let cached = Product(name: "Lokalt produkt", barcodeEan: "7035620067709", source: "manual",
+                             caloriesPer100g: 100, proteinGPer100g: 4, carbsGPer100g: 18, fatGPer100g: 3)
+        let remote = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let model = makeProductViewModel(repository: ProductRepositorySpy(product: cached),
+                                         barcodeService: remote, now: Date())
+        let entry = ManualBarcodeEntryViewModel()
+        entry.input = "7035620067708"
+        await entry.submit(using: model, ownerID: nil)
+        #expect(model.scannedProduct == nil)
+        #expect(model.scannedBarcode == nil)
+        #expect(remote.callCount == 0)
+        entry.input = "7035620067709"
+        await entry.submit(using: model, ownerID: nil)
+        #expect(model.scannedProduct?.id == cached.id)
+        #expect(remote.callCount == 0)
+    }
+
+    @Test func manualEntryCanRetryAfterNetworkFailure() async {
+        let remote = BarcodeServiceSpy(result: .failure(TestBarcodeError.offline))
+        let model = makeProductViewModel(repository: ProductRepositorySpy(product: nil),
+                                         barcodeService: remote, now: Date())
+        let entry = ManualBarcodeEntryViewModel()
+        entry.input = "7035620067709"
+        await entry.submit(using: model, ownerID: nil)
+        #expect(model.scanFailure == .unavailable)
+        await entry.submit(using: model, ownerID: nil)
+        #expect(!model.isScanning)
+        #expect(model.scanFailure == .unavailable)
+        #expect(entry.input == "7035620067709")
+    }
+
     @Test func scanFailureDistinguishesUnknownIncompleteAndNetwork() async {
         for (error, expected) in [(APIService.APIError.serverError(404), BarcodeLookupFailure.notFound),
                                   (.incompleteProductData, .incomplete), (.serverError(503), .unavailable)] {

@@ -924,3 +924,15 @@ grense på 1–50 varer; sletting har ikke denne grensen.
 Samlet sletting bekreftes med antall registreringer og lagres atomisk lokalt
 sammen med synkhendelser. Én Angre-operasjon gjenoppretter batchen med nye ID-er.
 Ved feil beholdes utvalget; avbrutt måltidslagring beholder også valget.
+
+### Manuell inntasting av strekkode
+
+«Skriv inn strekkode» finnes på skanneskjermen, også uten kameratilgang.
+Et ark tar imot GTIN med 8, 12, 13 eller 14 sifre, støtter innliming og
+validerer kontrollsiffer før eksplisitt «Finn produkt». Innledende nuller
+bevares; GTIN-14 normaliseres som ved eksisterende Data Matrix-oppslag.
+Kameradeteksjon pauses under inntasting og oppslag. Samme lokale/eksterne
+produktoppslag og produktkort brukes, med valgt måltid og dato beholdt.
+Feil beholder input og tilbyr nytt oppslag, navnesøk eller manuell
+produktregistrering med strekkoden videreført. Lokale treff fungerer uten
+nett; ukjente eksterne produkter krever nett.

@@ -36,6 +36,15 @@ struct ProductBarcodeParser {
         }
     }
 
+    nonisolated static func lookupBarcode(fromManualInput input: String) throws -> String {
+        let barcode = input.filter { !$0.isWhitespace }
+        guard !barcode.isEmpty else { throw ProductBarcodeParserError.emptyCode }
+        guard [8, 12, 13, 14].contains(barcode.utf8.count),
+              barcode.utf8.allSatisfy({ (48...57).contains($0) }),
+              hasValidCheckDigit(barcode) else { throw ProductBarcodeParserError.invalidGTIN }
+        return barcode.count == 14 ? canonicalBarcode(fromGTIN14: barcode) : barcode
+    }
+
     private nonisolated static func lookupBarcode(fromGS1DataMatrix rawValue: String) throws -> String {
         var payload = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         if payload.hasPrefix("]d2") {

@@ -452,3 +452,14 @@ På en ledig dedikert QA-simulator kjøres også
 Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
 Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
 må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.
+
+### Manuell strekkodeinntasting
+
+Målrettede suiter: `ProductBarcodeParserTests` og `ProductSearchTests`.
+UI: `MatLoggUITests/testManualBarcodeEntryWithoutCameraValidatesAndCancels`
+kontrollerer inngangen med største tekststørrelse, ugyldig kontrollsiffer og
+avbryt uten kameratilgang.
+`MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs` bruker lokale
+demodata for inntasting → produktkort → loggføring. Kjør på egen QA-simulator.
+Pause/gjenopptakelse av kameradeteksjon og VoiceOver må også kontrolleres på
+fysisk iPhone.

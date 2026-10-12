@@ -182,6 +182,7 @@ private struct FoodSearchContent: View {
             if !isFirstLog && productSelectionContent == nil { manualRegistrationButton }
             searchStatus
         }
+        .buttonStyle(.plain)
     }
 
     private var searchStatus: some View {
