@@ -315,6 +315,38 @@ domene-/næringsregel, transaksjonsgrense, profileierskap eller synkkontrakt.
 bevaring og næringsvisning er bekreftet. Resterende kamerakontroll, Apple-innlogging,
 VoiceOver og brukerobservasjoner gjenstår.
 
+## Synkport: kontroll 2026-10-12
+
+**No-go for produksjonssynk; go for videre intern QA.** Dette gjelder
+framtidig domeneopplasting, ikke en ny vurdering av lokal Apple-only-pilot.
+Brukeren ba om CI-kontroll og releasegjennomgang; fysisk iPhone-kontroll,
+aktivering og deploy inngår ikke i denne runden.
+
+Kandidat for CI er testgrenen `codex/test-coverage-ci`, kodecommit `1cad324`.
+Primær arbeidskopi er fortsatt på `main` med andre endringer som ikke er commitet,
+blant annet profil/design og byggnummer 2026100805. CI-godkjenningen av
+testgrenen gjelder ikke automatisk hele denne arbeidskopien eller et releasearkiv.
+
+| Port | Resultat og gjenstående arbeid |
+| --- | --- |
+| CI på siste kode | **Grønt på `1cad324`:** [Supabase CI](https://github.com/Nithusan2002/MatLogg/actions/runs/38241338297). Serverjobben, iOS-enhetstargetet og alle fire UI-testene bestod. [Secret scan](https://github.com/Nithusan2002/MatLogg/actions/runs/38241338129) bestod på samme commit. Swift Testing oppgir 395 registrerte tester; de to LiveSupabaseSyncTests er eksplisitt skippet i CI og har separat lokal verifisering. |
+| Retry/idempotens/eierskap | Lokale kontroller bestod: ekte iOS → lokal Supabase i to prosesser, tapt lokal ACK, replay uten duplikater, delvis svar og feil ved config/quota/apply. Automatisk timer/backoff er testet med SDK/HTTP-stub og SQLite. Hosted staging med siste kandidat er ikke retestet. Se `testing.md` for eksakt omfang. |
+| Klient/server-kompatibilitet | **Blokkert i staging.** Read-only migrasjonsliste mangler `20261003090000_manual_nutrition_basis` og `20261008190000_internal_security_definer_functions`. `sync-events` er aktiv v3 med JWT-verifisering; sist oppdatert 2. oktober. Repoets nyere backend må rulles ut og verifiseres før en klient som bruker det nye næringsgrunnlaget kan laste opp. Ingen deploy utført. |
+| Produksjonsklient | **Eget godkjent scope kreves.** `backendSyncEnabled=false`, app-root bruker `.localOnly`, og release har ingen policy som tillater opplasting. Å endre bare flagget åpner ikke synk. Lokal lansering er fortsatt det dokumenterte produktvalget. |
+| Kvotekontroll | **Blokkert.** Repoets offentlige RPC-wrapper omgår Edge-kvoten. Read-only staging-kontroll bekrefter `authenticated` EXECUTE på offentlig SECURITY DEFINER-RPC uten kall til `consume_sync_quota_v1`. Eierkontroll og nødstopp erstatter ikke trafikkbegrensning på hele skriveflaten. |
+| Nødstopp/rollback | Serverflagget er bekreftet `false` i staging. RPC-koden der har nødstopp; lokal HTTP-/SQL-kontroll dekker avslag før skriving. Operativ stopp, rollback og recovery med siste hosted kandidat er ikke demonstrert. Bevar kø/event-ID og database; ikke reverser migrasjoner uten kompatibilitetsvurdering. |
+| Logging/overvåking | Undersøkt aktiv synkkode logger bare RPC-feilkode; SupabaseService/SyncEngine logger ikke token/payload. Faktisk hosted loggretensjon, aggregerte feil-/latensmålinger, varsling, mottaker og leveransetester er ikke bekreftet i denne runden. Dette er ikke en full leverandør-/loggrevisjon. |
+| Miljø-/deployvern | **Blokkert.** GitHub environments-API viser bare `github-pages`; ingen `staging`/`production` med den foreskrevne manuelle godkjenningen. Tilgjengelig Supabase-prosjektliste viser MatLogg Staging (`eu-north-1`, ACTIVE_HEALTHY); et separat MatLogg-produksjonsprosjekt er ikke bekreftet. Ingen secrets eller konfigurasjon endret. |
+| Hosted backup/restore | Ikke verifisert. Historiske lokale restore-resultater lukker ikke hosted backup/PITR, restore og gjenanvendelse av slettinger før trafikken åpnes. Ingen abonnement eller backupinnstilling endret. |
+| Opplastingsscope/personvern | **Blokkert før aktivering.** Dagens bruker-/personverntekst sier at domenedata bare er lokale. Avklart opplastingsgrunnlag, eventuelle bruker-/samtykkevalg og tilbaketrekking er ikke dokumentert ferdig for ny skyflyt. Dette er kontroll mot prosjektets eksisterende releasekrav, ikke en ny juridisk konklusjon. |
+
+Kilder: repoets synkkontrakt, produksjonspolicy, migrasjoner, Edge-handler og
+releasekrav; read-only Supabase prosjekt-/migrasjons-/funksjonsliste og
+aggregert funksjonsmetadata/serverflagg; GitHub run-/environment-API.
+Ingen brukerdata, tokens eller rå hosted logger hentet. CI-status og enhetslogg ble kontrollert; dokumentasjonsdiff bestod `git diff --check`. Ingen ny build/test ble startet i denne reviewrunden. Ingen auth-/tilgangs-,
+arkitektur- eller produksjonsendring. Skills: qa-release, backend-api og offline-sync.
+Fysisk kandidatkontroll er fortsatt eget neste steg og ikke utført her.
+
 ## Aktiv cutover-plan
 
 Supabase er målplattform. Staging finnes i `eu-north-1` med migrasjoner,
