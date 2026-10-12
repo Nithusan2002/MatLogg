@@ -31,6 +31,8 @@ jobs:
         run: npx supabase test db
       - name: Test Auth and account deletion end to end
         run: bash supabase/tests/run-account-deletion-e2e.sh
+      - name: Test sync HTTP auth, replay and partial batches
+        run: bash supabase/tests/run-sync-http-e2e.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.5.4
