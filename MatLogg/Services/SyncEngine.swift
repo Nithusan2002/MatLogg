@@ -136,7 +136,7 @@ final class SyncEngine {
                 var failedCount = 0
                 let unresolved = pending.filter { !acked.contains($0.eventId) }
                 for event in unresolved {
-                    if let rejected = rejectedMap[event.eventId], !["SERVER_ERROR", "SYNC_DISABLED"].contains(rejected.code) {
+                    if let rejected = rejectedMap[event.eventId], !["SERVER_ERROR", "SYNC_DISABLED", "RATE_LIMITED"].contains(rejected.code) {
                         failedCount += 1
                         await databaseService.markEventDeadLetter(event.eventId, error: rejected.message)
                         continue
@@ -146,7 +146,8 @@ final class SyncEngine {
                         failedCount += 1
                         await databaseService.markEventDeadLetter(event.eventId, error: "Ikke bekreftet av server")
                     } else {
-                        let backoff = Backoff.nextDelay(attempt: attempt)
+                        let backoff = rejectedMap[event.eventId]?.code == "RATE_LIMITED"
+                            ? 60 : Backoff.nextDelay(attempt: attempt)
                         await databaseService.markEventForRetry(
                             event.eventId,
                             error: "Ikke bekreftet av server",

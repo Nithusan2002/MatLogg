@@ -154,7 +154,7 @@ struct SyncRetryTests {
         #expect(store.retryRequests.first?.delay == 45)
     }
 
-    @Test(arguments: ["SERVER_ERROR", "SYNC_DISABLED"])
+    @Test(arguments: ["SERVER_ERROR", "SYNC_DISABLED", "RATE_LIMITED"])
     func partialServerFailureRetriesOnlyUnacknowledgedEvent(code: String) async {
         let first = makeSyncEvent()
         let second = makeSyncEvent()
@@ -171,6 +171,7 @@ struct SyncRetryTests {
         #expect(store.deadLetterIds.isEmpty)
         #expect(store.retryRequests.map(\.eventId) == [second.eventId])
         #expect(store.ackedIds == [first.eventId])
+        if code == "RATE_LIMITED" { #expect(store.retryRequests.first?.delay == 60) }
     }
 
     @Test func responseCannotAcknowledgeEventsOutsideUploadedBatch() async {

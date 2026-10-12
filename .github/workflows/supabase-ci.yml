@@ -33,6 +33,10 @@ jobs:
         run: bash supabase/tests/run-account-deletion-e2e.sh
       - name: Test sync HTTP auth, replay and partial batches
         run: bash supabase/tests/run-sync-http-e2e.sh
+      - name: Rehearse missing staging migrations and quota guard
+        run: |
+          npx supabase stop --no-backup
+          bash scripts/rehearse-staging-migrations.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.5.4
