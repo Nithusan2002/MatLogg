@@ -25,13 +25,21 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testDiarySelectionDeletesAndRestoresWholeBatch() throws {
         let app = try prepareDiarySelection()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
+        // Selection changes the visible list. Capture IDs while both saved rows are present.
+        let populated = NSPredicate(format: "count >= 2")
+        if !populated.evaluate(with: rows) { app.swipeUp() }
+        let ready = XCTNSPredicateExpectation(predicate: populated, object: rows)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+        let rowIDs = rows.allElementsBoundByIndex.map(\.identifier)
+        XCTAssertGreaterThanOrEqual(rowIDs.count, 2)
+        guard rowIDs.count >= 2 else { return }
+        let firstID = rowIDs[rowIDs.count - 1]
+        let secondID = rowIDs[rowIDs.count - 2]
+        let originalCount = rowIDs.count
         app.buttons["meal-room-select"].tap()
         XCTAssertTrue(app.otherElements["meal-room-selection-bar"].exists)
         XCTAssertFalse(app.buttons["tab-log-food"].exists)
-        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
-        let firstID = rows.element(boundBy: rows.count - 1).identifier
-        let secondID = rows.element(boundBy: rows.count - 2).identifier
-        let originalCount = rows.count
         revealDiaryElement(app.buttons[firstID], in: app)
         app.buttons[firstID].tap()
         revealDiaryElement(app.buttons[secondID], in: app)
