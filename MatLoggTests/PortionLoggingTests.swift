@@ -145,8 +145,8 @@ struct PortionLoggingTests {
             let editor = EditLogViewModel(log: log)
             #expect(editor.amount.unitTitle == "Gram tilberedt mat")
             editor.amount.text = "300"
-            #expect(await editor.save { total, meal, _ in
-                await vm.updateLog(log, amountG: total, mealType: meal, userId: owner)
+            #expect(await editor.save { request in
+                await vm.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: owner)
             })
             let edited = try #require(store.getAllLogs(userId: owner).first)
             #expect(edited.nutritionPreparation == .prepared)
