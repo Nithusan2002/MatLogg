@@ -134,9 +134,10 @@ struct TransportHarness {
     let stub: TransportStub
 
     init(status: Int = 201, body: String = "{\"ackedEventIds\":[],\"rejected\":[]}",
-         headers: [String: String] = [:], error: URLError? = nil) {
+         headers: [String: String] = [:], error: URLError? = nil, recoveryBody: String? = nil) {
         let host = "\(UUID().uuidString.lowercased()).example.test"
-        stub = TransportStub(status: status, body: Data(body.utf8), headers: headers, error: error)
+        stub = TransportStub(status: status, body: Data(body.utf8), headers: headers, error: error,
+                             recoveryBody: recoveryBody.map { Data($0.utf8) })
         SyncURLProtocol.registry.install(stub, host: host)
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [SyncURLProtocol.self]
@@ -156,16 +157,26 @@ nonisolated private struct EmptyTestAuthStorage: AuthLocalStorage {
 nonisolated final class TransportStub: @unchecked Sendable {
     private let lock = NSLock()
     private var recorded: [URLRequest] = []
+    private var recordedTimes: [Date] = []
+    var requestTimes: [Date] { lock.withLock { recordedTimes } }
     var requests: [URLRequest] { lock.withLock { recorded } }
     let status: Int
     let body: Data
     let headers: [String: String]
     let error: URLError?
-
-    init(status: Int, body: Data, headers: [String: String], error: URLError?) {
-        self.status = status; self.body = body; self.headers = headers; self.error = error
+    let recoveryBody: Data?
+    var response: (status: Int, body: Data, headers: [String: String], error: URLError?) {
+        lock.withLock {
+            if recorded.count > 1, let recoveryBody { return (201, recoveryBody, [:], nil) }
+            return (status, body, headers, error)
+        }
     }
-    func record(_ request: URLRequest) { lock.withLock { recorded.append(request) } }
+
+    init(status: Int, body: Data, headers: [String: String], error: URLError?, recoveryBody: Data? = nil) {
+        self.status = status; self.body = body; self.headers = headers; self.error = error
+        self.recoveryBody = recoveryBody
+    }
+    func record(_ request: URLRequest) { lock.withLock { recorded.append(request); recordedTimes.append(Date()) } }
 }
 
 nonisolated private final class TransportRegistry: @unchecked Sendable {
@@ -195,12 +206,13 @@ nonisolated private final class SyncURLProtocol: URLProtocol, @unchecked Sendabl
             captured.httpBody = data
         }
         stub.record(captured)
-        if let error = stub.error { client?.urlProtocol(self, didFailWithError: error); return }
-        guard let response = HTTPURLResponse(url: url, statusCode: stub.status, httpVersion: nil, headerFields: stub.headers) else {
+        let reply = stub.response
+        if let error = reply.error { client?.urlProtocol(self, didFailWithError: error); return }
+        guard let response = HTTPURLResponse(url: url, statusCode: reply.status, httpVersion: nil, headerFields: reply.headers) else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse)); return
         }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: stub.body)
+        client?.urlProtocol(self, didLoad: reply.body)
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}

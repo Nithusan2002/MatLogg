@@ -166,11 +166,32 @@ den er ikke kjørt i GitHub CI. CI har separate iOS-/serverjobber og mangler den
 samlede testens lokale Docker-backend. Ingen produksjonskode, kontrakt eller
 arkitekturgrenser er endret i denne runden; kun testkode, testhelper og dokumentasjon.
 
+Midlertidige RPC-feil og automatisk retry (2026-10-12):
+
+HTTP-handleren ligger nå i `_shared/sync-handler.ts` med en injiserbar RPC-grense;
+`sync-events/index.ts` kobler fortsatt til de samme ekte auth-/Supabase-klientene.
+Deno-testene fremprovoserer returnerte RPC-feil fra `is_sync_enabled`,
+`consume_sync_quota_v1` og `apply_sync_event_v1`. De kontrollerer 500 før
+apply ved config/quota-feil, delvis 201/`SERVER_ERROR` ved apply-feil og vellykket
+ny levering med samme event-ID når feilen fjernes. Dette er feilinjeksjon ved
+RPC-grensen, ikke faktiske driftsavbrudd i PostgreSQL.
+
+`AutomaticSyncRetryTests` kobler ekte Supabase Swift-SDK, HTTP-stub, SyncEngine
+og SQLite. Tre feilforløp bruker vanlig timer og Backoff (10–15 sekunder),
+uten manuell retry, endring av køen eller akselerert klokke. De kontrollerer
+utsatt retry, samme event-ID/payload, bevart lokal logg, ACK etter gjenopprettet
+HTTP-svar og vedvarende ferdig kø etter gjenåpning.
+
+Verifisert lokalt: 3 nye Deno-handler-tester, 13 synkkontrakttester, Deno check/lint,
+10 iOS-tester i transport-/retry-suitene (inkludert tre retry-cases, totalt 44,67 s)
+3 SQLite-/transport-integrasjonstester og HTTP-regresjon mot ekte disponibel Supabase. Resultatbundle:
+`build/coverage/automatic-retry.xcresult`. Ingen API-kontrakt, autorisering,
+produksjonsflagg eller databasemigrasjon er endret. Avhengigheter injiseres ved
+IO-grensen; local-first-transaksjoner og eierkontroll beholdes uten arkitekturavvik.
+
 Gjenværende oppfølging:
 
-1. Kontrollerte infrastruktursvikt i HTTP-handlerens config-/quota-/apply-RPC,
-   samt automatisk retry-timing. Serverens feil-/eierskapssvar testes allerede.
-2. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
+1. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
    Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
 
 Risikospesifikasjonens mål om over 60 % kjernelogikk kan først brukes som gate
