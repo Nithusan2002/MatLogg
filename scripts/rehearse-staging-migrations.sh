@@ -18,6 +18,7 @@ config=(source/'config.toml').read_text().replace('project_id = "matlogg"','proj
 assert 'project_id = "matlogg-staging-rehearsal-qa"' in config
 (target/'config.toml').write_text(config)
 shutil.copy2(source/'seed.sql',target/'seed.sql')
+shutil.copytree(source/'functions',target/'functions')
 (target/'migrations').mkdir()
 for p in (source/'migrations').glob('*.sql'):
     version=p.name.split('_',1)[0]
