@@ -100,5 +100,10 @@ RLS bruker `matlogg_internal.is_account_active_v1()`, og den offentlige
 synk-RPC-en er en SECURITY INVOKER-wrapper rundt den interne SECURITY
 DEFINER-implementasjonen. JWT-identitet, eierskap, nødstopp og atomisk
 inbox-/domeneskriving beholdes. Direkte synk-RPC er fortsatt tilgjengelig
-for innloggede brukere og omgår fortsatt Edge-kvoten; dette må sikres
-separat før synk aktiveres.
+for innloggede brukere. Migrasjon `20261012120000_sync_event_quota.sql`
+håndhever en felles kvote på 1500 apply-forsøk/minutt per JWT-eier for Edge og
+direkte RPC; den opprinnelige implementasjonen kan ikke kalles direkte av klientroller.
+Edge beholder dessuten 30 batcher/minutt. Replay teller som forsøk. Kvotemigrasjonen
+må være deployet og en klient med midlertidig RATE_LIMITED-håndtering distribuert
+før synk aktiveres. Staging-oppgraderingen prøves lokalt i disponibel CI-database
+med `scripts/rehearse-staging-migrations.sh`. Hosted migrering krever godkjenning.

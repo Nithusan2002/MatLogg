@@ -646,3 +646,21 @@ På en ledig dedikert QA-simulator kjøres også
 Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
 Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
 må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.
+
+
+## Databasekvote og staging-prøve – 2026-10-12
+
+Kodecommit `1edbbeb` måler 14 201 / 43 169 linjer (32,90 %) i hele app-targetet,
+og 9 906 / 11 866 (83,48 %) i Services + ViewModels. iOS-enhetstargetet bestod
+med 395 registrerte tester i 50 suiter; de to LiveSupabaseSyncTests er eksplisitt
+skippet i vanlig CI og har separat lokal verifisering ovenfor. RATE_LIMITED i
+et delvis svar prøves igjen etter 60 sekunder med samme event-ID.
+
+`bash scripts/rehearse-staging-migrations.sh` lager en disponibel lokal database
+fra de åtte observerte staging-migrasjonene, oppgraderer med manglende migrasjoner,
+kontrollerer bevaring av syntetiske næringsverdier og batchteller og kjører pgTAP
+og schema-lint. Serverjobben bestod 115 pgTAP-kontroller på ferskt skjema og
+115 etter oppgraderingen, Auth-/HTTP-regresjoner og 22 Deno-tester.
+Resultater: [CI på den testede kodecommitten](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469).
+Hosted staging er ikke endret; utrulling og kontrollplan finnes i
+[production-readiness.md](production-readiness.md#klargjort-staging-oppgradering--2026-10-12).

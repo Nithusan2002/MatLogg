@@ -1172,3 +1172,54 @@ skal ikke sendes. Leverandørens fulle loggretensjon forblir uavklart; dette
 er ikke bevis på manglende sletting eller et selvstendig dokumentert
 releaseavvik. E-post er ikke et påkrevd neste steg. Øvrige pilotporter
 må vurderes separat før go/no-go.
+
+## Klargjort staging-oppgradering – 2026-10-12
+
+Kvoteendringen ligger i `20261012120000_sync_event_quota.sql` og tilhørende
+klientrettelse i SyncEngine. Direkte RPC og Edge deler 1500 apply-forsøk per
+JWT-eier/minutt; Edge har fortsatt 30 batcher/minutt. Helperen uten kvotevern
+kan ikke kalles av klientroller. RATE_LIMITED-events beholdes for retry etter
+60 sekunder. Ingen payload-/schema-versjon eller lokal transaksjonsgrense endres.
+
+Regresjonene fanget omgåelsen og klientens feilaktige deadLetter-behandling før
+retting. Første CI bestod 115 pgTAP-kontroller, schema-lint og HTTP-regresjon;
+staging-prøven feilet på en manglende fil i testoppsettet, som er rettet.
+Endelig CI på kodecommit `1edbbeb` bestod: 115 pgTAP-kontroller på ferskt
+skjema og 115 etter oppgradering fra de åtte faktiske staging-migrasjonsversjonene,
+schema-lint, Auth-/HTTP-regresjoner og 22 Deno-tester. Syntetiske eksisterende
+produktverdier og batchkreditt ble bekreftet bevart. iOS-enhetstargetet bestod
+med 395 registrerte tester i 50 suiter (to live-tester eksplisitt skippet).
+Alle fire UI-tester bestod. Den tidligere UI-feilen kom fra indeksering av en
+liste etter overgang til valgmodus; testen venter nå på to lagrede rader og
+fanger stabile ID-er før overgangen. Slette-/angreasserts er beholdt.
+[CI-resultat](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469)
+og [Secret scan](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707445).
+Linjedekning: 32,90 % av hele app-targetet, 83,48 % av Services + ViewModels.
+Lokale retester ble avbrutt av Docker-/disk-/simulatorproblemer; CI-verifiseringen
+bruker isolert testgren, ikke de parallelle endringene i primær arbeidskopi.
+
+Konkret plan for **MatLogg Staging (`hvwktobxgarxptefzwbq`)** etter godkjenning:
+
+1. Bekreft avslått serverflagg og uendret migrasjonshistorikk. Read-only kontroll
+   har bekreftet `sync_enabled=false` og at ernæringsmigrasjonens tekstanker
+   matcher den faktisk deployede funksjonen.
+2. Bruk `20261003090000_manual_nutrition_basis.sql`, deretter
+   `20261008190000_internal_security_definer_functions.sql`, deretter
+   `20261012120000_sync_event_quota.sql`, i denne rekkefølgen. De tilføyer
+   metadata/teller og begrenser helpertilgang; de sletter ikke domenedata.
+3. Deploy testgrenens `sync-events` med JWT-verifisering beholdt. Bruk bare den
+   verifiserte committen; øvrige parallelle arbeidsendringer i app/næring er
+   ikke del av denne godkjenningen.
+4. Kontroller migrasjonshistorikk, grants, kvote, nødstopp og eierisolasjon.
+   Syntetiske SQL-kontroller kjøres i en transaksjon med rollback; et eventuelt
+   synkflagg satt inne i denne transaksjonen er ikke synlig for andre klienter.
+   Ingen global aktivering av staging-/produksjonssynk inngår i planen.
+5. Ved feil beholdes serverflagget av og data/migrasjoner bevares. Ikke reverser
+   skjema eller åpne tilganger automatisk. Rett og retest før ny vurdering.
+
+Dette klargjør backend, ikke en godkjenning av skyopplasting. Oppdatert klient,
+produkt-/personvernport, drift/backup/varsling og fysisk kandidatkontroll står
+fortsatt åpne. Gjeldende releasepolicy forblir localOnly. Ingen hosted endring
+utført i denne runden. Arkitekturkontroll: JWT-eierskap, atomisk inbox/domene og
+injiserbare IO-grenser beholdes. Ingen arkitekturavvik.
+Skills: backend-api, offline-sync, ios-swiftui, nutrition-privacy og qa-release.
