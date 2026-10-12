@@ -647,7 +647,6 @@ Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
 Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
 må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.
 
-<<<<<<< HEAD
 
 ## Databasekvote og staging-prøve – 2026-10-12
 
@@ -668,7 +667,7 @@ staging. Syntetiske kvote-/replay-/eierskaps-/nødstoppkontroller bestod med
 rollback; etterkontrollen bekreftet null testrester og avslått synkflagg.
 Utrulling og verifiseringsgrenser finnes i
 [production-readiness.md](production-readiness.md#klargjort-staging-oppgradering--2026-10-12).
-=======
+
 ### Manuell strekkodeinntasting
 
 Målrettede suiter: `ProductBarcodeParserTests` og `ProductSearchTests`.
@@ -692,4 +691,3 @@ med strekkode `1000000000009`, uten behov for ekstern produktforespørsel.
 Kontraktstest: `supabase/functions/tests/nutrition_preparation_test.ts`.
 Databasetest: `supabase/tests/database/nutrition_preparation.test.sql`;
 kjøres bare mot bekreftet lokal/disponibel Supabase.
->>>>>>> origin/main
