@@ -662,5 +662,8 @@ kontrollerer bevaring av syntetiske næringsverdier og batchteller og kjører pg
 og schema-lint. Serverjobben bestod 115 pgTAP-kontroller på ferskt skjema og
 115 etter oppgraderingen, Auth-/HTTP-regresjoner og 22 Deno-tester.
 Resultater: [CI på den testede kodecommitten](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469).
-Hosted staging er ikke endret; utrulling og kontrollplan finnes i
+Etter brukergodkjenning ble de samme migrasjonene og Edge-koden deployet på
+staging. Syntetiske kvote-/replay-/eierskaps-/nødstoppkontroller bestod med
+rollback; etterkontrollen bekreftet null testrester og avslått synkflagg.
+Utrulling og verifiseringsgrenser finnes i
 [production-readiness.md](production-readiness.md#klargjort-staging-oppgradering--2026-10-12).

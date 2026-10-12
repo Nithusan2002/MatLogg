@@ -1219,7 +1219,47 @@ Konkret plan for **MatLogg Staging (`hvwktobxgarxptefzwbq`)** etter godkjenning:
 
 Dette klargjør backend, ikke en godkjenning av skyopplasting. Oppdatert klient,
 produkt-/personvernport, drift/backup/varsling og fysisk kandidatkontroll står
-fortsatt åpne. Gjeldende releasepolicy forblir localOnly. Ingen hosted endring
-utført i denne runden. Arkitekturkontroll: JWT-eierskap, atomisk inbox/domene og
+fortsatt åpne. Gjeldende releasepolicy forblir localOnly. Hosted staging var
+uendret ved klargjøringen; den godkjente gjennomføringen er ført nedenfor. Arkitekturkontroll: JWT-eierskap, atomisk inbox/domene og
 injiserbare IO-grenser beholdes. Ingen arkitekturavvik.
 Skills: backend-api, offline-sync, ios-swiftui, nutrition-privacy og qa-release.
+
+
+### Gjennomført på staging etter brukergodkjenning
+
+12. oktober 2026 ble de tre planlagte migrasjonene lagt inn på MatLogg Staging
+(`hvwktobxgarxptefzwbq`) og `sync-events` deployet som versjon 4 fra den
+CI-verifiserte kodecommitten `1edbbeb`. Alle fem deployede kilde-/konfigurasjonsfiler
+ble hentet tilbake og bekreftet identiske med testgrenen. JWT-verifisering er på.
+Andre parallelle app-/ernæringsendringer ble ikke deployet.
+
+Supabase-verktøyet registrerte først migrasjonene med deploytidens versjoner
+`20261012172846`, `20261012172851` og `20261012172858`. Etter kontroll av de tre
+navnene ble bare disse historikkradene samordnet med repoets kanoniske versjoner
+`20261003090000`, `20261008190000` og `20261012120000`. SQL ble ikke kjørt om igjen.
+Sluttkontroll bekreftet 11 migrasjoner med de forventede navnene/versjonene.
+
+Kontroller på faktisk staging bestod:
+
+- Tre produktmetadatakolonner og eventteller finnes; offentlig RPC er SECURITY
+  INVOKER. Authenticated og service_role har ikke EXECUTE på helperen uten kvote,
+  og anon har ikke EXECUTE på offentlig RPC.
+- 1500 apply-forsøk, inkludert replay, ble bekreftet; forsøk 1501 ble RATE_LIMITED.
+  Replay/kvoteavvisning ga ikke ekstra inbox-/domeneskriving. Telleren ble capped
+  på 1501; direkte RPC brukte ikke batchkreditt.
+- JWT-eiere hadde separate kvoter; eier B fikk FORBIDDEN ved forsøk på å endre
+  eier As rad. Samme kvoteavviste event ble ACK i simulert nytt tidsvindu.
+- Nødstopp ga SYNC_DISABLED uten å bruke eventkreditt.
+- Syntetiske kontroller kjørte i én transaksjon med rollback. Etterkontroll viste
+  null testbrukere, testhendelser, vannrader og ratevinduer fra denne kontrollen.
+- HTTP POST uten JWT og med ugyldig JWT ga 401. Python HTTP-kontrollen feilet på
+  lokalt manglende CA-sertifikat; kontrollen bestod med systemets curl og vanlig
+  TLS-verifisering. Autentisert hosted HTTP-synk er ikke testet i denne runden;
+  synkflagget holdes av, og tilsvarende flyt har separat lokal CI-verifisering.
+
+Sluttstatus: **staging-oppgraderingen er gjennomført; globalt sync_enabled=false**.
+Produksjon og klientens localOnly-policy er uendret. Synkaktivering krever fortsatt
+klientdistribusjon og de øvrige produkt-, personvern- og driftsportene.
+Ingen arkitekturavvik: JWT-eierskap og atomisk inbox/domene beholdes; lokal
+lagring og avhengighetsretning ble ikke endret av utrullingen.
+Skills i gjennomføringen: backend-api, offline-sync og qa-release.

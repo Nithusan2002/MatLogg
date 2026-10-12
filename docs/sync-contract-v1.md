@@ -126,7 +126,7 @@ atomisk med produkt og inbox. Migrasjonen 20261003090000 og Edge-valideringen
 må rulles ut før klienten; schemaVersion forblir 1. Produksjonssynk forblir av
 inntil database- og integrasjonstester er verifisert.
 
-## Databasekvote (2026-10-12, klargjort lokalt)
+## Databasekvote (2026-10-12, verifisert på staging)
 
 Migrasjon `20261012120000_sync_event_quota.sql` gir 1500 apply-forsøk per JWT-eier
 per kalender-minutt, felles for direkte RPC og Edge. Eksisterende Edge-kvote
