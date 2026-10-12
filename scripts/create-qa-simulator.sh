@@ -25,7 +25,7 @@ if not compatible:
 print(max(compatible, key=lambda runtime: version(runtime["version"]))["identifier"])
 PY
 )
-qa_simulator_id=$(xcrun simctl create "MatLogg Coverage QA" +    com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$qa_runtime_id")
+qa_simulator_id=$(xcrun simctl create "MatLogg Coverage QA" com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro "$qa_runtime_id")
 xcrun simctl boot "$qa_simulator_id" >&2
 xcrun simctl bootstatus "$qa_simulator_id" -b >&2
 printf '%s\n' "$qa_simulator_id"
