@@ -144,8 +144,8 @@ struct PortionLoggingTests {
             #expect((payload["portionSelection"] as? [String: Any])?["count"] as? Double == 2)
             let editor = EditLogViewModel(log: log)
             editor.amount.step(1)
-            #expect(await editor.save { total, meal, portion in
-                await vm.updateLog(log, amountG: total, mealType: meal, userId: owner, portionSelection: portion)
+            #expect(await editor.save { request in
+                await vm.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: owner, portionSelection: request.portionSelection)
             })
             let edited = try #require(store.getAllLogs(userId: owner).first)
             #expect(edited.portionSelection?.count == 3)
@@ -243,7 +243,7 @@ struct PortionLoggingTests {
         let editor = EditLogViewModel(log: log)
         #expect(!editor.canSave)
         var calls = 0
-        #expect(!(await editor.save { _, _, _ in calls += 1; return true }))
+        #expect(!(await editor.save { _ in calls += 1; return true }))
         #expect(calls == 0)
         editor.amount.text = "160"
         #expect(editor.canSave)
@@ -267,10 +267,10 @@ struct PortionLoggingTests {
         #expect(decoded.portionSelection == nil)
         let editor = EditLogViewModel(log: decoded)
         editor.amount.text = "90"
-        #expect(!(await editor.save { _, _, _ in false }))
+        #expect(!(await editor.save { _ in false }))
         #expect(editor.amount.amount == 90)
         #expect(editor.error != nil)
-        #expect(await editor.save { _, _, _ in true })
+        #expect(await editor.save { _ in true })
     }
 
     @Test func eventFailureRollsBackPortionAndLogAndRetryIsSafe() async throws {

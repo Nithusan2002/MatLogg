@@ -532,9 +532,9 @@ private struct HomeTabContent: View {
                 brand: overviewModel.products[log.productId]?.brand,
                 imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
                 imageData: overviewModel.products[log.productId]?.localImageData,
-                onSave: { amount, meal, portion in
+                onSave: { request in
                         guard let userId = authViewModel.currentUser?.id else { return false }
-                        let success = await logViewModel.updateLog(log, amountG: amount, mealType: meal, userId: userId, portionSelection: portion, clearPortion: portion == nil)
+                        let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
                         if success {
                             await appState.refreshSyncStatus()
                         } else {
