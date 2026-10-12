@@ -105,7 +105,7 @@ try:
     code, result = request(endpoint, payload=envelope([first, invalid]), token=tokens[0])
     assert code == 201 and result['ackedEventIds'] == [first['eventId']]
     assert result['rejected'][0]['eventId'] == invalid['eventId']
-    assert result['rejected'][0]['code'] == 'VALIDATION_ERROR'
+    assert result['rejected'][0]['code'] == 'UNSUPPORTED_SCHEMA'
     assert rows('event_inbox', 'event_id=eq.' + invalid['eventId'] + '&select=event_id') == []
     saved = rows('food_logs', 'id=eq.' + first['entityId'] + '&select=id,kcal,amount,unit,owner_id')
     assert len(saved) == 1 and saved[0]['owner_id'] == owners[0]
