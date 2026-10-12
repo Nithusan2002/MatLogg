@@ -2,9 +2,9 @@ name: Supabase CI
 
 on:
   push:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", "scripts/rehearse-staging-migrations.sh", ".github/workflows/supabase-ci.yml"]
   pull_request:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", "scripts/rehearse-staging-migrations.sh", ".github/workflows/supabase-ci.yml"]
   workflow_dispatch:
 
 permissions:
