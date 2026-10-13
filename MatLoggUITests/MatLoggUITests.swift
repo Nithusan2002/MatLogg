@@ -84,10 +84,19 @@ final class MatLoggUITests: XCTestCase {
         let find = app.buttons["findManualBarcode"]
         let form = app.collectionViews["manual-barcode-form"]
         XCTAssertTrue(form.waitForExistence(timeout: 5))
+        func scrollForm(up: Bool) {
+            let keyboardTop = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            let top = max(form.frame.minY, app.navigationBars["Skriv inn strekkode"].frame.maxY) + 16
+            let bottom = min(form.frame.maxY, keyboardTop) - 16
+            let origin = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            let start = origin.withOffset(CGVector(dx: 0, dy: (up ? bottom : top) - form.frame.minY))
+            let end = origin.withOffset(CGVector(dx: 0, dy: (up ? top : bottom) - form.frame.minY))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
         for _ in 0..<8 {
             let bottom = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
             if find.isHittable && find.frame.minY >= form.frame.minY && find.frame.maxY < bottom { break }
-            form.swipeUp()
+            scrollForm(up: true)
         }
         XCTAssertTrue(find.isHittable)
         if app.keyboards.firstMatch.exists { XCTAssertLessThan(find.frame.maxY, app.keyboards.firstMatch.frame.minY) }
@@ -95,7 +104,7 @@ final class MatLoggUITests: XCTestCase {
         let validation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch
         for _ in 0..<8 {
             if validation.exists { break }
-            form.swipeDown()
+            scrollForm(up: false)
         }
         XCTAssertTrue(validation.waitForExistence(timeout: 5))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
