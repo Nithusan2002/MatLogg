@@ -47,6 +47,12 @@ struct ManualBarcodeEntryView: View {
             .navigationTitle("Skriv inn strekkode")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Ferdig") { inputFocused = false }
+                        .foregroundColor(AppColors.actionText)
+                        .accessibilityIdentifier("manual-barcode-keyboard-done")
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Avbryt") {
                         productViewModel.resetScan()

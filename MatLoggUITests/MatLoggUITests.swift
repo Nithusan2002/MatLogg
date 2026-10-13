@@ -33,7 +33,7 @@ final class MatLoggUITests: XCTestCase {
         amount.tap()
         amount.typeText("200")
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
-        XCTAssertEqual(amount.value as? String, "200")
+        XCTAssertEqual(amount.value as? String, "200 g")
         let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         XCTAssertTrue(save.isEnabled)
@@ -81,6 +81,12 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("7035620067708")
+        let done = app.buttons["manual-barcode-keyboard-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        let keyboardClosed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardClosed], timeout: 5), .completed)
+        XCTAssertEqual(field.value as? String, "7035620067708")
         let find = app.buttons["findManualBarcode"]
         let form = app.collectionViews["manual-barcode-form"]
         XCTAssertTrue(form.waitForExistence(timeout: 5))
