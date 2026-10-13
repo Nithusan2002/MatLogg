@@ -43,6 +43,7 @@ struct ManualBarcodeEntryView: View {
                     }
                 }
             }
+            .accessibilityIdentifier("manual-barcode-form")
             .navigationTitle("Skriv inn strekkode")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

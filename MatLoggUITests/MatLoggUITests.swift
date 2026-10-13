@@ -33,8 +33,10 @@ final class MatLoggUITests: XCTestCase {
         amount.tap()
         amount.typeText("200")
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
-        let save = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
+        XCTAssertEqual(amount.value as? String, "200")
+        let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isEnabled)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Tilberedt produkt – 200 g og tydelig næringsgrunnlag"
         screenshot.lifetime = .keepAlways
@@ -80,9 +82,22 @@ final class MatLoggUITests: XCTestCase {
         field.tap()
         field.typeText("7035620067708")
         let find = app.buttons["findManualBarcode"]
-        if !find.isHittable { app.swipeUp() }
+        let form = app.collectionViews["manual-barcode-form"]
+        XCTAssertTrue(form.waitForExistence(timeout: 5))
+        for _ in 0..<8 {
+            let bottom = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            if find.isHittable && find.frame.minY >= form.frame.minY && find.frame.maxY < bottom { break }
+            form.swipeUp()
+        }
+        XCTAssertTrue(find.isHittable)
+        if app.keyboards.firstMatch.exists { XCTAssertLessThan(find.frame.maxY, app.keyboards.firstMatch.frame.minY) }
         find.tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch.waitForExistence(timeout: 5))
+        let validation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch
+        for _ in 0..<8 {
+            if validation.exists { break }
+            form.swipeDown()
+        }
+        XCTAssertTrue(validation.waitForExistence(timeout: 5))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Strekkodeinntasting – stor tekst og validering"
         screenshot.lifetime = .keepAlways
