@@ -39,6 +39,7 @@ rad eies av innlogget bruker.
 
 Ved delvis batch-svar bekreftes bare event-ID-er fra den sendte batchen.
 Avvisning med `SERVER_ERROR` eller `SYNC_DISABLED` er midlertidig og følger vanlig retry/backoff;
+`RATE_LIMITED` i et event-svar er midlertidig og prøves igjen etter 60 sekunder med samme event-ID;
 øvrige eksplisitte avvisninger går til `deadLetter`. Manglende ACK prøves igjen
 med samme event-ID. Etter fem automatiske forsøk beholdes hendelsen for
 manuelt nytt forsøk. Dupliserte avvisninger skal ikke krasje klienten.
@@ -124,6 +125,17 @@ fravær av grunnlag betyr per100g for eldre klienter. Serveren lagrer metadata
 atomisk med produkt og inbox. Migrasjonen 20261003090000 og Edge-valideringen
 må rulles ut før klienten; schemaVersion forblir 1. Produksjonssynk forblir av
 inntil database- og integrasjonstester er verifisert.
+
+## Databasekvote (2026-10-12, verifisert på staging)
+
+Migrasjon `20261012120000_sync_event_quota.sql` gir 1500 apply-forsøk per JWT-eier
+per kalender-minutt, felles for direkte RPC og Edge. Eksisterende Edge-kvote
+på 30 batcher/minutt beholdes. Replay og kjente avvisninger bruker eventkreditt.
+Ved overskridelse returnerer RPC `status=rejected, code=RATE_LIMITED` uten
+inbox-/domeneskriving; Edge viderefører avvisningen i vanlig delvis 201-svar.
+Dette er en additiv feilkode i v1, ikke en payloadendring. Oppdatert klient skal
+være distribuert før synkflagget åpnes, ellers behandler eldre klienter denne
+event-avvisningen som manuelt feilspor. Produksjonssynk er fortsatt av.
 
 ## Tilberedningsstatus (2026-10-12)
 

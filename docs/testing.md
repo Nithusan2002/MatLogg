@@ -4,6 +4,200 @@ MatLogg bruker risikobasert testing. Datatap, feil ernæringsberegning,
 auth/eierskap, synk/idempotens, sletting og personvernvalg prioriteres foran ren
 visuell dekning.
 
+## Måling av testdekning
+
+Kjør fra repo-roten med Deno 2.5.4 og en dedikert QA-simulator:
+
+```bash
+npm run functions:coverage
+bash scripts/measure-test-coverage.sh ios 'platform=iOS Simulator,name=<QA-simulator>'
+```
+
+Hver kjøring får en ny mappe under ignorert `build/coverage/`, med commit,
+arbeidstrestatus, verktøyversjon og testlogg. iOS kjører hele `MatLoggTests`
+med kode-dekning og skriver `tests.xcresult`, `report.json` og `report.txt`.
+Rapporter app-targetet `MatLogg.app` separat fra avhengigheter og testkode.
+Deno skriver linje-/grendekning, LCOV og HTML under `profiles/`. Dekningen
+omfatter bare lastede moduler; dagens tester laster `_shared/sync-contract.ts`
+og `_shared/account-deletion.ts`, ikke HTTP-handlerne eller `_shared/client.ts`.
+
+Supabase CI lagrer rapportene som artifacts, kjører hele iOS-enhetstesttargetet
+og fire UI-tester for første logging, redigering med omstart, samlet
+sletting/Angre og vannlogging med omstart. Testfeil stopper jobben; det er
+foreløpig ingen prosentbasert gate. pgTAP og HTTP-/integrasjonstester
+rapporteres som beståtte scenarioer, ikke som en felles kode-dekningsprosent.
+
+Måling 2026-10-12 med Deno 2.5.4:
+
+| Område | Linjer | Grener | Resultat |
+| --- | --- | --- | --- |
+| Delte Edge-moduler før nye tester | 89,8 % | 76,3 % | 15 tester bestod |
+| Delte Edge-moduler etter nye tester | 97,1 % | 93,3 % | 19 tester bestod |
+| iOS app-target, enhetstester | 32,57 % | Ikke grenmålt | 380 tester bestod |
+| iOS Services + ViewModels | 82,33 % | Ikke grenmålt | Delmengde av app-targetet |
+| PostgreSQL/RLS | Ikke linjemålt | Ikke grenmålt | 101 kontroller i 8 filer bestod |
+| Legacy `backend/src`, vanlig `npm test` | 28,27 % | 70,51 % | 6 testskript bestod |
+
+Databasemålingen brukte en ny lokal instans med prosjekt-ID
+`matlogg-coverage-qa`, nye migrasjoner og syntetiske testdata på port 56322.
+Eksisterende lokale instanser ble ikke endret. Legacy ble målt med Node 24,
+V8-profiler og c8 10.1.3 (`--all --src backend/src --include 'backend/src/**/*.ts'`).
+Legacy-tallet inkluderer umålte filer som 0 % og utelater egne Apple- og
+database-/HTTP-integrasjonstester; det er ikke dekningen av hele backend-testpakken.
+Kontoslettingens eksisterende ende-til-ende-test bestod mot samme lokale instans:
+Auth-sletting, nektet innlogging, produktsletting, eierskapsisolasjon og gjentatt purge.
+
+Første lokale iOS-kjøring fant to feil i migrasjonstestgrunnlagene: de beholdt
+`food_logging_drafts` da de ble merket som eldre skjema. Testgrunnlagene ble
+rettet uten endring i produksjonsmigrasjonene. Lokal Xcode 27.0 / iOS 26.5
+hang under testavslutning; verifiseringen ble derfor flyttet til et rent CI-miljø.
+
+[CI-kjøring 38217326998](https://github.com/Nithusan2002/MatLogg/actions/runs/38217326998)
+på testcommit `1908c67` med Xcode 26.2 er grønn: alle 380 enhetstester i 46
+suiter, fire UI-tester, 101 databasekontroller, kontosletting ende-til-ende og
+19 Deno-tester bestod.
+Dekningsartifactene ble lastet opp og iOS-rapporten lest tilbake.
+App-targetet har 14 060 av 43 164 kjørbare linjer dekket. Gruppen Services +
+ViewModels er definert som filer under disse to mappene: 9 765 av 11 861
+linjer. Dette er en avgrenset gruppe, ikke en prosent for alle typer
+kjernelogikk. Enhetstestene gir lav dekning av SwiftUI-visninger, som inngår i
+app-targetets total. UI-testresultatene holdes separat fra denne baseline.
+
+UI-kjøringene avdekket to faktiske feil: en gammel loggbekreftelse i app-skallet
+kunne dekke slettingskvitteringens Angre, og appen krasjet ved redigeringslagring
+med `EXC_BAD_ACCESS` i callbacken som overførte valgfri `PortionSelection`.
+Tidligere loggbekreftelser lukkes nå når valgmodus starter. Redigeringen bruker
+én uforanderlig `LogEditRequest` og en eksplisitt `@MainActor`-callback på begge
+inngangene. Mengde, måltid og historisk porsjon overføres videre til samme
+ViewModel/repository; lagring, synkformat og næringsberegning endres ikke.
+UI-testen trykker Angre straks, kontrollerer opprinnelig antall og nye ID-er
+etter gjenoppretting, og ruller fram rader før de undersøkes. Kontrollen av
+samme logg-ID, dato og valgt måltid etter redigering og omstart beholdes.
+
+Workflowen laster nå opp enhetsrapporten før UI-testene og bruker
+`test-without-building` for UI, med eksplisitte tidsgrenser. Begge jobbene,
+simulatoropprettelsen og artifact-opplastingen er verifisert i sluttkjøringen.
+CI oppretter en egen iPhone 16 Pro via `scripts/create-qa-simulator.sh` fra
+nyeste tilgjengelige iOS-runtime som støttes av valgt SDK, og bruker dens ID.
+Dette erstatter antakelsen om hvilke simulatornavn runneren har ferdig opprettet.
+CI-verifiseringen gjelder testgrenen, og omfatter ikke øvrige lokale
+arbeidsendringer som ikke er med i dens commit.
+Måleskriptene er syntakskontrollert med `bash -n`, og egen diff med
+`git diff --check`. Simulatorhjelperens kommandoargumenter ble også kontrollert
+med erstatninger ved CLI-grensen: kontrollen fanget en feil før retting og
+returnerte bare simulator-ID etter retting. Ingen arkitekturavvik er innført:
+presentasjonstilstand håndteres i UI, redigeringsstate og input i ViewModel,
+og eksisterende repository-/transaksjonsgrenser er bevart.
+
+Supabase-transport og varig retry (2026-10-12):
+
+Verifisert på commit `b8d9273` i [grønn CI-kjøring](https://github.com/Nithusan2002/MatLogg/actions/runs/38223522816):
+392 iOS-enhetstester i 48 suites, alle fire UI-tester og serverjobben bestod.
+Ny linjedekning med samme målemetode:
+
+| Filomfang | Linjer | Dekning |
+| --- | --- | --- |
+| Hele iOS-app-targetet | 14 193 / 43 168 | 32,88 % |
+| `Services/` + `ViewModels/` | 9 898 / 11 865 | 83,42 % |
+| `SupabaseService.swift` | 84 / 190 | 44,21 % |
+| `SyncEngine.swift` | 153 / 183 | 83,61 % |
+| `LocalStore.swift` | 2 718 / 3 085 | 88,10 % |
+
+Dette erstatter iOS-tallene fra baseline ovenfor for den testede committen.
+Deno-modulenes måleomfang er uendret; HTTP-integrasjonstesten måles ikke med Deno-dekning.
+Lokal `xcodebuild build-for-testing` for iOS Simulator, shell-syntakskontroll,
+Python-kompilering og `git diff --check` bestod også.
+
+- `SupabaseTransportTests` bruker den ekte Swift-SDK-en med injisert URLSession
+  og isolert HTTP-stub. Den kontrollerer wire-format/base64, batch-/payloadgrenser,
+  delvise svar, 401/503/429/502, relay-feil, timeout og ugyldige suksessvar.
+- `SupabaseQueueIntegrationTests` kobler transporten til `SyncEngine`,
+  `DatabaseService` og en faktisk SQLite-fil. Den kontrollerer offline-lagring,
+  delvis ACK, vedvarende backoff, omstart, in-flight-gjenoppretting og ny levering
+  med samme event-ID/payload uten tap av lokale logger. Retry gjøres klar eksplisitt
+  i testen; dette er ingen måling av automatisk ventetid.
+- `bash supabase/tests/run-sync-http-e2e.sh <disponibel-lokal-workdir>` tester
+  ekte lokal Auth → Edge Function → PostgreSQL/RLS. Den kontrollerer manglende,
+  ugyldig og utløpt token, deaktivert synk, metode/JSON/envelope-validering,
+  delvis batch, ukjent schema, replay etter antatt tapt ACK, eierskap og 51-eventsgrensen.
+  Kun loopback godtas. Testen oppretter syntetiske brukere, gjenoppretter
+  `sync_enabled` og sletter testbrukerne etterpå. Bruk kun disponibelt QA-prosjekt.
+  Kontrollen inngår i Supabase CI og bestod også lokalt på port 56321.
+
+`SupabaseService` kan nå få SDK-klienten injisert. Produksjonsinitializer,
+auth-oppsett, wire-kontrakt og domenelagring er uendret. Ingen arkitekturavvik:
+IO-grensen er injiserbar, og eksisterende repository-/transaksjonsgrenser beholdes.
+
+Samlet iOS → lokal Supabase (2026-10-12):
+
+`LiveSupabaseSyncTests` og `scripts/run-live-sync-e2e.py` bestod med to separate
+iOS-testprosesser på Xcode 27.0 / iOS 26.5. Hver prosess kjørte nøyaktig én test;
+helperen avviser en grønn kjøring med null utførte tester.
+
+Første prosess logger et syntetisk produkt og en matlogg lokalt før opplasting,
+og kontrollerer at serveren ennå ikke har loggen. Den bruker ekte Supabase Auth,
+Swift-SDK, Edge Function og PostgreSQL. En testadapter holder det mottatte ACK-et
+ved transportgrensen, slik at SyncEngine ikke får lagre det lokalt. Køen står
+som in-flight når testverten avsluttes. Andre prosess krever en ny prosess-ID,
+åpner samme SQLite-fil, kontrollerer identiske event-ID-er/payloads og leverer
+på nytt gjennom SyncEngine. Resultatet er én matlogg og to inbox-rader (produkt
+og logg) på serveren, bevart mengde/enhet/kcal og ingen ubekreftede lokale events.
+Dette tester kontrollert prosessavslutning ved ACK-grensen, ikke fysisk nettutfall
+eller vilkårlig krasj. Nedlasting og flerenhetskonflikter inngår ikke.
+
+Testene er deaktivert i vanlig enhetstestkjøring. Helperen injiserer runtime-oppsett
+via en midlertidig xctestrun-fil som slettes etterpå. Den godtar bare loopback og
+QA-prosjekt-ID `matlogg-coverage-qa` eller `matlogg-live-sync-qa`, oppretter en syntetisk
+bruker og rydder egne serverdata/bruker og gjenoppretter serverflagget også ved feil.
+Den vanlige klientens produksjonsflagg endres ikke. Start kun en disponibel QA-database.
+
+```bash
+xcodebuild build-for-testing -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=<QA-ID>' CODE_SIGNING_ALLOWED=NO
+python3 scripts/run-live-sync-e2e.py \
+  --workdir <disponibel-lokal-QA-workdir> \
+  --xctestrun '<DerivedData/MatLogg-.../Build/Products/MatLogg_...xctestrun>' \
+  --simulator <QA-ID>
+```
+
+Suksessrapport og begge xcresult-bundler ligger lokalt under
+`build/coverage/live-sync.gx2lk_a4/`. Denne kjøringen gjelder lokal arbeidskopi;
+den er ikke kjørt i GitHub CI. CI har separate iOS-/serverjobber og mangler den
+samlede testens lokale Docker-backend. Ingen produksjonskode, kontrakt eller
+arkitekturgrenser er endret i denne runden; kun testkode, testhelper og dokumentasjon.
+
+Midlertidige RPC-feil og automatisk retry (2026-10-12):
+
+HTTP-handleren ligger nå i `_shared/sync-handler.ts` med en injiserbar RPC-grense;
+`sync-events/index.ts` kobler fortsatt til de samme ekte auth-/Supabase-klientene.
+Deno-testene fremprovoserer returnerte RPC-feil fra `is_sync_enabled`,
+`consume_sync_quota_v1` og `apply_sync_event_v1`. De kontrollerer 500 før
+apply ved config/quota-feil, delvis 201/`SERVER_ERROR` ved apply-feil og vellykket
+ny levering med samme event-ID når feilen fjernes. Dette er feilinjeksjon ved
+RPC-grensen, ikke faktiske driftsavbrudd i PostgreSQL.
+
+`AutomaticSyncRetryTests` kobler ekte Supabase Swift-SDK, HTTP-stub, SyncEngine
+og SQLite. Tre feilforløp bruker vanlig timer og Backoff (10–15 sekunder),
+uten manuell retry, endring av køen eller akselerert klokke. De kontrollerer
+utsatt retry, samme event-ID/payload, bevart lokal logg, ACK etter gjenopprettet
+HTTP-svar og vedvarende ferdig kø etter gjenåpning.
+
+Verifisert lokalt: 3 nye Deno-handler-tester, 13 synkkontrakttester, Deno check/lint,
+10 iOS-tester i transport-/retry-suitene (inkludert tre retry-cases, totalt 44,67 s)
+3 SQLite-/transport-integrasjonstester og HTTP-regresjon mot ekte disponibel Supabase. Resultatbundle:
+`build/coverage/automatic-retry.xcresult`. Ingen API-kontrakt, autorisering,
+produksjonsflagg eller databasemigrasjon er endret. Avhengigheter injiseres ved
+IO-grensen; local-first-transaksjoner og eierkontroll beholdes uten arkitekturavvik.
+
+Gjenværende oppfølging:
+
+1. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
+   Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
+
+Risikospesifikasjonens mål om over 60 % kjernelogikk kan først brukes som gate
+når filomfang og målemetode er definert. Kritiske feilscenarioer skal være
+testet uansett prosent. Produksjonssynk holdes fortsatt deaktivert.
+
 ## Forutsetninger
 
 - Xcode med en kompatibel iOS-simulator
@@ -452,6 +646,27 @@ På en ledig dedikert QA-simulator kjøres også
 Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
 Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
 må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.
+
+
+## Databasekvote og staging-prøve – 2026-10-12
+
+Kodecommit `1edbbeb` måler 14 201 / 43 169 linjer (32,90 %) i hele app-targetet,
+og 9 906 / 11 866 (83,48 %) i Services + ViewModels. iOS-enhetstargetet bestod
+med 395 registrerte tester i 50 suiter; de to LiveSupabaseSyncTests er eksplisitt
+skippet i vanlig CI og har separat lokal verifisering ovenfor. RATE_LIMITED i
+et delvis svar prøves igjen etter 60 sekunder med samme event-ID.
+
+`bash scripts/rehearse-staging-migrations.sh` lager en disponibel lokal database
+fra de åtte observerte staging-migrasjonene, oppgraderer med manglende migrasjoner,
+kontrollerer bevaring av syntetiske næringsverdier og batchteller og kjører pgTAP
+og schema-lint. Serverjobben bestod 115 pgTAP-kontroller på ferskt skjema og
+115 etter oppgraderingen, Auth-/HTTP-regresjoner og 22 Deno-tester.
+Resultater: [CI på den testede kodecommitten](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469).
+Etter brukergodkjenning ble de samme migrasjonene og Edge-koden deployet på
+staging. Syntetiske kvote-/replay-/eierskaps-/nødstoppkontroller bestod med
+rollback; etterkontrollen bekreftet null testrester og avslått synkflagg.
+Utrulling og verifiseringsgrenser finnes i
+[production-readiness.md](production-readiness.md#klargjort-staging-oppgradering--2026-10-12).
 
 ### Manuell strekkodeinntasting
 

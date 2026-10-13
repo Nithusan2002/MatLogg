@@ -881,6 +881,20 @@ uten å laste loggobjekter eller gjøre databasekall per tastetrykk. Øvrige tre
 beholder relevanssortering og dedupliseres på tvers av seksjonene. Tomt søk
 beholder seks nylige varer. Hyppighetsvekting og synk-/backendendringer inngår ikke.
 
+## 2026-10-12 – Felles databasekvote for synkhendelser
+
+Edge beholder 30 batcher/minutt. Databasen begrenser alle apply-forsøk til
+1500/minutt per JWT-eier (30 × 50), med samme teller for Edge og direkte RPC.
+Replay og kjente avvisninger bruker kreditt; raterestriksjon skriver ikke domene
+eller inbox. Telleren bruker eksisterende private ratevinduer og eksisterende
+kontosletting/utløpsrydding. Atomisk upsert serialiserer konkurrerende forsøk.
+Den opprinnelige transaksjonsfunksjonen blir intern og kan bare kalles av den
+beskyttede wrapperen. Nødstopp og aktiv kontoeier kontrolleres før kvoten.
+RATE_LIMITED i et delvis batch-svar beholdes lokalt for retry etter 60 sekunder,
+med eksisterende maksimalt antall automatiske forsøk. Schema-versjon er fortsatt 1.
+Utrulling skjer bak avslått serverflagg; oppdatert klient må være på plass før
+opplasting åpnes. Hosted staging krever egen godkjenning av tilgangsendringen.
+
 ### 2026-10-12 — Tilberedte Open Food Facts-produkter
 
 Tilberedningsstatus lagres separat fra gram/ml-grunnlag og bevares i logger

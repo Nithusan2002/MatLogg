@@ -2,9 +2,9 @@ name: Supabase CI
 
 on:
   push:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", "scripts/rehearse-staging-migrations.sh", ".github/workflows/supabase-ci.yml"]
   pull_request:
-    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLogg.xcodeproj/**", ".github/workflows/supabase-ci.yml"]
+    paths: ["supabase/**", "package.json", "package-lock.json", "MatLogg/**", "MatLoggTests/**", "MatLoggUITests/**", "MatLogg.xcodeproj/**", "scripts/measure-test-coverage.sh", "scripts/create-qa-simulator.sh", "scripts/rehearse-staging-migrations.sh", ".github/workflows/supabase-ci.yml"]
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,12 @@ jobs:
         run: npx supabase test db
       - name: Test Auth and account deletion end to end
         run: bash supabase/tests/run-account-deletion-e2e.sh
+      - name: Test sync HTTP auth, replay and partial batches
+        run: bash supabase/tests/run-sync-http-e2e.sh
+      - name: Rehearse missing staging migrations and quota guard
+        run: |
+          npx supabase stop --no-backup
+          bash scripts/rehearse-staging-migrations.sh
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.5.4
@@ -39,7 +45,12 @@ jobs:
       - name: Lint Edge Functions
         run: deno lint supabase/functions
       - name: Test Edge Function contract
-        run: deno test --allow-env supabase/functions/tests
+        run: npm run functions:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: edge-function-coverage
+          path: build/coverage/
 
   ios:
     name: iOS auth and sync gate
@@ -49,13 +60,36 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
-      - name: Build app
-        run: xcodebuild -project MatLogg.xcodeproj -scheme MatLogg -configuration Debug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-      - name: Run auth and sync tests
+      - name: Create dedicated QA simulator
+        run: |
+          qa_simulator_id=$(bash scripts/create-qa-simulator.sh)
+          echo "MATLOGG_QA_SIMULATOR_ID=$qa_simulator_id" >> "$GITHUB_ENV"
+      - name: Measure iOS unit test coverage
         run: >-
-          xcodebuild -project MatLogg.xcodeproj -scheme MatLogg
-          -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest'
-          -only-testing:MatLoggTests/AuthViewModelTests
-          -only-testing:MatLoggTests/AuthServiceTests
-          -only-testing:MatLoggTests/ProfileTests
-          -only-testing:MatLoggTests/SyncRetryTests test
+          bash scripts/measure-test-coverage.sh ios
+          "platform=iOS Simulator,id=${MATLOGG_QA_SIMULATOR_ID}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-unit-test-coverage
+          path: build/coverage/
+      - name: Test logging, editing, deletion and persistence
+        run: >-
+          xcodebuild test-without-building -project MatLogg.xcodeproj -scheme MatLogg
+          -destination "platform=iOS Simulator,id=${MATLOGG_QA_SIMULATOR_ID}"
+          -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch
+          -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay
+          -only-testing:MatLoggUITests/MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch
+          -only-testing:MatLoggUITests/WaterLoggingUITests/testOneTapPersistsAndCanBeCorrected
+          -only-testing:MatLoggUITests/MatLoggUITests/testPreparedProductUsesCookedWeightAndLogs
+          -only-testing:MatLoggUITests/MatLoggUITests/testManualBarcodeEntryWithoutCameraValidatesAndCancels
+          -only-testing:MatLoggUITests/MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs
+          -parallel-testing-enabled NO -enableCodeCoverage NO
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 180
+          -maximum-test-execution-time-allowance 240
+          -resultBundlePath build/coverage/ui-smoke.xcresult CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-ui-smoke
+          path: build/coverage/ui-smoke.xcresult

@@ -38,6 +38,25 @@ Deno.test("network exceptions leave purge eligible for retry", async () => {
   assertEquals(await purgeAccount(admin, "synthetic-owner"), false);
 });
 
+Deno.test("Auth network failure leaves domain purge retryable", async () => {
+  let domainCalls = 0;
+  const admin: DeletionAdmin = {
+    rpc: () => { domainCalls++; return Promise.resolve({ error: null }); },
+    auth: { admin: { deleteUser: () => { throw new Error("synthetic Auth outage"); } } },
+  };
+  assertEquals(await purgeAccount(admin, "synthetic-owner"), false);
+  assertEquals(domainCalls, 1);
+});
+
+Deno.test("alert network failures return false without exposing account data", async () => {
+  const config: Record<string, string> = {
+    DELETION_ALERT_RESEND_KEY: "synthetic-key", DELETION_ALERT_FROM: "ops@example.test",
+    DELETION_ALERT_TO: "recipient@example.test",
+  };
+  assertEquals(await notifyDeletionFailure("purge_lookup_failed", 1, (name) => config[name],
+    () => Promise.reject(new Error("synthetic outage"))), false);
+});
+
 Deno.test("alerts contain only operational counts and use the configured recipient", async () => {
   const config: Record<string, string> = {
     DELETION_ALERT_RESEND_KEY: "synthetic-key", DELETION_ALERT_FROM: "ops@example.test",

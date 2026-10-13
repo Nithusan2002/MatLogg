@@ -31,11 +31,8 @@ final class SupabaseService: AccountAuthRepository, SyncAPIClient {
     private let callbackURL: URL
     private let dateFormatter: ISO8601DateFormatter
 
-    init(configuration: SupabaseConfiguration) {
-        callbackURL = configuration.callbackURL
-        dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        client = SupabaseClient(
+    convenience init(configuration: SupabaseConfiguration) {
+        let client = SupabaseClient(
             supabaseURL: configuration.url,
             supabaseKey: configuration.publishableKey,
             options: SupabaseClientOptions(
@@ -47,6 +44,14 @@ final class SupabaseService: AccountAuthRepository, SyncAPIClient {
                 )
             )
         )
+        self.init(client: client, callbackURL: configuration.callbackURL)
+    }
+
+    init(client: SupabaseClient, callbackURL: URL) {
+        self.client = client
+        self.callbackURL = callbackURL
+        dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     }
 
     func restoreSession() async -> User? {

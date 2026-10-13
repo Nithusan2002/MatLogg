@@ -214,6 +214,9 @@ Tap [Slett]:
 • Vis «Varen er slettet · Angre» over bunnmenyen i 4 sekunder
   (8 sekunder med VoiceOver), med minst 44 × 44 pt trykkflate.
 • Flere slettinger mens meldingen er aktiv samles: «N varer er slettet».
+• Når dagbokens valgmodus åpnes, lukkes tidligere loggbekreftelser både i
+  dagboken og app-skallet. En gammel Angre-handling skal ikke dekke
+  slettingsbekreftelsens Angre.
   Ny sletting starter visningstiden på nytt. Angre gjenoppretter alle samlet.
 • Angre bevarer mengde, enhet, produktreferanse, næringssnapshot og tidspunkter.
   Gjenopprettede innslag får nye ID-er og atomiske log.upsert-hendelser,

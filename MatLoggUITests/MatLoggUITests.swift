@@ -33,8 +33,10 @@ final class MatLoggUITests: XCTestCase {
         amount.tap()
         amount.typeText("200")
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
-        let save = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
+        XCTAssertEqual(amount.value as? String, "200 g")
+        let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isEnabled)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Tilberedt produkt – 200 g og tydelig næringsgrunnlag"
         screenshot.lifetime = .keepAlways
@@ -79,10 +81,38 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("7035620067708")
+        let done = app.buttons["manual-barcode-keyboard-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        let keyboardClosed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardClosed], timeout: 5), .completed)
+        XCTAssertEqual(field.value as? String, "7035620067708")
         let find = app.buttons["findManualBarcode"]
-        if !find.isHittable { app.swipeUp() }
+        let form = app.collectionViews["manual-barcode-form"]
+        XCTAssertTrue(form.waitForExistence(timeout: 5))
+        func scrollForm(up: Bool) {
+            let keyboardTop = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            let top = max(form.frame.minY, app.navigationBars["Skriv inn strekkode"].frame.maxY) + 16
+            let bottom = min(form.frame.maxY, keyboardTop) - 16
+            let origin = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            let start = origin.withOffset(CGVector(dx: 0, dy: (up ? bottom : top) - form.frame.minY))
+            let end = origin.withOffset(CGVector(dx: 0, dy: (up ? top : bottom) - form.frame.minY))
+            start.press(forDuration: 0.1, thenDragTo: end)
+        }
+        for _ in 0..<8 {
+            let bottom = app.keyboards.firstMatch.exists ? app.keyboards.firstMatch.frame.minY : app.frame.maxY
+            if find.isHittable && find.frame.minY >= form.frame.minY && find.frame.maxY < bottom { break }
+            scrollForm(up: true)
+        }
+        XCTAssertTrue(find.isHittable)
+        if app.keyboards.firstMatch.exists { XCTAssertLessThan(find.frame.maxY, app.keyboards.firstMatch.frame.minY) }
         find.tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch.waitForExistence(timeout: 5))
+        let validation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Kontroller nummeret.'")).firstMatch
+        for _ in 0..<8 {
+            if validation.exists { break }
+            scrollForm(up: false)
+        }
+        XCTAssertTrue(validation.waitForExistence(timeout: 5))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Strekkodeinntasting – stor tekst og validering"
         screenshot.lifetime = .keepAlways
@@ -138,12 +168,21 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testDiarySelectionDeletesAndRestoresWholeBatch() throws {
         let app = try prepareDiarySelection()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
+        // Selection changes the visible list. Capture IDs while both saved rows are present.
+        let populated = NSPredicate(format: "count >= 2")
+        if !populated.evaluate(with: rows) { app.swipeUp() }
+        let ready = XCTNSPredicateExpectation(predicate: populated, object: rows)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+        let rowIDs = rows.allElementsBoundByIndex.map(\.identifier)
+        XCTAssertGreaterThanOrEqual(rowIDs.count, 2)
+        guard rowIDs.count >= 2 else { return }
+        let firstID = rowIDs[rowIDs.count - 1]
+        let secondID = rowIDs[rowIDs.count - 2]
+        let originalCount = rowIDs.count
         app.buttons["meal-room-select"].tap()
         XCTAssertTrue(app.otherElements["meal-room-selection-bar"].exists)
         XCTAssertFalse(app.buttons["tab-log-food"].exists)
-        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
-        let firstID = rows.element(boundBy: rows.count - 1).identifier
-        let secondID = rows.element(boundBy: rows.count - 2).identifier
         revealDiaryElement(app.buttons[firstID], in: app)
         app.buttons[firstID].tap()
         revealDiaryElement(app.buttons[secondID], in: app)
@@ -152,16 +191,19 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["meal-room-delete-selection"].tap()
         XCTAssertTrue(app.buttons["Slett"].waitForExistence(timeout: 5))
         app.buttons["Slett"].tap()
-        XCTAssertTrue(app.buttons["Angre"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["tab-log-food"].exists)
-        XCTAssertFalse(app.buttons[firstID].exists)
-        XCTAssertFalse(app.buttons[secondID].exists)
-        let beforeUndo = rows.count
-        app.buttons["Angre"].tap()
-        let restored = NSPredicate(format: "count == %d", beforeUndo + 2)
+        let deletionReceipt = app.otherElements.matching(identifier: "log-receipt")
+            .containing(.staticText, identifier: "2 varer er slettet").firstMatch
+        XCTAssertTrue(deletionReceipt.waitForExistence(timeout: 8))
+        let undoDeletion = app.buttons["Angre"]
+        // The receipt expires after four seconds; verify the result after tapping.
+        undoDeletion.tap()
+        revealDiaryElement(rows.firstMatch, in: app)
+        let restored = NSPredicate(format: "count == %d", originalCount)
         expectation(for: restored, evaluatedWith: rows)
         waitForExpectations(timeout: 8)
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertFalse(app.buttons[firstID].exists) // Restoration uses fresh IDs.
+        XCTAssertFalse(app.buttons[secondID].exists)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Dagbok – samlet Angre"
         screenshot.lifetime = .keepAlways
@@ -328,21 +370,54 @@ final class MatLoggUITests: XCTestCase {
         save.tap()
         let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        let loggedRowID = edit.identifier
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         edit.tap()
-        XCTAssertTrue(app.buttons["Flytt til Lunsj"].waitForExistence(timeout: 5))
-        app.buttons["Flytt til Lunsj"].tap()
-        app.buttons["Lagre endringer"].tap()
-        for _ in 0..<8 {
-            if edit.isHittable { break }
-            app.swipeUp()
+        let editor = app.scrollViews["log-editor-scroll"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let lunchChoice = app.buttons["Flytt til Lunsj"]
+        let saveChanges = app.buttons["Lagre endringer"]
+        for _ in 0..<5 {
+            if lunchChoice.isHittable && lunchChoice.frame.maxY < saveChanges.frame.minY { break }
+            editor.swipeUp()
         }
-        XCTAssertTrue(edit.isHittable)
-        XCTAssertTrue(edit.waitForExistence(timeout: 8))
+        XCTAssertTrue(lunchChoice.isHittable)
+        lunchChoice.tap()
+        XCTAssertTrue(lunchChoice.isSelected)
+        XCTAssertTrue(saveChanges.isEnabled)
+        saveChanges.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
+        waitForExpectations(timeout: 8)
+        let movedRow = app.buttons[loggedRowID]
+        revealDiaryElement(movedRow, in: app)
+        XCTAssertTrue(movedRow.waitForExistence(timeout: 8))
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
         add(attachment)
+
+        app.terminate()
+        app.launch()
+        let lunch = app.buttons["home-meal-open-lunsj"]
+        XCTAssertTrue(lunch.waitForExistence(timeout: 8))
+        for _ in 0..<8 {
+            if lunch.isHittable { break }
+            app.swipeUp()
+        }
+        lunch.tap()
+        XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].waitForExistence(timeout: 5))
+        for _ in 0..<8 {
+            if app.buttons["Forrige dag"].isHittable { break }
+            app.swipeDown()
+        }
+        app.buttons["Forrige dag"].tap()
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
+        let restoredRow = app.buttons[loggedRowID]
+        revealDiaryElement(restoredRow, in: app)
+        XCTAssertTrue(restoredRow.waitForExistence(timeout: 8), "Den redigerte matloggen skal overleve omstart med samme ID og dato.")
+        restoredRow.tap()
+        XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
     }
 
     @MainActor

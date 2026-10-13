@@ -315,6 +315,38 @@ domene-/næringsregel, transaksjonsgrense, profileierskap eller synkkontrakt.
 bevaring og næringsvisning er bekreftet. Resterende kamerakontroll, Apple-innlogging,
 VoiceOver og brukerobservasjoner gjenstår.
 
+## Synkport: kontroll 2026-10-12
+
+**No-go for produksjonssynk; go for videre intern QA.** Dette gjelder
+framtidig domeneopplasting, ikke en ny vurdering av lokal Apple-only-pilot.
+Brukeren ba om CI-kontroll og releasegjennomgang; fysisk iPhone-kontroll,
+aktivering og deploy inngår ikke i denne runden.
+
+Kandidat for CI er testgrenen `codex/test-coverage-ci`, kodecommit `1cad324`.
+Primær arbeidskopi er fortsatt på `main` med andre endringer som ikke er commitet,
+blant annet profil/design og byggnummer 2026100805. CI-godkjenningen av
+testgrenen gjelder ikke automatisk hele denne arbeidskopien eller et releasearkiv.
+
+| Port | Resultat og gjenstående arbeid |
+| --- | --- |
+| CI på siste kode | **Grønt på `1cad324`:** [Supabase CI](https://github.com/Nithusan2002/MatLogg/actions/runs/38241338297). Serverjobben, iOS-enhetstargetet og alle fire UI-testene bestod. [Secret scan](https://github.com/Nithusan2002/MatLogg/actions/runs/38241338129) bestod på samme commit. Swift Testing oppgir 395 registrerte tester; de to LiveSupabaseSyncTests er eksplisitt skippet i CI og har separat lokal verifisering. |
+| Retry/idempotens/eierskap | Lokale kontroller bestod: ekte iOS → lokal Supabase i to prosesser, tapt lokal ACK, replay uten duplikater, delvis svar og feil ved config/quota/apply. Automatisk timer/backoff er testet med SDK/HTTP-stub og SQLite. Hosted staging med siste kandidat er ikke retestet. Se `testing.md` for eksakt omfang. |
+| Klient/server-kompatibilitet | **Blokkert i staging.** Read-only migrasjonsliste mangler `20261003090000_manual_nutrition_basis` og `20261008190000_internal_security_definer_functions`. `sync-events` er aktiv v3 med JWT-verifisering; sist oppdatert 2. oktober. Repoets nyere backend må rulles ut og verifiseres før en klient som bruker det nye næringsgrunnlaget kan laste opp. Ingen deploy utført. |
+| Produksjonsklient | **Eget godkjent scope kreves.** `backendSyncEnabled=false`, app-root bruker `.localOnly`, og release har ingen policy som tillater opplasting. Å endre bare flagget åpner ikke synk. Lokal lansering er fortsatt det dokumenterte produktvalget. |
+| Kvotekontroll | **Blokkert.** Repoets offentlige RPC-wrapper omgår Edge-kvoten. Read-only staging-kontroll bekrefter `authenticated` EXECUTE på offentlig SECURITY DEFINER-RPC uten kall til `consume_sync_quota_v1`. Eierkontroll og nødstopp erstatter ikke trafikkbegrensning på hele skriveflaten. |
+| Nødstopp/rollback | Serverflagget er bekreftet `false` i staging. RPC-koden der har nødstopp; lokal HTTP-/SQL-kontroll dekker avslag før skriving. Operativ stopp, rollback og recovery med siste hosted kandidat er ikke demonstrert. Bevar kø/event-ID og database; ikke reverser migrasjoner uten kompatibilitetsvurdering. |
+| Logging/overvåking | Undersøkt aktiv synkkode logger bare RPC-feilkode; SupabaseService/SyncEngine logger ikke token/payload. Faktisk hosted loggretensjon, aggregerte feil-/latensmålinger, varsling, mottaker og leveransetester er ikke bekreftet i denne runden. Dette er ikke en full leverandør-/loggrevisjon. |
+| Miljø-/deployvern | **Blokkert.** GitHub environments-API viser bare `github-pages`; ingen `staging`/`production` med den foreskrevne manuelle godkjenningen. Tilgjengelig Supabase-prosjektliste viser MatLogg Staging (`eu-north-1`, ACTIVE_HEALTHY); et separat MatLogg-produksjonsprosjekt er ikke bekreftet. Ingen secrets eller konfigurasjon endret. |
+| Hosted backup/restore | Ikke verifisert. Historiske lokale restore-resultater lukker ikke hosted backup/PITR, restore og gjenanvendelse av slettinger før trafikken åpnes. Ingen abonnement eller backupinnstilling endret. |
+| Opplastingsscope/personvern | **Blokkert før aktivering.** Dagens bruker-/personverntekst sier at domenedata bare er lokale. Avklart opplastingsgrunnlag, eventuelle bruker-/samtykkevalg og tilbaketrekking er ikke dokumentert ferdig for ny skyflyt. Dette er kontroll mot prosjektets eksisterende releasekrav, ikke en ny juridisk konklusjon. |
+
+Kilder: repoets synkkontrakt, produksjonspolicy, migrasjoner, Edge-handler og
+releasekrav; read-only Supabase prosjekt-/migrasjons-/funksjonsliste og
+aggregert funksjonsmetadata/serverflagg; GitHub run-/environment-API.
+Ingen brukerdata, tokens eller rå hosted logger hentet. CI-status og enhetslogg ble kontrollert; dokumentasjonsdiff bestod `git diff --check`. Ingen ny build/test ble startet i denne reviewrunden. Ingen auth-/tilgangs-,
+arkitektur- eller produksjonsendring. Skills: qa-release, backend-api og offline-sync.
+Fysisk kandidatkontroll er fortsatt eget neste steg og ikke utført her.
+
 ## Aktiv cutover-plan
 
 Supabase er målplattform. Staging finnes i `eu-north-1` med migrasjoner,
@@ -1140,3 +1172,94 @@ skal ikke sendes. Leverandørens fulle loggretensjon forblir uavklart; dette
 er ikke bevis på manglende sletting eller et selvstendig dokumentert
 releaseavvik. E-post er ikke et påkrevd neste steg. Øvrige pilotporter
 må vurderes separat før go/no-go.
+
+## Klargjort staging-oppgradering – 2026-10-12
+
+Kvoteendringen ligger i `20261012120000_sync_event_quota.sql` og tilhørende
+klientrettelse i SyncEngine. Direkte RPC og Edge deler 1500 apply-forsøk per
+JWT-eier/minutt; Edge har fortsatt 30 batcher/minutt. Helperen uten kvotevern
+kan ikke kalles av klientroller. RATE_LIMITED-events beholdes for retry etter
+60 sekunder. Ingen payload-/schema-versjon eller lokal transaksjonsgrense endres.
+
+Regresjonene fanget omgåelsen og klientens feilaktige deadLetter-behandling før
+retting. Første CI bestod 115 pgTAP-kontroller, schema-lint og HTTP-regresjon;
+staging-prøven feilet på en manglende fil i testoppsettet, som er rettet.
+Endelig CI på kodecommit `1edbbeb` bestod: 115 pgTAP-kontroller på ferskt
+skjema og 115 etter oppgradering fra de åtte faktiske staging-migrasjonsversjonene,
+schema-lint, Auth-/HTTP-regresjoner og 22 Deno-tester. Syntetiske eksisterende
+produktverdier og batchkreditt ble bekreftet bevart. iOS-enhetstargetet bestod
+med 395 registrerte tester i 50 suiter (to live-tester eksplisitt skippet).
+Alle fire UI-tester bestod. Den tidligere UI-feilen kom fra indeksering av en
+liste etter overgang til valgmodus; testen venter nå på to lagrede rader og
+fanger stabile ID-er før overgangen. Slette-/angreasserts er beholdt.
+[CI-resultat](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469)
+og [Secret scan](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707445).
+Linjedekning: 32,90 % av hele app-targetet, 83,48 % av Services + ViewModels.
+Lokale retester ble avbrutt av Docker-/disk-/simulatorproblemer; CI-verifiseringen
+bruker isolert testgren, ikke de parallelle endringene i primær arbeidskopi.
+
+Konkret plan for **MatLogg Staging (`hvwktobxgarxptefzwbq`)** etter godkjenning:
+
+1. Bekreft avslått serverflagg og uendret migrasjonshistorikk. Read-only kontroll
+   har bekreftet `sync_enabled=false` og at ernæringsmigrasjonens tekstanker
+   matcher den faktisk deployede funksjonen.
+2. Bruk `20261003090000_manual_nutrition_basis.sql`, deretter
+   `20261008190000_internal_security_definer_functions.sql`, deretter
+   `20261012120000_sync_event_quota.sql`, i denne rekkefølgen. De tilføyer
+   metadata/teller og begrenser helpertilgang; de sletter ikke domenedata.
+3. Deploy testgrenens `sync-events` med JWT-verifisering beholdt. Bruk bare den
+   verifiserte committen; øvrige parallelle arbeidsendringer i app/næring er
+   ikke del av denne godkjenningen.
+4. Kontroller migrasjonshistorikk, grants, kvote, nødstopp og eierisolasjon.
+   Syntetiske SQL-kontroller kjøres i en transaksjon med rollback; et eventuelt
+   synkflagg satt inne i denne transaksjonen er ikke synlig for andre klienter.
+   Ingen global aktivering av staging-/produksjonssynk inngår i planen.
+5. Ved feil beholdes serverflagget av og data/migrasjoner bevares. Ikke reverser
+   skjema eller åpne tilganger automatisk. Rett og retest før ny vurdering.
+
+Dette klargjør backend, ikke en godkjenning av skyopplasting. Oppdatert klient,
+produkt-/personvernport, drift/backup/varsling og fysisk kandidatkontroll står
+fortsatt åpne. Gjeldende releasepolicy forblir localOnly. Hosted staging var
+uendret ved klargjøringen; den godkjente gjennomføringen er ført nedenfor. Arkitekturkontroll: JWT-eierskap, atomisk inbox/domene og
+injiserbare IO-grenser beholdes. Ingen arkitekturavvik.
+Skills: backend-api, offline-sync, ios-swiftui, nutrition-privacy og qa-release.
+
+
+### Gjennomført på staging etter brukergodkjenning
+
+12. oktober 2026 ble de tre planlagte migrasjonene lagt inn på MatLogg Staging
+(`hvwktobxgarxptefzwbq`) og `sync-events` deployet som versjon 4 fra den
+CI-verifiserte kodecommitten `1edbbeb`. Alle fem deployede kilde-/konfigurasjonsfiler
+ble hentet tilbake og bekreftet identiske med testgrenen. JWT-verifisering er på.
+Andre parallelle app-/ernæringsendringer ble ikke deployet.
+
+Supabase-verktøyet registrerte først migrasjonene med deploytidens versjoner
+`20261012172846`, `20261012172851` og `20261012172858`. Etter kontroll av de tre
+navnene ble bare disse historikkradene samordnet med repoets kanoniske versjoner
+`20261003090000`, `20261008190000` og `20261012120000`. SQL ble ikke kjørt om igjen.
+Sluttkontroll bekreftet 11 migrasjoner med de forventede navnene/versjonene.
+
+Kontroller på faktisk staging bestod:
+
+- Tre produktmetadatakolonner og eventteller finnes; offentlig RPC er SECURITY
+  INVOKER. Authenticated og service_role har ikke EXECUTE på helperen uten kvote,
+  og anon har ikke EXECUTE på offentlig RPC.
+- 1500 apply-forsøk, inkludert replay, ble bekreftet; forsøk 1501 ble RATE_LIMITED.
+  Replay/kvoteavvisning ga ikke ekstra inbox-/domeneskriving. Telleren ble capped
+  på 1501; direkte RPC brukte ikke batchkreditt.
+- JWT-eiere hadde separate kvoter; eier B fikk FORBIDDEN ved forsøk på å endre
+  eier As rad. Samme kvoteavviste event ble ACK i simulert nytt tidsvindu.
+- Nødstopp ga SYNC_DISABLED uten å bruke eventkreditt.
+- Syntetiske kontroller kjørte i én transaksjon med rollback. Etterkontroll viste
+  null testbrukere, testhendelser, vannrader og ratevinduer fra denne kontrollen.
+- HTTP POST uten JWT og med ugyldig JWT ga 401. Python HTTP-kontrollen feilet på
+  lokalt manglende CA-sertifikat; kontrollen bestod med systemets curl og vanlig
+  TLS-verifisering. Autentisert hosted HTTP-synk er ikke testet i denne runden;
+  synkflagget holdes av, og tilsvarende flyt har separat lokal CI-verifisering.
+
+Sluttstatus: **staging-oppgraderingen er gjennomført; globalt sync_enabled=false**.
+Produksjon og klientens localOnly-policy er uendret. Synkaktivering krever fortsatt
+klientdistribusjon og de øvrige produkt-, personvern- og driftsportene.
+Ingen arkitekturavvik: JWT-eierskap og atomisk inbox/domene beholdes; lokal
+lagring og avhengighetsretning ble ikke endret av utrullingen.
+Skills i gjennomføringen: backend-api, offline-sync og qa-release.
