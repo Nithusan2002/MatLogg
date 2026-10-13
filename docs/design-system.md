@@ -101,13 +101,15 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 | `bodyEmphasis` | Handlinger, feltnavn og fremhevet brødtekst. |
 | `secondary` | Ofte lest sekundærtekst, mengder og næringsverdier (skalerbar subheadline, normalt 15 pt). |
 | `secondaryEmphasis` | Fremhevet sekundærtekst og handlinger i måltidskort. |
+| `chartLabel`, `chartLabelEmphasis` | Kompakte diagrametiketter med skalerbar caption2-typografi. |
 | `caption` | Kompakt metadata og korte, mindre sentrale etiketter. |
 | `captionEmphasis` | Kompakte etiketter og status. |
 
 Typografien følger godkjent prototype 10: kraftige, avrundede hovedoverskrifter,
 avrundede titler og seksjonsoverskrifter med halvfet vekt, og vanlig systemfont
 i brødtekst, matvarenavn og metadata. Store næringsverdier bruker `heroValue`
-med middels vekt og tabellariske sifre. Native tekststiler bevarer Dynamic Type;
+med middels vekt og tabellariske sifre. Unntaket er de fremhevede kaloritallene
+på Utvikling, som bruker `hero` for å bevare tung, avrundet typografi. Native tekststiler bevarer Dynamic Type;
 prototypens pikselstørrelser kopieres ikke direkte. Lange forklaringer skal
 ikke bruke tunge displaystiler. Kritiske krav, kilder og feil
 skal kunne bryte over flere linjer og ikke skjules av trunkering.
@@ -170,7 +172,7 @@ Større radius skal uttrykke gruppering eller prioritet, ikke tilfeldig variasjo
 ## Høyde og trykkflater
 
 - alle handlinger skal ha minst 44 × 44 pt effektiv trykkflate
-- primærknappen er normalt 56 pt høy
+- primærknappen har normalt 56 pt minimumshøyde uten ekstra vertikal padding; den vokser med tekstinnholdet
 - små ikoner kan være visuelt mindre dersom treffområdet fortsatt er 44 pt
 - felt og chips skal tåle større tekst uten å miste etikett eller valgt tilstand
 
@@ -386,3 +388,11 @@ Pilot 8. oktober 2026: Kontoskjermen viser Apple-innlogging og forklaringen
 om lokal lagring. Når e-postauth er av, skjules felter, e-posthandlinger,
 registreringslenke og «eller»-skille samlet. Bruk eksisterende typografi,
 farger og Apple-knapp; ingen ny deaktivert e-posthandling vises.
+
+### Konsistens i Profil og Utvikling
+
+Hovedskjermene bruker 16 pt horisontalt innrykk og 16 pt mellom
+innholdsgrupper. Favoritter bruker den delte `matLoggCardSurface()`-stilen.
+Ukediagrammets etiketter bruker `chartLabel`/`chartLabelEmphasis` og stables
+vertikalt ved tilgjengelighetsstørrelser, slik at sju kolonner ikke begrenser
+lesbarheten ved stor tekst.

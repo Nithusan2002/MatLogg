@@ -11,7 +11,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 16) {
                     Text("Profil").font(AppTypography.hero).foregroundColor(AppColors.deepInk)
                     profileHeader
                     shortcutCard
@@ -20,7 +20,7 @@ struct ProfileView: View {
                     demoControls
                     #endif
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
             }
             .matLoggTabBarScrollClearance()

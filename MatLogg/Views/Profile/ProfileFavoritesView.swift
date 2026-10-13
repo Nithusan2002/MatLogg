@@ -87,11 +87,7 @@ struct ProfileFavoritesView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppColors.separator.opacity(0.7), lineWidth: 1)
-        }
+        .matLoggCardSurface()
         .accessibilityElement(children: .combine)
         .accessibilityHint("Åpner produktet")
     }

@@ -13,6 +13,8 @@ enum AppTypography {
     static let bodyEmphasis = Font.system(.body, design: .default, weight: .semibold)
     static let secondary = Font.system(.subheadline, design: .default, weight: .regular)
     static let secondaryEmphasis = Font.system(.subheadline, design: .default, weight: .semibold)
+    static let chartLabel = Font.system(.caption2, design: .default, weight: .regular)
+    static let chartLabelEmphasis = Font.system(.caption2, design: .default, weight: .semibold)
     static let caption = Font.system(.caption, design: .default, weight: .regular)
     static let captionEmphasis = Font.system(.caption, design: .default, weight: .semibold)
 }

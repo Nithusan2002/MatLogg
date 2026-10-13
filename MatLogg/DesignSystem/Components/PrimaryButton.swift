@@ -25,7 +25,6 @@ struct PrimaryButton: View {
             .foregroundColor(AppColors.onVibrant)
             .frame(maxWidth: .infinity)
             .frame(minHeight: max(height, 44))
-            .padding(.vertical, 4)
             .background(AppColors.brand)
             .clipShape(Capsule())
         }

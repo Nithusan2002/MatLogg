@@ -106,6 +106,45 @@ etter leverandørendringer eller sikkerhetsbrudd. Som intern arbeidsrutine fores
 en kvartalsvis gjennomgang av tilgang og åpne funn, samt årlig øvelse for restore
 og hendelser. Dette er anbefalt arbeidsrytme, ikke universelle lovbestemte frister.
 
+## Teknisk oppfølging av sikkerhetsgjennomgang 12. oktober 2026
+
+Status: planlagt. Gjennomgangen var av kildekode og migrasjoner i arbeidskopien,
+inkludert eksisterende lokale endringer. Ingen hosted innstillinger eller
+database-/RLS-tester ble verifisert. `npm run functions:test` stoppet fordi Deno
+ikke var installert/tilgjengelig i PATH. En begrenset mønsterskann av 413 sporede
+filer fant ingen gjenkjennelige private nøkler/tokens; dette erstatter ikke
+hemmelighetsskann av Git-historikk. Eksisterende pilot- og releaseporter består.
+
+Prioritetene nedenfor er teknisk gjennomføringsrekkefølge, ikke juridiske
+risikoklassifiseringer. Backend/iOS/drift er foreslåtte roller; ansvarlig person
+avklares ved oppstart. Første leveranse er små lokale rettelser. Hosted endringer
+og synkaktivering krever en egen beslutning.
+
+| ID / prioritet | Tiltak og berørte filer | Ferdig når / minste kontroll |
+| --- | --- | --- |
+| SEC-1 / Høy, før synkaktivering | Håndhev kvote ved den faktiske databasegrensen for `apply_sync_event_v1`, ikke bare i `functions/sync-events/index.ts`. Bruk ny versjonert migrasjon; ikke endre gamle migrasjoner. Avklar om kvoten måler kall eller nye events, retry-semantikk og om avviste transaksjoner skal belaste kvoten. Backend. | pgTAP i isolert lokal database viser at direkte authenticated RPC ikke omgår kvoten, parallelle kall ikke overskrider den, brukere har separate kvoter, og retry/idempotens og kill switch fortsatt fungerer. Kontroller også Edge-kall slik at samme handling ikke belastes utilsiktet to ganger. |
+| SEC-2 / Høy, før synkaktivering | Gjør domeneregler like for Edge og direkte RPC. Start med tomt måltidsnavn og strukturen/typekravene i `nutrientsPer100g`; vurder endelige tall, feltlengder og øvrige kontraktsregler målrettet. Berører `_shared/sync-contract.ts` og ny SQL-migrasjon. Ikke gjett manglende næringsdata eller innfør nye verdigrenser uten kompatibilitetsvurdering. Backend. | Regresjonstilfeller viser dagens avvik før rettelse og avvises via både Edge-validator og RPC etterpå. Gyldige eksisterende klientpayloads består. Avvisning gir stabil feil og etterlater verken inbox- eller domenedata. Oppdater synkkontrakten dersom akseptert format endres. |
+| SEC-3 / Middels, første lokale leveranse | Utvid `.gitignore` til miljøvarianter, med eksplisitte unntak for eksempel-/malfiler. Kjør tilgjengelig Gitleaks med redigert output mot arbeidskopi og historikk; ikke skriv hemmeligheter i rapporter. Drift. | `git check-ignore` bekrefter at `.env.production`, `.env.staging` og `.env.local` ignoreres, mens `backend/.env.example` fortsatt kan spores. Skannresultat er registrert. Ved ekte funn: separat rotasjon og eventuell historikkopprydding, ikke bare ignore-regel. |
+| SEC-4 / Middels, første lokale leveranse | Begrens `APIService.endpointURL` til HTTPS utenfor eksplisitt lokal utvikling, i tråd med Supabase-klienten. Kartlegg berørte legacy-kall før rettelse. iOS. | Målrettet URL-test avviser ekstern HTTP, godtar HTTPS og tillater bare avtalt lokal utviklingsadresse. Ugyldig konfigurasjon gir typet feil. Ingen nettverkskall nødvendig i testen. |
+| SEC-5 / Kontrollport, før synkaktivering | Gjør eksisterende Deno- og pgTAP-kontroller kjørbare. Kontroller RLS, grants, kryssbrukerlesing/-skriving/-sletting, deaktivert konto og transaksjonsrollback, inkludert SEC-1/2. Backend/QA. | Målrettede Deno-tester og relevante SQL-tester består mot bekreftet lokal, disponibel database. Registrer commit/arbeidskopi, miljø, antall tester og resultat. Ingen reset av utviklerens eneste data eller hosted miljø. |
+| SEC-6 / Kontrollport, før ekstern pilot | Bekreft filbeskyttelse på fysisk iPhone for SQLite/journal/WAL/SHM, Keychain og eksport. Koden setter allerede eksplisitt beskyttelse; dette er verifisering, ikke et påvist fravær av kryptering. iOS/QA. | Dokumentert låsing-/omstart-/eksportkontroll på fysisk enhet bekrefter valgt beskyttelsesnivå og local-first-adferd. Oppdater P0-5 og datakartet med faktisk resultat. |
+| SEC-7 / Kontrollport, før serverdata tas i bruk | Les faktisk hosted oppsett for TLS, kryptering, Auth-begrensninger, administratorrettigheter og logging; bruk eksisterende P1-1/P1-2 for backup/restore. Drift. | Konkrete miljøbevis er registrert uten hemmeligheter eller persondata. Ubefestede innstillinger merkes uavklart. Ingen påstand om hosted sikkerhet basert bare på lokal kode. |
+
+Anbefalt rekkefølge: SEC-3/4 → SEC-1 → SEC-2 → SEC-5. SEC-6/7 kan undersøkes
+uavhengig. Deno/SQL-testmiljø klargjøres før implementering av SEC-1/2, slik at
+regresjonene kan demonstreres før rettelse. Dersom kontraktsregler strammes inn,
+vurder ventende lokale events og utrullekkefølge før migrasjonen tas i bruk.
+
+Arkitekturkrav: bevar `View → ViewModel → Repository → Service`, lokal atomisk
+domeneskriving/synkkø, tokenbasert eierskap og atomisk inbox/domeneskriving.
+Kvotens transaksjonssemantikk må dokumenteres særskilt. Bruk `backend-api` og
+`offline-sync` for SEC-1/2, `nutrition-privacy` for næringsdata, `ios-swiftui` for
+SEC-4 og `qa-release` ved sikkerhetskritiske endringer og før utrulling.
+
+Synk forblir deaktivert til disse tekniske kontrollene og eksisterende
+samtykke-, personvern- og releaseporter er oppfylt. Planen aktiverer ikke synk
+og autoriserer ikke produksjonsutrulling eller endringer i tilgang.
+
 ## Myndighetskilder
 
 - [Personopplysningsloven og GDPR](https://lovdata.no/dokument/NL/lov/2018-06-15-38): særlig artikkel 5–9, 12–22, 25, 28, 30, 32–37 og 44–49.

@@ -34,7 +34,7 @@ private struct ProgressTabContent: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("Utvikling")
                             .font(AppTypography.hero)
@@ -61,7 +61,7 @@ private struct ProgressTabContent: View {
 
                     weightCard
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 20)
             }
             .matLoggTabBarScrollClearance()
@@ -139,7 +139,7 @@ private struct ProgressTabContent: View {
                 .foregroundColor(foreground)
                 .fixedSize(horizontal: false, vertical: true)
             Text(value)
-                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
+                .font(AppTypography.hero)
                 .foregroundColor(foreground)
                 .contentTransition(.numericText())
             Text(detail)
@@ -436,6 +436,7 @@ struct ProgressMetrics {
 }
 
 private struct WeeklyCaloriesCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let summaries: [DailySummary]
     let dailyCalories: Int?
     var body: some View {
@@ -465,13 +466,16 @@ private struct WeeklyCaloriesCard: View {
             .accessibilityLabel("Kalorier gjennom de siste sju dagene")
             #endif
 
-            HStack {
+            let labelsLayout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+                : AnyLayout(HStackLayout())
+            labelsLayout {
                 ForEach(summaries, id: \.date) { summary in
                     VStack(spacing: 4) {
                         Text("\(NutritionDisplay.wholeCalories(summary.totalCalories))")
-                            .font(.caption2.weight(.semibold))
+                            .font(AppTypography.chartLabelEmphasis)
                         Text(dayLabel(summary.date))
-                            .font(.caption2)
+                            .font(AppTypography.chartLabel)
                     }
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
