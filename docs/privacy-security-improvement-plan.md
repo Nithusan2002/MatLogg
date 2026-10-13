@@ -145,6 +145,23 @@ Synk forblir deaktivert til disse tekniske kontrollene og eksisterende
 samtykke-, personvern- og releaseporter er oppfylt. Planen aktiverer ikke synk
 og autoriserer ikke produksjonsutrulling eller endringer i tilgang.
 
+### Oppfølging 13. oktober 2026: næringsvalidering i SEC-2
+
+Typegapet i `product.upsert.nutrientsPer100g` er rettet i Edge og klargjort i
+ny versjonert SQL-migrasjon. Den eksisterende Deno-regresjonen feilet før retting;
+en ny RPC-regresjon fanget 12 feil av 26 kontroller før retting. Etter retting
+bestod 20 målrettede Deno-tester og 50 pgTAP-kontroller for næringsvalidering,
+kvote/eierskap/replay/nødstopp og tilberedningsmetadata. SQL ble kjørt mot den
+bekreftede lokale, disponible `matlogg-coverage-qa`-databasen i transaksjoner
+med rollback; ingen reset eller hosted endring ble utført.
+
+Gyldige delvise/tomme objekter og rå desimaler bevares. Avviste nye hendelser
+etterlater ingen inbox-/domeneskriving. Grants, JWT-eierskap og atomiske grenser
+beholdes. Dette lukker næringsobjektets typegap, ikke hele SEC-2 eller SEC-5:
+øvrige feltregler, hosted utrulling og de eksisterende pilotportene gjenstår.
+Se [synkkontrakten](sync-contract-v1.md#produktets-næringsobjekt-2026-10-13)
+for kompatibilitet og utrullekkefølge.
+
 ## Myndighetskilder
 
 - [Personopplysningsloven og GDPR](https://lovdata.no/dokument/NL/lov/2018-06-15-38): særlig artikkel 5–9, 12–22, 25, 28, 30, 32–37 og 44–49.

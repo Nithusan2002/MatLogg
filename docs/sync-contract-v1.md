@@ -150,3 +150,26 @@ Servermigrasjon og Edge-validering må være på plass før klienten synkroniser
 de nye feltene. Schema-versjon er fortsatt 1. Toveis synk er ikke implementert;
 før dette innføres må eldre klienter hindres fra å motta tilberedte produkter
 som mister status ved dekoding. Produksjonssynk forblir deaktivert.
+
+
+## Produktets næringsobjekt (2026-10-13)
+
+`product.upsert.nutrientsPer100g` er et JSON-objekt der hver oppgitt verdi skal
+være et endelig, ikke-negativt tall. Numeriske strenger, null, boolske verdier,
+nestede objekter/lister og tall som overflyter JavaScript Number avvises med
+`VALIDATION_ERROR`. Tomme/delvise objekter og ukjente nøkler med gyldige tall
+beholdes. Ingen obligatoriske makroer, ernæringsspesifikke maksimum eller
+utfylling/avrunding av manglende verdier innføres. Kilde, per-100-enhet og
+opprinnelig næringsgrunnlag er uendret.
+
+Edge og migrasjon `20261013120000_product_nutrients_validation.sql` håndhever
+regelen ved hver sin grense. Avviste nye databasehendelser skriver verken inbox
+eller domene; avvisningen skjer innen eksisterende kvotevern. Allerede bekreftede
+inbox-events fra samme eier beholder database-ACK ved replay, uten ny skriving.
+Edge validerer fortsatt hver payload før RPC; historiske ugyldige payloads må
+korrigeres ved manuelt nytt forsøk. Lokal feil-/hendelseslagring beholdes.
+
+Dette retter en tidligere for permissiv typevalidering i v1; gyldige nåværende
+iOS-payloads er numeriske og uendret. Deploy Edge-validering og migrasjon samlet
+bak avslått synkflagg før aktivering. Hosted staging er ikke oppgradert med
+denne endringen, og produksjonssynk forblir av.

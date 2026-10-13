@@ -86,7 +86,7 @@ const productPayload = z.object({
   name: z.string().trim().min(1),
   brand: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
-  nutrientsPer100g: z.record(z.unknown()),
+  nutrientsPer100g: z.record(nonNegative),
   nutritionBasis: z.enum(["per100g", "per100ml"]).optional(),
   nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
   servings: z.array(productServing).max(100).nullable().optional(),
