@@ -166,8 +166,11 @@ Edge og migrasjon `20261013120000_product_nutrients_validation.sql` håndhever
 regelen ved hver sin grense. Avviste nye databasehendelser skriver verken inbox
 eller domene; avvisningen skjer innen eksisterende kvotevern. Allerede bekreftede
 inbox-events fra samme eier beholder database-ACK ved replay, uten ny skriving.
-Edge validerer fortsatt hver payload før RPC; historiske ugyldige payloads må
-korrigeres ved manuelt nytt forsøk. Lokal feil-/hendelseslagring beholdes.
+Edge validerer fortsatt hver payload før RPC; eldre ugyldige payloads kan derfor
+havne i klientens manuelle feilspor, også om databasen tidligere bekreftet dem.
+Lokal feil-/hendelseslagring beholdes. Ingen automatisk omskriving eller sletting
+av gamle payloads innføres. En produktrettelse med endret payload er en ny
+hendelse; allerede bekreftede hendelser skal ikke brukes til å omskrive historikk.
 
 Dette retter en tidligere for permissiv typevalidering i v1; gyldige nåværende
 iOS-payloads er numeriske og uendret. Deploy Edge-validering og migrasjon samlet

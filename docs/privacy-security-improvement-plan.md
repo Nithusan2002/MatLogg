@@ -162,6 +162,17 @@ beholdes. Dette lukker næringsobjektets typegap, ikke hele SEC-2 eller SEC-5:
 Se [synkkontrakten](sync-contract-v1.md#produktets-næringsobjekt-2026-10-13)
 for kompatibilitet og utrullekkefølge.
 
+Serverjobben i [CI for `7ccd660`](https://github.com/Nithusan2002/MatLogg/actions/runs/38449599644)
+bestod med 151 pgTAP-kontroller både fra fersk database og ved oppgradering fra
+eldre staging-skjema, samt 26 Edge-tester og HTTP-kontrollene for auth/synk og
+kontosletting. Dette er verifisering i disponibelt CI-miljø; hosted staging er
+ikke oppdatert av denne oppfølgingen.
+
+Samme kjøring bestod iOS-unitmålingen: 404 registrerte tester i 50 suiter,
+med to live Supabase-tester hoppet over fordi eget integrasjonsmiljø ikke var
+konfigurert. Målt linjedekning var 32,66 % for hele appen (14 298/43 784) og
+83,62 % for Services/ViewModels (9 971/11 924).
+
 ## Myndighetskilder
 
 - [Personopplysningsloven og GDPR](https://lovdata.no/dokument/NL/lov/2018-06-15-38): særlig artikkel 5–9, 12–22, 25, 28, 30, 32–37 og 44–49.
