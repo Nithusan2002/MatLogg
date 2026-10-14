@@ -1263,3 +1263,48 @@ klientdistribusjon og de øvrige produkt-, personvern- og driftsportene.
 Ingen arkitekturavvik: JWT-eierskap og atomisk inbox/domene beholdes; lokal
 lagring og avhengighetsretning ble ikke endret av utrullingen.
 Skills i gjennomføringen: backend-api, offline-sync og qa-release.
+
+## Næringsmetadata og validering på staging – 2026-10-14
+
+Etter eksplisitt godkjenning ble MatLogg Staging (`hvwktobxgarxptefzwbq`)
+oppdatert med `20261012140000_nutrition_preparation.sql`, deretter
+`20261013120000_product_nutrients_validation.sql`. `sync-events` ble deployet
+som versjon 5 med JWT-verifisering på. Alle fem kilde-/konfigurasjonsfiler ble
+hentet tilbake og bekreftet identiske med kodeendringen i `7ccd660`, verifisert
+av [grønn CI](https://github.com/Nithusan2002/MatLogg/actions/runs/38449599644).
+
+Verktøyets deployversjoner `20261014051802` og `20261014051807` ble samordnet
+med repoets kanoniske migrasjonsversjoner etter kontroll av navn og identisk
+SQL-innhold. Bare de to historikkradene ble endret; SQL ble ikke kjørt om igjen.
+Staging har nå 13 migrasjoner. De tre nye metadatakolonnene har `as_sold` som
+default og er NOT NULL. Offentlig RPC og kvotewrapper er uendret; grants,
+SECURITY DEFINER/INVOKER og tom `search_path` er bevart.
+
+Kontroller på faktisk staging bestod:
+
+- Tilberedte produkter, logger og måltidselementer lagrer status. Eldre payloads
+  bevarer status ved oppdatering av samme produktreferanse.
+- Tomme/delvise næringsobjekter, rå desimaler, ukjente numeriske nøkler, kilde og
+  per-100-enhet bevares. Ni ugyldige næringsvarianter, manglende objekt og
+  ugyldig tilberedningsstatus avvises uten inbox-/domeneskriving.
+- Korrigert avvist hendelse kan behandles; replay skriver bare én gang.
+  Historisk ACK beholdes uten å skrive gammel ugyldig data.
+- Fremmed eier får FORBIDDEN ved endring og replay; RLS skjuler den andre
+  eierens produkt. Helperen uten kvotevern forblir utilgjengelig for klientroller.
+- Aksepterte/avviste forsøk og replay teller mot kvoten. Med syntetisk teller
+  satt til 1499 blir forsøk 1500 ACK og 1501 RATE_LIMITED. Nødstopp gir
+  SYNC_DISABLED uten å bruke kvote.
+- Testene kjørte i én transaksjon med rollback. Synk ble bare åpnet inne i den
+  ucommittede transaksjonen, usynlig for andre forbindelser. Etterkontroll viste
+  uendrede vedvarende radantall og null testkontoer.
+- HTTP POST uten JWT og med ugyldig JWT ga 401 med systemets curl og vanlig
+  TLS-verifisering. Python-kontrollen manglet lokalt CA-sertifikat. Autentisert
+  hosted HTTP-synk ble ikke kjørt; flagget holdes av. Tilsvarende HTTP-flyt er
+  verifisert separat i disponibelt CI-miljø.
+
+**Go for oppdatert staging med globalt `sync_enabled=false`; no-go for
+synkaktivering eller produksjon.** Fysisk iPhone, klientdistribusjon og øvrige
+produkt-/personvern-/driftsporter gjenstår. Ved feil beholdes flagget av;
+skjema og data reverseres ikke automatisk. Ingen arkitekturavvik: JWT-eierskap,
+atomisk inbox/domene og lokal lagring er bevart.
+Skills: backend-api, offline-sync, nutrition-privacy og qa-release.

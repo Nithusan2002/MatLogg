@@ -174,5 +174,7 @@ hendelse; allerede bekreftede hendelser skal ikke brukes til å omskrive histori
 
 Dette retter en tidligere for permissiv typevalidering i v1; gyldige nåværende
 iOS-payloads er numeriske og uendret. Deploy Edge-validering og migrasjon samlet
-bak avslått synkflagg før aktivering. Hosted staging er ikke oppgradert med
-denne endringen, og produksjonssynk forblir av.
+bak avslått synkflagg før aktivering. Hosted staging ble oppgradert med begge
+migrasjonene og `sync-events` versjon 5 den 14. oktober 2026. Readback og
+rollback-kontroller bestod; globalt `sync_enabled=false` og produksjonssynk
+forblir av. Se [staging-resultatet](production-readiness.md#næringsmetadata-og-validering-på-staging--2026-10-14).

@@ -158,7 +158,8 @@ med rollback; ingen reset eller hosted endring ble utført.
 Gyldige delvise/tomme objekter og rå desimaler bevares. Avviste nye hendelser
 etterlater ingen inbox-/domeneskriving. Grants, JWT-eierskap og atomiske grenser
 beholdes. Dette lukker næringsobjektets typegap, ikke hele SEC-2 eller SEC-5:
-øvrige feltregler, hosted utrulling og de eksisterende pilotportene gjenstår.
+øvrige feltregler og de eksisterende pilotportene gjenstår. Hosted staging ble
+senere oppdatert som beskrevet nedenfor.
 Se [synkkontrakten](sync-contract-v1.md#produktets-næringsobjekt-2026-10-13)
 for kompatibilitet og utrullekkefølge.
 
@@ -177,8 +178,15 @@ Sluttresultatet ble kontrollert 14. oktober: hele CI-kjøringen er grønn, med
 alle sju UI-tester bestått. Første iOS-forsøk ble avbrutt av jobbens grense på
 30 minutter etter fire beståtte UI-tester; ett nytt forsøk på en ren runner
 bestod både unit- og UI-kontrollene uten endring av tester eller tidsgrenser.
-Dette bekrefter kodeendringen, men erstatter ikke hosted utrulling eller fysisk
-iPhone-verifisering før pilot.
+Dette bekrefter kodeendringen, men erstatter ikke fysisk iPhone-verifisering
+eller de øvrige pilotportene.
+
+Etter brukergodkjenning ble begge ventende migrasjoner og `sync-events` versjon 5
+lagt inn på hosted staging 14. oktober. Kildereadback, syntetiske RPC-kontroller
+med rollback og HTTP-avvisning uten/med ugyldig JWT bestod. Ingen testkontoer
+eller domeneskriving ble stående igjen. Synk forblir avslått; autentisert hosted
+HTTP-synk og fysisk iPhone er fortsatt ikke verifisert i denne runden.
+Se [staging-resultatet](production-readiness.md#næringsmetadata-og-validering-på-staging--2026-10-14).
 
 ## Myndighetskilder
 
