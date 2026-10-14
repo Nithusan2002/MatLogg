@@ -542,7 +542,9 @@ produktkort med mengdevalg.
 ### Manuell inntasting av strekkode
 
 «Skriv inn strekkode» finnes på skanneskjermen, også uten kameratilgang.
-Talltastaturet har «Ferdig» som lukker tastaturet uten å sende eller endre input.
+Når tallfeltet har fokus, viser navigasjonslinjen «Ferdig» som lukker tastaturet
+uten å sende eller endre input. Knappen skal være tilgjengelig også med største
+tekststørrelse på fysisk iPhone.
 Dette gjør «Finn produkt» og validering tilgjengelig også ved største tekststørrelse.
 Et ark tar imot GTIN med 8, 12, 13 eller 14 sifre, støtter innliming og
 validerer kontrollsiffer før eksplisitt «Finn produkt». Innledende nuller

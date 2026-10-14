@@ -1308,3 +1308,25 @@ produkt-/personvern-/driftsporter gjenstår. Ved feil beholdes flagget av;
 skjema og data reverseres ikke automatisk. Ingen arkitekturavvik: JWT-eierskap,
 atomisk inbox/domene og lokal lagring er bevart.
 Skills: backend-api, offline-sync, nutrition-privacy og qa-release.
+
+## Fysisk smoke-kontroll – 2026-10-14
+
+Sju kritiske UI-flyter er verifisert på fysisk iPhone 17/iOS 27.2 i målrettede
+kjøringer: første logging/omstart, måltidsredigering på tidligere dag,
+batchsletting/angre, vannlagring/korreksjon, tilberedt næringsgrunnlag og de to
+strekkodeinntastingsflytene. En separat signert Debug-app («MatLogg QA») med
+egne bundle-ID-er isolerte datacontainer og nøkkelring fra vanlig installasjon.
+
+Kontrollen fant en manglende «Ferdig»-knapp ved fysisk talltastatur i
+strekkodearket. Knappen ligger nå i navigasjonslinjen mens feltet har fokus;
+begge strekkoderegresjoner bestod etter retting. Testene velger eksplisitt
+portrettmodus, og produktnavnsjekken beholder forventet produkt med fleksibel
+bokstavstørrelse. Se [testresultatet](testing.md#fysisk-iphone--2026-10-14).
+
+**Go for de kontrollerte lokale portrettflytene; no-go for synkaktivering eller
+produksjonsrelease.** Faktisk kameradeteksjon/pause/gjenopptakelse, VoiceOver,
+Apple-innlogging, Release-/TestFlight-kandidat og øvrige produkt-/personvern-/
+driftsporter gjenstår. Klientens synkflagg ble ikke endret; ingen hosted endring
+ble utført under telefonkontrollen. Kun visningsfokus og UI-tester er endret:
+ingen arkitekturavvik eller endring av lagring, synkformat eller transaksjoner.
+Skills: ios-swiftui, product-design og qa-release.

@@ -35,6 +35,7 @@ final class WaterLoggingUITests: XCTestCase {
 
     @MainActor
     func testOneTapPersistsAndCanBeCorrected() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]

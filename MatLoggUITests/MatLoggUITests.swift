@@ -11,6 +11,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testPreparedProductUsesCookedWeightAndLogs() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth", "--prepared-nutrition-qa", "-demoModeActive", "NO"]
         app.launch()
@@ -50,6 +51,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testManualBarcodeEntryWithoutCameraValidatesAndCancels() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
@@ -124,6 +126,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testManualBarcodeFindsLocalDemoProductAndLogs() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth", "-demoModeActive", "YES"]
         app.launch()
@@ -143,7 +146,12 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["findManualBarcode"].tap()
         let logButton = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
         XCTAssertTrue(logButton.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Lettkokte havregryn"].exists)
+        let productScreenshot = XCTAttachment(screenshot: app.screenshot())
+        productScreenshot.name = "Strekkodetreff før logging"
+        productScreenshot.lifetime = .keepAlways
+        add(productScreenshot)
+        let productTitle = app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", "Lettkokte havregryn")).firstMatch
+        XCTAssertTrue(productTitle.waitForExistence(timeout: 5))
         logButton.tap()
         XCTAssertTrue(app.descendants(matching: .any)["log-receipt"].firstMatch.waitForExistence(timeout: 8))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
@@ -167,6 +175,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testDiarySelectionDeletesAndRestoresWholeBatch() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = try prepareDiarySelection()
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
         // Selection changes the visible list. Capture IDs while both saved rows are present.
@@ -336,6 +345,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testMealRoomLogsAndEditsFoodForSelectedPastDay() throws {
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
@@ -422,6 +432,7 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testFirstLoggingWithoutAccountAndRelaunch() throws {
+        XCUIDevice.shared.orientation = .portrait
         // Override profile lookup on the first launch only. The newly created
         // profile is persisted normally and restored without overrides below.
         let app = XCUIApplication()

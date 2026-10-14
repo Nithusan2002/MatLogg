@@ -691,3 +691,32 @@ med strekkode `1000000000009`, uten behov for ekstern produktforespørsel.
 Kontraktstest: `supabase/functions/tests/nutrition_preparation_test.ts`.
 Databasetest: `supabase/tests/database/nutrition_preparation.test.sql`;
 kjøres bare mot bekreftet lokal/disponibel Supabase.
+
+## Fysisk iPhone – 2026-10-14
+
+Sju kritiske UI-flyter ble verifisert på iPhone 17 med iOS 27.2, bygget med
+Xcode 27.0. En ignorert QA-xcconfig ga app og testkjører egne bundle-ID-er og
+«MatLogg QA» som appnavn; vanlig installasjon, datacontainer og nøkkelring ble
+ikke brukt. Klientens `backendSyncEnabled` forble false.
+
+Første kjøring bestod 1/7 og viste rotasjon til liggende modus. De sju
+portrettscenarioene velger nå `.portrait` før appstart. Neste kjøring bestod
+5/7: første logging/omstart, måltidsredigering på tidligere dag, batchsletting/
+angre, tilberedt næringsgrunnlag og vannlagring/korreksjon.
+
+Fysisk talltastatur viste ikke SwiftUIs keyboard-toolbar i strekkodearket.
+Eksisterende «Ferdig» ble flyttet til navigasjonslinjen når feltet har fokus.
+Regresjonen bekrefter tilgjengelig knapp, lukket tastatur, uendret input,
+kontrollsiffervalidering og avbryt med største tekststørrelse. Det andre
+strekkodetreffet viste riktig havregrynprodukt med annen bokstavstørrelse;
+testen krever fortsatt samme produktnavn og loggkvittering, men sammenligner
+navnet uten hensyn til store/små bokstaver og venter på presentasjonen.
+Begge berørte strekkodetester ble kjørt på nytt og bestod (2/2).
+
+Resultatbundler under ignorert `build/physical-qa-20261014/`:
+`physical-ui-portrait.xcresult` (5/7 før strekkoderetting) og
+`physical-barcode-final.xcresult` (2/2 etter retting). Skjermbilder av tilberedt
+grunnlag og strekkodevalidering ble inspisert. Ingen full unit-suite eller ny
+dekningsmåling ble kjørt; endringen gjelder fokus/UI og testforutsetninger.
+Faktisk kameradeteksjon/pause/gjenopptakelse, VoiceOver, Apple-innlogging og
+en Release-/TestFlight-kandidat inngikk ikke i denne kontrollen.
