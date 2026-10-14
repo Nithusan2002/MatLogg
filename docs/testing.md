@@ -720,3 +720,25 @@ grunnlag og strekkodevalidering ble inspisert. Ingen full unit-suite eller ny
 dekningsmåling ble kjørt; endringen gjelder fokus/UI og testforutsetninger.
 Faktisk kameradeteksjon/pause/gjenopptakelse, VoiceOver, Apple-innlogging og
 en Release-/TestFlight-kandidat inngikk ikke i denne kontrollen.
+
+### Supplerende eksport- og kontokontroll – 2026-10-14
+
+På samme fysiske iPhone og med isolert QA-konfigurasjon bestod 22 tester i
+`ProfileTests` og `CameraAuthorizationViewModelTests`, samt to UI-tester:
+`testLocalStorageInformationInProfile` og
+`testPilotAccountOffersAppleWithoutEmailForms`. `xcodebuild test` avsluttet
+med `TEST SUCCEEDED`. Resultat: `build/physical-qa-20261014/remaining-gates.xcresult`;
+kjørelogg: `build/physical-qa-20261014/remaining-gates.log` (ignorert).
+
+Eksporttestene dekker syntetisk eksportinnhold og eierisolasjon, feil/retry,
+profilbytte under eksport og opprydding. UI-kontrollen bekrefter tilgjengelig
+eksportknapp og lokal lagringsinformasjon; den åpner ikke delingsarket og
+verifiserer ikke faktisk lagring av JSON via Filer. Kontotesten bekrefter
+Apple-knapp og fravær av e-posthandlinger, ikke ekte autentisering.
+
+Brukeren valgte å utsette ekte kameraskanning, VoiceOver og Apple-inn-/utlogging
+i denne runden. Disse punktene og ende-til-ende-eksport via delingsarket står
+fortsatt åpne. Ingen appkode, auth-konfigurasjon eller synkflagg ble endret.
+Skills: ios-swiftui og qa-release. Arkitektur: ingen implementeringsendring;
+avhengighetsretning, local-first, eierskap og transaksjonsgrenser er uendret.
+Resultatet gir ikke samlet pilot-/releasegodkjenning.
