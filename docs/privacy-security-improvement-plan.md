@@ -173,6 +173,13 @@ med to live Supabase-tester hoppet over fordi eget integrasjonsmiljø ikke var
 konfigurert. Målt linjedekning var 32,66 % for hele appen (14 298/43 784) og
 83,62 % for Services/ViewModels (9 971/11 924).
 
+Sluttresultatet ble kontrollert 14. oktober: hele CI-kjøringen er grønn, med
+alle sju UI-tester bestått. Første iOS-forsøk ble avbrutt av jobbens grense på
+30 minutter etter fire beståtte UI-tester; ett nytt forsøk på en ren runner
+bestod både unit- og UI-kontrollene uten endring av tester eller tidsgrenser.
+Dette bekrefter kodeendringen, men erstatter ikke hosted utrulling eller fysisk
+iPhone-verifisering før pilot.
+
 ## Myndighetskilder
 
 - [Personopplysningsloven og GDPR](https://lovdata.no/dokument/NL/lov/2018-06-15-38): særlig artikkel 5–9, 12–22, 25, 28, 30, 32–37 og 44–49.
