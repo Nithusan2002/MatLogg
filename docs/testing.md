@@ -742,3 +742,21 @@ fortsatt åpne. Ingen appkode, auth-konfigurasjon eller synkflagg ble endret.
 Skills: ios-swiftui og qa-release. Arkitektur: ingen implementeringsendring;
 avhengighetsretning, local-first, eierskap og transaksjonsgrenser er uendret.
 Resultatet gir ikke samlet pilot-/releasegodkjenning.
+
+### Delbare måltidskort
+
+Målrettede suiter: `MealShareTests`, `SavedMealNutritionPreviewTests` og
+`SavedMealDetailTests`. Kontroller justerte mengder, ugyldig grunnlag,
+stilpreferanse, feil/retry, profilreset under eksport, bilde uten lesbare data
+og 1080 × 1920-eksport av alle stiler med og uten bilde.
+`MealShareUITests` bruker demo på en dedikert QA-simulator og kontrollerer
+stilvalg, avbryt og største tekststørrelse, med skjermbilder som vedlegg.
+VoiceOver og faktisk overføring til en sosial app krever separat fysisk kontroll.
+
+Kontroll 2026-10-18: 13 målrettede enhetstester bestod, og vanlig UI-flyt
+bestod med alle tre stilvalg, åpning/lukking av systemdelingsarket og avbryt
+uten loggføring. Siste kodeversjon bestod `build-for-testing`. Kontroll med
+største tekststørrelse står åpen: testkjøreren stoppet i app-/simulatoroppstart,
+og direkte UI-kontroll bekreftet at Mac-en var låst. Kjør UI-testene på en ulåst
+Mac; tidsavbrudd i oppstart regnes ikke som godkjent verifisering. VoiceOver og
+faktisk overføring til en sosial app på fysisk iPhone er ikke kontrollert.

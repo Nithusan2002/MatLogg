@@ -34,6 +34,7 @@ Produktdata
   - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter lagres lokalt og lastes ikke opp i denne versjonen.
 
 Deling
+  - Når du velger å dele et lagret måltid, lager appen et bilde lokalt med måltidsnavn, valgfritt måltidsbilde og næringsinnhold. Du forhåndsviser innholdet og velger selv mottaker i iOS sitt delingsark. Kortet inneholder ikke profilinformasjon, mål, vekt eller original fotometadata. MatLogg laster ikke kortet opp til en server; videre behandling følger tjenesten du velger å dele til.
   - Hvis du deler et produkt, genererer vi en delingslenke (token) som gjor at mottaker kan se en forhandsvisning og importere produktet i appen.
 
 3. Hvorfor behandler vi dataene?

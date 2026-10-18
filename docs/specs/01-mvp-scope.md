@@ -192,3 +192,10 @@ Open Food Facts-produkter med bare komplette tilberedte næringsverdier kan
 logges i gram/ml ferdig tilberedt mat når mengdegrunnlaget er eksplisitt.
 Automatisk omregning fra tørrvare og «én tilberedt pakke» inngår ikke i denne
 leveransen. Tilberedningsstatus bevares i logger og måltidsmaler.
+
+### Måltidskort (18. oktober 2026)
+
+Lagrede måltider utvides med frivillig lokal bildedeling i tre stiler (Lys, Mørk,
+Foto). Gjeldende mengder brukes; funksjonen logger eller lagrer ikke måltidet.
+Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
+Se [lagrede måltider](../saved-meals.md#del-måltidskort).

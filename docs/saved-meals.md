@@ -182,3 +182,19 @@ varer i malen. Grensen er fortsatt 1–50 varer. Ved blandede grupper kan bruker
 velge foreslått måltidskategori; første valgte registrerings kategori foreslås.
 Avbryt og lagringsfeil beholder valget. Vellykket lagring avslutter valgmodus.
 Dagbokregistreringene påvirkes ikke.
+
+## Del måltidskort
+
+Forhåndsvisningen har «Del måltid» ved siden av Rediger, utenfor redigeringsmodus.
+Et eget ark tilbyr Lys, Mørk og Foto med sveiping og direkte stilvalg. Sist valgte
+stil huskes på enheten. Kortet viser navn, valgfritt originalbilde, «Hele måltidet»,
+energi og makroer, samt kildeoversikt når kildevisning er aktivert.
+Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
+deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
+
+Kortet genereres lokalt som 1080 × 1920 piksler og sendes som bilde til iOS sitt
+delingsark etter «Del kortet». Ingen konto, nettforespørsel, delingslenke eller
+mottakerimport kreves. Sending fra mottakerappen kan kreve nett. Alle stiler har
+reserveutforming uten bilde; et ødelagt bilde gir en eksplisitt forklaring.
+Eksportbildet holdes i minnet og inneholder ikke original fotometadata,
+loggdato, profilinformasjon, mål eller vekt. Profilbytte forkaster delingsøkten.

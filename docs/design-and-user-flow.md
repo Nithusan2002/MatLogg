@@ -949,3 +949,12 @@ er kun et redigerbart per-100-utgangspunkt, ikke en dokumentert porsjon.
 Hurtiglogging og oppdatering på et åpent produktkort skal ikke tolke om en
 gammel mengde når tilberedningsgrunnlaget endres. Manuell registrering fra
 emballasjen er alternativet ved ufullstendige data.
+
+### Deling av lagrede måltider
+
+«Del måltid» i måltidsforhåndsvisningen åpner et eget ark med et stort kort,
+velgerne Lys/Mørk/Foto og «Del kortet» nederst. Stilene kan også sveipes.
+Valget markeres med hake og huskes lokalt. Eksporten bruker gjeldende mengder,
+uten å lagre eller loggføre måltidet. Kortet har fast 9:16-format, mens kontrollene
+følger Dynamic Type. Ingen profil-, mål- eller vektopplysninger inngår.
+Se [lagrede måltider](saved-meals.md#del-måltidskort) for feiltilstander og innhold.

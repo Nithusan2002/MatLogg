@@ -194,6 +194,7 @@ struct SavedMealsListView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("saved-meal-open-\(meal.id)")
                             .listRowBackground(AppColors.background)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Slett", role: .destructive) { deleteCandidate = meal }
@@ -262,6 +263,8 @@ struct SavedMealLogView: View {
 }
 
 private struct SavedMealLogContent: View {
+    @EnvironmentObject private var shareModel: MealShareViewModel
+    @State private var showShare = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let viewModel: SavedMealsViewModel
@@ -307,6 +310,16 @@ private struct SavedMealLogContent: View {
                         .font(AppTypography.captionEmphasis)
                         .foregroundStyle(AppColors.textSecondary)
                     Spacer()
+                    if !detail.isEditing {
+                        Button {
+                            showShare = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Del måltid")
+                        .accessibilityIdentifier("saved-meal-share")
+                        .disabled(formState.isSaving || formState.isLoadingPhoto)
+                    }
                     editModeButton
                         .disabled(formState.isSaving || formState.isLoadingPhoto)
                         .accessibilityIdentifier("saved-meal-edit-toggle")
@@ -495,6 +508,13 @@ private struct SavedMealLogContent: View {
                 }
             }
             .interactiveDismissDisabled(formState.isSaving || detail.isEditing)
+        }
+        .sheet(isPresented: $showShare, onDismiss: { shareModel.reset() }) {
+            MealShareView(model: shareModel)
+                .task {
+                    await shareModel.open(meal: meal, preview: activePreview,
+                                          showSource: preferences.showNutritionSource)
+                }
         }
         .sheet(isPresented: $showAddFood) {
             LoggingFlowView(onLogComplete: { _ in }, onSavedMealLogComplete: {},

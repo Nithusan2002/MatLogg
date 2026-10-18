@@ -902,3 +902,12 @@ og måltidsmaler. Fallback bruker kun komplette tilberedte næringsverdier med
 eksplisitt per-100-enhet. Første versjon tilbyr gram/ml ferdig tilberedt mat,
 ingen automatisk tørrvekt-, pakke- eller porsjonsomregning. Dette gjør
 produkter med bare tilberedt næring tilgjengelige uten å gjette vekten.
+
+### 2026-10-18 – Lokale måltidskort med tre stiler
+
+Lagrede måltider kan deles som bilde i Lys, Mørk eller Foto gjennom iOS sitt
+delingsark. Kortet bygges fra et øyeblikksbilde av gjeldende mengder og lagret
+næringsgrunnlag, med valgfritt lokalt måltidsbilde og kildeoversikt. Eksporten
+er 1080 × 1920 piksler og holdes i minnet; ingen opplasting, URL, ny synkhendelse
+eller endring av måltidsmalen. Stilpreferansen lagres lokalt. App-roten injiserer
+rendering og preferanser; deling har egen ViewModel og legges ikke i AppState.
