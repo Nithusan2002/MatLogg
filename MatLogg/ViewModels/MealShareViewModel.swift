@@ -10,6 +10,14 @@ enum MealShareStyle: String, CaseIterable, Identifiable {
     }
 }
 
+enum MealShareFormat: String, CaseIterable, Identifiable {
+    case portrait, story
+    var id: String { rawValue }
+    var title: String { self == .portrait ? "3:4" : "9:16" }
+    var canvasSize: CGSize { CGSize(width: 360, height: self == .portrait ? 480 : 640) }
+    var aspectRatio: CGFloat { canvasSize.width / canvasSize.height }
+}
+
 struct MealShareContent: Codable, Equatable {
     var calories = true
     var protein = true
@@ -61,6 +69,7 @@ struct MealShareSnapshot {
 @MainActor
 protocol MealSharePreferences {
     var style: MealShareStyle { get set }
+    var format: MealShareFormat { get set }
     var content: MealShareContent { get set }
 }
 
@@ -71,6 +80,10 @@ final class LocalMealSharePreferences: MealSharePreferences {
     var style: MealShareStyle {
         get { MealShareStyle(rawValue: defaults.string(forKey: "mealShareStyle") ?? "") ?? .light }
         set { defaults.set(newValue.rawValue, forKey: "mealShareStyle") }
+    }
+    var format: MealShareFormat {
+        get { MealShareFormat(rawValue: defaults.string(forKey: "mealShareFormat") ?? "") ?? .story }
+        set { defaults.set(newValue.rawValue, forKey: "mealShareFormat") }
     }
     var content: MealShareContent {
         get {
@@ -89,7 +102,7 @@ final class LocalMealSharePreferences: MealSharePreferences {
 
 @MainActor
 protocol MealShareRendering {
-    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent) async throws -> UIImage
+    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent, format: MealShareFormat) async throws -> UIImage
 }
 
 @MainActor
@@ -101,6 +114,7 @@ final class MealShareViewModel: ObservableObject {
     @Published private(set) var snapshot: MealShareSnapshot?
     @Published private(set) var photo: UIImage?
     @Published private(set) var style: MealShareStyle = .light
+    @Published private(set) var format: MealShareFormat = .story
     @Published private(set) var content = MealShareContent()
     @Published private(set) var isPreparing = false
     @Published private(set) var isExporting = false
@@ -124,6 +138,7 @@ final class MealShareViewModel: ObservableObject {
     func open(meal: SavedMeal, preview: SavedMealNutritionPreview, showSource: Bool) async {
         reset()
         style = preferences.style
+        format = preferences.format
         content = preferences.content
         guard let value = MealShareSnapshot(meal: meal, preview: preview, showSource: showSource) else {
             errorMessage = "Kontroller mengdene og næringsgrunnlaget før du deler måltidet."
@@ -154,7 +169,7 @@ final class MealShareViewModel: ObservableObject {
         isExporting = true
         errorMessage = nil
         do {
-            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content)
+            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content, format: format)
             guard request == generation, !Task.isCancelled else { return }
             sharedImage = SharedImage(image: image)
         } catch {
@@ -170,6 +185,13 @@ final class MealShareViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    func selectFormat(_ format: MealShareFormat) {
+        guard !isWorking else { return }
+        self.format = format
+        preferences.format = format
+        errorMessage = nil
+    }
+
     func saveToPhotos() async {
         guard let snapshot, !isPreparing, !isWorking else { return }
         let request = generation
@@ -180,7 +202,7 @@ final class MealShareViewModel: ObservableObject {
         do {
             try await photoSaver.requestAuthorization()
             guard request == generation, !Task.isCancelled else { return }
-            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content)
+            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content, format: format)
             guard request == generation, !Task.isCancelled else { return }
             try await photoSaver.save(image)
             guard request == generation, !Task.isCancelled else { return }

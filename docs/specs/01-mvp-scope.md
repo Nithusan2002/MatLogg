@@ -201,5 +201,6 @@ Kalorier, protein, karbohydrater og fett kan velges bort individuelt i kortet;
 alle er på som standard, og utvalget huskes lokalt på enheten.
 MatLogg-logoen kan også skjules, med samme lokale lagring av valget.
 Kortet kan også lagres direkte i Bilder med kun tilgang til å legge til bilder.
+Formatene 3:4 og 9:16 støttes i alle stiler; sist valgte format huskes lokalt.
 Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
 Se [lagrede måltider](../saved-meals.md#del-måltidskort).

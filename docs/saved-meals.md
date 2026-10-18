@@ -191,6 +191,12 @@ stil huskes på enheten. Kortet viser navn, valgfritt originalbilde,
 energi og makroer uten overskriften «Hele måltidet». Kildeinformasjon vises ikke på delingskortet, uavhengig av
 innstillingen for kildevisning inne i appen.
 
+Formatvelgeren tilbyr 3:4 (1080 × 1440) og 9:16 (1080 × 1920) i alle tre stiler.
+9:16 beholdes som standard til et annet format velges. Valget huskes på enheten
+og brukes i forhåndsvisning, miniatyrer, lagring og deling. 3:4 bruker en kortere
+layout med tilpasset skrift og mellomrom; tekst og næringsgruppe får plass før
+bildeområdet fordeles. Formatvelgeren er deaktivert under lagring og eksport.
+
 «Tilpass innhold» lar brukeren velge kalorier, protein, karbohydrater, fett
 og MatLogg-logo hver for seg. Alle fem er på som standard; valgene huskes lokalt på enheten.
 Eldre næringsvalg bevares, med logo på frem til brukeren velger å skjule den.
@@ -211,7 +217,7 @@ Rulleinnholdet har ekstra klaring over den faste deleknappen.
 Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
 deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
 
-Kortet genereres lokalt som 1080 × 1920 piksler. «Lagre bilde» legger samme kort
+Kortet genereres lokalt i valgt format. «Lagre bilde» legger samme kort
 direkte i Bilder, og «Del kortet» åpner iOS sitt delingsark. Knappene vises ved
 siden av hverandre, eller under hverandre ved svært stor tekst. Appen ber kun om
 tilgang til å legge til bilder ved aktiv lagring, og leser ikke bildebiblioteket.

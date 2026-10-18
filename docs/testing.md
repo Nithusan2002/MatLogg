@@ -804,3 +804,13 @@ For å kjøre lagringsintegrasjonen: start den dedikerte QA-simulatoren og bruk
 `xcrun simctl privacy <QA-UUID> grant photos-add com.nithusan.MatLogg` før testen.
 Bruk aldri denne testen mot en simulator med personlige data. Avvist tilgang
 kontrolleres uten ekte bildebibliotek gjennom den injiserte testdoblingen.
+
+Formatvalg 2026-10-18: `build-for-testing` mot generisk iOS Simulator bestod
+for appen og testmålene. Tester er utvidet for lokal formatpreferanse, format
+ved lagring/deling, låsing under behandling og 18 eksportkombinasjoner (to
+formater, tre stiler, fullt/minimalt innhold og manglende bilde). En kort UI-test
+dekker formatbytte og gjenåpning. Den målrettede kjøringen startet ingen tester:
+Xcode fant ingen tilgjengelig simulator, og `simctl` svarte ikke på statusforespørsel.
+Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
+`/tmp/matlogg-share-format-build.log`; blokkeringslogg:
+`/tmp/matlogg-share-format-tests.log`.

@@ -26,9 +26,11 @@ struct MealShareTests {
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         #expect(model.snapshot?.sourceText == nil)
         model.select(.dark)
+        model.selectFormat(.portrait)
         let content = MealShareContent(calories: false, protein: true, carbs: false, fat: false, logo: false)
         model.setContent(content)
         #expect(preferences.style == .dark)
+        #expect(preferences.format == .portrait)
         #expect(preferences.content == content)
         renderer.shouldFail = true
         await model.export()
@@ -38,6 +40,7 @@ struct MealShareTests {
         await model.export()
         #expect(model.sharedImage != nil)
         #expect(renderer.lastStyle == .dark)
+        #expect(renderer.lastFormat == .portrait)
         #expect(renderer.lastContent == content)
         #expect(model.errorMessage == nil)
         model.reset()
@@ -45,6 +48,7 @@ struct MealShareTests {
         #expect(model.sharedImage == nil)
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         #expect(model.content == content)
+        #expect(model.format == .portrait)
     }
 
     @Test func resetDiscardsInFlightExport() async {
@@ -72,6 +76,11 @@ struct MealShareTests {
         #expect(LocalMealSharePreferences(defaults: defaults).style == .light)
         LocalMealSharePreferences(defaults: defaults).style = .photo
         #expect(LocalMealSharePreferences(defaults: defaults).style == .photo)
+        #expect(LocalMealSharePreferences(defaults: defaults).format == .story)
+        LocalMealSharePreferences(defaults: defaults).format = .portrait
+        #expect(LocalMealSharePreferences(defaults: defaults).format == .portrait)
+        defaults.set("unknown-format", forKey: "mealShareFormat")
+        #expect(LocalMealSharePreferences(defaults: defaults).format == .story)
         #expect(LocalMealSharePreferences(defaults: defaults).content == MealShareContent())
         let content = MealShareContent(calories: false, protein: false, carbs: false, fat: false, logo: false)
         LocalMealSharePreferences(defaults: defaults).content = content
@@ -187,6 +196,7 @@ struct MealShareTests {
         let meal = makeMeal()
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         model.select(.photo)
+        model.selectFormat(.portrait)
         let content = MealShareContent(calories: false, logo: false)
         model.setContent(content)
 
@@ -207,6 +217,7 @@ struct MealShareTests {
         #expect(model.saveNotice == "Bildet er lagret i Bilder.")
         #expect(saver.saveCount == 2)
         #expect(renderer.lastStyle == .photo)
+        #expect(renderer.lastFormat == .portrait)
         #expect(renderer.lastContent == content)
         #expect(model.sharedImage == nil)
         #expect(model.snapshot?.nutrition.calories == 100)
@@ -223,10 +234,12 @@ struct MealShareTests {
         while saver.authorizationContinuation == nil { await Task.yield() }
         #expect(model.isSaving)
         model.select(.dark)
+        model.selectFormat(.portrait)
         model.setContent(MealShareContent(logo: false))
         await model.export()
         await model.saveToPhotos()
         #expect(model.style == .light)
+        #expect(model.format == .story)
         #expect(model.content.logo)
         #expect(saver.authorizationCount == 1)
         model.reset()
@@ -236,6 +249,31 @@ struct MealShareTests {
         #expect(renderer.lastStyle == nil)
         #expect(model.saveNotice == nil)
         #expect(!model.isWorking)
+    }
+
+    @Test func bothFormatsRenderEveryStyleWithFullAndMinimalContent() async throws {
+        let meal = makeMeal(name: "Havregrøt med whey, kanel og honning, blåbær og banan til frokost")
+        let snapshot = try #require(MealShareSnapshot(meal: meal,
+            preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false))
+        let photo = UIImage(named: "OnboardingBreakfast") ?? makePhoto(size: CGSize(width: 100, height: 100), color: .orange)
+        let inputs: [(String, UIImage?, MealShareContent)] = [
+            ("full", photo, MealShareContent()),
+            ("minimal", photo, MealShareContent(calories: false, protein: false, carbs: false, fat: false, logo: false)),
+            ("no-photo", nil, MealShareContent())
+        ]
+        for format in MealShareFormat.allCases {
+            for style in MealShareStyle.allCases {
+                for (name, input, content) in inputs {
+                    let image = try await MealShareRenderingService().render(snapshot: snapshot,
+                        style: style, photo: input, content: content, format: format)
+                    #expect(image.cgImage?.width == 1080)
+                    #expect(image.cgImage?.height == (format == .portrait ? 1440 : 1920))
+                    if format == .portrait || name == "full" {
+                        Attachment.record(try #require(image.pngData()), named: "meal-share-\(format.rawValue)-\(style.rawValue)-\(name).png")
+                    }
+                }
+            }
+        }
     }
 
     private func makePhoto(size: CGSize, color: UIColor) -> UIImage {
@@ -255,18 +293,21 @@ struct MealShareTests {
 @MainActor
 private final class MemorySharePreferences: MealSharePreferences {
     var style: MealShareStyle = .light
+    var format: MealShareFormat = .story
     var content = MealShareContent()
 }
 
 @MainActor
 private final class ShareRendererSpy: MealShareRendering {
     var shouldFail = false
+    var lastFormat: MealShareFormat?
     var lastStyle: MealShareStyle?
     var lastContent: MealShareContent?
     var suspend = false
     var continuation: CheckedContinuation<UIImage, any Error>?
-    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent) async throws -> UIImage {
+    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent, format: MealShareFormat) async throws -> UIImage {
         lastStyle = style
+        lastFormat = format
         lastContent = content
         if shouldFail { throw CocoaError(.fileWriteUnknown) }
         if suspend { return try await withCheckedThrowingContinuation { continuation = $0 } }

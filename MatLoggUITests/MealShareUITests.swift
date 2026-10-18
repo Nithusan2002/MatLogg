@@ -12,6 +12,27 @@ final class MealShareUITests: XCTestCase {
     }
 
     @MainActor
+    func testSelectCardFormats() {
+        let app = openMealShare(largeText: false)
+        let formats = app.segmentedControls["meal-share-format"]
+        XCTAssertTrue(formats.waitForExistence(timeout: 5))
+        for format in ["3:4", "9:16"] {
+            formats.buttons[format].tap()
+            XCTAssertTrue(formats.buttons[format].isSelected)
+            XCTAssertLessThanOrEqual(app.buttons["meal-share-customize"].frame.maxY,
+                                     app.buttons["meal-share-export"].frame.minY - 12)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "meal-share-format-\(format.replacingOccurrences(of: ":", with: "x"))"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+        app.buttons["meal-share-close"].tap()
+        app.buttons["saved-meal-share"].tap()
+        XCTAssertTrue(app.segmentedControls["meal-share-format"].buttons["9:16"].isSelected)
+        app.buttons["meal-share-close"].tap()
+    }
+
+    @MainActor
     func testSaveMealCardToPhotos() {
         // Dedicated QA simulator: grant photos-add before this integration test.
         // The first system permission dialog is a separate physical-device check.

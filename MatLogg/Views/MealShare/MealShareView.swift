@@ -14,13 +14,22 @@ struct MealShareView: View {
                     VStack(spacing: 16) {
                         if model.isPreparing { ProgressView("Klargjør kort …") }
                         if let snapshot = model.snapshot {
+                            Picker("Bildeformat", selection: Binding(get: { model.format }, set: { model.selectFormat($0) })) {
+                                ForEach(MealShareFormat.allCases) { format in
+                                    Text(format.title).tag(format)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .accessibilityLabel("Bildeformat")
+                            .accessibilityIdentifier("meal-share-format")
+                            .disabled(model.isWorking)
                             TabView(selection: Binding(get: { model.style }, set: { model.select($0) })) {
                                 ForEach(MealShareStyle.allCases) { style in
                                     GeometryReader { geometry in
-                                        let width = min(geometry.size.width - 24, (geometry.size.height - 16) * 9 / 16)
-                                        MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content)
+                                        let width = min(geometry.size.width - 24, (geometry.size.height - 16) * model.format.aspectRatio)
+                                        MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content, format: model.format)
                                             .scaleEffect(width / 360)
-                                            .frame(width: width, height: width * 16 / 9)
+                                            .frame(width: width, height: width / model.format.aspectRatio)
                                             .overlay(Rectangle().stroke(AppColors.controlBorder.opacity(0.5), lineWidth: 1))
                                             .shadow(color: AppColors.deepInk.opacity(0.12), radius: 6, y: 3)
                                             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
@@ -33,7 +42,7 @@ struct MealShareView: View {
                             .tabViewStyle(.page(indexDisplayMode: .never))
                             .frame(height: dynamicTypeSize.isAccessibilitySize
                                 ? min(260, max(160, available.size.height * 0.45))
-                                : min(500, max(240, available.size.height - 240)))
+                                : min(500, max(200, available.size.height - 288)))
                             .disabled(model.isWorking)
                             let layout = dynamicTypeSize.isAccessibilitySize
                                 ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
@@ -45,9 +54,9 @@ struct MealShareView: View {
                                         let contentLayout = dynamicTypeSize.isAccessibilitySize
                                             ? AnyLayout(HStackLayout(spacing: 16)) : AnyLayout(VStackLayout(spacing: 8))
                                         contentLayout {
-                                            MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content)
-                                                .scaleEffect(0.15)
-                                                .frame(width: 54, height: 96)
+                                            MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content, format: model.format)
+                                                .scaleEffect(96 / model.format.canvasSize.height)
+                                                .frame(width: 96 * model.format.aspectRatio, height: 96)
                                                 .accessibilityHidden(true)
                                             Label(style.title, systemImage: model.style == style ? "checkmark.circle.fill" : "circle")
                                                 .font(AppTypography.captionEmphasis)

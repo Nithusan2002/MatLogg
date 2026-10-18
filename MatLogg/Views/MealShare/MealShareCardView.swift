@@ -6,6 +6,10 @@ struct MealShareCardView: View {
     let style: MealShareStyle
     let photo: UIImage?
     var content = MealShareContent()
+    var format: MealShareFormat = .story
+    private var isCompact: Bool { format == .portrait }
+    private var cardPadding: CGFloat { isCompact ? 20 : 24 }
+    private var sectionSpacing: CGFloat { isCompact ? 12 : 16 }
     private var isLight: Bool { style == .light }
     private var foreground: Color { isLight ? AppColors.deepInk : AppColors.surface }
 
@@ -19,14 +23,14 @@ struct MealShareCardView: View {
             }
         }
         .foregroundStyle(foreground)
-        .frame(width: 360, height: 640)
+        .frame(width: format.canvasSize.width, height: format.canvasSize.height)
         .clipped()
         .environment(\.colorScheme, .light)
         .accessibilityElement(children: .combine)
     }
 
     private var standardCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: sectionSpacing) {
             if content.logo { wordmark }
             mealTitle
             if let photo {
@@ -42,14 +46,14 @@ struct MealShareCardView: View {
             }
             if content.hasNutrition { nutrition }
         }
-        .padding(24)
+        .padding(cardPadding)
     }
 
     private var photoCard: some View {
         ZStack(alignment: .topLeading) {
             if let photo {
                 Image(uiImage: photo).resizable().scaledToFill()
-                    .frame(width: 360, height: 640).clipped()
+                    .frame(width: format.canvasSize.width, height: format.canvasSize.height).clipped()
             }
             if content.logo {
                 wordmark
@@ -61,17 +65,17 @@ struct MealShareCardView: View {
                                 .fill(AppColors.deepInk.opacity(0.8))
                         }
                     }
-                    .padding(24)
+                    .padding(cardPadding)
             }
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
                     mealTitle
                     if content.hasNutrition { nutrition }
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 24)
-                .padding(.top, 72)
+                .padding(.horizontal, cardPadding)
+                .padding(.bottom, cardPadding)
+                .padding(.top, isCompact ? 56 : 72)
                 .background {
                     // The scrim follows the text group's height; the photo above stays unobscured.
                     LinearGradient(stops: [
@@ -86,23 +90,23 @@ struct MealShareCardView: View {
     }
 
     private var wordmark: some View {
-        Text("MatLogg").font(.system(size: 22, weight: .bold, design: .rounded))
+        Text("MatLogg").font(.system(size: isCompact ? 20 : 22, weight: .bold, design: .rounded))
             .foregroundStyle(isLight ? AppColors.brand : foreground)
     }
 
     private var mealTitle: some View {
-        Text(snapshot.name).font(.system(size: 30, weight: .bold, design: .rounded))
-            .lineLimit(3).minimumScaleFactor(0.7)
+        Text(snapshot.name).font(.system(size: isCompact ? 26 : 30, weight: .bold, design: .rounded))
+            .lineLimit(isCompact ? 4 : 3).minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var nutrition: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: isCompact ? 10 : 12) {
             if content.calories {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(number(snapshot.nutrition.calories, decimals: 0))
-                        .font(.system(size: 50, weight: .bold, design: .rounded))
+                        .font(.system(size: isCompact ? 44 : 50, weight: .bold, design: .rounded))
                     Text("kcal").font(.system(size: 27, weight: .medium))
                 }.minimumScaleFactor(0.5).lineLimit(1)
             }
@@ -119,12 +123,12 @@ struct MealShareCardView: View {
     private func macro(_ value: Float, title: String, tint: Color) -> some View {
         VStack(spacing: 6) {
             if !isLight { Capsule().fill(tint).frame(width: 24, height: 4) }
-            Text(number(value, decimals: 1) + " g").font(.system(size: 24, weight: .bold))
+            Text(number(value, decimals: 1) + " g").font(.system(size: isCompact ? 22 : 24, weight: .bold))
                 .lineLimit(1).minimumScaleFactor(0.5)
             Text(title).font(.system(size: 11, weight: .medium)).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, isCompact ? 10 : 14)
         .background(isLight ? tint.opacity(0.13) : .clear, in: RoundedRectangle(cornerRadius: 16))
     }
 
