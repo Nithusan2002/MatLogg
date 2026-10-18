@@ -77,7 +77,7 @@ struct MealShareView: View {
                                 HStack {
                                     Text("Tilpass innhold").font(AppTypography.bodyEmphasis)
                                     Spacer()
-                                    Text("\(model.content.selectedCount) av 4")
+                                    Text("\(model.content.selectedCount) av 5")
                                         .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                                     Image(systemName: isCustomizing ? "chevron.up" : "chevron.down")
                                         .font(AppTypography.captionEmphasis)
@@ -94,6 +94,7 @@ struct MealShareView: View {
                                     contentToggle("Protein", keyPath: \.protein, id: "protein")
                                     contentToggle("Karbohydrater", keyPath: \.carbs, id: "carbs")
                                     contentToggle("Fett", keyPath: \.fat, id: "fat")
+                                    contentToggle("MatLogg-logo", keyPath: \.logo, id: "logo")
                                     Text(model.content.hasNutrition
                                          ? "Deler bilde, måltidsnavn og valgte næringsverdier."
                                          : "Deler bilde og måltidsnavn uten næringsverdier.")

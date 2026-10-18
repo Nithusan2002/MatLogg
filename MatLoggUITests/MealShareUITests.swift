@@ -73,7 +73,7 @@ final class MealShareUITests: XCTestCase {
             let customize = app.buttons["meal-share-customize"]
             makeVisible(customize, in: app)
             customize.tap()
-            for nutrient in ["calories", "protein", "carbs", "fat"] {
+            for nutrient in ["calories", "protein", "carbs", "fat", "logo"] {
                 let toggle = app.switches["meal-share-include-" + nutrient]
                 XCTAssertTrue(toggle.waitForExistence(timeout: 3))
                 makeVisible(toggle, in: app)
@@ -100,7 +100,7 @@ final class MealShareUITests: XCTestCase {
             share.tap()
             makeVisible(customize, in: app)
             customize.tap()
-            for nutrient in ["calories", "protein", "carbs", "fat"] {
+            for nutrient in ["calories", "protein", "carbs", "fat", "logo"] {
                 let toggle = app.switches["meal-share-include-" + nutrient]
                 makeVisible(toggle, in: app)
                 XCTAssertEqual(toggle.value as? String, "0")

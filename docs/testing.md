@@ -782,3 +782,9 @@ næringsverdier og synlig tilpasningsrad over deleknappen uten rulling.
 Resultat: `build/meal-share-qa/custom-content-clearance.xcresult`.
 Skjermbilder er inspisert. Største tekststørrelse, VoiceOver og fysisk
 overføring til sosiale apper ble ikke kjørt på nytt for denne utvidelsen.
+
+Valgfri MatLogg-logo 2026-10-18: Tre målrettede enhetstester bestod for lagring,
+bevaring av eldre næringsvalg og eksport i alle tre stiler med og uten bilde.
+Eksportbilder uten logo ble inspisert. Resultat:
+`build/meal-share-qa/optional-logo-targeted.xcresult`. UI-testen er utvidet med
+logobryteren, men ble ikke kjørt på nytt for denne lille utvidelsen.

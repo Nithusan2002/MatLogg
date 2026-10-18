@@ -26,7 +26,7 @@ struct MealShareTests {
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         #expect(model.snapshot?.sourceText == nil)
         model.select(.dark)
-        let content = MealShareContent(calories: false, protein: true, carbs: false, fat: false)
+        let content = MealShareContent(calories: false, protein: true, carbs: false, fat: false, logo: false)
         model.setContent(content)
         #expect(preferences.style == .dark)
         #expect(preferences.content == content)
@@ -73,9 +73,12 @@ struct MealShareTests {
         LocalMealSharePreferences(defaults: defaults).style = .photo
         #expect(LocalMealSharePreferences(defaults: defaults).style == .photo)
         #expect(LocalMealSharePreferences(defaults: defaults).content == MealShareContent())
-        let content = MealShareContent(calories: false, protein: false, carbs: false, fat: false)
+        let content = MealShareContent(calories: false, protein: false, carbs: false, fat: false, logo: false)
         LocalMealSharePreferences(defaults: defaults).content = content
         #expect(LocalMealSharePreferences(defaults: defaults).content == content)
+        defaults.set(Data(#"{"calories":false,"protein":true,"carbs":false,"fat":false}"#.utf8), forKey: "mealShareContent")
+        #expect(LocalMealSharePreferences(defaults: defaults).content == MealShareContent(
+            calories: false, protein: true, carbs: false, fat: false, logo: true))
         defaults.set(Data("invalid".utf8), forKey: "mealShareContent")
         #expect(LocalMealSharePreferences(defaults: defaults).content == MealShareContent())
     }
@@ -152,6 +155,27 @@ struct MealShareTests {
             #expect(try #require(first.pngData()) == #require(second.pngData()))
             if !content.hasNutrition {
                 Attachment.record(try #require(first.pngData()), named: "meal-share-\(style.rawValue)-no-nutrition.png")
+            }
+        }
+    }
+
+    @Test func logoCanBeHiddenInEveryStyle() async throws {
+        let meal = makeMeal()
+        let snapshot = try #require(MealShareSnapshot(meal: meal,
+            preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false))
+        let photo = makePhoto(size: CGSize(width: 100, height: 100), color: .white)
+        for style in MealShareStyle.allCases {
+            for input in [photo, nil] {
+                let renderer = MealShareRenderingService()
+                let visible = try await renderer.render(snapshot: snapshot, style: style, photo: input)
+                let hidden = try await renderer.render(snapshot: snapshot, style: style, photo: input,
+                                                       content: MealShareContent(logo: false))
+                #expect(try #require(visible.pngData()) != #require(hidden.pngData()))
+                #expect(hidden.cgImage?.width == 1080)
+                #expect(hidden.cgImage?.height == 1920)
+                if input != nil {
+                    Attachment.record(try #require(hidden.pngData()), named: "meal-share-\(style.rawValue)-no-logo.png")
+                }
             }
         }
     }

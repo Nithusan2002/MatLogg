@@ -27,7 +27,7 @@ struct MealShareCardView: View {
 
     private var standardCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            wordmark
+            if content.logo { wordmark }
             mealTitle
             if let photo {
                 // Let the image absorb the available height, leaving room for long names and all values.
@@ -51,16 +51,18 @@ struct MealShareCardView: View {
                 Image(uiImage: photo).resizable().scaledToFill()
                     .frame(width: 360, height: 640).clipped()
             }
-            wordmark
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background {
-                    if photo != nil {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(AppColors.deepInk.opacity(0.8))
+            if content.logo {
+                wordmark
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background {
+                        if photo != nil {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(AppColors.deepInk.opacity(0.8))
+                        }
                     }
-                }
-                .padding(24)
+                    .padding(24)
+            }
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 VStack(alignment: .leading, spacing: 16) {

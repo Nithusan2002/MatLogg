@@ -191,11 +191,12 @@ stil huskes på enheten. Kortet viser navn, valgfritt originalbilde,
 energi og makroer uten overskriften «Hele måltidet». Kildeinformasjon vises ikke på delingskortet, uavhengig av
 innstillingen for kildevisning inne i appen.
 
-«Tilpass innhold» lar brukeren velge kalorier, protein, karbohydrater og fett
-hver for seg. Alle fire er på som standard; valgene huskes lokalt på enheten.
+«Tilpass innhold» lar brukeren velge kalorier, protein, karbohydrater, fett
+og MatLogg-logo hver for seg. Alle fem er på som standard; valgene huskes lokalt på enheten.
+Eldre næringsvalg bevares, med logo på frem til brukeren velger å skjule den.
 Forhåndsvisning, miniatyrer og eksport bruker samme utvalg. Skjulte verdier fjernes
-helt, og gjenværende verdier fordeler plassen. Når alle er av,
-viser kortet bare bilde, måltidsnavn og MatLogg-merket.
+helt, og gjenværende verdier fordeler plassen. Når alle næringsverdier er av,
+viser kortet bare bilde, måltidsnavn og eventuelt MatLogg-merket.
 Dette endrer ikke næringsgrunnlaget i appen eller hvilke verdier som er gyldige.
 
 Lys og Mørk fordeler plassen mellom navn, et fleksibelt bildeområde og en samlet

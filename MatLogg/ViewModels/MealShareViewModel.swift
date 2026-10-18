@@ -15,10 +15,25 @@ struct MealShareContent: Codable, Equatable {
     var protein = true
     var carbs = true
     var fat = true
+    var logo = true
+
+    enum CodingKeys: String, CodingKey { case calories, protein, carbs, fat, logo }
 
     var hasMacros: Bool { protein || carbs || fat }
     var hasNutrition: Bool { calories || hasMacros }
-    var selectedCount: Int { [calories, protein, carbs, fat].filter { $0 }.count }
+    var selectedCount: Int { [calories, protein, carbs, fat, logo].filter { $0 }.count }
+}
+
+extension MealShareContent {
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        calories = try values.decodeIfPresent(Bool.self, forKey: .calories) ?? true
+        protein = try values.decodeIfPresent(Bool.self, forKey: .protein) ?? true
+        carbs = try values.decodeIfPresent(Bool.self, forKey: .carbs) ?? true
+        fat = try values.decodeIfPresent(Bool.self, forKey: .fat) ?? true
+        // Existing nutrient preferences predate the optional logo.
+        logo = try values.decodeIfPresent(Bool.self, forKey: .logo) ?? true
+    }
 }
 
 struct MealShareSnapshot {
