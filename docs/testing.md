@@ -772,3 +772,13 @@ med minst 12 pt klaring over deleknappen ved vanlig tekststørrelse. Største
 tekststørrelse bestod i separat kjøring på samme dedikerte QA-simulator.
 Resultater: `build/meal-share-qa/polish-unit.xcresult`, `polish-close.xcresult`
 og `polish-large.xcresult` i samme mappe. Skjermbilder er vedlagt resultatene.
+
+Valgfritt næringsinnhold 2026-10-18: `MealShareTests` bestod 7 tester, inkludert
+fem parameteriserte tilfeller som bekrefter at endringer i skjulte næringsverdier
+ikke påvirker eksportpikslene i noen av de tre stilene. Preferanselagring,
+gjenåpning, standardvalg og ugyldig preferansedata er kontrollert. Vanlig UI-flyt
+bestod med alle fire brytere, gjenåpning med lagrede valg, eksport uten
+næringsverdier og synlig tilpasningsrad over deleknappen uten rulling.
+Resultat: `build/meal-share-qa/custom-content-clearance.xcresult`.
+Skjermbilder er inspisert. Største tekststørrelse, VoiceOver og fysisk
+overføring til sosiale apper ble ikke kjørt på nytt for denne utvidelsen.

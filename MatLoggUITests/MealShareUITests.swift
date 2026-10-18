@@ -41,6 +41,8 @@ final class MealShareUITests: XCTestCase {
                 XCTAssertLessThanOrEqual(app.buttons["meal-share-style-" + style].frame.maxY,
                                          app.buttons["meal-share-export"].frame.minY - 12)
             }
+            XCTAssertLessThanOrEqual(app.buttons["meal-share-customize"].frame.maxY,
+                                     app.buttons["meal-share-export"].frame.minY - 12)
         }
         for style in ["light", "dark", "photo"] {
             let button = app.buttons["meal-share-style-" + style]
@@ -68,6 +70,22 @@ final class MealShareUITests: XCTestCase {
         }
         XCTAssertTrue(app.buttons["meal-share-export"].isEnabled)
         if !largeText {
+            let customize = app.buttons["meal-share-customize"]
+            makeVisible(customize, in: app)
+            customize.tap()
+            for nutrient in ["calories", "protein", "carbs", "fat"] {
+                let toggle = app.switches["meal-share-include-" + nutrient]
+                XCTAssertTrue(toggle.waitForExistence(timeout: 3))
+                makeVisible(toggle, in: app)
+                if toggle.value as? String == "1" { toggle.tap() }
+                XCTAssertEqual(toggle.value as? String, "0")
+            }
+            makeVisible(customize, in: app)
+            customize.tap()
+            let customized = XCTAttachment(screenshot: app.screenshot())
+            customized.name = "meal-share-no-nutrition"
+            customized.lifetime = .keepAlways
+            add(customized)
             app.buttons["meal-share-export"].tap()
             let systemSheet = app.otherElements["meal-share-system-sheet"]
             XCTAssertTrue(systemSheet.waitForExistence(timeout: 8))
@@ -78,9 +96,34 @@ final class MealShareUITests: XCTestCase {
             app.buttons["header.closeButton"].tap()
             XCTAssertTrue(systemSheet.waitForNonExistence(timeout: 5))
             XCTAssertTrue(app.buttons["meal-share-close"].waitForExistence(timeout: 5))
+            app.buttons["meal-share-close"].tap()
+            share.tap()
+            makeVisible(customize, in: app)
+            customize.tap()
+            for nutrient in ["calories", "protein", "carbs", "fat"] {
+                let toggle = app.switches["meal-share-include-" + nutrient]
+                makeVisible(toggle, in: app)
+                XCTAssertEqual(toggle.value as? String, "0")
+                toggle.tap()
+            }
         }
         app.buttons["meal-share-close"].tap()
         XCTAssertTrue(share.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["saved-meal-log"].exists)
+    }
+
+    @MainActor
+    private func makeVisible(_ element: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        for _ in 0..<10 {
+            let top = app.navigationBars["Del måltid"].frame.maxY
+            let bottom = app.buttons["meal-share-export"].frame.minY - 12
+            if element.isHittable && element.frame.minY >= top && element.frame.maxY <= bottom { return }
+            let scroll = app.scrollViews["meal-share-scroll"]
+            let startY: CGFloat = element.frame.minY < top ? 0.35 : 0.75
+            scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+                .press(forDuration: 0.05, thenDragTo: scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55)))
+        }
+        XCTFail("Control is obscured: \(element.identifier)")
     }
 }

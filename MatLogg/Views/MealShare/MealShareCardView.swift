@@ -5,6 +5,7 @@ struct MealShareCardView: View {
     let snapshot: MealShareSnapshot
     let style: MealShareStyle
     let photo: UIImage?
+    var content = MealShareContent()
     private var isLight: Bool { style == .light }
     private var foreground: Color { isLight ? AppColors.deepInk : AppColors.surface }
 
@@ -39,7 +40,7 @@ struct MealShareCardView: View {
             } else {
                 Spacer(minLength: 24)
             }
-            nutrition
+            if content.hasNutrition { nutrition }
         }
         .padding(24)
     }
@@ -64,7 +65,7 @@ struct MealShareCardView: View {
                 Spacer(minLength: 0)
                 VStack(alignment: .leading, spacing: 16) {
                     mealTitle
-                    nutrition
+                    if content.hasNutrition { nutrition }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -98,16 +99,20 @@ struct MealShareCardView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Hele måltidet").font(.system(size: 16, weight: .medium))
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(number(snapshot.nutrition.calories, decimals: 0))
-                        .font(.system(size: 50, weight: .bold, design: .rounded))
-                    Text("kcal").font(.system(size: 27, weight: .medium))
-                }.minimumScaleFactor(0.5).lineLimit(1)
+                if content.calories {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(number(snapshot.nutrition.calories, decimals: 0))
+                            .font(.system(size: 50, weight: .bold, design: .rounded))
+                        Text("kcal").font(.system(size: 27, weight: .medium))
+                    }.minimumScaleFactor(0.5).lineLimit(1)
+                }
             }
-            HStack(spacing: 8) {
-                macro(snapshot.nutrition.protein, title: "Protein", tint: AppColors.macroProteinTint)
-                macro(snapshot.nutrition.carbs, title: "Karbohydrater", tint: AppColors.macroCarbTint)
-                macro(snapshot.nutrition.fat, title: "Fett", tint: AppColors.macroFatTint)
+            if content.hasMacros {
+                HStack(spacing: 8) {
+                    if content.protein { macro(snapshot.nutrition.protein, title: "Protein", tint: AppColors.macroProteinTint) }
+                    if content.carbs { macro(snapshot.nutrition.carbs, title: "Karbohydrater", tint: AppColors.macroCarbTint) }
+                    if content.fat { macro(snapshot.nutrition.fat, title: "Fett", tint: AppColors.macroFatTint) }
+                }
             }
         }
     }

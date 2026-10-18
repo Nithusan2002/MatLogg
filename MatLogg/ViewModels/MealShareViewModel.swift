@@ -10,6 +10,17 @@ enum MealShareStyle: String, CaseIterable, Identifiable {
     }
 }
 
+struct MealShareContent: Codable, Equatable {
+    var calories = true
+    var protein = true
+    var carbs = true
+    var fat = true
+
+    var hasMacros: Bool { protein || carbs || fat }
+    var hasNutrition: Bool { calories || hasMacros }
+    var selectedCount: Int { [calories, protein, carbs, fat].filter { $0 }.count }
+}
+
 struct MealShareSnapshot {
     let name: String
     let imageData: Data?
@@ -35,6 +46,7 @@ struct MealShareSnapshot {
 @MainActor
 protocol MealSharePreferences {
     var style: MealShareStyle { get set }
+    var content: MealShareContent { get set }
 }
 
 @MainActor
@@ -45,11 +57,24 @@ final class LocalMealSharePreferences: MealSharePreferences {
         get { MealShareStyle(rawValue: defaults.string(forKey: "mealShareStyle") ?? "") ?? .light }
         set { defaults.set(newValue.rawValue, forKey: "mealShareStyle") }
     }
+    var content: MealShareContent {
+        get {
+            guard let data = defaults.data(forKey: "mealShareContent"),
+                  let content = try? JSONDecoder().decode(MealShareContent.self, from: data) else {
+                return MealShareContent()
+            }
+            return content
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults.set(data, forKey: "mealShareContent")
+        }
+    }
 }
 
 @MainActor
 protocol MealShareRendering {
-    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?) async throws -> UIImage
+    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent) async throws -> UIImage
 }
 
 @MainActor
@@ -61,6 +86,7 @@ final class MealShareViewModel: ObservableObject {
     @Published private(set) var snapshot: MealShareSnapshot?
     @Published private(set) var photo: UIImage?
     @Published private(set) var style: MealShareStyle = .light
+    @Published private(set) var content = MealShareContent()
     @Published private(set) var isPreparing = false
     @Published private(set) var isExporting = false
     @Published private(set) var errorMessage: String?
@@ -78,6 +104,7 @@ final class MealShareViewModel: ObservableObject {
     func open(meal: SavedMeal, preview: SavedMealNutritionPreview, showSource: Bool) async {
         reset()
         style = preferences.style
+        content = preferences.content
         guard let value = MealShareSnapshot(meal: meal, preview: preview, showSource: showSource) else {
             errorMessage = "Kontroller mengdene og næringsgrunnlaget før du deler måltidet."
             return
@@ -107,13 +134,20 @@ final class MealShareViewModel: ObservableObject {
         isExporting = true
         errorMessage = nil
         do {
-            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo)
+            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content)
             guard request == generation, !Task.isCancelled else { return }
             sharedImage = SharedImage(image: image)
         } catch {
             guard request == generation, !Task.isCancelled else { return }
             errorMessage = "Kunne ikke lage kortet. Prøv igjen."
         }
+    }
+
+    func setContent(_ content: MealShareContent) {
+        guard !isExporting else { return }
+        self.content = content
+        preferences.content = content
+        errorMessage = nil
     }
 
     func reset() {

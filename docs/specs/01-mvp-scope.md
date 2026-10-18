@@ -197,5 +197,7 @@ leveransen. Tilberedningsstatus bevares i logger og måltidsmaler.
 
 Lagrede måltider utvides med frivillig lokal bildedeling i tre stiler (Lys, Mørk,
 Foto). Gjeldende mengder brukes; funksjonen logger eller lagrer ikke måltidet.
+Kalorier, protein, karbohydrater og fett kan velges bort individuelt i kortet;
+alle er på som standard, og utvalget huskes lokalt på enheten.
 Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
 Se [lagrede måltider](../saved-meals.md#del-måltidskort).

@@ -5,6 +5,7 @@ struct MealShareView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isCustomizing = false
 
     var body: some View {
         NavigationStack {
@@ -17,7 +18,7 @@ struct MealShareView: View {
                                 ForEach(MealShareStyle.allCases) { style in
                                     GeometryReader { geometry in
                                         let width = min(geometry.size.width - 24, (geometry.size.height - 16) * 9 / 16)
-                                        MealShareCardView(snapshot: snapshot, style: style, photo: model.photo)
+                                        MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content)
                                             .scaleEffect(width / 360)
                                             .frame(width: width, height: width * 16 / 9)
                                             .overlay(Rectangle().stroke(AppColors.controlBorder.opacity(0.5), lineWidth: 1))
@@ -32,7 +33,7 @@ struct MealShareView: View {
                             .tabViewStyle(.page(indexDisplayMode: .never))
                             .frame(height: dynamicTypeSize.isAccessibilitySize
                                 ? min(260, max(160, available.size.height * 0.45))
-                                : min(500, max(240, available.size.height - 200)))
+                                : min(500, max(240, available.size.height - 240)))
                             .disabled(model.isExporting)
                             let layout = dynamicTypeSize.isAccessibilitySize
                                 ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
@@ -44,7 +45,7 @@ struct MealShareView: View {
                                         let contentLayout = dynamicTypeSize.isAccessibilitySize
                                             ? AnyLayout(HStackLayout(spacing: 16)) : AnyLayout(VStackLayout(spacing: 8))
                                         contentLayout {
-                                            MealShareCardView(snapshot: snapshot, style: style, photo: model.photo)
+                                            MealShareCardView(snapshot: snapshot, style: style, photo: model.photo, content: model.content)
                                                 .scaleEffect(0.15)
                                                 .frame(width: 54, height: 96)
                                                 .accessibilityHidden(true)
@@ -67,7 +68,42 @@ struct MealShareView: View {
                                 Text("Legg til et måltidsbilde for fotobakgrunn.").font(AppTypography.caption)
                             }
                         }
-                        Text("Deler bilde, måltidsnavn og næringsinnhold.").font(AppTypography.caption)
+                        VStack(spacing: 0) {
+                            Button {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                                    isCustomizing.toggle()
+                                }
+                            } label: {
+                                HStack {
+                                    Text("Tilpass innhold").font(AppTypography.bodyEmphasis)
+                                    Spacer()
+                                    Text("\(model.content.selectedCount) av 4")
+                                        .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                                    Image(systemName: isCustomizing ? "chevron.up" : "chevron.down")
+                                        .font(AppTypography.captionEmphasis)
+                                }
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityValue(isCustomizing ? "Utvidet" : "Skjult")
+                            .accessibilityIdentifier("meal-share-customize")
+                            if isCustomizing {
+                                VStack(spacing: 12) {
+                                    contentToggle("Kalorier", keyPath: \.calories, id: "calories")
+                                    contentToggle("Protein", keyPath: \.protein, id: "protein")
+                                    contentToggle("Karbohydrater", keyPath: \.carbs, id: "carbs")
+                                    contentToggle("Fett", keyPath: \.fat, id: "fat")
+                                    Text(model.content.hasNutrition
+                                         ? "Deler bilde, måltidsnavn og valgte næringsverdier."
+                                         : "Deler bilde og måltidsnavn uten næringsverdier.")
+                                        .font(AppTypography.caption)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }.padding(.top, 12)
+                            }
+                        }
+                        .tint(AppColors.action)
+                        .disabled(model.isExporting || model.snapshot == nil)
                         if let warning = model.photoWarning { Text(warning).font(AppTypography.caption) }
                         if let error = model.errorMessage { ErrorMessageView(error) }
                     }.padding(16).padding(.bottom, 24)
@@ -92,5 +128,18 @@ struct MealShareView: View {
                 .accessibilityIdentifier("meal-share-system-sheet")
         }
         .onChange(of: model.snapshot == nil) { _, empty in if empty { dismiss() } }
+    }
+
+    private func contentToggle(_ title: String, keyPath: WritableKeyPath<MealShareContent, Bool>, id: String) -> some View {
+        Toggle(title, isOn: Binding(
+            get: { model.content[keyPath: keyPath] },
+            set: { enabled in
+                var content = model.content
+                content[keyPath: keyPath] = enabled
+                model.setContent(content)
+            }))
+            .font(AppTypography.body)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("meal-share-include-\(id)")
     }
 }
