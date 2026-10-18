@@ -42,8 +42,14 @@ final class MealShareUITests: XCTestCase {
                 let bottom = app.buttons["meal-share-export"].frame.minY
                 if button.isHittable && button.frame.minY >= top && button.frame.maxY <= bottom { break }
                 let scroll = app.scrollViews["meal-share-scroll"]
-                if button.frame.minY < top { scroll.swipeDown() } else { scroll.swipeUp() }
+                let startY: CGFloat = button.frame.minY < top ? 0.35 : 0.75
+                let endY: CGFloat = 0.55
+                scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+                    .press(forDuration: 0.05, thenDragTo: scroll.coordinate(
+                        withNormalizedOffset: CGVector(dx: 0.5, dy: endY)))
             }
+            XCTAssertGreaterThanOrEqual(button.frame.minY, app.navigationBars["Del måltid"].frame.maxY)
+            XCTAssertLessThanOrEqual(button.frame.maxY, app.buttons["meal-share-export"].frame.minY)
             button.tap()
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: button)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)

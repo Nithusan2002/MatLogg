@@ -755,8 +755,9 @@ VoiceOver og faktisk overføring til en sosial app krever separat fysisk kontrol
 
 Kontroll 2026-10-18: 13 målrettede enhetstester bestod, og vanlig UI-flyt
 bestod med alle tre stilvalg, åpning/lukking av systemdelingsarket og avbryt
-uten loggføring. Siste kodeversjon bestod `build-for-testing`. Kontroll med
-største tekststørrelse står åpen: testkjøreren stoppet i app-/simulatoroppstart,
-og direkte UI-kontroll bekreftet at Mac-en var låst. Kjør UI-testene på en ulåst
-Mac; tidsavbrudd i oppstart regnes ikke som godkjent verifisering. VoiceOver og
-faktisk overføring til en sosial app på fysisk iPhone er ikke kontrollert.
+uten loggføring. Siste kodeversjon bestod `build-for-testing`. Etter opplåsing
+av Mac-en bestod også `testStyleControlsWithLargestText`, med alle tre stilvalg
+og avbryt. Testen bruker små rullebevegelser og krever at hele stilvalget ligger
+mellom navigasjonslinjen og eksportknappen før trykk. Skjermbilder med største
+tekststørrelse ble inspisert. Resultat: `build/meal-share-qa/large-scroll-fix.xcresult`.
+VoiceOver og faktisk overføring til en sosial app på fysisk iPhone er ikke kontrollert.
