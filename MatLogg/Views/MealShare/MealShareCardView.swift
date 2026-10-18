@@ -97,15 +97,12 @@ struct MealShareCardView: View {
 
     private var nutrition: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Hele måltidet").font(.system(size: 16, weight: .medium))
-                if content.calories {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(number(snapshot.nutrition.calories, decimals: 0))
-                            .font(.system(size: 50, weight: .bold, design: .rounded))
-                        Text("kcal").font(.system(size: 27, weight: .medium))
-                    }.minimumScaleFactor(0.5).lineLimit(1)
-                }
+            if content.calories {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(number(snapshot.nutrition.calories, decimals: 0))
+                        .font(.system(size: 50, weight: .bold, design: .rounded))
+                    Text("kcal").font(.system(size: 27, weight: .medium))
+                }.minimumScaleFactor(0.5).lineLimit(1)
             }
             if content.hasMacros {
                 HStack(spacing: 8) {

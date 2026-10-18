@@ -187,15 +187,15 @@ Dagbokregistreringene påvirkes ikke.
 
 Forhåndsvisningen har «Del måltid» ved siden av Rediger, utenfor redigeringsmodus.
 Et eget ark tilbyr Lys, Mørk og Foto med sveiping og direkte stilvalg. Sist valgte
-stil huskes på enheten. Kortet viser navn, valgfritt originalbilde, «Hele måltidet»,
-energi og makroer. Kildeinformasjon vises ikke på delingskortet, uavhengig av
+stil huskes på enheten. Kortet viser navn, valgfritt originalbilde,
+energi og makroer uten overskriften «Hele måltidet». Kildeinformasjon vises ikke på delingskortet, uavhengig av
 innstillingen for kildevisning inne i appen.
 
 «Tilpass innhold» lar brukeren velge kalorier, protein, karbohydrater og fett
 hver for seg. Alle fire er på som standard; valgene huskes lokalt på enheten.
 Forhåndsvisning, miniatyrer og eksport bruker samme utvalg. Skjulte verdier fjernes
-helt, og gjenværende verdier fordeler plassen. Når alle er av, fjernes også
-«Hele måltidet», og kortet viser bare bilde, måltidsnavn og MatLogg-merket.
+helt, og gjenværende verdier fordeler plassen. Når alle er av,
+viser kortet bare bilde, måltidsnavn og MatLogg-merket.
 Dette endrer ikke næringsgrunnlaget i appen eller hvilke verdier som er gyldige.
 
 Lys og Mørk fordeler plassen mellom navn, et fleksibelt bildeområde og en samlet
