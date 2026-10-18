@@ -211,8 +211,15 @@ Rulleinnholdet har ekstra klaring over den faste deleknappen.
 Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
 deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
 
-Kortet genereres lokalt som 1080 × 1920 piksler og sendes som bilde til iOS sitt
-delingsark etter «Del kortet». Ingen konto, nettforespørsel, delingslenke eller
+Kortet genereres lokalt som 1080 × 1920 piksler. «Lagre bilde» legger samme kort
+direkte i Bilder, og «Del kortet» åpner iOS sitt delingsark. Knappene vises ved
+siden av hverandre, eller under hverandre ved svært stor tekst. Appen ber kun om
+tilgang til å legge til bilder ved aktiv lagring, og leser ikke bildebiblioteket.
+Bekreftelse vises etter fullført lagring; avvist tilgang og lagringsfeil gir
+forklaring og mulighet til å prøve igjen. Innholdsvalg låses mens kortet behandles.
+Begge byggkonfigurasjoner har begrunnelsen som kreves for bildelagring, også fra
+systemdelingsarket. En lagret kopi i Bilder fjernes ikke når appdata slettes.
+Ingen konto, nettforespørsel, delingslenke eller
 mottakerimport kreves. Sending fra mottakerappen kan kreve nett. Alle stiler har
 reserveutforming uten bilde; et ødelagt bilde gir en eksplisitt forklaring.
 Eksportbildet holdes i minnet og inneholder ikke original fotometadata,

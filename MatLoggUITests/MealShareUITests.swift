@@ -12,7 +12,29 @@ final class MealShareUITests: XCTestCase {
     }
 
     @MainActor
-    private func checkSharing(largeText: Bool) throws {
+    func testSaveMealCardToPhotos() {
+        // Dedicated QA simulator: grant photos-add before this integration test.
+        // The first system permission dialog is a separate physical-device check.
+        let app = openMealShare(largeText: false)
+        let save = app.buttons["meal-share-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertTrue(app.buttons["meal-share-export"].isEnabled)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "meal-share-save-and-share"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        save.tap()
+        XCTAssertTrue(app.alerts.staticTexts["Bildet er lagret i Bilder."].waitForExistence(timeout: 10))
+        app.alerts.buttons["OK"].tap()
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertTrue(app.buttons["meal-share-export"].isEnabled)
+        app.buttons["meal-share-close"].tap()
+        XCTAssertTrue(app.buttons["saved-meal-log"].exists)
+    }
+
+    @MainActor
+    private func openMealShare(largeText: Bool) -> XCUIApplication {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
@@ -34,6 +56,13 @@ final class MealShareUITests: XCTestCase {
         let share = app.buttons["saved-meal-share"]
         XCTAssertTrue(share.waitForExistence(timeout: 5))
         share.tap()
+        return app
+    }
+
+    @MainActor
+    private func checkSharing(largeText: Bool) throws {
+        let app = openMealShare(largeText: largeText)
+        let share = app.buttons["saved-meal-share"]
         if !largeText {
             let firstStyle = app.buttons["meal-share-style-light"]
             XCTAssertTrue(firstStyle.waitForExistence(timeout: 5))

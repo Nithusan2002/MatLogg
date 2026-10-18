@@ -21,7 +21,7 @@ struct MealShareTests {
     @Test func stylePreferenceAndFailureRetry() async throws {
         let preferences = MemorySharePreferences()
         let renderer = ShareRendererSpy()
-        let model = MealShareViewModel(renderer: renderer, preferences: preferences)
+        let model = MealShareViewModel(renderer: renderer, preferences: preferences, photoSaver: SharePhotoSaverSpy())
         let meal = makeMeal()
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         #expect(model.snapshot?.sourceText == nil)
@@ -50,7 +50,7 @@ struct MealShareTests {
     @Test func resetDiscardsInFlightExport() async {
         let renderer = ShareRendererSpy()
         renderer.suspend = true
-        let model = MealShareViewModel(renderer: renderer, preferences: MemorySharePreferences())
+        let model = MealShareViewModel(renderer: renderer, preferences: MemorySharePreferences(), photoSaver: SharePhotoSaverSpy())
         let meal = makeMeal()
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: true)
         let task = Task { await model.export() }
@@ -86,7 +86,7 @@ struct MealShareTests {
     @Test func corruptPhotoHasExplicitFallback() async {
         var meal = makeMeal()
         meal.localImageData = Data([0, 1, 2])
-        let model = MealShareViewModel(renderer: ShareRendererSpy(), preferences: MemorySharePreferences())
+        let model = MealShareViewModel(renderer: ShareRendererSpy(), preferences: MemorySharePreferences(), photoSaver: SharePhotoSaverSpy())
         await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
         #expect(model.photo == nil)
         #expect(model.photoWarning != nil)
@@ -180,6 +180,64 @@ struct MealShareTests {
         }
     }
 
+    @Test func saveUsesSelectionAndHandlesDeniedAccessAndRetry() async {
+        let renderer = ShareRendererSpy()
+        let saver = SharePhotoSaverSpy()
+        let model = MealShareViewModel(renderer: renderer, preferences: MemorySharePreferences(), photoSaver: saver)
+        let meal = makeMeal()
+        await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
+        model.select(.photo)
+        let content = MealShareContent(calories: false, logo: false)
+        model.setContent(content)
+
+        saver.authorizationError = MealSharePhotoSaveError.accessDenied
+        await model.saveToPhotos()
+        #expect(model.saveNotice?.contains("ikke tillatelse") == true)
+        #expect(renderer.lastStyle == nil)
+        #expect(saver.saveCount == 0)
+        #expect(!model.isWorking)
+
+        saver.authorizationError = nil
+        saver.saveError = CocoaError(.fileWriteUnknown)
+        await model.saveToPhotos()
+        #expect(model.saveNotice == "Kunne ikke lagre bildet. Prøv igjen.")
+        #expect(!model.isSaving)
+        saver.saveError = nil
+        await model.saveToPhotos()
+        #expect(model.saveNotice == "Bildet er lagret i Bilder.")
+        #expect(saver.saveCount == 2)
+        #expect(renderer.lastStyle == .photo)
+        #expect(renderer.lastContent == content)
+        #expect(model.sharedImage == nil)
+        #expect(model.snapshot?.nutrition.calories == 100)
+    }
+
+    @Test func resetDuringPhotoPermissionPreventsSavingAndBlocksOverlappingActions() async {
+        let renderer = ShareRendererSpy()
+        let saver = SharePhotoSaverSpy()
+        saver.suspendAuthorization = true
+        let model = MealShareViewModel(renderer: renderer, preferences: MemorySharePreferences(), photoSaver: saver)
+        let meal = makeMeal()
+        await model.open(meal: meal, preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: false)
+        let task = Task { await model.saveToPhotos() }
+        while saver.authorizationContinuation == nil { await Task.yield() }
+        #expect(model.isSaving)
+        model.select(.dark)
+        model.setContent(MealShareContent(logo: false))
+        await model.export()
+        await model.saveToPhotos()
+        #expect(model.style == .light)
+        #expect(model.content.logo)
+        #expect(saver.authorizationCount == 1)
+        model.reset()
+        saver.authorizationContinuation?.resume()
+        await task.value
+        #expect(saver.saveCount == 0)
+        #expect(renderer.lastStyle == nil)
+        #expect(model.saveNotice == nil)
+        #expect(!model.isWorking)
+    }
+
     private func makePhoto(size: CGSize, color: UIColor) -> UIImage {
         UIGraphicsImageRenderer(size: size).image { context in
             color.setFill()
@@ -213,5 +271,28 @@ private final class ShareRendererSpy: MealShareRendering {
         if shouldFail { throw CocoaError(.fileWriteUnknown) }
         if suspend { return try await withCheckedThrowingContinuation { continuation = $0 } }
         return UIImage()
+    }
+}
+
+@MainActor
+private final class SharePhotoSaverSpy: MealSharePhotoSaving {
+    var authorizationError: (any Error)?
+    var saveError: (any Error)?
+    var authorizationCount = 0
+    var saveCount = 0
+    var suspendAuthorization = false
+    var authorizationContinuation: CheckedContinuation<Void, Never>?
+
+    func requestAuthorization() async throws {
+        authorizationCount += 1
+        if let authorizationError { throw authorizationError }
+        if suspendAuthorization {
+            await withCheckedContinuation { authorizationContinuation = $0 }
+        }
+    }
+
+    func save(_ image: UIImage) async throws {
+        saveCount += 1
+        if let saveError { throw saveError }
     }
 }

@@ -104,16 +104,21 @@ final class MealShareViewModel: ObservableObject {
     @Published private(set) var content = MealShareContent()
     @Published private(set) var isPreparing = false
     @Published private(set) var isExporting = false
+    @Published private(set) var isSaving = false
+    var isWorking: Bool { isExporting || isSaving }
+    @Published var saveNotice: String?
     @Published private(set) var errorMessage: String?
     @Published private(set) var photoWarning: String?
     @Published var sharedImage: SharedImage?
     private let renderer: any MealShareRendering
+    private let photoSaver: any MealSharePhotoSaving
     private var preferences: any MealSharePreferences
     private var generation = UUID()
 
-    init(renderer: any MealShareRendering, preferences: any MealSharePreferences) {
+    init(renderer: any MealShareRendering, preferences: any MealSharePreferences, photoSaver: any MealSharePhotoSaving) {
         self.renderer = renderer
         self.preferences = preferences
+        self.photoSaver = photoSaver
     }
 
     func open(meal: SavedMeal, preview: SavedMealNutritionPreview, showSource: Bool) async {
@@ -136,14 +141,14 @@ final class MealShareViewModel: ObservableObject {
     }
 
     func select(_ style: MealShareStyle) {
-        guard !isExporting else { return }
+        guard !isWorking else { return }
         self.style = style
         preferences.style = style
         errorMessage = nil
     }
 
     func export() async {
-        guard let snapshot, !isPreparing, !isExporting else { return }
+        guard let snapshot, !isPreparing, !isWorking else { return }
         let request = generation
         defer { if request == generation { isExporting = false } }
         isExporting = true
@@ -159,10 +164,35 @@ final class MealShareViewModel: ObservableObject {
     }
 
     func setContent(_ content: MealShareContent) {
-        guard !isExporting else { return }
+        guard !isWorking else { return }
         self.content = content
         preferences.content = content
         errorMessage = nil
+    }
+
+    func saveToPhotos() async {
+        guard let snapshot, !isPreparing, !isWorking else { return }
+        let request = generation
+        isSaving = true
+        saveNotice = nil
+        errorMessage = nil
+        defer { if request == generation { isSaving = false } }
+        do {
+            try await photoSaver.requestAuthorization()
+            guard request == generation, !Task.isCancelled else { return }
+            let image = try await renderer.render(snapshot: snapshot, style: style, photo: photo, content: content)
+            guard request == generation, !Task.isCancelled else { return }
+            try await photoSaver.save(image)
+            guard request == generation, !Task.isCancelled else { return }
+            saveNotice = "Bildet er lagret i Bilder."
+        } catch {
+            guard request == generation, !Task.isCancelled else { return }
+            if let error = error as? MealSharePhotoSaveError, case .accessDenied = error {
+                saveNotice = "MatLogg har ikke tillatelse til å lagre bilder. Du kan gi tilgang til å legge til bilder i Innstillinger."
+            } else {
+                saveNotice = "Kunne ikke lagre bildet. Prøv igjen."
+            }
+        }
     }
 
     func reset() {
@@ -172,6 +202,8 @@ final class MealShareViewModel: ObservableObject {
         sharedImage = nil
         isPreparing = false
         isExporting = false
+        isSaving = false
+        saveNotice = nil
         errorMessage = nil
         photoWarning = nil
     }

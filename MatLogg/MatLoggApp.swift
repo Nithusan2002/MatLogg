@@ -44,7 +44,8 @@ struct MatLoggContent: View {
         defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
         _mealShareViewModel = StateObject(wrappedValue: MealShareViewModel(
-            renderer: MealShareRenderingService(), preferences: LocalMealSharePreferences(defaults: defaults)))
+            renderer: MealShareRenderingService(), preferences: LocalMealSharePreferences(defaults: defaults),
+            photoSaver: MealSharePhotoLibraryService()))
         _loggingDraftViewModel = StateObject(wrappedValue: FoodLoggingDraftViewModel(repository: databaseService))
         foodLogRepository = databaseService
         #if DEBUG

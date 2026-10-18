@@ -34,7 +34,7 @@ struct MealShareView: View {
                             .frame(height: dynamicTypeSize.isAccessibilitySize
                                 ? min(260, max(160, available.size.height * 0.45))
                                 : min(500, max(240, available.size.height - 240)))
-                            .disabled(model.isExporting)
+                            .disabled(model.isWorking)
                             let layout = dynamicTypeSize.isAccessibilitySize
                                 ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
                             layout {
@@ -61,7 +61,7 @@ struct MealShareView: View {
                                     .accessibilityLabel(style.title)
                                     .accessibilityAddTraits(model.style == style ? .isSelected : [])
                                     .accessibilityIdentifier("meal-share-style-\(style.rawValue)")
-                                    .disabled(model.isExporting)
+                                    .disabled(model.isWorking)
                                 }
                             }
                             if model.style == .photo && model.photo == nil {
@@ -104,7 +104,7 @@ struct MealShareView: View {
                             }
                         }
                         .tint(AppColors.action)
-                        .disabled(model.isExporting || model.snapshot == nil)
+                        .disabled(model.isWorking || model.snapshot == nil)
                         if let warning = model.photoWarning { Text(warning).font(AppTypography.caption) }
                         if let error = model.errorMessage { ErrorMessageView(error) }
                     }.padding(16).padding(.bottom, 24)
@@ -116,11 +116,27 @@ struct MealShareView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Lukk") { dismiss() }.accessibilityIdentifier("meal-share-close") } }
             .safeAreaInset(edge: .bottom, spacing: 12) {
-                PrimaryButton(title: model.isExporting ? "Lager kort …" : "Del kortet") {
-                    Task { await model.export() }
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))
+                layout {
+                    Button {
+                        Task { await model.saveToPhotos() }
+                    } label: {
+                        Text(model.isSaving ? "Lagrer …" : "Lagre bilde")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundStyle(AppColors.ink)
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .background(AppColors.surface, in: Capsule())
+                            .overlay(Capsule().stroke(AppColors.controlBorder, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("meal-share-save")
+                    PrimaryButton(title: model.isExporting ? "Lager kort …" : "Del kortet") {
+                        Task { await model.export() }
+                    }
+                    .accessibilityIdentifier("meal-share-export")
                 }
-                .disabled(model.snapshot == nil || model.isPreparing || model.isExporting)
-                .accessibilityIdentifier("meal-share-export")
+                .disabled(model.snapshot == nil || model.isPreparing || model.isWorking)
                 .padding(16).background(AppColors.background)
             }
         }
@@ -128,6 +144,13 @@ struct MealShareView: View {
             ShareSheet(activityItems: [item.image], onCompletion: { model.sharedImage = nil })
                 .accessibilityIdentifier("meal-share-system-sheet")
         }
+        .alert("Lagre bilde", isPresented: Binding(
+            get: { model.saveNotice != nil },
+            set: { if !$0 { model.saveNotice = nil } })) {
+                Button("OK", role: .cancel) { model.saveNotice = nil }
+            } message: {
+                Text(model.saveNotice ?? "")
+            }
         .onChange(of: model.snapshot == nil) { _, empty in if empty { dismiss() } }
     }
 

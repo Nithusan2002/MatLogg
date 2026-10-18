@@ -788,3 +788,19 @@ bevaring av eldre næringsvalg og eksport i alle tre stiler med og uten bilde.
 Eksportbilder uten logo ble inspisert. Resultat:
 `build/meal-share-qa/optional-logo-targeted.xcresult`. UI-testen er utvidet med
 logobryteren, men ble ikke kjørt på nytt for denne lille utvidelsen.
+
+Direkte lagring i Bilder 2026-10-18: Tre målrettede enhetstester bestod for
+avvist tilgang, lagringsfeil/retry, riktige innholdsvalg, overlappende handlinger
+og profilreset under ventende tilgang/eksport. `testSaveMealCardToPhotos` bestod
+på dedikert QA-simulator med `photos-add` gitt på forhånd. En ny PNG i simulatorens
+Bilder-bibliotek ble bekreftet som 1080 × 1920 piksler, og knappene ble visuelt
+kontrollert. Resultat: `build/meal-share-qa/save-photos.xcresult`.
+Debug- og Release-plist er validert; begrunnelsen finnes også i bygget Debug-app.
+En ekstra kjøring etter reset av `photos-add` stoppet i Simulator ved systemdialogen
+og ble avbrutt. Førstegangsdialog, native «Lagre bilde» i systemdelingsarket,
+VoiceOver og svært stor tekst gjenstår som fysisk kontroll.
+
+For å kjøre lagringsintegrasjonen: start den dedikerte QA-simulatoren og bruk
+`xcrun simctl privacy <QA-UUID> grant photos-add com.nithusan.MatLogg` før testen.
+Bruk aldri denne testen mot en simulator med personlige data. Avvist tilgang
+kontrolleres uten ekte bildebibliotek gjennom den injiserte testdoblingen.
