@@ -188,7 +188,8 @@ Dagbokregistreringene påvirkes ikke.
 Forhåndsvisningen har «Del måltid» ved siden av Rediger, utenfor redigeringsmodus.
 Et eget ark tilbyr Lys, Mørk og Foto med sveiping og direkte stilvalg. Sist valgte
 stil huskes på enheten. Kortet viser navn, valgfritt originalbilde, «Hele måltidet»,
-energi og makroer, samt kildeoversikt når kildevisning er aktivert.
+energi og makroer. Kildeinformasjon vises ikke på delingskortet, uavhengig av
+innstillingen for kildevisning inne i appen.
 Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
 deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
 

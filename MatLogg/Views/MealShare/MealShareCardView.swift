@@ -40,9 +40,6 @@ struct MealShareCardView: View {
                     macro(snapshot.nutrition.carbs, title: "Karbohydrater", tint: AppColors.macroCarbTint)
                     macro(snapshot.nutrition.fat, title: "Fett", tint: AppColors.macroFatTint)
                 }
-                if let source = snapshot.sourceText {
-                    Text(source).font(.system(size: 10)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
-                }
                 if style != .photo { Spacer(minLength: 0) }
             }.padding(24)
         }
