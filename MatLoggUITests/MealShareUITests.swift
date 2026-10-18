@@ -34,12 +34,20 @@ final class MealShareUITests: XCTestCase {
         let share = app.buttons["saved-meal-share"]
         XCTAssertTrue(share.waitForExistence(timeout: 5))
         share.tap()
+        if !largeText {
+            let firstStyle = app.buttons["meal-share-style-light"]
+            XCTAssertTrue(firstStyle.waitForExistence(timeout: 5))
+            for style in ["light", "dark", "photo"] {
+                XCTAssertLessThanOrEqual(app.buttons["meal-share-style-" + style].frame.maxY,
+                                         app.buttons["meal-share-export"].frame.minY - 12)
+            }
+        }
         for style in ["light", "dark", "photo"] {
             let button = app.buttons["meal-share-style-" + style]
             XCTAssertTrue(button.waitForExistence(timeout: 5))
             for _ in 0..<8 {
                 let top = app.navigationBars["Del måltid"].frame.maxY
-                let bottom = app.buttons["meal-share-export"].frame.minY
+                let bottom = app.buttons["meal-share-export"].frame.minY - 12
                 if button.isHittable && button.frame.minY >= top && button.frame.maxY <= bottom { break }
                 let scroll = app.scrollViews["meal-share-scroll"]
                 let startY: CGFloat = button.frame.minY < top ? 0.35 : 0.75
@@ -49,7 +57,7 @@ final class MealShareUITests: XCTestCase {
                         withNormalizedOffset: CGVector(dx: 0.5, dy: endY)))
             }
             XCTAssertGreaterThanOrEqual(button.frame.minY, app.navigationBars["Del måltid"].frame.maxY)
-            XCTAssertLessThanOrEqual(button.frame.maxY, app.buttons["meal-share-export"].frame.minY)
+            XCTAssertLessThanOrEqual(button.frame.maxY, app.buttons["meal-share-export"].frame.minY - 12)
             button.tap()
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: button)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 3), .completed)

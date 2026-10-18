@@ -81,16 +81,41 @@ struct MealShareTests {
         let meal = makeMeal(name: String(repeating: "Langt måltidsnavn ", count: 5))
         let snapshot = try #require(MealShareSnapshot(meal: meal,
             preview: SavedMealNutritionPreviewViewModel(meal: meal).preview, showSource: true))
-        let photo = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 50)).image { context in
-            UIColor.white.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 100, height: 50))
-        }
+        let fixtures: [(String, UIImage?)] = [
+            ("none", nil),
+            ("landscape", makePhoto(size: CGSize(width: 160, height: 90), color: .white)),
+            ("portrait", makePhoto(size: CGSize(width: 90, height: 160), color: .darkGray)),
+            ("square", makePhoto(size: CGSize(width: 100, height: 100), color: .orange))
+        ]
         for style in MealShareStyle.allCases {
-            for input in [nil, photo] as [UIImage?] {
+            for (name, input) in fixtures {
                 let image = try await MealShareRenderingService().render(snapshot: snapshot, style: style, photo: input)
                 #expect(image.cgImage?.width == 1080)
                 #expect(image.cgImage?.height == 1920)
+                if style == .photo && name == "landscape" {
+                    // The photo between the header and footer must keep its original brightness.
+                    let cgImage = try #require(image.cgImage)
+                    let sample = try #require(cgImage.cropping(to: CGRect(x: 540, y: 480, width: 1, height: 1)))
+                    var pixel = [UInt8](repeating: 0, count: 4)
+                    try pixel.withUnsafeMutableBytes { bytes in
+                        let context = try #require(CGContext(data: bytes.baseAddress, width: 1, height: 1,
+                            bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+                        context.draw(sample, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+                    }
+                    #expect(pixel[0] > 245 && pixel[1] > 245 && pixel[2] > 245)
+                }
+                if name == "landscape" || name == "none" {
+                    Attachment.record(try #require(image.pngData()), named: "meal-share-\(style.rawValue)-\(name).png")
+                }
             }
+        }
+    }
+
+    private func makePhoto(size: CGSize, color: UIColor) -> UIImage {
+        UIGraphicsImageRenderer(size: size).image { context in
+            color.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
         }
     }
 

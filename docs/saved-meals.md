@@ -190,6 +190,15 @@ Et eget ark tilbyr Lys, Mørk og Foto med sveiping og direkte stilvalg. Sist val
 stil huskes på enheten. Kortet viser navn, valgfritt originalbilde, «Hele måltidet»,
 energi og makroer. Kildeinformasjon vises ikke på delingskortet, uavhengig av
 innstillingen for kildevisning inne i appen.
+
+Lys og Mørk fordeler plassen mellom navn, et fleksibelt bildeområde og en samlet
+næringsgruppe nederst. Lange navn gir et lavere bilde uten å skjule verdier.
+Foto bruker lokal mørklegging bak merkevaren øverst og tekstgruppen nederst;
+bildet mellom disse områdene beholder farger og lysstyrke. Beskjæringen er sentrert
+for stående, liggende og kvadratiske bilder. En diskret kant og skygge avgrenser
+forhåndsvisningen, men inngår ikke i eksportbildet. Ved svært stor tekst reduseres
+forhåndsvisningen og stilvalgene vises som vertikale rader med bilde og etikett.
+Rulleinnholdet har ekstra klaring over den faste deleknappen.
 Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
 deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
 

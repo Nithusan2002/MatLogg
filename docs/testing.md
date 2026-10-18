@@ -761,3 +761,14 @@ og avbryt. Testen bruker små rullebevegelser og krever at hele stilvalget ligge
 mellom navigasjonslinjen og eksportknappen før trykk. Skjermbilder med største
 tekststørrelse ble inspisert. Resultat: `build/meal-share-qa/large-scroll-fix.xcresult`.
 VoiceOver og faktisk overføring til en sosial app på fysisk iPhone er ikke kontrollert.
+
+Finpuss av måltidskort 2026-10-18: `MealShareTests` bestod 6 tester, inkludert
+12 renderkombinasjoner (tre stiler med stående, liggende, kvadratisk og manglende
+bilde) og en pikselkontroll av at Foto beholder lysstyrken mellom tekstområdene.
+Eksportbilder med langt navn og uten bilde ble inspisert. Vanlig delingsflyt
+bestod på nytt etter at avslutning av systemarket ble koblet eksplisitt til
+presentasjonstilstanden. UI-testen krever også at alle stilvalgene er synlige
+med minst 12 pt klaring over deleknappen ved vanlig tekststørrelse. Største
+tekststørrelse bestod i separat kjøring på samme dedikerte QA-simulator.
+Resultater: `build/meal-share-qa/polish-unit.xcresult`, `polish-close.xcresult`
+og `polish-large.xcresult` i samme mappe. Skjermbilder er vedlagt resultatene.
