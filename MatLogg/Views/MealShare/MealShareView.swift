@@ -32,7 +32,7 @@ struct MealShareView: View {
                             .tabViewStyle(.page(indexDisplayMode: .never))
                             .frame(height: dynamicTypeSize.isAccessibilitySize
                                 ? min(260, max(160, available.size.height * 0.45))
-                                : min(440, max(240, available.size.height - 250)))
+                                : min(500, max(240, available.size.height - 200)))
                             .disabled(model.isExporting)
                             let layout = dynamicTypeSize.isAccessibilitySize
                                 ? AnyLayout(VStackLayout(spacing: 12)) : AnyLayout(HStackLayout(spacing: 12))

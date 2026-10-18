@@ -193,10 +193,11 @@ innstillingen for kildevisning inne i appen.
 
 Lys og Mørk fordeler plassen mellom navn, et fleksibelt bildeområde og en samlet
 næringsgruppe nederst. Lange navn gir et lavere bilde uten å skjule verdier.
-Foto bruker lokal mørklegging bak merkevaren øverst og tekstgruppen nederst;
+Foto bruker en liten mørk bakgrunn bare bak merkevaren øverst og en gradient bak tekstgruppen nederst;
 bildet mellom disse områdene beholder farger og lysstyrke. Beskjæringen er sentrert
 for stående, liggende og kvadratiske bilder. En diskret kant og skygge avgrenser
-forhåndsvisningen, men inngår ikke i eksportbildet. Ved svært stor tekst reduseres
+forhåndsvisningen, men inngår ikke i eksportbildet. Forhåndsvisningen utnytter ledig
+høyde over stilvalgene og deleknappen. Ved svært stor tekst reduseres
 forhåndsvisningen og stilvalgene vises som vertikale rader med bilde og etikett.
 Rulleinnholdet har ekstra klaring over den faste deleknappen.
 Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;

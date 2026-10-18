@@ -49,14 +49,17 @@ struct MealShareCardView: View {
             if let photo {
                 Image(uiImage: photo).resizable().scaledToFill()
                     .frame(width: 360, height: 640).clipped()
-                LinearGradient(stops: [
-                    .init(color: AppColors.deepInk.opacity(0.85), location: 0),
-                    .init(color: AppColors.deepInk.opacity(0.72), location: 0.55),
-                    .init(color: .clear, location: 1)
-                ], startPoint: .top, endPoint: .bottom)
-                .frame(height: 110)
             }
-            wordmark.padding(24)
+            wordmark
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background {
+                    if photo != nil {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(AppColors.deepInk.opacity(0.8))
+                    }
+                }
+                .padding(24)
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
                 VStack(alignment: .leading, spacing: 16) {
