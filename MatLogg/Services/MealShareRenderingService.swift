@@ -3,7 +3,11 @@ import UIKit
 
 @MainActor
 final class MealShareRenderingService: MealShareRendering {
-    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent = MealShareContent(), format: MealShareFormat = .story) async throws -> UIImage {
+    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, format: MealShareFormat = .story) async throws -> UIImage {
+        try await render(snapshot: snapshot, style: style, photo: photo, content: MealShareContent(), format: format)
+    }
+
+    func render(snapshot: MealShareSnapshot, style: MealShareStyle, photo: UIImage?, content: MealShareContent, format: MealShareFormat = .story) async throws -> UIImage {
         // Let the progress state draw before the bounded main-actor rendering work.
         await Task.yield()
         try Task.checkCancellation()
