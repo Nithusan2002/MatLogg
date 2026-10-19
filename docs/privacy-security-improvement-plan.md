@@ -1,13 +1,16 @@
 # Forbedringsplan: personvern og sikkerhet i Norge
 
-Dato: 2. oktober 2026. Status: planlagt, ikke gjennomført eller juridisk godkjent.
+Opprettet: 2. oktober 2026. Oppdatert: 19. oktober 2026.
+Status: delvis gjennomført; ikke samlet juridisk eller releasegodkjent.
 
 Arbeidet er startet: [datakart og kontrollstatus](privacy-data-inventory.md).
 Behandlingsansvarlig er oppgitt som Nithusan Krishnasamymudali og ført inn i
-personvernerklæringen. Øvrige porter er fortsatt åpne.
+personvernerklæringen. Brukeren bekreftet 19. oktober samme person som operativ
+kontakt for både personvern og sikkerhet på eksisterende kontaktadresse.
+Formelt ombudsbehov vurderes separat. Øvrige porter er fortsatt åpne.
 
-Avklart 3. oktober 2026: MatLogg skal ha 16 års aldersgrense. Brukeren kjenner
-ikke status for Supabase-DPA eller SMTP. Før pilot må 16+-målgruppen gjenspeiles
+Avklart 3. oktober 2026: MatLogg skal ha 16 års aldersgrense. Senere kontroll har avklart standard DPA; egen SMTP er av og e-postinnlogging
+er utsatt, se datakartets daterte oppfølging. Før pilot må 16+-målgruppen gjenspeiles
 i onboarding og juridisk tekst, og eksisterende profiler håndteres uten
 automatisk sletting. Leverandørpunktene krever kontroll av faktisk oppsett.
 
@@ -26,8 +29,8 @@ kontrollert. Lokal lagring fjerner ikke behovet for å kartlegge ansvar og risik
 
 Planen supplerer `production-readiness.md`; eksisterende releaseporter består.
 Ingen autentisering, datamigrasjon, aldersgrense eller aktivering av synk er
-autorisert av denne planen. Ansvarsrollene under er forslag; samme person kan
-dekke flere roller, men en navngitt ansvarlig må tildeles hvert punkt.
+autorisert av denne planen. Ansvarsrollene under er fagroller; operativ personvern-/sikkerhetskontakt er
+bekreftet. Øvrig oppgavefordeling må avklares der den går utover disse rollene.
 
 ## Prioritert arbeid
 
@@ -38,7 +41,7 @@ dekke flere roller, men en navngitt ansvarlig må tildeles hvert punkt.
 | P0-3 Før ekstern pilot | Kontroller Supabase-avtale/DPA, Auth, SMTP og øvrige faktiske leverandører. Kartlegg region, underleverandører, supporttilgang, logger og backup. Avklar Open Food Facts sin rolle og lagring av søk/IP. | Driftsansvarlig + rådgiver | Gjeldende avtaler og databehandlerroller er dokumentert; eventuell tredjelandsoverføring har vurdert grunnlag og nødvendige tiltak. EØS-region alene regnes ikke som tilstrekkelig bevis. |
 | P0-4 Før ekstern pilot | Dokumenter risikovurdering og DPIA-behov, særlig helseopplysninger, mulige mindreårige, kontokobling, feil eierskap og tap av enhet. Vurder nødvendigheten av obligatorisk full fødselsdato. | Produkteier + rådgiver | Begrunnet DPIA-beslutning foreligger; påkrevd DPIA er ferdig og tiltak gjennomført. Eventuell høy restrisiko håndteres etter artikkel 36 før behandling. Alders-/dataminimeringsvalg er avklart uten å innføre en vilkårlig grense. |
 | P0-5 Før ekstern pilot | Kontroller iOS Data Protection for SQLite og journal/WAL/SHM, bilder, cache og midlertidige eksportfiler; Keychain-tilgjengelighet; enhetsbackup og sensitive appforhåndsvisninger. Fastsett beskyttelsesnivå som passer local-first. | iOS-ansvarlig | Fysisk enhet demonstrerer forventet oppførsel ved låsing, omstart, eksport og backup. Funn har målrettede rettelser; «SQLite/CoreData er kryptert» brukes ikke som udokumentert påstand. |
-| P0-6 Før ekstern pilot | Lag og verifiser lagrings-/slettematrise for lokale profiler, konto, synkkø, serverdata, Auth, delingslenker, eksport, logger og backup. Begrunn 30-dagersperioden. Skill deaktivering fra permanent sletting. | iOS + backend + drift | Eksport og sletting er demonstrert med syntetiske data. Ingen andre profilers data slettes eller eksporteres; slettet konto mister tilgang; purge og backuphåndtering er dokumentert. Eventuell anonymisering er bevist, ikke bare fjerning av bruker-ID. |
+| P0-6 Før ekstern pilot | Lag og verifiser lagrings-/slettematrise for lokale profiler, konto, synkkø, serverdata, Auth, aktiv deling, eksport, logger og backup. Skill nye umiddelbare sletteforsøk fra eldre forespørslers opprinnelige frister. Skill deaktivering fra permanent sletting. | iOS + backend + drift | Eksport og sletting er demonstrert med syntetiske data. Ingen andre profilers data slettes eller eksporteres; slettet konto mister tilgang; purge og backuphåndtering er dokumentert. Eventuell anonymisering er bevist, ikke bare fjerning av bruker-ID. |
 | P0-7 Før ekstern pilot | Lag hendelsesrutine med ansvarlig mottaker, vurdering av risiko, sikring av bevis, nødstopp og beslutning om varsling. Etabler kanal for innsyn, retting, sletting og andre rettigheter. | Driftsansvarlig + produkteier | En bordøvelse er gjennomført. Meldepliktige brudd kan meldes uten ugrunnet opphold og om mulig innen 72 timer etter kjennskap; berørte varsles uten ugrunnet opphold ved høy risiko. Alle brudd og vurderinger dokumenteres. Rettighetskrav kan normalt behandles innen én måned. |
 | P0-8 Før ekstern pilot | Sammenhold personvernerklæring, onboarding/personvernvalg, App Store-tekst, privacy manifest og faktisk nettverkstrafikk. Rett foreldede spesifikasjoner. | Produkteier + iOS + rådgiver | Tekst beskriver dagens funksjoner og faktiske mottakere. Ingen planlagte funksjoner fremstilles som aktive, og inaktive analysevalg forklares. Juridisk vurdering av identifiserte hull er dokumentert. |
 | P1-1 Før offentlig lansering | Verifiser faktisk produksjonsoppsett: separate miljøer, minste privilegium, MFA for administratorer, secrets, TLS, rate limiting, avhengigheter og logging uten helse-/kontodata. | Backend + drift | Konfigurasjon og målrettede sikkerhetstester har dokumenterte resultater. Ingen uavklarte alvorlige funn; staging-eierskapstester dekker kryssbrukertilgang og slettet konto. |

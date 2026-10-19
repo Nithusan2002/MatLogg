@@ -911,3 +911,13 @@ næringsgrunnlag, med valgfritt lokalt måltidsbilde og kildeoversikt. Eksporten
 er 1080 × 1920 piksler og holdes i minnet; ingen opplasting, URL, ny synkhendelse
 eller endring av måltidsmalen. Stilpreferansen lagres lokalt. App-roten injiserer
 rendering og preferanser; deling har egen ViewModel og legges ikke i AppState.
+
+
+## 2026-10-19 – Operativ kontakt for personvern og sikkerhet
+
+Brukeren bekreftet Nithusan Krishnasamymudali som operativ kontakt for både
+personvernspørsmål og sikkerhetshendelser på eksisterende kontaktadresse
+nithusank.2002@gmail.com. Rollene samler mottak, oppfølging og dokumentasjon
+av rettighetskrav og hendelser. Dette er ikke en utnevnelse som formelt
+personvernombud eller en generell autorisasjon til produksjonsendringer.
+Rutine, stedfortreder og sakslogg følges opp i `privacy-data-inventory.md`.

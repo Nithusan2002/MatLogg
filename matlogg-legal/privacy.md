@@ -1,5 +1,5 @@
 Personvernerklaering – MatLogg
-Sist oppdatert: 18. oktober 2026
+Sist oppdatert: 19. oktober 2026
 
 MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
@@ -13,13 +13,13 @@ Kontakt: nithusank.2002@gmail.com
 Konto og innlogging
   - Matlogger, vann, mål, vekt, favoritter, egne produkter, lagrede måltider og bilder lagres foreløpig bare på enheten, også når du har konto. Ingen skybackup eller gjenoppretting fra konto tilbys.
   - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
-  - Nar du oppretter konto med e-post/passord, handterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
+  - Dagens kontoskjerm tilbyr Apple-innlogging. E-post-/passordinnlogging er utsatt. For eksisterende e-postkontoer håndterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
   - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
   - Apple-dialogen ber også om navn. Hvis du deler navn, beholdes det lokalt sammen med kontoprofilen som et forslag til valgfritt visningsnavn. Navnet sendes ikke til Supabase av MatLogg. Du velger selv om forslaget skal brukes under Personlige detaljer, og kan endre eller fjerne visningsnavnet. Forslaget fjernes sammen med kontoprofilen ved utlogging; Apple deler normalt navn bare ved første godkjenning.
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen
-  - Fødselsdato må fylles inn når du lagrer Personlige detaljer. Den lagres lokalt per profil og brukes som grunnlag for veiledende målforslag. Øvrige felt i Personlige detaljer er valgfrie.
+  - Fødselsdato og øvrige felt i Personlige detaljer er valgfrie og lagres lokalt per profil. Hvis du oppgir fødselsdato, kan den inngå i grunnlaget for veiledende målforslag. Automatiske målforslag krever et komplett, støttet beregningsgrunnlag for voksne.
   - Vannregistreringer: ett glass per registrering, med dato, tidspunkt og profileier. Ingen antatt mengde i ml.
   - Logginnslag (dato, maltid, produkt/ravare, mengde).
   - Lagrede maltider du oppretter for gjenbruk, inkludert navn, matvarer,
@@ -31,12 +31,13 @@ Det du logger i appen
 Produktdata
   - Nar du skanner eller aktivt slar opp et inntastet strekkodenummer som ikke finnes lokalt, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
   - Ravaredelen fra Matvaretabellen folger med appen og sokes lokalt pa enheten. Nar du aktivt sender inn et navnesok etter merkevarer, sendes soketeksten til Open Food Facts. Sok sendes ikke for hvert tastetrykk.
+  - Eldre, mellomlagrede strekkodetreff kan oppdateres fra Open Food Facts i bakgrunnen når de brukes. Du kan også be om oppdaterte produktdata selv. Oppdateringen sender produktnummer og teknisk tilkoblingsinformasjon.
+  - Produktbilder fra eksterne kataloger kan hentes fra nettadressen i produktdataene når bildet vises og ikke finnes i lokal cache. Bildeserveren mottar IP-adressen og forespørselen om bildet. MatLogg legger ikke kontoens innloggingstoken ved bildekallet.
   - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter lagres lokalt og lastes ikke opp i denne versjonen.
 
 Deling
   - «Lagre bilde» lagrer måltidskortet direkte i Bilder. MatLogg ber bare om tilgang til å legge til bilder når du velger dette, og leser ikke bildebiblioteket. Kopien ligger utenfor MatLogg og fjernes ikke når appdata slettes. Hvis du bruker iCloud Bilder, kan kopien synkroniseres av Apple etter dine innstillinger.
   - Når du velger å dele et lagret måltid, lager appen et bilde lokalt med måltidsnavn, valgfritt måltidsbilde og de næringsverdiene du velger å inkludere. Kalorier, protein, karbohydrater og fett kan slås av hver for seg, og valgene huskes lokalt på enheten. Du forhåndsviser innholdet og velger selv mottaker i iOS sitt delingsark. Kortet inneholder ikke profilinformasjon, mål, vekt eller original fotometadata. MatLogg laster ikke kortet opp til en server; videre behandling følger tjenesten du velger å dele til.
-  - Hvis du deler et produkt, genererer vi en delingslenke (token) som gjor at mottaker kan se en forhandsvisning og importere produktet i appen.
 
 3. Hvorfor behandler vi dataene?
 
@@ -64,7 +65,7 @@ MatLogg er “offline-first”. Mat-, mål- og vektdata lagres lokalt på enhete
 6. Deling med tredjepart
 
 Vi kan dele begrensede data med:
-  - Supabase som databehandler for konto og autentisering. Database, Edge Functions, backup og opplastingssynk er del av serverplattformen, men opplastingssynk er deaktivert i dagens appversjon. Prosjektene skal ligge i en valgt EØS-region.
+  - Supabase som databehandler for konto og autentisering. Database, Edge Functions, backup og opplastingssynk er del av serverplattformen, men opplastingssynk er deaktivert i dagens appversjon. Supabase brukes med en valgt EØS-region for konto og autentisering. Support og teknisk drift kan innebære behandling utenfor EØS. Supabase beskriver overføringsmekanismer og sikkerhetstiltak i sin [databehandleravtale](https://supabase.com/legal/customer-resources/data-processing-addendum) og [informasjon om dataresidens](https://supabase.com/legal/privacy-resources/data-residency-and-transfers-faq).
   - Open Food Facts for oppslag av produktdata nar du aktivt soker etter merkevarer, skanner eller slar opp et inntastet strekkodenummer, inkludert nar du ber om oppdaterte produktdata. Foresporselen inneholder soketekst eller strekkode og vanlig teknisk tilkoblingsinformasjon som IP-adresse og appens identifikasjon. Sok i den medfolgende Matvaretabellen-katalogen skjer lokalt og deles ikke med Matvaretabellen.
   - Eventuelle leverandorer for drift (hosting/database) som behandler data pa vare vegne.
 
@@ -83,9 +84,11 @@ Før en eventuell tjeneste tas i bruk, skal leverandør, datatyper, formål, lag
 
 9. Hvor lenge lagrer vi data?
 
-Vi lagrer data sa lenge kontoen din er aktiv eller til du sletter dem. Nar du sletter kontoen, fjernes lokale data umiddelbart. Serverkontoen markeres for sletting, innlogging sperres og kontodata forsøkes slettet permanent i samme forespørsel, uten fast ventetid. Ved tekniske feil prøver en slettejobb igjen hvert femte minutt. Egne produkter som er knyttet til kontoen på serveren, slettes også ved permanent kontosletting. Du kan nar som helst:
-  - Laste ned dataene dine.
+Lokale profildata beholdes på enheten til du sletter dem; dette gjelder også uten konto. Lokal sletting kan måtte gjenopptas ved tekniske feil eller avbrudd, som beskrevet i punkt 10. Serverkontoen markeres for sletting, innlogging sperres og kontodata forsøkes slettet permanent i samme forespørsel, uten fast ventetid. Ved tekniske feil prøver en slettejobb igjen hvert femte minutt. Egne produkter som er knyttet til kontoen på serveren, slettes også ved permanent kontosletting. Du kan nar som helst:
+  - Eksportere lokale data som JSON.
   - Slette konto og tilknyttede data (se punkt 10).
+
+Sletting av konto bekrefter ikke samtidig sletting av alle tekniske logger hos leverandørene. Fullstendige lagrings- og slettefrister for slike logger er ikke ferdig avklart. Offentlige produktbilder kan ligge i en egen lokal cache, separat fra de private profilbildene i databasen.
 
 10. Dine rettigheter
 

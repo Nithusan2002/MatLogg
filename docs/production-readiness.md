@@ -1330,3 +1330,54 @@ driftsporter gjenstår. Klientens synkflagg ble ikke endret; ingen hosted endrin
 ble utført under telefonkontrollen. Kun visningsfokus og UI-tester er endret:
 ingen arkitekturavvik eller endring av lagring, synkformat eller transaksjoner.
 Skills: ios-swiftui, product-design og qa-release.
+
+
+## Personvern: kode- og leverandørgjennomgang – 2026-10-19
+
+Read-only prosjektkontroll bekreftet MatLogg Staging som ACTIVE_HEALTHY i
+`eu-north-1`. Aggregat bekreftet `sync_enabled=false` og null databasebaserte
+Auth-auditposter. Ingen rå logger eller brukerinnhold hentet. Aktuell
+Auth-audit-toggle, full loggretensjon og alle leverandørkopier er ikke
+verifisert. Tidligere beslutning om ikke å sende Supabase-henvendelsen gjelder;
+manglende frist er uavklart informasjon, ikke dokumentert regelbrudd alene.
+
+Gjennomgått kode ved `55e513b` beholder localOnly og Apple-only-kontoskjerm.
+Personvernteksten er rettet lokalt: valgfri fødselsdato, ingen udokumentert
+produkt-tokenlenke, eksterne bildekall og bakgrunnsoppdatering av gamle
+strekkodetreff. Dagens kontosletting er samordnet i datakartets hovedtabell.
+App Privacy har nå en konkret vurderingstabell for konto, søk, bilder og
+tekniske logger. Tekstene er arbeidsgrunnlag; nettsidens `PrivacyPage.tsx`,
+App Store Connect og distribuert app er ikke oppdatert/publisert i denne runden.
+Nettsideteksten har fortsatt avvik om påkrevd fødselsdato og tilbudt e-postkonto;
+den må samordnes før publisering. Nye måltidsdelings-/Bilder-flyter fra
+18. oktober må også inngå i kandidatkontrollen.
+
+Gjenværende beslutninger og bevis er konkretisert i
+[datakartets gjennomgang](privacy-data-inventory.md#avgrenset-personverngjennomgang--19-oktober-2026):
+lokal behandlingsrolle/grunnlag, DPIA-behov, mindreårige/pilotomfang,
+operativt ansvar, leverandørretensjon/overføringer, App Privacy og bordøvelse.
+Fullstendig bildehost-/redirectoversikt og katalogtransportens cookies er
+ikke runtime-verifisert. OFF-spørsmål er klargjort lokalt, ikke sendt.
+
+**Go for videre intern QA og avklaringsarbeid; ingen ny godkjenning av ekstern
+pilot, produksjon eller synkaktivering.** Ingen sikkerhetsinnstillinger,
+providerkonfigurasjon, avtaler eller betalte tjenester endret.
+
+Skills: nutrition-privacy, backend-api og qa-release. Verifisering:
+målrettet kodekontroll, offisielle primærkilder, read-only staging-aggregat og
+`git diff --check`. Ingen build eller tester kjørt for rene dokumentendringer.
+Arkitektur: ingen implementering endret; avhengighetsretning, local-first,
+transaksjoner, eierskap og testbarhet er uendret, uten arkitekturavvik.
+
+
+### Ansvar avklart, personvernvurdering videreført – 2026-10-19
+
+Brukeren bekreftet behandlingsansvarlig som operativ kontakt for både
+personvernspørsmål og sikkerhetshendelser. Kontaktrollene er dermed avklart;
+ombudsbehov, sakslogg, fraværsdekning og bordøvelse må vurderes separat.
+Arbeidsversjon av personvern-/DPIA-vurderingen er klargjort utenfor repoet;
+se referansen i datakartet. Den anbefaler full DPIA for planlagt 16+-produkt,
+men utgjør ikke ferdig juridisk vurdering, godkjent behandlingsgrunnlag eller
+aksept av restrisiko. Lokal rolle, helsegrunnlag, leverandørbevis og faktisk
+omfang står fortsatt åpne. Ingen ny pilot-/releasegodkjenning eller teknisk
+endring. Kun dokumentkontroll; ingen build nødvendig.
