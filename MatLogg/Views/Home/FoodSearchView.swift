@@ -68,7 +68,7 @@ private struct FoodSearchContent: View {
     }
 
     var body: some View {
-        VStack(spacing: isTab && !dynamicTypeSize.isAccessibilitySize ? 0 : 16) {
+        VStack(spacing: 16) {
             if !isFirstLog && !dynamicTypeSize.isAccessibilitySize {
                 searchControls.padding(.horizontal, 16)
             }
@@ -78,6 +78,7 @@ private struct FoodSearchContent: View {
                     .matLoggTabBarScrollClearance()
             } else {
                 searchList
+                    .contentMargins(.top, 0, for: .scrollContent)
             }
         }
         .padding(.top, 8)
@@ -132,36 +133,15 @@ private struct FoodSearchContent: View {
     }
 
     private var searchControls: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18))
-                    .foregroundColor(AppColors.textSecondary)
-                    .accessibilityHidden(true)
-                TextField("Søk etter mat eller produkt", text: Binding(
-                    get: { viewModel.query }, set: { viewModel.setQuery($0) }
-                ))
-                .font(AppTypography.body)
-                .focused($searchFocused)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .submitLabel(.search)
-                .onSubmit { submitSearch() }
-                .accessibilityIdentifier("food-search-field")
-                if viewModel.hasQuery {
-                    Button { viewModel.setQuery(""); searchFocused = true } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(AppColors.textSecondary)
-                            .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .accessibilityLabel("Tøm søket")
+        VStack(spacing: 8) {
+            if isFirstLog || dynamicTypeSize.isAccessibilitySize {
+                searchInput
+            } else {
+                HStack(spacing: 8) {
+                    searchInput
+                    searchButton.frame(width: 72)
                 }
             }
-            .padding(.leading, 14)
-            .padding(.trailing, viewModel.hasQuery ? 0 : 14)
-            .frame(minHeight: 52)
-            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.controlBorder, lineWidth: 1))
 
             if isFirstLog {
                 if dynamicTypeSize.isAccessibilitySize {
@@ -169,49 +149,80 @@ private struct FoodSearchContent: View {
                 } else {
                     HStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
                 }
-            } else if productSelectionContent != nil {
-                searchButton
-            } else if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) { searchButton; scanButton }
             } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { searchButton; scanButton }
-                    VStack(spacing: 8) { searchButton; scanButton }
+                if dynamicTypeSize.isAccessibilitySize { searchButton }
+                if productSelectionContent == nil {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        VStack(spacing: 8) { scanButton; manualRegistrationButton }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 8) { scanButton; manualRegistrationButton }
+                            VStack(spacing: 8) { scanButton; manualRegistrationButton }
+                        }
+                    }
                 }
             }
-            if !isFirstLog && productSelectionContent == nil { manualRegistrationButton }
             searchStatus
         }
         .buttonStyle(.plain)
     }
 
+    private var searchInput: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 18))
+                .foregroundColor(AppColors.textSecondary)
+                .accessibilityHidden(true)
+            TextField("Søk etter mat eller produkt", text: Binding(
+                get: { viewModel.query }, set: { viewModel.setQuery($0) }
+            ))
+            .font(AppTypography.body)
+            .focused($searchFocused)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .submitLabel(.search)
+            .onSubmit { submitSearch() }
+            .accessibilityIdentifier("food-search-field")
+            if viewModel.hasQuery {
+                Button { viewModel.setQuery(""); searchFocused = true } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(AppColors.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel("Tøm søket")
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, viewModel.hasQuery ? 0 : 14)
+        .frame(minHeight: 52)
+        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.controlBorder, lineWidth: 1))
+    }
+
+    @ViewBuilder
     private var searchStatus: some View {
         let message = viewModel.showsSearchFeedback ? "Henter flere produkter …"
             : viewModel.showsCatalogFeedback ? "Henter flere matvarer …"
             : viewModel.hasQuery && viewModel.phase == .local && !isFirstLog
                 ? "Trykk Søk for flere produkter." : ""
-        return HStack(spacing: 8) {
-            ActivityIndicatorSlot(isActive: viewModel.showsSearchFeedback || viewModel.showsCatalogFeedback,
-                                  label: "Henter matvarer")
-            ZStack(alignment: .leading) {
-                Text("Trykk Søk for flere produkter.").hidden()
-                Text("Henter flere produkter …").hidden()
-                Text("Henter flere matvarer …").hidden()
+        if !message.isEmpty {
+            HStack(spacing: 8) {
+                ActivityIndicatorSlot(isActive: viewModel.showsSearchFeedback || viewModel.showsCatalogFeedback,
+                                      label: "Henter matvarer")
                 Text(message)
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .font(AppTypography.caption)
-            .foregroundStyle(AppColors.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(message)
-            .accessibilityHidden(message.isEmpty)
         }
     }
 
     private var manualRegistrationButton: some View {
         Button { searchFocused = false; showManualProduct = true } label: {
             actionLabel(isFirstLog ? "Manuelt" : "Registrer manuelt", symbol: "square.and.pencil")
-                .font(AppTypography.bodyEmphasis)
+                .font(isFirstLog ? AppTypography.bodyEmphasis : AppTypography.secondaryEmphasis)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -240,7 +251,7 @@ private struct FoodSearchContent: View {
     private var scanButton: some View {
         Button { searchFocused = false; onScan() } label: {
             actionLabel(isFirstLog ? "Skann" : "Skann strekkode", symbol: "barcode.viewfinder")
-                .font(AppTypography.bodyEmphasis)
+                .font(isFirstLog ? AppTypography.bodyEmphasis : AppTypography.secondaryEmphasis)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)

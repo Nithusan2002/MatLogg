@@ -396,3 +396,30 @@ innholdsgrupper. Favoritter bruker den delte `matLoggCardSurface()`-stilen.
 Ukediagrammets etiketter bruker `chartLabel`/`chartLabelEmphasis` og stables
 vertikalt ved tilgjengelighetsstørrelser, slik at sju kolonner ikke begrenser
 lesbarheten ved stor tekst.
+
+### Produktbilde i mengdevalg
+
+Produktkortets mengdevalg viser den store bildeflaten bare når et bilde er
+tilgjengelig. Manglende bilde, pågående lasting og lastefeil reserverer ingen
+bildeflate; navn, mengde og næringsinnhold kommer høyere opp. Et lastet bilde
+beholder eksisterende størrelse, stil og forhåndsvisning. Andre bildeflater og
+lister beholder sine eksisterende plassholdere.
+
+### Kompakt søketopp
+
+Søkefelt og søkeknapp deler rad ved vanlig tekststørrelse. De sekundære
+handlingene Skann strekkode og Registrer manuelt bruker `secondaryEmphasis`
+og minst 44 pt høyde på raden under. Store tekststørrelser bruker stablede
+kontroller i den scrollbare listen. Et tomt statusfelt reserverer ingen høyde.
+
+### Felles felt- og skjemaflater
+
+Tekstfelt utenfor native skjemarader bruker `matLoggInputStyle()` med
+`surface`, `ink`, 12 pt padding, minst 48 pt høyde og 12 pt hjørner.
+`matLoggFieldSurface()` gir samme flate og `controlBorder` til sammensatte
+felt og knapper som åpner inputvalg, uten å endre deres layout.
+Native `Form` og `List` skjuler systembakgrunnen og bruker `background`
+bak innholdet og `surface` på ordinære rader. Primærknapper i skjemaer
+har transparent radbakgrunn. Ordinære kort bruker `CardContainer` eller
+`matLoggCardSurface()`; kamera, bildeleser, delingsgrafikk og systemkontroller
+beholder sine formålstilpassede flater.

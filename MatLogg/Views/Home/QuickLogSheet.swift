@@ -146,7 +146,7 @@ struct QuickLogSheet: View {
                     repeatButton(food)
                 }
                 .padding(12)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .matLoggCardSurface()
                 .allowsHitTesting(!viewModel.isRepeating && !viewModel.isUndoingRepeat)
             }
         }
@@ -261,11 +261,7 @@ struct QuickLogSheet: View {
                 Button { selectedSavedMeal = meal } label: {
                     SavedMealRow(meal: meal)
                         .padding(12)
-                        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-                        }
+                        .matLoggCardSurface()
                 }
                 .buttonStyle(.plain)
             }

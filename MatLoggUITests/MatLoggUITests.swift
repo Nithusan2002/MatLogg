@@ -146,6 +146,7 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["findManualBarcode"].tap()
         let logButton = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch
         XCTAssertTrue(logButton.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["product-hero-image"].firstMatch.waitForExistence(timeout: 8))
         let productScreenshot = XCTAttachment(screenshot: app.screenshot())
         productScreenshot.name = "Strekkodetreff før logging"
         productScreenshot.lifetime = .keepAlways
@@ -794,6 +795,8 @@ final class MatLoggUITests: XCTestCase {
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         row.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["product-hero-image"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["Bilde ikke tilgjengelig"].exists)
         attachSearchScreenshot(app, name: "Søk – mengdevalg")
         if app.buttons["Legg til favoritt"].exists {
             app.buttons["Legg til favoritt"].tap()

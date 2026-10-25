@@ -10,6 +10,7 @@ struct ProductHeroImageView: View {
     private let height: CGFloat
     private let cornerRadius: CGFloat
     private let thumbnailHeight: CGFloat = 170
+    private var hidesPlaceholder = false
     
     init(image: UIImage?, height: CGFloat = 220, cornerRadius: CGFloat = 18) {
         self.localData = nil
@@ -27,8 +28,9 @@ struct ProductHeroImageView: View {
         self.cornerRadius = cornerRadius
     }
     
-    init(localData: Data?, url: URL? = nil, height: CGFloat = 220, cornerRadius: CGFloat = 18) {
+    init(localData: Data?, url: URL? = nil, height: CGFloat = 220, cornerRadius: CGFloat = 18, hidesPlaceholder: Bool = false) {
         self.localData = localData
+        self.hidesPlaceholder = hidesPlaceholder
         self.image = nil
         self.url = url
         self.height = height
@@ -38,26 +40,31 @@ struct ProductHeroImageView: View {
     @Environment(\.colorScheme) private var colorScheme
     
     var body: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            Group {
-                if let image = image ?? viewModel.image {
-                    heroView(with: Image(uiImage: image), width: width)
-                } else {
-                    heroPlaceholder(width: width)
+        VStack(spacing: 0) {
+            if !hidesPlaceholder || image != nil || viewModel.image != nil {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    Group {
+                        if let image = image ?? viewModel.image {
+                            heroView(with: Image(uiImage: image), width: width)
+                        } else {
+                            heroPlaceholder(width: width)
+                        }
+                    }
+                    .frame(width: width, height: height)
+                    .background(AppColors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(AppColors.separator.opacity(0.7), lineWidth: 1)
+                    )
+                    .clipped()
                 }
+                .frame(height: height)
+                .accessibilityIdentifier("product-hero-image")
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
-            .frame(width: width, height: height)
-            .background(AppColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(AppColors.separator.opacity(0.7), lineWidth: 1)
-            )
-            .clipped()
         }
-        .frame(height: height)
-        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .task(id: ImageIdentity(url: url, data: localData)) {
             guard image == nil else { return }
             await viewModel.load(url: url, localData: localData, repository: repository, maximumPixelSize: 1200)

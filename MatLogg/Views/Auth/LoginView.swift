@@ -181,12 +181,7 @@ struct LoginView: View {
 
 extension View {
     fileprivate func authFieldStyle() -> some View {
-        font(AppTypography.body)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 52)
-            .background(AppColors.mutedSurface)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.controlBorder, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+        matLoggInputStyle()
     }
 }
 

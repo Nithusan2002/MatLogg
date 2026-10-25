@@ -46,7 +46,7 @@ struct ProfileView: View {
             if demoMode.isLoading { ProgressView("Klargjør demodata …") }
         }
         .padding(20)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18))
+        .matLoggCardSurface()
         .disabled(demoMode.isLoading)
         .confirmationDialog("Tilbakestille demodata?", isPresented: $confirmDemoReset, titleVisibility: .visible) {
             Button("Tilbakestill", role: .destructive) { Task { await demoMode.selectDemo(true, reset: true) } }

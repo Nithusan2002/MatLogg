@@ -50,3 +50,23 @@ extension View {
                                    shadowEnabled: shadowEnabled, borderEnabled: borderEnabled))
     }
 }
+
+// Shared field surface for text entry and controls that open an input picker.
+extension View {
+    func matLoggFieldSurface(fill: Color = AppColors.surface) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return self
+            .background(fill, in: shape)
+            .overlay(shape.stroke(AppColors.controlBorder, lineWidth: 1).allowsHitTesting(false))
+    }
+
+    func matLoggInputStyle() -> some View {
+        self
+            .textFieldStyle(.plain)
+            .font(AppTypography.body)
+            .foregroundStyle(AppColors.ink)
+            .padding(12)
+            .frame(minHeight: 48)
+            .matLoggFieldSurface()
+    }
+}

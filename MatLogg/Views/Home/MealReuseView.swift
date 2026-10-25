@@ -78,7 +78,7 @@ struct MealReuseEditorView: View {
                                             set: { viewModel.setAmount(itemId: item.id, text: $0) }
                                         ))
                                         .keyboardType(.decimalPad)
-                                        .textFieldStyle(.roundedBorder)
+                                        .matLoggInputStyle()
                                         .frame(minHeight: 44)
                                         .focused($focusedItem, equals: item.id)
                                         .accessibilityLabel("Mengde i \(item.original.resolvedAmountUnit.spokenName) for \(item.name)")

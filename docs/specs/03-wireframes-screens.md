@@ -138,7 +138,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 - Interaktive elementer skal ha et effektivt trykkområde på minst 44 × 44 pt, også når det synlige ikonet eller chipen er mindre.
 - Loggingarket viser alltid «Logg til: [valgt måltid]». Tidspunktet foreslår standardmåltid, mens inngang fra et måltidskort overstyrer dette med kortets måltid.
 - Søk og strekkodeskanning presenteres som separate, tekstmerkede handlinger i Loggfør-arket og Søk-fanen. De dupliseres ikke som en egen handlingsrad på Hjem. Den sentrale faneknappen heter «Loggfør», og statistikkfanen heter «Utvikling».
-- «Registrer manuelt» ligger som en sekundær knapp i full bredde rett under Søk og Skann strekkode, før listene, i alle søketilstander.
+- Søkefelt og søkeknapp står på samme rad. «Skann strekkode» og «Registrer manuelt» er kompakte sekundære handlinger under feltet, før listene. Kontrollene stables ved stor tekst og har minst 44 pt trykkflate. Status uten innhold reserverer ingen plass.
 - Når ingen måltider er registrert, brukes «Ingen logget ennå» fremfor en fremdriftsteller som kan oppfattes som et krav.
 
 ```
@@ -283,7 +283,7 @@ Tilstandskrav for Home, hurtigvalg og søk:
 
 **Beskrivelse:**
 - **Topp:** Back-knapp + favoritt-toggle (☆/★)
-- **Bilde:** Produktbilde (fra barcode DB eller placeholder)
+- **Bilde:** Produktbilde når tilgjengelig. I mengdevalget skjules bildeflaten ved manglende bilde, lasting eller lastefeil; ingen stor placeholder vises.
 - **Info:** Produktnavn, merke, kategori, strekkode
 - **Katalogoppdatering:** OFF-produkter med OFF-næringsgrunnlag viser «Sist hentet» og «Hent oppdaterte produktdata». Handlingen viser lasting og resultat som tekst, og deaktiveres under oppdatering eller logging. Logging med eksisterende data fungerer under automatisk oppdatering. Egne varer får ikke denne handlingen.
 - **Feil ved skanning:** «Vi fant ikke produktet» og «Produktet mangler næringsdata» er separate meldinger med «Registrer manuelt». Tilkoblingsfeil tilbyr også «Prøv igjen»; ratebegrensning viser ventetid.

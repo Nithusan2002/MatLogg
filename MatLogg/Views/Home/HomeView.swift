@@ -767,7 +767,7 @@ private struct HomeQuickProductsSection: View {
                                 .frame(width: 132, alignment: .leading)
                                 .frame(minHeight: 76, alignment: .leading)
                                 .padding(14)
-                                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                .matLoggCardSurface()
                             }
                             .buttonStyle(.plain)
                         }

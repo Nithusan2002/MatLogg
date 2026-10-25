@@ -280,8 +280,7 @@ private struct WeightEntryContent: View {
                     .foregroundColor(AppColors.deepInk)
                 TextField("Vekt (kg)", text: $weightText)
                     .keyboardType(.decimalPad)
-                    .padding(12)
-                    .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+                    .matLoggInputStyle()
                 PrimaryButton(title: "Lagre", systemImage: "plus") { Task { await saveWeight() } }
             }
 

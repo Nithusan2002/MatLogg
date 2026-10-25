@@ -54,12 +54,7 @@ struct AmountInputRow: View {
                 .padding(.horizontal, 10)
                 .frame(width: controlWidth ?? 76)
                 .frame(minHeight: 44)
-                .background(controlFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppColors.controlBorder, lineWidth: 1)
-                )
-                .cornerRadius(12)
+                .matLoggFieldSurface(fill: controlFill)
             
             if controlWidth == nil && !unit.isEmpty {
                 unitLabel
@@ -83,6 +78,10 @@ struct SelectAllTextField: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
         field.delegate = context.coordinator
+        field.textColor = UIColor(AppColors.ink)
+        field.tintColor = UIColor(AppColors.action)
+        field.font = UIFont.preferredFont(forTextStyle: .title3)
+        field.adjustsFontForContentSizeCategory = true
         field.textAlignment = .right
         field.keyboardType = .decimalPad
         field.placeholder = placeholder

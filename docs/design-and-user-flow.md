@@ -143,10 +143,12 @@ mens søkefeltet redigeres, slik at den ikke dekker treff over tastaturet, og vi
 igjen når redigeringen avsluttes. Søk fra Loggfør
 bruker samme skjerminnhold i en egen presentasjon med fokusert søkefelt.
 
-«Registrer manuelt» vises som en sekundær knapp i full bredde rett under
-Søk og Skann strekkode, før favoritter eller søkeresultater. Knappen er
-tilgjengelig i alle søketilstander og bruker samme høyde og avrunding som
-handlingsknappene over.
+Søkefelt og søkeknapp står på samme rad ved vanlig tekststørrelse.
+«Skann strekkode» og «Registrer manuelt» ligger som kompakte, sekundære
+handlinger på raden under, med minst 44 pt trykkflate. Ved stor tekst stables
+kontrollene i den scrollbare søkeflaten. Status vises bare når den har innhold,
+slik at favoritter og treff kommer høyere opp. Første logging beholder sine
+samlede handlingsvalg. Søkelogikk og datakilder er uendret.
 
 Søk-fanen har en fast inngang «Lagrede måltider» uten ekstra undertekst
 før favoritter og nylig brukt. Inngangen vises også når listen er tom,

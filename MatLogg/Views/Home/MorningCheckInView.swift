@@ -63,9 +63,7 @@ struct MorningCheckInView: View {
                             }
                             .padding(12)
                             .frame(minHeight: 48)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(AppColors.controlBorder, lineWidth: 1))
+                            .matLoggFieldSurface()
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)

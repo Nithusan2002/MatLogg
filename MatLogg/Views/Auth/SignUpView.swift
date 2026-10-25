@@ -57,8 +57,7 @@ struct SignUpView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .padding(12)
-                        .background(AppColors.mutedSurface)
-                        .cornerRadius(12)
+                        .matLoggFieldSurface()
                     
                     HStack {
                         if showPassword {
@@ -79,15 +78,13 @@ struct SignUpView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
                     }
-                    .background(AppColors.mutedSurface)
-                    .cornerRadius(12)
+                    .matLoggFieldSurface()
                     
                     SecureField("Gjenta passord", text: $confirmPassword)
                         .textContentType(.password)
                         .foregroundColor(AppColors.ink)
                         .padding(12)
-                        .background(AppColors.mutedSurface)
-                        .cornerRadius(12)
+                        .matLoggFieldSurface()
                     
                     if !password.isEmpty && password != confirmPassword {
                         HStack(spacing: 8) {

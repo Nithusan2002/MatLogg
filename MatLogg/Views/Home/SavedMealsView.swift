@@ -798,8 +798,7 @@ struct SavedMealToastView: View {
                 .disabled(isUndoing)
         }
         .padding(14)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppColors.separator))
+        .matLoggCardSurface()
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Lukk bekreftelse", onDismiss)
     }
@@ -907,7 +906,15 @@ private struct SavedMealAddAmountView: View {
                     }
                     if let error { ErrorMessageView(error) }
                 }
+                .listRowBackground(AppColors.surface)
             }
+            .font(AppTypography.body)
+            .foregroundStyle(AppColors.ink)
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .tint(AppColors.action)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .navigationTitle("Mengde")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Avbryt") { dismiss() } }

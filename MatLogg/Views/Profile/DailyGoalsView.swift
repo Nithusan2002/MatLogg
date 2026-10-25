@@ -111,7 +111,7 @@ struct DailyGoalsView: View {
             Text("\(title) (\(unit))").font(AppTypography.bodyEmphasis)
             TextField(title, text: text)
                 .keyboardType(field == .calories ? .numberPad : .decimalPad)
-                .textFieldStyle(.roundedBorder)
+                .matLoggInputStyle()
                 .frame(minHeight: 44)
                 .focused($focusedField, equals: field)
                 .accessibilityLabel("\(title), \(unit)")

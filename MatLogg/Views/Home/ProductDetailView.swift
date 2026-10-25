@@ -432,7 +432,7 @@ private struct ProductDetailContent: View {
     }
 
     @ViewBuilder private var heroView: some View {
-        ProductHeroImageView(localData: product.localImageData, url: imageUrl, height: 160, cornerRadius: 18)
+        ProductHeroImageView(localData: product.localImageData, url: imageUrl, height: 160, cornerRadius: 18, hidesPlaceholder: true)
     }
 
     private var imageUrl: URL? {

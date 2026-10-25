@@ -13,18 +13,30 @@ struct ManualBarcodeEntryView: View {
         NavigationStack {
             Form {
                 Section {
+                    Text("Strekkodenummer")
+                        .font(AppTypography.secondaryEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
                     TextField("Strekkodenummer", text: $entry.input)
+                        .font(AppTypography.body)
+                        .foregroundStyle(AppColors.ink)
+                        .frame(minHeight: 44)
                         .keyboardType(.numberPad)
                         .textContentType(nil)
                         .focused($inputFocused)
                         .disabled(productViewModel.isScanning)
                         .accessibilityIdentifier("manualBarcodeInput")
                     if let message = entry.validationMessage {
-                        Text(message).foregroundStyle(AppColors.textSecondary)
+                        Text(message)
+                            .font(AppTypography.secondary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                 } footer: {
                     Text("Skriv inn tallene under strekkoden. Hvis varen ikke er lagret på enheten, sendes nummeret til Open Food Facts når du trykker Finn produkt.")
+                        .font(AppTypography.secondary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
+                .listRowBackground(AppColors.surface)
+                .listRowSeparator(.hidden)
                 Section {
                     PrimaryButton(title: productViewModel.isScanning ? "Henter produkt …" : "Finn produkt") {
                         inputFocused = false
@@ -34,15 +46,26 @@ struct ManualBarcodeEntryView: View {
                     .accessibilityIdentifier("findManualBarcode")
                     if productViewModel.isScanning { ProgressView("Henter produkt …") }
                 }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowSeparator(.hidden)
                 if let failure = productViewModel.scanFailure {
                     Section {
                         Text(failure.title).font(AppTypography.bodyEmphasis)
                         Text(failure.message)
                         Button("Søk etter vare", action: onSearch)
                         Button("Registrer manuelt", action: onCreateProduct)
+                            .frame(minHeight: 44)
                     }
+                    .listRowBackground(AppColors.surface)
                 }
             }
+            .font(AppTypography.body)
+            .foregroundStyle(AppColors.ink)
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background.ignoresSafeArea())
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .accessibilityIdentifier("manual-barcode-form")
             .navigationTitle("Skriv inn strekkode")
             .navigationBarTitleDisplayMode(.inline)
@@ -69,6 +92,7 @@ struct ManualBarcodeEntryView: View {
                 if id != nil { dismiss() }
             }
         }
+        .tint(AppColors.action)
         .interactiveDismissDisabled(productViewModel.isScanning)
     }
 }

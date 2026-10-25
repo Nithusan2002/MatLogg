@@ -211,8 +211,7 @@ struct MatLoggOnboardingFlowView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .frame(minHeight: 48)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppColors.controlBorder, lineWidth: 1))
+                .matLoggFieldSurface()
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -465,8 +464,7 @@ struct MatLoggOnboardingFlowView: View {
         .font(AppTypography.bodyEmphasis)
         .foregroundColor(AppColors.ink)
         .frame(maxWidth: .infinity, minHeight: 44)
-        .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppColors.controlBorder, lineWidth: 1))
+        .matLoggFieldSurface()
     }
 
     private func validationText(_ text: String) -> some View {
@@ -556,8 +554,7 @@ private struct InputCard: View {
                 .font(AppTypography.body)
                 .padding(.horizontal, 12)
                 .frame(minHeight: 48)
-                .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(AppColors.controlBorder, lineWidth: 1))
+                .matLoggFieldSurface()
                 .accessibilityLabel("\(label), \(unit)")
         }
     }

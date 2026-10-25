@@ -42,11 +42,7 @@ struct PortionAmountInput: View {
                     .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 44)
-                    .background(AppColors.surface)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(AppColors.controlBorder, lineWidth: 1)
-                    }
+                    .matLoggFieldSurface()
                 }
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
