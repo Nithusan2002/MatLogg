@@ -1,6 +1,6 @@
 # MatLogg landingsside
 
-Selvstendig kopi av MatLoggs Lovable-prototype. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-10-08 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Søk/Mengde/Logg-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
+Statisk presentasjonsside for dagens MatLogg-app, med utgangspunkt i Lovable-prototypen. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-11-02 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Søk/Mengde/Logg-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
 
 Krever Node.js 22.12 eller nyere.
 
@@ -15,3 +15,5 @@ Prototypen er publisert på https://nithusan.no/MatLogg/ via GitHub Pages. Workf
 
 Designkilde: Lovable-prosjekt `84794cb2-b1b1-4308-a80f-f740a521b073`, commit `900d926778abd72bc2a5fddf2dddffc906487660`. Kopiert via fil-API, tilpasset til statisk bygging uten plattformkode.
 
+
+Innholdet er kontrollert mot appkoden 2026-11-02: lokal bruk uten konto, dokumenterte porsjoner, gjenlogging, flervalg i dagboken, vann, valgfrie mål og måltidskort. Personvernsiden omtaler valgfri fødselsdato, eksterne produktbilder og brukerinitiert deling/lagring av måltidskort. Nettsiden endrer ingen dataflyt i appen.

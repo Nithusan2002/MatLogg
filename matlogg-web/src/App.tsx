@@ -33,10 +33,11 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 
 const FAQ = [
   ["Er MatLogg tilgjengelig?", "MatLogg er under utvikling. Betatilgang og lansering er ikke åpnet ennå."],
-  ["Må jeg ha konto?", "Nei. MatLogg er laget for å kunne brukes lokalt på iPhonen uten konto."],
-  ["Fungerer det uten nett?", "Ja, lokal logging og lagrede matvarer fungerer uten nett. Oppslag av nye produkter kan kreve internett."],
+  ["Må jeg ha konto?", "Nei. Du kan starte med å logge mat på iPhonen uten konto. Innlogging er valgfritt og gir foreløpig ikke skybackup."],
+  ["Fungerer det uten nett?", "Ja. Råvarer fra Matvaretabellen følger med appen, og lokal logging, historikk og lagrede matvarer fungerer uten nett. Nye produktoppslag og produktbilder som ikke er mellomlagret, krever internett."],
   ["Må jeg sette mål?", "Nei. Mål er helt valgfrie. Du kan bruke MatLogg bare for oversikt."],
-  ["Hvilke enheter støttes?", "MatLogg utformes for iPhone med iOS 17 eller nyere."],
+  ["Kan jeg sikkerhetskopiere eller flytte loggen?", "MatLogg tilbyr ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi fra Profil → Innstillinger, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
+  ["Hvilke enheter støttes?", "MatLogg støtter iPhone med iOS 17 eller nyere. Appen er fortsatt under utvikling."],
 ];
 
 function Faq() {
@@ -137,7 +138,7 @@ export default function App() {
             <div className="meal-story-heading">
               <p className="eyebrow">Dine gjengangere</p>
               <h2 id="meal-story-title">Favorittfrokosten din.<br /><span>Klar igjen i morgen.</span></h2>
-              <p>Det du spiser ofte, trenger du ikke å legge inn fra bunnen hver gang. Lagre måltidet, juster mengdene og loggfør det på nytt.</p>
+              <p>Det du spiser ofte, trenger du ikke å legge inn fra bunnen hver gang. Lagre et måltid fra dagboken og loggfør det på nytt på valgt dato. Du kan også bruke «Loggfør igjen» for en tidligere matvare.</p>
               <a href="#slik" className="btn-ghost mt-6">Se hvordan du logger <span aria-hidden>↗</span></a>
             </div>
             <div className="meal-story-pictures">
@@ -151,21 +152,36 @@ export default function App() {
               </figure>
             </div>
             <div className="meal-story-app">
-              <div><p className="eyebrow">Fra favoritt til matlogg</p><h3>Samme måltid.<br />En ny dag.</h3><p>Lagrede måltider ligger klare i appen. Du velger selv hva og hvor mye du vil loggføre.</p><p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p></div>
+              <div><p className="eyebrow">Fra favoritt til matlogg</p><h3>Samme måltid.<br />En ny dag.</h3><p>Lagrede måltider ligger klare i appen. Velg måltid og dato før du lagrer en ny registrering. Du kan angre rett etterpå.</p><p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p></div>
               <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
             </div>
           </section>
-          <Feature flip eyebrow="Oversikt" title="Oversikt på dine premisser" visual={
+          <Feature flip eyebrow="Utvikling" title="Oversikt på dine premisser" visual={
             <AppScreenshot screen="overview" label="Utvikling – historikk og næringsoversikt" />
           }>
             <p>Se dagens energi og makronæringsstoffer, og følg oversikten gjennom uken.</p>
-            <p>Mål er valgfrie. Ingen røde tall, ingen «bra» eller «dårlig» mat – bare tydelig oversikt.</p>
+            <p>Mål er valgfrie og settes under Profil → Daglige mål. Du kan også registrere vekt hvis du ønsker det.</p>
           </Feature>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {[
+              ["Mengde og porsjoner", "Logg i gram eller milliliter, eller velg antall når matvaren har en dokumentert porsjon. Mengde og næringsgrunnlag følger registreringen."],
+              ["En dagbok du kan endre", "Bla mellom datoer, rediger eller flytt matvarer mellom måltider. Velg flere registreringer for å lagre et måltid eller slette samlet, med mulighet til å angre."],
+              ["Matvarer med kilde", "Søk i råvarer fra Matvaretabellen og merkevarer fra Open Food Facts. Produktkortet viser næringsgrunnlaget og, når data finnes, informasjon om Nutri-Score og prosessering."],
+              ["Dine faste matvarer", "Bruk favoritter, nylige matvarer og tidligere treff i søket. Finner du ikke varen, kan du registrere den manuelt og beholde den lokalt."],
+              ["Vann i hverdagen", "Registrer glass med vann fra Hjem. Appen teller glass uten å anta hvor mange milliliter glasset ditt rommer."],
+              ["Del et måltidskort", "Lag et bildekort fra et lagret måltid. Velg stil, format og hvilke næringsverdier som skal vises. Forhåndsvis kortet, del det eller lagre det i Bilder."],
+            ].map(([title, text]) => (
+              <article key={title} className="benefit-card rounded-3xl border bg-card p-7">
+                <h3 className="text-xl font-semibold">{title}</h3>
+                <p className="mt-3 text-muted-foreground">{text}</p>
+              </article>
+            ))}
+          </div>
           <Feature eyebrow="Lokalt" title="På iPhonen. Også uten nett." visual={
             <AppScreenshot screen="diary" label="Dagbok – dagens måltider lagret på iPhonen" />
           }>
             <p>Loggen og lagrede matvarer ligger på iPhonen din, så logging av det du allerede har fungerer uten nett.</p>
-            <p>Oppslag av nye produkter kan kreve internett. Synkronisering mellom enheter og sikkerhetskopi er ikke en del av MVP-en.</p>
+            <p>Oppslag av nye produkter kan kreve internett. Appen tilbyr ikke skybackup eller synk mellom enheter. Data kan gå tapt hvis du sletter appen eller mister telefonen.</p>
             <p className="text-sm">Norske råvarer fra Matvaretabellen og produktoppslag fra Open Food Facts.</p>
           </Feature>
         </section>
@@ -183,7 +199,7 @@ export default function App() {
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Prototype</span></div>
+          <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Under utvikling</span></div>
           <div className="flex flex-wrap gap-2">
             <a href="./personvern.html" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</a>
             <a href="./personvern.html#bildekilder" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Bildekilder</a>

@@ -65,9 +65,11 @@ final class LandingCaptureUITests: XCTestCase {
         XCTAssertTrue(loggedOats.waitForExistence(timeout: 10))
         capture("flow-log", app)
         let closeReceipt = app.buttons["Lukk bekreftelse"]
-        XCTAssertTrue(closeReceipt.waitForExistence(timeout: 5))
-        closeReceipt.tap()
-        XCTAssertFalse(closeReceipt.exists)
+        // The receipt may expire while XCTest takes the preceding screenshot.
+        // Wait for its normal dismissal instead of racing its four-second timer.
+        let receiptDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: closeReceipt)
+        XCTAssertEqual(XCTWaiter.wait(for: [receiptDismissed], timeout: 12), .completed)
         capture("diary", app)
 
         // Reopen the remembered 60 g amount without focusing the input field.

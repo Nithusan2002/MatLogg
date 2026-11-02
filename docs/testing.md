@@ -617,7 +617,8 @@ foran `xcodebuild test` med `-only-testing:MatLoggUITests/LandingCaptureUITests`
 Testen tilbakestiller bare demoen og lagrer åtte navngitte `landing-*`-bilder
 i xcresult. Den logger 60 g havregryn til dagens frokost én gang. Alle bildene tas uten
 tastatur. Søkebildet bruker et presist produktsøk; et eget dagbokbilde tas
-etter at bekreftelsen er lukket. Mengdebildet tas ved å åpne produktet igjen med den huskede
+etter at bekreftelsen har lukket seg automatisk. Opptaket venter på at den
+forsvinner, siden den kan utløpe mens forrige skjermbilde tas. Mengdebildet tas ved å åpne produktet igjen med den huskede
 mengden på 60 g, uten å fokusere feltet eller logge en ekstra registrering.
 Eksporter vedlegg med `xcrun xcresulttool export attachments` og kontroller
 bildene visuelt før de erstatter `matlogg-web/public/screenshots/`.
