@@ -139,6 +139,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let fatGPer100g: Float
     let sugarGPer100g: Float?
     let fiberGPer100g: Float?
+    let vitaminsPer100g: [String: Double]?
     let sodiumMgPer100g: Int?
     
     let localImageData: Data?
@@ -180,6 +181,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         fatGPer100g: Float,
         sugarGPer100g: Float? = nil,
         fiberGPer100g: Float? = nil,
+        vitaminsPer100g: [String: Double]? = nil,
         sodiumMgPer100g: Int? = nil,
         localImageData: Data? = nil,
         imageUrl: String? = nil,
@@ -216,6 +218,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.fatGPer100g = fatGPer100g
         self.sugarGPer100g = sugarGPer100g
         self.fiberGPer100g = fiberGPer100g
+        self.vitaminsPer100g = vitaminsPer100g
         self.sodiumMgPer100g = sodiumMgPer100g
         self.localImageData = localImageData
         self.imageUrl = imageUrl
@@ -507,6 +510,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
     let userId: UUID
     let productId: UUID
     let mealType: String // "frokost", "lunsj", "middag", "snacks"
+    let nutrients: [String: Double]?
     let amountG: Float // exact, no rounding
     let amountUnit: AmountUnit?
     let portionSelection: PortionSelection?
@@ -529,6 +533,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         productId: UUID,
         mealType: String,
         amountG: Float,
+        nutrients: [String: Double]? = nil,
         amountUnit: AmountUnit = .grams,
         portionSelection: PortionSelection? = nil,
         nutritionPreparation: NutritionPreparation? = nil,
@@ -545,6 +550,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         self.userId = userId
         self.productId = productId
         self.mealType = mealType
+        self.nutrients = nutrients
         self.amountG = amountG
         self.amountUnit = amountUnit
         self.portionSelection = portionSelection
@@ -602,6 +608,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let productId: UUID
     let productName: String
+    var nutrients: [String: Double]?
     var amountG: Float
     var amountUnit: AmountUnit?
     var portionSelection: PortionSelection?
@@ -618,6 +625,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
         productId: UUID,
         productName: String,
         amountG: Float,
+        nutrients: [String: Double]? = nil,
         amountUnit: AmountUnit = .grams,
         portionSelection: PortionSelection? = nil,
         nutritionPreparation: NutritionPreparation? = nil,
@@ -631,6 +639,7 @@ nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
         self.id = id
         self.productId = productId
         self.productName = productName
+        self.nutrients = nutrients
         self.amountG = amountG
         self.amountUnit = amountUnit
         self.portionSelection = portionSelection
@@ -964,4 +973,21 @@ nonisolated struct NutriScoreComponent: Codable, Sendable, Equatable {
     let unit: String?
     let points: Int?
     let points_max: Int?
+}
+
+extension Product {
+    nonisolated func portionNutrients(amount: Float) -> [String: Double]? {
+        guard amountUnit == .grams else { return nil }
+        var values = vitaminsPer100g ?? [:]
+        if let fiber = fiberGPer100g { values["fiber"] = Double(fiber) }
+        values = values.filter { $0.value.isFinite && $0.value >= 0 }
+        return values.isEmpty ? nil : values.mapValues { $0 * Double(amount) / 100 }
+    }
+}
+
+extension FoodLog {
+    nonisolated func scaledNutrients(to amount: Float) -> [String: Double]? {
+        guard amountG > 0 else { return nil }
+        return nutrients?.mapValues { $0 * Double(amount) / Double(amountG) }
+    }
 }

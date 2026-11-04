@@ -317,6 +317,7 @@ private struct HomeTabContent: View {
     private var productNames: [UUID: String] { overviewModel.overview.productNames }
     @State private var selectedProduct: Product?
     @State private var selectedMealForLog: MealPresentation?
+    @State private var showNutrition = false
     @State private var showDailyLog = false
     @State private var editingLog: FoodLog?
     private var isSummaryLoading: Bool { overviewModel.isLoading }
@@ -386,10 +387,18 @@ private struct HomeTabContent: View {
                                 .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
                                 .accessibilityElement(children: .combine)
                             } else if let summary = selectedSummary {
-                                StatusSummaryContent(
-                                    summary: summary,
-                                    goal: healthProfileViewModel.currentGoal
-                                )
+                                Button {
+                                    showNutrition = true
+                                } label: {
+                                    StatusSummaryContent(
+                                        summary: summary,
+                                        goal: healthProfileViewModel.currentGoal,
+                                        showsNutritionLink: true
+                                    )
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Åpner næringsinnhold for valgt dag")
                             } else if overviewModel.errorMessage == nil {
                                 VStack(alignment: .leading, spacing: 6) {
                                     Label("Matloggen din er klar", systemImage: "chart.bar")
@@ -524,6 +533,9 @@ private struct HomeTabContent: View {
         .task(id: authViewModel.currentUser?.id) {
             appState.logSelectedDate = Date()
             await refreshSummaries()
+        }
+        .sheet(isPresented: $showNutrition) {
+            HomeNutritionSheet(date: selectedDate, rows: overviewModel.nutritionRows)
         }
         .sheet(item: $editingLog) { log in
             EditLogView(
@@ -2187,5 +2199,65 @@ private enum ScanHelpHint: String, Identifiable {
         case .moreLight: return "Mer lys"
         case .moveCloser: return "Flytt nærmere strekkoden"
         }
+    }
+}
+
+private struct HomeNutritionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let date: Date
+    let rows: [HomeNutritionRow]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                MatLoggSheetHeader(title: "Næringsinnhold") { dismiss() }
+                Text(date, format: .dateTime.day().month().year())
+                if let fiber = rows.first, fiber.logCount > 0 {
+                    nutrientRow(fiber, expanded: true)
+                    DisclosureGroup {
+                        ForEach(rows.dropFirst()) { nutrientRow($0) }
+                    } label: {
+                        Text("Vitaminer").frame(minHeight: 44)
+                    }
+                } else {
+                    Text("Ingen mat loggført denne dagen")
+                }
+            }
+            .padding(20)
+        }
+    }
+
+    private func nutrientRow(_ row: HomeNutritionRow, expanded: Bool = false) -> some View {
+        HomeNutrientDisclosure(expanded: expanded) {
+            ForEach(row.contributions) { contribution in
+                LabeledContent(contribution.name, value: amount(contribution.amount, unit: row.unit))
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.name).font(AppTypography.bodyEmphasis)
+                if let total = row.total {
+                    Text(amount(total, unit: row.unit))
+                    Text("Verdi oppgitt for \(row.knownCount) av \(row.logCount) loggføringer")
+                        .font(AppTypography.caption)
+                } else {
+                    Text("Ingen verdier tilgjengelig").font(AppTypography.caption)
+                }
+            }
+            .frame(minHeight: 44)
+        }
+    }
+
+    private func amount(_ value: Double, unit: String) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(0...3)))) \(unit)"
+    }
+}
+
+private struct HomeNutrientDisclosure<Content: View, Label: View>: View {
+    @State var expanded: Bool
+    @ViewBuilder let content: () -> Content
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded, content: content, label: label)
     }
 }

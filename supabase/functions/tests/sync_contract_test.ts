@@ -190,3 +190,19 @@ Deno.test("manual products retain explicit nutrition basis and original serving 
   assertEquals(validate({ ...product, manualNutritionInput: { ...product.manualNutritionInput, amount: 0 } }).success, false);
   assertEquals(validate({ id, name: "Legacy", source: "user", nutrientsPer100g: { kcal: 300 } }).success, true);
 });
+
+Deno.test("portion nutrient snapshots preserve zero and reject invalid values", () => {
+  const envelope = {
+    eventId: id, type: "log.upsert", createdAt: "2026-09-28T10:00:00Z", schemaVersion: 1,
+  };
+  const validate = (nutrients: unknown) => validateEvent({
+    ...envelope, payload: btoa(JSON.stringify({ ...JSON.parse(atob(payload)), nutrients })),
+  });
+  const nutrients = { fiber: 0, vitaminD: 1.25 };
+  const valid = validate(nutrients);
+  assertEquals(valid.success, true);
+  if (valid.success) assertEquals((valid.event.payloadJson as { nutrients: unknown }).nutrients, nutrients);
+  for (const invalid of [{ fiber: -1 }, { folate: "10" }, { calcium: 3 }, null]) {
+    assertEquals(validate(invalid).success, false);
+  }
+});

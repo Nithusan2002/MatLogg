@@ -189,6 +189,36 @@ struct MatLoggTests {
         #expect(pendingAfterReset.contains(where: { $0.eventId == event.eventId }))
     }
 
+    @Test func portionNutrientsSurviveReopeningTheLocalStore() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("nutrition.sqlite")
+        let userID = UUID()
+        let date = Date()
+        let log = FoodLog(
+            userId: userID, productId: UUID(), mealType: "lunsj", amountG: 150,
+            nutrients: ["fiber": 4.5, "vitaminD": 0],
+            loggedDate: Calendar.current.startOfDay(for: date), loggedTime: date,
+            calories: 200, proteinG: 10, carbsG: 20, fatG: 5
+        )
+        do {
+            let store = try LocalStore(databaseURL: url)
+            try store.saveLog(log)
+        }
+        let reopened = try LocalStore(databaseURL: url)
+        let restored = try #require(reopened.getSummary(userId: userID, date: date).logs.first)
+        #expect(restored.nutrients == ["fiber": 4.5, "vitaminD": 0])
+        #expect(restored.scaledNutrients(to: 300) == ["fiber": 9, "vitaminD": 0])
+        let event = try #require(reopened.fetchPendingEvents(limit: 10).first)
+        let payload = try JSONDecoder().decode([String: Double].self, from:
+            JSONSerialization.data(withJSONObject: try #require(
+                (JSONSerialization.jsonObject(with: event.payload) as? [String: Any])?["nutrients"]
+            ))
+        )
+        #expect(payload == restored.nutrients)
+    }
+
     @Test func restartRecoversInFlightEventWithStableId() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("MatLoggSyncRestart-" + UUID().uuidString, isDirectory: true)

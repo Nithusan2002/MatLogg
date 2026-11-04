@@ -86,7 +86,7 @@ final class LogViewModel: ObservableObject {
         // Fresh IDs prevent a delayed delete retry from deleting restored entries.
         let restored = deletedLogs.map { log in
             FoodLog(userId: log.userId, productId: log.productId, mealType: log.mealType,
-                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
+                    amountG: log.amountG, nutrients: log.nutrients, amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
                     nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate, loggedTime: log.loggedTime,
                     calories: log.calories, proteinG: log.proteinG,
                     carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
@@ -249,6 +249,7 @@ final class LogViewModel: ObservableObject {
             productId: product.id,
             mealType: mealType,
             amountG: amountG,
+            nutrients: product.portionNutrients(amount: amountG),
             amountUnit: product.amountUnit,
             portionSelection: portionSelection,
             nutritionPreparation: product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date),
@@ -330,6 +331,7 @@ final class LogViewModel: ObservableObject {
             productId: log.productId,
             mealType: mealType,
             amountG: amountG,
+            nutrients: log.scaledNutrients(to: amountG),
             amountUnit: log.resolvedAmountUnit, portionSelection: portion,
             nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate,
             loggedTime: log.loggedTime,
@@ -358,6 +360,7 @@ final class LogViewModel: ObservableObject {
                     productId: log.productId,
                     mealType: log.mealType,
                     amountG: log.amountG,
+                    nutrients: log.nutrients,
                     amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
                     nutritionPreparation: log.nutritionPreparation, loggedDate: targetDay,
                     loggedTime: Date(),

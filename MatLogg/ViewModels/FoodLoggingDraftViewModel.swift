@@ -197,7 +197,8 @@ final class FoodLoggingDraftViewModel: ObservableObject {
         _ = await writes?.value
         guard generation == request, let snapshot = capture() else { return nil }
         let log = FoodLog(id: snapshot.logId, userId: snapshot.userId, productId: snapshot.productId,
-                          mealType: snapshot.mealType, amountG: Float(amount), amountUnit: product.amountUnit,
+                          mealType: snapshot.mealType, amountG: Float(amount),
+                          nutrients: product.portionNutrients(amount: Float(amount)), amountUnit: product.amountUnit,
                           portionSelection: amountModel.portion, nutritionPreparation: product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: snapshot.date),
                           calories: nutrition.calories, proteinG: nutrition.protein,
                           carbsG: nutrition.carbs, fatG: nutrition.fat)

@@ -2030,6 +2030,7 @@ private nonisolated struct GoalSyncPayload: Codable {
 }
 
 private nonisolated struct LogSyncPayload: Codable {
+    let nutrients: [String: Double]?
     let portionSelection: PortionSelection?
     let nutritionPreparation: NutritionPreparation?
     let id: String
@@ -2044,6 +2045,7 @@ private nonisolated struct LogSyncPayload: Codable {
     let productRef: String?
 
     init(log: FoodLog) {
+        nutrients = log.nutrients
         portionSelection = log.portionSelection
         nutritionPreparation = log.nutritionPreparation ?? .asSold
         id = log.id.uuidString
@@ -2058,9 +2060,10 @@ private nonisolated struct LogSyncPayload: Codable {
         productRef = log.productId.uuidString
     }
 
-    private enum CodingKeys: String, CodingKey { case nutritionPreparation, portionSelection, id, date, meal, grams, unit, kcal, protein, carbs, fat, productRef }
+    private enum CodingKeys: String, CodingKey { case nutrients, nutritionPreparation, portionSelection, id, date, meal, grams, unit, kcal, protein, carbs, fat, productRef }
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(nutrients, forKey: .nutrients)
         try container.encodeIfPresent(nutritionPreparation, forKey: .nutritionPreparation)
         try container.encode(portionSelection, forKey: .portionSelection)
         try container.encode(id, forKey: .id)
@@ -2134,6 +2137,7 @@ private nonisolated struct SavedMealSyncPayload: Codable {
 }
 
 private nonisolated struct SavedMealItemSyncPayload: Codable {
+    let nutrients: [String: Double]?
     let portionSelection: PortionSelection?
     let nutritionPreparation: NutritionPreparation?
     let id: String
@@ -2149,6 +2153,7 @@ private nonisolated struct SavedMealItemSyncPayload: Codable {
     let sortIndex: Int
 
     nonisolated init(item: SavedMealItem) {
+        nutrients = item.nutrients
         portionSelection = item.portionSelection
         nutritionPreparation = item.nutritionPreparation ?? .asSold
         id = item.id.uuidString
@@ -2164,9 +2169,10 @@ private nonisolated struct SavedMealItemSyncPayload: Codable {
         sortIndex = item.sortIndex
     }
 
-    private enum CodingKeys: String, CodingKey { case nutritionPreparation, portionSelection, id, productId, productName, amountG, amountUnit, calories, protein, carbs, fat, nutritionSource, sortIndex }
+    private enum CodingKeys: String, CodingKey { case nutrients, nutritionPreparation, portionSelection, id, productId, productName, amountG, amountUnit, calories, protein, carbs, fat, nutritionSource, sortIndex }
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(nutrients, forKey: .nutrients)
         try container.encodeIfPresent(nutritionPreparation, forKey: .nutritionPreparation)
         try container.encode(portionSelection, forKey: .portionSelection)
         try container.encode(id, forKey: .id)

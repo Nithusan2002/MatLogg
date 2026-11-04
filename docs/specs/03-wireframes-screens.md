@@ -719,3 +719,11 @@ grense på 1–50 varer; sletting har ikke denne grensen.
 Samlet sletting bekreftes med antall registreringer og lagres atomisk lokalt
 sammen med synkhendelser. Én Angre-operasjon gjenoppretter batchen med nye ID-er.
 Ved feil beholdes utvalget; avbrutt måltidslagring beholder også valget.
+
+### Hjem · Næringsinnhold
+
+«Se mer» på hovedkortet åpner dagsinnsikt for datoen valgt på Hjem.
+Fiber står først. Vitamin D, B12, folat og C ligger under «Vitaminer».
+Vis registrert mengde, datadekning og opptil tre matvarer som bidro mest.
+Verdier leses fra lokale porsjonssnapshots. Eldre logger uten verdier
+bidrar til antall loggføringer, men inngår ikke i summene.

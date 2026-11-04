@@ -3,6 +3,7 @@ import SwiftUI
 struct StatusSummaryContent: View {
     let summary: DailySummary
     let goal: Goal?
+    var showsNutritionLink = false
 
     private var calorieBalance: CalorieBalance? {
         goal.flatMap { GoalCalculator.calorieBalance(dailyGoal: $0.dailyCalories, consumed: summary.totalCalories) }
@@ -21,9 +22,16 @@ struct StatusSummaryContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Kalorier")
-                    .font(AppTypography.captionEmphasis)
-                    .foregroundColor(AppColors.energyTextSecondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Kalorier")
+                    Spacer()
+                    if showsNutritionLink {
+                        Label("Se mer", systemImage: "chevron.right")
+                            .labelStyle(.titleAndIcon)
+                    }
+                }
+                .font(AppTypography.captionEmphasis)
+                .foregroundColor(AppColors.energyTextSecondary)
                 Text("\(NutritionDisplay.wholeCalories(summary.totalCalories)) kcal")
                     .font(AppTypography.heroValue)
                     .foregroundColor(AppColors.deepInk)

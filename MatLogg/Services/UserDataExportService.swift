@@ -126,7 +126,8 @@ final class UserDataExportService: UserDataExporting {
                     "calories": log.calories,
                     "protein_g": log.proteinG,
                     "carbs_g": log.carbsG,
-                    "fat_g": log.fatG
+                    "fat_g": log.fatG,
+                    "nutrients": (log.nutrients as Any?) ?? NSNull()
                 ]
             },
             "saved_meals": savedMeals.map { meal in
@@ -149,6 +150,7 @@ final class UserDataExportService: UserDataExporting {
                             "protein_g": item.proteinG,
                             "carbs_g": item.carbsG,
                             "fat_g": item.fatG,
+                            "nutrients": (item.nutrients as Any?) ?? NSNull(),
                             "nutrition_source": item.nutritionSource.rawValue,
                             "sort_index": item.sortIndex
                         ] as [String: Any]

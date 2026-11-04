@@ -43,6 +43,13 @@ function portionMatches(portion: z.infer<typeof portionSelection> | null | undef
 }
 
 const idPayload = z.object({ id: uuid });
+const portionNutrients = z.object({
+  fiber: nonNegative.finite().optional(),
+  vitaminD: nonNegative.finite().optional(),
+  vitaminB12: nonNegative.finite().optional(),
+  folate: nonNegative.finite().optional(),
+  vitaminC: nonNegative.finite().optional(),
+}).strict().optional();
 const logPayload = z.object({
   id: uuid,
   date: isoDate,
@@ -54,6 +61,7 @@ const logPayload = z.object({
   carbs: nonNegative,
   fat: nonNegative,
   productRef: uuid.nullable().optional(),
+  nutrients: portionNutrients,
   nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
   portionSelection: portionSelection.nullable().optional(),
 }).refine((p) => portionMatches(p.portionSelection, p.grams, p.unit), "Porsjon samsvarer ikke med mengden");
@@ -109,6 +117,7 @@ const savedMealPayload = z.object({
     protein: nonNegative,
     carbs: nonNegative,
     fat: nonNegative,
+    nutrients: portionNutrients,
     nutritionSource: z.enum(["matvaretabellen", "openFoodFacts", "user"]),
     nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
     sortIndex: z.number().int().nonnegative(),

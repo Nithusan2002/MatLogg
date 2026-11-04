@@ -178,3 +178,15 @@ bak avslått synkflagg før aktivering. Hosted staging ble oppgradert med begge
 migrasjonene og `sync-events` versjon 5 den 14. oktober 2026. Readback og
 rollback-kontroller bestod; globalt `sync_enabled=false` og produksjonssynk
 forblir av. Se [staging-resultatet](production-readiness.md#næringsmetadata-og-validering-på-staging--2026-10-14).
+
+### Porsjonsverdier for fiber og vitaminer
+
+Matlogger og elementer i lagrede måltider kan ha et valgfritt objekt
+`nutrients`. Det inneholder verdier for hele porsjonen: `fiber` i g,
+`vitaminC` i mg, og `vitaminD`, `vitaminB12` og `folate` i µg.
+Verdier må være endelige, ikke-negative tall. En utelatt nøkkel betyr
+ukjent verdi. Null som tall betyr at kilden oppgir 0.
+En eldre hendelse uten objektet kan fortsatt lagres. Ved overskriving
+brukes den innkommende porsjonens verdier, slik at eldre klienter ikke
+etterlater næringstall for feil mengde. Migrasjonen må være på plass før
+oppdatert Edge Function og klient tas i bruk.

@@ -237,7 +237,9 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
                 carbs: candidate.product.carbsGPer100g, fat: candidate.product.fatGPer100g), amount: candidate.log.amountG)
         else { return .review(candidate.product) }
         let log = FoodLog(userId: owner, productId: candidate.id, mealType: mealType,
-                          amountG: candidate.log.amountG, amountUnit: candidate.log.resolvedAmountUnit,
+                          amountG: candidate.log.amountG,
+                          nutrients: candidate.product.portionNutrients(amount: candidate.log.amountG),
+                          amountUnit: candidate.log.resolvedAmountUnit,
                           portionSelection: candidate.log.portionSelection,
                           nutritionPreparation: candidate.product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
                           calories: nutrition.calories, proteinG: nutrition.protein,
@@ -298,6 +300,7 @@ nonisolated enum FoodSearchCatalog {
             fatGPer100g: item.fatGPer100g,
             sugarGPer100g: item.sugarGPer100g,
             fiberGPer100g: item.fiberGPer100g,
+            vitaminsPer100g: item.vitaminsPer100g,
             sodiumMgPer100g: item.sodiumMgPer100g,
             imageUrl: nil,
             standardPortions: nil,

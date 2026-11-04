@@ -126,3 +126,49 @@ final class HomeOverviewViewModel: ObservableObject {
         }
     }
 }
+
+struct HomeNutritionRow: Identifiable {
+    struct Contribution: Identifiable {
+        let id: UUID
+        let name: String
+        let amount: Double
+    }
+
+    let id: String
+    let name: String
+    let unit: String
+    let logCount: Int
+    let knownCount: Int
+    let total: Double?
+    let contributions: [Contribution]
+}
+
+extension HomeOverviewViewModel {
+    var nutritionRows: [HomeNutritionRow] {
+        let logs = overview.summary?.logs ?? []
+        let nutrients = [
+            ("fiber", "Fiber", "g"), ("vitaminD", "Vitamin D", "µg"),
+            ("vitaminB12", "Vitamin B12", "µg"), ("folate", "Folat", "µg"),
+            ("vitaminC", "Vitamin C", "mg")
+        ]
+        return nutrients.map { key, name, unit in
+            let known = logs.compactMap { log in
+                log.nutrients?[key].map { (id: log.productId, amount: $0) }
+            }
+            let contributions = Dictionary(grouping: known, by: \.id)
+                .compactMap { id, values -> HomeNutritionRow.Contribution? in
+                    let amount = values.reduce(0) { $0 + $1.amount }
+                    guard amount > 0 else { return nil }
+                    return .init(id: id, name: overview.productNames[id] ?? "Ukjent matvare", amount: amount)
+                }
+                .sorted {
+                    $0.amount == $1.amount ? $0.id.uuidString < $1.id.uuidString : $0.amount > $1.amount
+                }
+            return HomeNutritionRow(
+                id: key, name: name, unit: unit, logCount: logs.count, knownCount: known.count,
+                total: known.isEmpty ? nil : known.reduce(0) { $0 + $1.amount },
+                contributions: Array(contributions.prefix(3))
+            )
+        }
+    }
+}

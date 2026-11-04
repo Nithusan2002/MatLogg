@@ -12,6 +12,7 @@ nonisolated struct MatvaretabellenProduct: Codable, Equatable, Sendable {
     let sugarGPer100g: Float?
     let fiberGPer100g: Float?
     let sodiumMgPer100g: Int?
+    var vitaminsPer100g: [String: Double]? = nil
 }
 
 /// Provides the official Norwegian food table as a bundled, searchable snapshot.
