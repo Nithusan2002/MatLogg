@@ -727,3 +727,15 @@ Fiber står først. Vitamin D, B12, folat og C ligger under «Vitaminer».
 Vis registrert mengde, datadekning og opptil tre matvarer som bidro mest.
 Verdier leses fra lokale porsjonssnapshots. Eldre logger uten verdier
 bidrar til antall loggføringer, men inngår ikke i summene.
+
+Arket bruker appens bakgrunn og kortflater. Header og dato står fast over
+rullbart innhold. Fiber åpnes fra start, mens vitaminene har egne åpne/lukke-rader
+under en fast seksjonsoverskrift. Mengder og navn bruker mørk tekst, og
+datadekning bruker sekundærtekst. Bidrag merkes «Største bidrag».
+Vis normalt høyst én desimal; positive verdier under 0,1 beholder signifikante
+sifre slik at små mengder kan skilles fra kildeoppgitt null.
+
+Totalsummer merkes «registrert». Datadekningen har en egen infoknapp
+som forklarer beregningen og lister matvarer uten verdi for valgt næringsstoff.
+Bidragslisten viser tilgjengelig produktkilde under navnet; dette er kilden
+til produktoppføringen, siden eldre porsjonssnapshots mangler egen kildehistorikk.

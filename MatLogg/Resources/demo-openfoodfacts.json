@@ -10,7 +10,8 @@
     "fat": 6.8,
     "sugar": 1.1,
     "fiber": 10,
-    "sodium": 0.004
+    "sodium": 0.004,
+    "vitaminsPer100g": {"vitaminD": 0.0, "vitaminC": 0.0}
   },
   {
     "code": "7300400129459",
@@ -35,7 +36,8 @@
     "carbs": 0,
     "fat": 27,
     "fiber": 0,
-    "sodium": 0.433
+    "sodium": 0.433,
+    "vitaminsPer100g": {"vitaminC": 0.0}
   },
   {
     "code": "7039010016322",
@@ -48,7 +50,8 @@
     "fat": 19,
     "sugar": 3.8,
     "fiber": 1.8,
-    "sodium": 0.00044
+    "sodium": 0.00044,
+    "vitaminsPer100g": {"vitaminD": 2.9, "vitaminC": 1.1}
   },
   {
     "code": "7036110008844",
@@ -74,7 +77,8 @@
     "fat": 4.3,
     "sugar": 1.5,
     "fiber": 0,
-    "sodium": 0.16
+    "sodium": 0.16,
+    "vitaminsPer100g": {"vitaminC": 0.0}
   },
   {
     "code": "7622210816672",

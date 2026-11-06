@@ -132,6 +132,7 @@ struct HomeNutritionRow: Identifiable {
         let id: UUID
         let name: String
         let amount: Double
+        let source: String
     }
 
     let id: String
@@ -140,6 +141,7 @@ struct HomeNutritionRow: Identifiable {
     let logCount: Int
     let knownCount: Int
     let total: Double?
+    let missingFoods: [String]
     let contributions: [Contribution]
 }
 
@@ -159,7 +161,15 @@ extension HomeOverviewViewModel {
                 .compactMap { id, values -> HomeNutritionRow.Contribution? in
                     let amount = values.reduce(0) { $0 + $1.amount }
                     guard amount > 0 else { return nil }
-                    return .init(id: id, name: overview.productNames[id] ?? "Ukjent matvare", amount: amount)
+                    let source: String
+                    switch products[id]?.nutritionSource {
+                    case .matvaretabellen: source = "Matvaretabellen"
+                    case .openFoodFacts: source = "Open Food Facts"
+                    case .user: source = "Egenregistrert"
+                    case nil: source = "Kilde utilgjengelig"
+                    }
+                    return .init(id: id, name: overview.productNames[id] ?? "Ukjent matvare",
+                                 amount: amount, source: source)
                 }
                 .sorted {
                     $0.amount == $1.amount ? $0.id.uuidString < $1.id.uuidString : $0.amount > $1.amount
@@ -167,6 +177,8 @@ extension HomeOverviewViewModel {
             return HomeNutritionRow(
                 id: key, name: name, unit: unit, logCount: logs.count, knownCount: known.count,
                 total: known.isEmpty ? nil : known.reduce(0) { $0 + $1.amount },
+                missingFoods: Array(Set(logs.filter { $0.nutrients?[key] == nil }
+                    .map { overview.productNames[$0.productId] ?? "Ukjent matvare" })).sorted(),
                 contributions: Array(contributions.prefix(3))
             )
         }

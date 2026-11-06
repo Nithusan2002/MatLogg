@@ -85,6 +85,7 @@ nonisolated enum DemoProductCatalog {
         let sugar: Float?
         let fiber: Float?
         let sodium: Float?
+        let vitaminsPer100g: [String: Double]?
     }
 
     static func load(bundle: Bundle = .main) async throws -> [Product] {
@@ -109,6 +110,7 @@ nonisolated enum DemoProductCatalog {
                     proteinGPer100g: entry.protein, carbsGPer100g: entry.carbs,
                     fatGPer100g: entry.fat, sugarGPer100g: entry.sugar,
                     fiberGPer100g: entry.fiber,
+                    vitaminsPer100g: entry.vitaminsPer100g,
                     sodiumMgPer100g: entry.sodium.map { Int(($0 * 1000).rounded()) },
                     localImageData: try Data(contentsOf: image), imageUrl: entry.imageURL,
                     nutritionSource: .openFoodFacts, imageSource: .openFoodFacts,
@@ -173,7 +175,7 @@ nonisolated struct DemoDataset {
                     // The recorded flow adds the oats once to complete this breakfast.
                     if offset == 0 && item.productId == oatsID { continue }
                     logs.append(FoodLog(userId: userId, productId: item.productId, mealType: meal.type,
-                        amountG: item.amountG, loggedDate: day, loggedTime: time,
+                        amountG: item.amountG, nutrients: item.nutrients, loggedDate: day, loggedTime: time,
                         calories: item.calories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG))
                 }
             }
@@ -223,6 +225,7 @@ nonisolated struct DemoDataset {
                 let amount = ingredient.1
                 let scale = amount / 100
                 return SavedMealItem(productId: product.id, productName: product.name, amountG: amount,
+                    nutrients: product.portionNutrients(amount: amount),
                     calories: product.caloriesPer100g * scale, proteinG: product.proteinGPer100g * scale,
                     carbsG: product.carbsGPer100g * scale, fatG: product.fatGPer100g * scale,
                     nutritionSource: product.nutritionSource, sortIndex: index)

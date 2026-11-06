@@ -2204,51 +2204,164 @@ private enum ScanHelpHint: String, Identifiable {
 
 private struct HomeNutritionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var coverageRow: HomeNutritionRow?
     let date: Date
     let rows: [HomeNutritionRow]
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 0) {
+            VStack(spacing: 4) {
                 MatLoggSheetHeader(title: "Næringsinnhold") { dismiss() }
                 Text(date, format: .dateTime.day().month().year())
-                if let fiber = rows.first, fiber.logCount > 0 {
-                    nutrientRow(fiber, expanded: true)
-                    DisclosureGroup {
-                        ForEach(rows.dropFirst()) { nutrientRow($0) }
-                    } label: {
-                        Text("Vitaminer").frame(minHeight: 44)
-                    }
-                } else {
-                    Text("Ingen mat loggført denne dagen")
-                }
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let fiber = rows.first, fiber.logCount > 0 {
+                        CardContainer {
+                            nutrientRow(fiber, expanded: true)
+                        }
+                        Text("Vitaminer")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        CardContainer {
+                            VStack(spacing: 16) {
+                                ForEach(rows.dropFirst()) { row in
+                                    nutrientRow(row)
+                                    if row.id != rows.last?.id {
+                                        Divider()
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        CardContainer {
+                            Text("Ingen mat loggført denne dagen")
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
+            }
+        }
+        .foregroundStyle(AppColors.deepInk)
+        .tint(AppColors.deepInk)
+        .background(AppColors.background)
+        .alert(item: $coverageRow) { row in
+            Alert(title: Text("Datadekning for " + row.name.lowercased()),
+                  message: Text(row.missingFoods.isEmpty
+                    ? "Alle loggføringer har en oppgitt verdi. Tallene bygger på registrert mengde og tilgjengelige kildeverdier."
+                    : "Summen inkluderer loggføringer med oppgitt verdi. Manglende verdier teller ikke som null.\n\nMangler verdi for\n" + row.missingFoods.joined(separator: "\n")),
+                  dismissButton: .default(Text("Lukk")))
         }
     }
 
     private func nutrientRow(_ row: HomeNutritionRow, expanded: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
         HomeNutrientDisclosure(expanded: expanded) {
-            ForEach(row.contributions) { contribution in
-                LabeledContent(contribution.name, value: amount(contribution.amount, unit: row.unit))
+            if !row.contributions.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Største bidrag")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                    ForEach(row.contributions) { contribution in
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(contribution.name)
+                                    Text("Produktkilde: " + contribution.source)
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 8)
+                                contributionAmount(contribution.amount, unit: row.unit)
+                                    .fixedSize()
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(contribution.name)
+                                    Text("Produktkilde: " + contribution.source)
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                contributionAmount(contribution.amount, unit: row.unit)
+                            }
+                        }
+                        .font(AppTypography.body)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+                .padding(.top, 12)
             }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(row.name).font(AppTypography.bodyEmphasis)
+            VStack(alignment: .leading, spacing: 6) {
                 if let total = row.total {
-                    Text(amount(total, unit: row.unit))
-                    Text("Verdi oppgitt for \(row.knownCount) av \(row.logCount) loggføringer")
-                        .font(AppTypography.caption)
+                    if row.id == "fiber" {
+                        Text(row.name).font(AppTypography.bodyEmphasis)
+                        Text(amount(total, unit: row.unit) + " registrert")
+                            .font(AppTypography.sectionTitle)
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text(row.name).font(AppTypography.bodyEmphasis)
+                                Spacer(minLength: 8)
+                                Text(amount(total, unit: row.unit) + " registrert")
+                                    .font(AppTypography.bodyEmphasis)
+                            }
+                            .fixedSize(horizontal: false, vertical: true)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(row.name).font(AppTypography.bodyEmphasis)
+                                Text(amount(total, unit: row.unit) + " registrert")
+                                    .font(AppTypography.bodyEmphasis)
+                            }
+                        }
+                    }
+
                 } else {
-                    Text("Ingen verdier tilgjengelig").font(AppTypography.caption)
+                    Text(row.name).font(AppTypography.bodyEmphasis)
+                    Text("Ingen verdier tilgjengelig")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
-            .frame(minHeight: 44)
+            .foregroundStyle(AppColors.deepInk)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        Button {
+            coverageRow = row
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(row.knownCount == row.logCount
+                     ? "Data for alle \(row.logCount) loggføringer"
+                     : "Data for \(row.knownCount) av \(row.logCount) loggføringer")
+                Image(systemName: "info.circle")
+            }
+            .font(AppTypography.caption)
+            .foregroundStyle(AppColors.textSecondary)
+            .frame(minHeight: 44, alignment: .leading)
+        }
+        .buttonStyle(.plain)
         }
     }
 
+    private func contributionAmount(_ value: Double, unit: String) -> some View {
+        Text(amount(value, unit: unit))
+            .foregroundStyle(AppColors.textSecondary)
+    }
+
     private func amount(_ value: Double, unit: String) -> String {
-        "\(value.formatted(.number.precision(.fractionLength(0...3)))) \(unit)"
+        if value > 0 && value < 0.1 {
+            return "\(value.formatted(.number.precision(.significantDigits(1...2)))) \(unit)"
+        }
+        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
     }
 }
 
