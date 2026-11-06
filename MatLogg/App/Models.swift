@@ -128,6 +128,9 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let name: String
     let brand: String?
     let category: String?
+    let categoryTags: [String]?
+    /// Optional raw ID keeps decoding compatible with future visual groups.
+    var selectedFoodGroup: String?
     let barcodeEan: String?
     let source: String // "matvaretabellen", "openfoodfacts", "user", "shared"
     let kind: ProductKind
@@ -172,6 +175,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         name: String,
         brand: String? = nil,
         category: String? = nil,
+        categoryTags: [String]? = nil,
+        selectedFoodGroup: String? = nil,
         barcodeEan: String? = nil,
         source: String = "user",
         kind: ProductKind = .packaged,
@@ -209,6 +214,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.name = name
         self.brand = brand
         self.category = category
+        self.categoryTags = categoryTags
+        self.selectedFoodGroup = selectedFoodGroup
         self.barcodeEan = barcodeEan
         self.source = source
         self.kind = kind

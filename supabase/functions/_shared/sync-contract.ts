@@ -99,6 +99,8 @@ const productPayload = z.object({
   nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
   servings: z.array(productServing).max(100).nullable().optional(),
   manualNutritionInput: manualNutritionInput.nullable().optional(),
+  selectedFoodGroup: z.enum(["rice_pasta", "bread", "grain", "meat", "poultry", "fish", "egg", "dairy", "cheese",
+    "oil_fat", "fruit", "vegetables", "nuts", "drinks", "other"]).nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   source: z.string().trim().min(1),
 });

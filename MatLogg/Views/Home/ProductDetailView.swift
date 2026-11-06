@@ -10,6 +10,7 @@ struct ProductDetailView: View {
         ProductDetailContent(product: product, appState: appState,
                              repository: productViewModel.barcodeRepository,
                              favorites: productViewModel.favoriteRepository,
+                             metadataRepository: productViewModel.metadataRepository,
                              onLogComplete: onLogComplete)
             .id(product.id)
     }
@@ -23,11 +24,11 @@ private struct ProductDetailContent: View {
     private var product: Product { detailModel.product }
 
     init(product: Product, appState: AppState, repository: any BarcodeLookupRepository,
-         favorites: any ProductFavoriteRepository,
+         favorites: any ProductFavoriteRepository, metadataRepository: any ProductRepository,
          onLogComplete: ((ReceiptPayload) -> Void)?) {
         self.appState = appState
         self.onLogComplete = onLogComplete
-        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository, favorites: favorites))
+        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository, favorites: favorites, metadataRepository: metadataRepository))
     }
 
     @ObservedObject var appState: AppState
@@ -105,6 +106,24 @@ private struct ProductDetailContent: View {
                                 .padding(.horizontal)
                         }
 
+
+                        if product.source == "user" {
+                            CardContainer {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    FoodGroupPicker(selection: Binding(
+                                        get: { product.selectedFoodGroup.flatMap(FoodGroup.init(rawValue:)) },
+                                        set: { group in
+                                            Task { await detailModel.updateFoodGroup(group, owner: authViewModel.currentUser?.id) }
+                                        }
+                                    ))
+                                    .disabled(detailModel.isSavingFoodGroup || isLogging)
+                                    if let error = detailModel.foodGroupError {
+                                        ErrorMessageView(error)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
 
                         ProductLoggingSection(amountModel: amountModel, product: product, isLogging: isLogging,
                             selectedMealType: $selectedMealType, logDateLabel: logDateLabel,
@@ -345,6 +364,9 @@ private struct ProductDetailContent: View {
             }
         }
         .task { await detailModel.refresh(manually: false) }
+        .onChange(of: detailModel.product.selectedFoodGroup) { _, _ in
+            productViewModel.metadataDidChange()
+        }
         .task(id: authViewModel.currentUser?.id) {
             await detailModel.loadFavorite(owner: authViewModel.currentUser?.id)
         }

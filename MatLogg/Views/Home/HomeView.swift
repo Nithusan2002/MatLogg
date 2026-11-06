@@ -301,6 +301,7 @@ struct HomeTabView: View {
 }
 
 private struct HomeTabContent: View {
+    @EnvironmentObject private var productViewModel: ProductViewModel
     let savedMealsViewModel: SavedMealsViewModel
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
@@ -487,6 +488,7 @@ private struct HomeTabContent: View {
                                 productName: { productNames[$0] ?? "Ukjent produkt" },
                                 productImageURL: { overviewModel.products[$0]?.imageUrl.flatMap(URL.init(string:)) },
                                 productImageData: { overviewModel.products[$0]?.localImageData },
+                                productFoodGroup: { overviewModel.products[$0]?.foodGroup ?? .other },
                                 onOpen: { selectedMealForLog = meal },
                                 onEdit: { editingLog = $0 },
                                 onAdd: {
@@ -544,6 +546,7 @@ private struct HomeTabContent: View {
                 brand: overviewModel.products[log.productId]?.brand,
                 imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
                 imageData: overviewModel.products[log.productId]?.localImageData,
+                foodGroup: overviewModel.products[log.productId]?.foodGroup ?? .other,
                 onSave: { request in
                         guard let userId = authViewModel.currentUser?.id else { return false }
                         let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
@@ -581,6 +584,9 @@ private struct HomeTabContent: View {
                     onLogComplete(payload)
                 }
             )
+        }
+        .onChange(of: productViewModel.metadataRevision) { _, _ in
+            Task { await refreshSummaries() }
         }
         .onChange(of: logViewModel.mutationRevision) { _, _ in
             Task { await refreshSummaries() }
@@ -852,6 +858,7 @@ struct MealOverviewCard: View {
     let productName: (UUID) -> String
     var productImageURL: (UUID) -> URL? = { _ in nil }
     var productImageData: (UUID) -> Data? = { _ in nil }
+    var productFoodGroup: (UUID) -> FoodGroup = { _ in .other }
     let onOpen: () -> Void
     var onEdit: (FoodLog) -> Void = { _ in }
     let onAdd: () -> Void
@@ -911,7 +918,7 @@ struct MealOverviewCard: View {
                     ForEach(logs.prefix(3)) { log in
                         Button { onEdit(log) } label: {
                             HStack(alignment: .top, spacing: 12) {
-                                ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), size: 52, imagePadding: 2)
+                                ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), foodGroup: productFoodGroup(log.productId), size: 52, imagePadding: 2)
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(productName(log.productId))
                                         .font(AppTypography.bodyEmphasis)

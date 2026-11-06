@@ -52,6 +52,7 @@ final class ManualProductViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    @Published var selectedFoodGroup: FoodGroup? { didSet { inputChanged?() } }
     @Published var name = "" { didSet { inputChanged?() } }
     @Published var calories = "" { didSet { inputChanged?() } }
     @Published var protein = "" { didSet { inputChanged?() } }
@@ -139,11 +140,12 @@ final class ManualProductViewModel: ObservableObject {
     var input: ManualProductInput {
         ManualProductInput(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat,
                            basis: basis, servingName: servingName, servingAmount: servingAmount,
-                           servingUnit: servingUnit, imageData: imageData)
+                           servingUnit: servingUnit, imageData: imageData, selectedFoodGroup: selectedFoodGroup?.rawValue)
     }
 
     func restoreInput(_ input: ManualProductInput, productID: UUID) {
         self.productID = productID
+        selectedFoodGroup = input.selectedFoodGroup.flatMap(FoodGroup.init(rawValue:))
         name = input.name; calories = input.calories; protein = input.protein
         carbs = input.carbs; fat = input.fat; basis = input.basis
         servingName = input.servingName; servingAmount = input.servingAmount
@@ -166,6 +168,7 @@ final class ManualProductViewModel: ObservableObject {
         let product = Product(
             id: productID,
             name: values.name,
+            selectedFoodGroup: selectedFoodGroup?.rawValue,
             barcodeEan: barcode,
             source: "user",
             kind: .packaged,

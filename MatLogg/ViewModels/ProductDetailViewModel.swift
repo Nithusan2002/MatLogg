@@ -10,6 +10,9 @@ final class ProductDetailViewModel: ObservableObject {
     @Published private(set) var logError: String?
     let amountModel: AmountSelectionViewModel
     private let repository: any BarcodeLookupRepository
+    private let metadataRepository: (any ProductRepository)?
+    @Published private(set) var isSavingFoodGroup = false
+    @Published private(set) var foodGroupError: String?
     private let favorites: (any ProductFavoriteRepository)?
     @Published private(set) var isFavorite = false
     @Published private(set) var isChangingFavorite = false
@@ -17,11 +20,33 @@ final class ProductDetailViewModel: ObservableObject {
     private var favoriteOwner: UUID?
     private var favoriteRequest = UUID()
 
-    init(product: Product, repository: any BarcodeLookupRepository, favorites: (any ProductFavoriteRepository)? = nil) {
+    init(product: Product, repository: any BarcodeLookupRepository, favorites: (any ProductFavoriteRepository)? = nil, metadataRepository: (any ProductRepository)? = nil) {
+        self.metadataRepository = metadataRepository
         self.product = product
         amountModel = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [], nutritionPreparation: product.nutritionPreparation)
         self.repository = repository
         self.favorites = favorites
+    }
+
+    func updateFoodGroup(_ group: FoodGroup?, owner: UUID?) async {
+        guard !isSavingFoodGroup, product.source == "user", let owner, let metadataRepository else { return }
+        isSavingFoodGroup = true
+        foodGroupError = nil
+        defer { isSavingFoodGroup = false }
+        do {
+            // Resolve through the owner-scoped repository before editing; never claim a foreign product.
+            guard let stored = try await metadataRepository.getSearchableProducts(ownerUserId: owner)
+                .first(where: { $0.id == product.id && $0.source == "user" }) else {
+                foodGroupError = "Denne matvaren kan ikke endres av aktiv profil."
+                return
+            }
+            var updated = stored
+            updated.selectedFoodGroup = group?.rawValue
+            try await metadataRepository.saveProduct(updated, ownerUserId: owner)
+            product = updated
+        } catch {
+            foodGroupError = "Kunne ikke lagre matgruppen på enheten. Prøv igjen."
+        }
     }
 
     func loadFavorite(owner: UUID?) async {

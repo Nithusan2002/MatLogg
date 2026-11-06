@@ -190,3 +190,20 @@ En eldre hendelse uten objektet kan fortsatt lagres. Ved overskriving
 brukes den innkommende porsjonens verdier, slik at eldre klienter ikke
 etterlater næringstall for feil mengde. Migrasjonen må være på plass før
 oppdatert Edge Function og klient tas i bruk.
+
+## Visuell matgruppe (2026-11-06)
+
+`product.upsert.selectedFoodGroup` er additivt, valgfritt og nullable. Tillatte
+stabile ID-er er `rice_pasta`, `bread`, `grain`, `meat`, `poultry`, `fish`, `egg`,
+`dairy`, `cheese`, `oil_fat`, `fruit`, `vegetables`, `nuts`, `drinks`, `other`.
+Fravær i eldre payloads bevarer eksisterende serververdi; eksplisitt JSON-null
+tømmer valget. Nye rader uten felt får null. Klienten sender valgt ID eller
+null ved produktlagring. Kategoritekst/-tagger fra katalogene bevares lokalt
+og utledes ved visning; de erstattes ikke av dette feltet.
+
+Edge og database validerer samme ID-er. Feltet lagres i `selected_food_group`
+atomisk med produkt og inbox, med eksisterende eierskap og deduplisering.
+Migrasjonen `20261106120000_product_food_group.sql` og Edge-valideringen må
+være på plass før nye payloads tas i bruk. `schemaVersion` forblir 1.
+Produksjonsopplasting forblir deaktivert; dette innfører ikke toveis synk eller
+skybackup. Klienten tåler ukjente lokale gruppe-ID-er ved visning.
