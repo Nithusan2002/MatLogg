@@ -36,6 +36,7 @@ struct FoodSearchView: View {
 
 private struct FoodSearchContent: View {
     @StateObject private var viewModel: FoodSearchViewModel
+    @EnvironmentObject private var productViewModel: ProductViewModel
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var draftViewModel: FoodLoggingDraftViewModel
@@ -90,6 +91,9 @@ private struct FoodSearchContent: View {
         }
         .task(id: authViewModel.currentUser?.id) {
             await draftViewModel.load(owner: authViewModel.currentUser?.id)
+        }
+        .onChange(of: productViewModel.metadataRevision) { _, _ in
+            Task { await reload() }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await reload() } }
@@ -542,7 +546,7 @@ private struct FoodSearchProductRow: View {
 
     private var thumbnail: some View {
         ProductThumbnailView(url: product.imageUrl.flatMap(URL.init(string:)), localData: product.localImageData,
-                             placeholderSystemImage: product.kind == .genericFood ? "fork.knife" : "shippingbox")
+                             foodGroup: product.foodGroup)
     }
 
     private var labels: some View {

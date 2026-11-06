@@ -815,3 +815,15 @@ Xcode fant ingen tilgjengelig simulator, og `simctl` svarte ikke på statusfores
 Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
 `/tmp/matlogg-share-format-build.log`; blokkeringslogg:
 `/tmp/matlogg-share-format-tests.log`.
+
+### Matgruppeikoner
+
+Målrettede iOS-suiter: `FoodGroupTests`, `ProductSearchTests`,
+`ProductImageTests` og `ManualProductViewModelTests`. `FoodGroupUITests`
+kontrollerer kategorivalg, manuell logging og stor tekst med skjermbilder på
+QA-simulator. Testene bruker syntetiske produkter.
+
+Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
+og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
+lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
+replay, inbox og eierskap og ruller testdata tilbake.

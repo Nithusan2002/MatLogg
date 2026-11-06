@@ -395,7 +395,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,categories_tags,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -406,7 +406,7 @@ class APIService {
     
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
         let fields = [
-            "code", "product_name", "brands", "categories", "image_front_url",
+            "code", "product_name", "brands", "categories", "categories_tags", "image_front_url",
             "nutriscore_grade", "nutriscore_version", "nutriscore", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
             "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
             "nutrition_data_per", "nutrition_data_prepared_per", "nutriments", "last_modified_t", "rev", "schema_version",
@@ -601,6 +601,7 @@ nonisolated private enum OpenFoodFactsParser {
             name: name,
             brand: product.brands,
             category: product.categories,
+            categoryTags: product.categoryTags,
             barcodeEan: barcode,
             source: "openfoodfacts",
             kind: .packaged,
@@ -824,6 +825,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
     let productName: String?
     let brands: String?
     let categories: String?
+    let categoryTags: [String]?
     let imageUrl: String?
     let servingSize: String?
     let servingQuantity: FlexibleDouble?
@@ -869,6 +871,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         productName = try c.decodeIfPresent(String.self, forKey: .productName)
         brands = try c.decodeIfPresent(String.self, forKey: .brands)
         categories = try c.decodeIfPresent(String.self, forKey: .categories)
+        categoryTags = try? c.decode([String].self, forKey: .categoryTags)
         imageUrl = try c.decodeIfPresent(String.self, forKey: .imageUrl)
         servingSize = try c.decodeIfPresent(String.self, forKey: .servingSize)
         servingQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .servingQuantity)
@@ -905,6 +908,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         case productName = "product_name"
         case brands
         case categories
+        case categoryTags = "categories_tags"
         case imageUrl = "image_front_url"
         case servingSize = "serving_size"
         case servingQuantity = "serving_quantity"

@@ -554,3 +554,13 @@ produktoppslag og produktkort brukes, med valgt måltid og dato beholdt.
 Feil beholder input og tilbyr nytt oppslag, navnesøk eller manuell
 produktregistrering med strekkoden videreført. Lokale treff fungerer uten
 nett; ukjente eksterne produkter krever nett.
+
+### Valgfri matgruppe for egne produkter (2026-11-06)
+
+- Manuell registrering tilbyr «Matgruppe (valgfritt)», med «Ikke valgt» som standard.
+- Et kategoriikon forhåndsvises; eget bilde prioriteres i matvarelistene.
+- Valget bevares ved gjenoppretting av et lokalt registreringsutkast.
+- Produktkortet for egne matvarer tilbyr samme valg og lagrer på enheten.
+  Feil beholder forrige valg og viser mulighet til å forsøke på nytt.
+- Eksisterende matvarer uten bilde/kjent kategori bruker et nøytralt tallerkenikon.
+- Endringen innfører ingen automatisk gjetting fra navn, bilde eller næringsverdier.

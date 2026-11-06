@@ -118,6 +118,7 @@ final class LogViewModel: ObservableObject {
         mealProductBrands = [:]
         mealProductImageURLs = [:]
         mealProductImageData = [:]
+        mealProductFoodGroups = [:]
         isSummaryLoading = true
     }
 
@@ -142,6 +143,7 @@ final class LogViewModel: ObservableObject {
     @Published private(set) var mealProductBrands: [UUID: String] = [:]
     @Published private(set) var mealProductImageURLs: [UUID: URL] = [:]
     @Published private(set) var mealProductImageData: [UUID: Data] = [:]
+    @Published private(set) var mealProductFoodGroups: [UUID: FoodGroup] = [:]
     private var imageProductsRequestID = UUID()
 
     func loadMealProductImages(for logs: [FoodLog]) async {
@@ -150,10 +152,12 @@ final class LogViewModel: ObservableObject {
         mealProductBrands = [:]
         mealProductImageURLs = [:]
         mealProductImageData = [:]
+        mealProductFoodGroups = [:]
         let products = await repository.getProducts(Set(logs.map(\.productId)))
         guard imageProductsRequestID == requestID else { return }
         mealProductBrands = products.compactMapValues(\.brand)
         mealProductImageData = products.compactMapValues(\.localImageData)
+        mealProductFoodGroups = products.mapValues(\.foodGroup)
         mealProductImageURLs = products.compactMapValues { product in
             product.imageUrl.flatMap(URL.init(string:))
         }
@@ -184,6 +188,7 @@ final class LogViewModel: ObservableObject {
             mealProductBrands = [:]
             mealProductImageURLs = [:]
             mealProductImageData = [:]
+            mealProductFoodGroups = [:]
             return
         }
 
@@ -203,6 +208,7 @@ final class LogViewModel: ObservableObject {
         selectedProductNames = products.mapValues(\.name)
         mealProductBrands = products.compactMapValues(\.brand)
         mealProductImageData = products.compactMapValues(\.localImageData)
+        mealProductFoodGroups = products.mapValues(\.foodGroup)
         mealProductImageURLs = products.compactMapValues { $0.imageUrl.flatMap(URL.init(string:)) }
         selectedDay = SelectedDayPresentation(summary: selected, productNames: selectedProductNames)
     }

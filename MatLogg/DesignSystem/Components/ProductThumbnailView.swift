@@ -5,7 +5,7 @@ struct ProductThumbnailView: View {
     @StateObject private var viewModel = ProductThumbnailViewModel()
     let url: URL?
     var localData: Data? = nil
-    var placeholderSystemImage: String = "fork.knife"
+    var foodGroup: FoodGroup = .other
     var size: CGFloat = 52
     var imagePadding: CGFloat = 4
 
@@ -34,9 +34,10 @@ struct ProductThumbnailView: View {
     private struct ImageIdentity: Equatable { let url: URL?; let data: Data? }
 
     private var placeholder: some View {
-        Image(systemName: placeholderSystemImage)
-            .font(.system(size: 20, weight: .medium))
-            .foregroundColor(AppColors.textSecondary)
+        Image(foodGroup.assetName)
+            .resizable()
+            .scaledToFit()
+            .padding(size * 0.13)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

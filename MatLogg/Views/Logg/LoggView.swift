@@ -16,6 +16,7 @@ struct LoggView: View {
 }
 
 private struct LoggContent: View {
+    @EnvironmentObject private var productViewModel: ProductViewModel
     let appState: AppState
     let logViewModel: LogViewModel
     let authViewModel: AuthViewModel
@@ -96,6 +97,9 @@ private struct LoggContent: View {
             if !Calendar.current.isDate(selectedDate, inSameDayAs: newValue) {
                 selectedDate = newValue
             }
+        }
+        .onChange(of: productViewModel.metadataRevision) { _, _ in
+            Task { await loadSelectedSummary() }
         }
         .onChange(of: logViewModel.mutationRevision) { _, _ in
             Task { await loadSelectedSummary() }
@@ -199,6 +203,7 @@ private struct LoggContent: View {
             brand: screen.brands[log.productId],
             imageURL: screen.imageURLs[log.productId],
             imageData: screen.imageData[log.productId],
+            foodGroup: screen.foodGroups[log.productId] ?? .other,
             onSave: { request in
                     guard let userId = authViewModel.currentUser?.id else { return false }
                     let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
@@ -346,6 +351,7 @@ private struct LoggContent: View {
                                     mealRoom: true,
                                     imageURL: screen.imageURLs[log.productId],
                                     imageData: screen.imageData[log.productId],
+                                    foodGroup: screen.foodGroups[log.productId] ?? .other,
                                     isSelected: screen.selectedLogIDs.contains(log.id),
                                     onSelect: screen.isSelecting ? { screen.toggleSelection(log.id) } : nil,
                                     onEdit: screen.isSelecting ? nil : { editingLog = log },
@@ -555,17 +561,19 @@ struct EditLogView: View {
     let brand: String?
     let imageURL: URL?
     let imageData: Data?
+    let foodGroup: FoodGroup
     let onSave: LogEditOperation
     
     @StateObject private var model: EditLogViewModel
 
-    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil,
+    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil, foodGroup: FoodGroup = .other,
          onSave: @escaping LogEditOperation) {
         self.log = log
         self.productName = productName
         self.brand = brand
         self.imageURL = imageURL
         self.imageData = imageData
+        self.foodGroup = foodGroup
         self.onSave = onSave
         _model = StateObject(wrappedValue: EditLogViewModel(log: log))
     }
@@ -581,7 +589,7 @@ struct EditLogView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .top, spacing: 12) {
-                            ProductThumbnailView(url: imageURL, localData: imageData, imagePadding: 2)
+                            ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, imagePadding: 2)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(productName)
                                     .font(AppTypography.bodyEmphasis)
