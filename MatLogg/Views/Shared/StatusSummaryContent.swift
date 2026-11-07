@@ -25,9 +25,8 @@ struct StatusSummaryContent: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Kalorier")
                     Spacer()
-                    if showsNutritionLink {
-                        Label("Se mer", systemImage: "chevron.right")
-                            .labelStyle(.titleAndIcon)
+                    if showsNutritionLink && !dynamicTypeSize.isAccessibilitySize {
+                        nutritionLink
                     }
                 }
                 .font(AppTypography.captionEmphasis)
@@ -57,8 +56,21 @@ struct StatusSummaryContent: View {
                 nutrient(label: "Karbohydrater", value: summary.totalCarbs, target: goal?.carbsTargetG, tint: AppColors.macroCarbTint)
                 nutrient(label: "Fett", value: summary.totalFat, target: goal?.fatTargetG, tint: AppColors.macroFatTint)
             }
+
+            if showsNutritionLink && dynamicTypeSize.isAccessibilitySize {
+                nutritionLink
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var nutritionLink: some View {
+        Label("Næringsinnhold", systemImage: "chevron.right")
+            .labelStyle(.titleAndIcon)
+            .font(AppTypography.captionEmphasis)
+            .foregroundStyle(AppColors.actionText)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func nutrient(label: String, value: Float, target: Float?, tint: Color) -> some View {

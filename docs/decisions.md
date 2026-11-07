@@ -929,3 +929,11 @@ kildespesifikk kategorikobling eller brukerens valg på egne produkter.
 Råkategori bevares separat; ingen navnegjetting eller næringsutledning.
 Egne produkter får et valgfritt, tømmbart valg med lokal utkastlagring og
 additiv synkkontrakt (fravær bevarer, null tømmer). Produksjonssynk forblir av.
+
+### 2026-11-06 · Flere næringsstoffer i dagsinnsikt
+
+Salt, mettet fett, jern, kalsium og jod inngår i nye porsjonssnapshots.
+Matvaretabellens oppgitte enheter beholdes, og Open Food Facts sine
+normaliserte gramverdier konverteres til visningsenheten før lagring.
+For eksisterende logger forblir manglende verdier ukjente. Synkvalidering
+utvides additivt på klient/backend uten å aktivere produksjonssynk.

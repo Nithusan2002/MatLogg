@@ -11,7 +11,16 @@
     "sugar": 1.1,
     "fiber": 10,
     "sodium": 0.004,
-    "vitaminsPer100g": {"vitaminD": 0.0, "vitaminC": 0.0}
+    "vitaminsPer100g": {
+      "vitaminD": 0.0,
+      "vitaminC": 0.0
+    },
+    "additionalNutrientsPer100g": {
+      "salt": 0.01,
+      "saturatedFat": 1.3,
+      "iron": 0,
+      "calcium": 0
+    }
   },
   {
     "code": "7300400129459",
@@ -24,7 +33,11 @@
     "fat": 11,
     "sugar": 2,
     "fiber": 7,
-    "sodium": 0.472
+    "sodium": 0.472,
+    "additionalNutrientsPer100g": {
+      "salt": 1.18,
+      "saturatedFat": 1.2
+    }
   },
   {
     "code": "7038010053368",
@@ -37,7 +50,16 @@
     "fat": 27,
     "fiber": 0,
     "sodium": 0.433,
-    "vitaminsPer100g": {"vitaminC": 0.0}
+    "vitaminsPer100g": {
+      "vitaminC": 0.0
+    },
+    "additionalNutrientsPer100g": {
+      "salt": 1.0825,
+      "saturatedFat": 17,
+      "iron": 4.2,
+      "calcium": 770.0,
+      "iodine": 32.0
+    }
   },
   {
     "code": "7039010016322",
@@ -51,7 +73,16 @@
     "sugar": 3.8,
     "fiber": 1.8,
     "sodium": 0.00044,
-    "vitaminsPer100g": {"vitaminD": 2.9, "vitaminC": 1.1}
+    "vitaminsPer100g": {
+      "vitaminD": 2.9,
+      "vitaminC": 1.1
+    },
+    "additionalNutrientsPer100g": {
+      "salt": 0.001,
+      "saturatedFat": 3.1,
+      "iron": 0.99,
+      "calcium": 21.0
+    }
   },
   {
     "code": "7036110008844",
@@ -64,7 +95,11 @@
     "fat": 49,
     "sugar": 9,
     "fiber": 8,
-    "sodium": 0.236
+    "sodium": 0.236,
+    "additionalNutrientsPer100g": {
+      "salt": 0.59,
+      "saturatedFat": 8
+    }
   },
   {
     "code": "7038010054471",
@@ -78,7 +113,14 @@
     "sugar": 1.5,
     "fiber": 0,
     "sodium": 0.16,
-    "vitaminsPer100g": {"vitaminC": 0.0}
+    "vitaminsPer100g": {
+      "vitaminC": 0.0
+    },
+    "additionalNutrientsPer100g": {
+      "salt": 0.4,
+      "saturatedFat": 2.6,
+      "iron": 0
+    }
   },
   {
     "code": "7622210816672",
@@ -91,6 +133,10 @@
     "fat": 30,
     "sugar": 46,
     "fiber": 2.2,
-    "sodium": 0.114
+    "sodium": 0.114,
+    "additionalNutrientsPer100g": {
+      "salt": 0.285,
+      "saturatedFat": 18
+    }
   }
 ]

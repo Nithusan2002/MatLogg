@@ -143,6 +143,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let sugarGPer100g: Float?
     let fiberGPer100g: Float?
     let vitaminsPer100g: [String: Double]?
+    let additionalNutrientsPer100g: [String: Double]?
     let sodiumMgPer100g: Int?
     
     let localImageData: Data?
@@ -187,6 +188,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         sugarGPer100g: Float? = nil,
         fiberGPer100g: Float? = nil,
         vitaminsPer100g: [String: Double]? = nil,
+        additionalNutrientsPer100g: [String: Double]? = nil,
         sodiumMgPer100g: Int? = nil,
         localImageData: Data? = nil,
         imageUrl: String? = nil,
@@ -226,6 +228,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.sugarGPer100g = sugarGPer100g
         self.fiberGPer100g = fiberGPer100g
         self.vitaminsPer100g = vitaminsPer100g
+        self.additionalNutrientsPer100g = additionalNutrientsPer100g
         self.sodiumMgPer100g = sodiumMgPer100g
         self.localImageData = localImageData
         self.imageUrl = imageUrl
@@ -986,6 +989,7 @@ extension Product {
     nonisolated func portionNutrients(amount: Float) -> [String: Double]? {
         guard amountUnit == .grams else { return nil }
         var values = vitaminsPer100g ?? [:]
+        values.merge(additionalNutrientsPer100g ?? [:]) { _, additional in additional }
         if let fiber = fiberGPer100g { values["fiber"] = Double(fiber) }
         values = values.filter { $0.value.isFinite && $0.value >= 0 }
         return values.isEmpty ? nil : values.mapValues { $0 * Double(amount) / 100 }

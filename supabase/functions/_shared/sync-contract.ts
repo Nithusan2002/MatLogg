@@ -44,6 +44,11 @@ function portionMatches(portion: z.infer<typeof portionSelection> | null | undef
 
 const idPayload = z.object({ id: uuid });
 const portionNutrients = z.object({
+  salt: nonNegative.optional(),
+  saturatedFat: nonNegative.optional(),
+  iron: nonNegative.optional(),
+  calcium: nonNegative.optional(),
+  iodine: nonNegative.optional(),
   fiber: nonNegative.finite().optional(),
   vitaminD: nonNegative.finite().optional(),
   vitaminB12: nonNegative.finite().optional(),

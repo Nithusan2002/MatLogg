@@ -86,6 +86,7 @@ nonisolated enum DemoProductCatalog {
         let fiber: Float?
         let sodium: Float?
         let vitaminsPer100g: [String: Double]?
+        let additionalNutrientsPer100g: [String: Double]?
     }
 
     static func load(bundle: Bundle = .main) async throws -> [Product] {
@@ -111,6 +112,7 @@ nonisolated enum DemoProductCatalog {
                     fatGPer100g: entry.fat, sugarGPer100g: entry.sugar,
                     fiberGPer100g: entry.fiber,
                     vitaminsPer100g: entry.vitaminsPer100g,
+                    additionalNutrientsPer100g: entry.additionalNutrientsPer100g,
                     sodiumMgPer100g: entry.sodium.map { Int(($0 * 1000).rounded()) },
                     localImageData: try Data(contentsOf: image), imageUrl: entry.imageURL,
                     nutritionSource: .openFoodFacts, imageSource: .openFoodFacts,

@@ -5,6 +5,23 @@ import Testing
 
 @MainActor
 struct APIServiceTests {
+    @Test func additionalNutrientsConvertUnitsAndScalePortions() async throws {
+        let client = HTTPClientStub { request, _ in
+            let url = try #require(request.url)
+            let body = """
+            {"status":"success","product":{"product_name":"Fixture","nutriments":{"energy-kcal_100g":95,"proteins_100g":1.7,"carbohydrates_100g":21,"fat_100g":0,"salt_100g":0.8,"saturated-fat_100g":0,"iron_100g":0.002,"calcium_100g":0.12,"iodine_100g":0.000015}}}
+            """
+            return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+        }
+        let product = try await APIService(httpClient: client).searchProductByBarcodeOpenFoodFacts("7039010081320")
+        let values = try #require(product.portionNutrients(amount: 50))
+        #expect(values["salt"] == 0.4)
+        #expect(values["saturatedFat"] == 0)
+        #expect(values["iron"] == 1)
+        #expect(values["calcium"] == 60)
+        #expect(abs(try #require(values["iodine"]) - 7.5) < 0.00001)
+    }
+
     @Test func processingPresentationPreservesUnknownAndSourceClassification() {
         for group: Int? in [nil, 0, 1, 2, 3, 4, 9] {
             let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: group, markers: [:], ingredients: nil))

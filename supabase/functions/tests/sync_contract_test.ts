@@ -198,11 +198,11 @@ Deno.test("portion nutrient snapshots preserve zero and reject invalid values", 
   const validate = (nutrients: unknown) => validateEvent({
     ...envelope, payload: btoa(JSON.stringify({ ...JSON.parse(atob(payload)), nutrients })),
   });
-  const nutrients = { fiber: 0, vitaminD: 1.25 };
+  const nutrients = { fiber: 0, vitaminD: 1.25, salt: 0.7, saturatedFat: 1.2, iron: 2, calcium: 120, iodine: 15 };
   const valid = validate(nutrients);
   assertEquals(valid.success, true);
   if (valid.success) assertEquals((valid.event.payloadJson as { nutrients: unknown }).nutrients, nutrients);
-  for (const invalid of [{ fiber: -1 }, { folate: "10" }, { calcium: 3 }, null]) {
+  for (const invalid of [{ fiber: -1 }, { folate: "10" }, { unknownNutrient: 3 }, null]) {
     assertEquals(validate(invalid).success, false);
   }
 });

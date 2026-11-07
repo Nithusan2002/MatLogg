@@ -301,6 +301,7 @@ nonisolated enum FoodSearchCatalog {
             sugarGPer100g: item.sugarGPer100g,
             fiberGPer100g: item.fiberGPer100g,
             vitaminsPer100g: item.vitaminsPer100g,
+            additionalNutrientsPer100g: item.additionalNutrientsPer100g,
             sodiumMgPer100g: item.sodiumMgPer100g,
             imageUrl: nil,
             standardPortions: nil,

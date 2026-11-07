@@ -151,7 +151,9 @@ extension HomeOverviewViewModel {
         let nutrients = [
             ("fiber", "Fiber", "g"), ("vitaminD", "Vitamin D", "µg"),
             ("vitaminB12", "Vitamin B12", "µg"), ("folate", "Folat", "µg"),
-            ("vitaminC", "Vitamin C", "mg")
+            ("vitaminC", "Vitamin C", "mg"),
+            ("salt", "Salt", "g"), ("saturatedFat", "Mettet fett", "g"),
+            ("iron", "Jern", "mg"), ("calcium", "Kalsium", "mg"), ("iodine", "Jod", "µg")
         ]
         return nutrients.map { key, name, unit in
             let known = logs.compactMap { log in

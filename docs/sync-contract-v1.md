@@ -207,3 +207,8 @@ Migrasjonen `20261106120000_product_food_group.sql` og Edge-valideringen må
 være på plass før nye payloads tas i bruk. `schemaVersion` forblir 1.
 Produksjonsopplasting forblir deaktivert; dette innfører ikke toveis synk eller
 skybackup. Klienten tåler ukjente lokale gruppe-ID-er ved visning.
+
+Porsjonsobjektet støtter også `salt` og `saturatedFat` i g,
+`iron` og `calcium` i mg og `iodine` i µg.
+Migrasjonen 20261106100000 må installeres før oppdatert Edge Function og klient.
+Eldre snapshots uten disse nøklene vises med ukjent verdi.

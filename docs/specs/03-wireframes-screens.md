@@ -722,7 +722,8 @@ Ved feil beholdes utvalget; avbrutt måltidslagring beholder også valget.
 
 ### Hjem · Næringsinnhold
 
-«Se mer» på hovedkortet åpner dagsinnsikt for datoen valgt på Hjem.
+«Næringsinnhold» på hovedkortet åpner dagsinnsikt for datoen valgt på Hjem.
+Ved tilgjengelighetsstørrelser vises inngangen under makroene, over vannseksjonen.
 Fiber står først. Vitamin D, B12, folat og C ligger under «Vitaminer».
 Vis registrert mengde, datadekning og opptil tre matvarer som bidro mest.
 Verdier leses fra lokale porsjonssnapshots. Eldre logger uten verdier
@@ -739,3 +740,7 @@ Totalsummer merkes «registrert». Datadekningen har en egen infoknapp
 som forklarer beregningen og lister matvarer uten verdi for valgt næringsstoff.
 Bidragslisten viser tilgjengelig produktkilde under navnet; dette er kilden
 til produktoppføringen, siden eldre porsjonssnapshots mangler egen kildehistorikk.
+
+Dagsinnsikten viser også «Salt og fett» med salt og mettet fett, og
+«Mineraler» med jern, kalsium og jod. Alle radene bruker samme datadekning,
+kildevisning og bidragsliste som fiber og vitaminer.

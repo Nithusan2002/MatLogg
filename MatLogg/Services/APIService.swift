@@ -611,6 +611,7 @@ nonisolated private enum OpenFoodFactsParser {
             fatGPer100g: Float(completeNutrition.fat),
             sugarGPer100g: nutriments?.sugars100g.map(Float.init),
             fiberGPer100g: nutriments?.fiber100g.map(Float.init),
+            additionalNutrientsPer100g: nutriments?.additionalNutrients,
             sodiumMgPer100g: nutriments?.sodium100g.map { Int(($0 * 1000).rounded()) },
             imageUrl: product.imageUrl,
             servings: servings,
@@ -941,6 +942,32 @@ nonisolated private struct OpenFoodFactsNutriments: Codable {
     let fiber100g: Double?
     let sodium100g: Double?
 
+    var salt100g: Double? = nil
+    var saturatedFat100g: Double? = nil
+    var iron100g: Double? = nil
+    var calcium100g: Double? = nil
+    var iodine100g: Double? = nil
+
+    var additionalNutrients: [String: Double]? {
+        let entries: [(String, Double?)] = [
+            ("salt", salt100g), ("saturatedFat", saturatedFat100g),
+            ("iron", iron100g.map { $0 * 1000 }),
+            ("calcium", calcium100g.map { $0 * 1000 }),
+            ("iodine", iodine100g.map { $0 * 1_000_000 })
+        ]
+        let values = entries.compactMap { key, value -> (String, Double)? in
+            guard let value, value.isFinite, value >= 0 else { return nil }
+            return (key, value)
+        }
+        return values.isEmpty ? nil : Dictionary(uniqueKeysWithValues: values)
+    }
+
+    var saltPrepared100g: Double? = nil
+    var saturatedFatPrepared100g: Double? = nil
+    var ironPrepared100g: Double? = nil
+    var calciumPrepared100g: Double? = nil
+    var iodinePrepared100g: Double? = nil
+
     var energyKcalPrepared100g: Double? = nil
     var proteinPrepared100g: Double? = nil
     var carbsPrepared100g: Double? = nil
@@ -950,10 +977,20 @@ nonisolated private struct OpenFoodFactsNutriments: Codable {
     var sodiumPrepared100g: Double? = nil
 
     var preparedValues: Self {
-        Self(energyKcal100g: energyKcalPrepared100g, protein100g: proteinPrepared100g, carbs100g: carbsPrepared100g, fat100g: fatPrepared100g, sugars100g: sugarsPrepared100g, fiber100g: fiberPrepared100g, sodium100g: sodiumPrepared100g)
+        Self(energyKcal100g: energyKcalPrepared100g, protein100g: proteinPrepared100g, carbs100g: carbsPrepared100g, fat100g: fatPrepared100g, sugars100g: sugarsPrepared100g, fiber100g: fiberPrepared100g, sodium100g: sodiumPrepared100g, salt100g: saltPrepared100g, saturatedFat100g: saturatedFatPrepared100g, iron100g: ironPrepared100g, calcium100g: calciumPrepared100g, iodine100g: iodinePrepared100g)
     }
 
     enum CodingKeys: String, CodingKey {
+        case saltPrepared100g = "salt_prepared_100g"
+        case saturatedFatPrepared100g = "saturated-fat_prepared_100g"
+        case ironPrepared100g = "iron_prepared_100g"
+        case calciumPrepared100g = "calcium_prepared_100g"
+        case iodinePrepared100g = "iodine_prepared_100g"
+        case salt100g = "salt_100g"
+        case saturatedFat100g = "saturated-fat_100g"
+        case iron100g = "iron_100g"
+        case calcium100g = "calcium_100g"
+        case iodine100g = "iodine_100g"
         case energyKcal100g = "energy-kcal_100g"
         case protein100g = "proteins_100g"
         case carbs100g = "carbohydrates_100g"

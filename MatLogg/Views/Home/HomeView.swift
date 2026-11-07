@@ -2233,19 +2233,9 @@ private struct HomeNutritionSheet: View {
                         CardContainer {
                             nutrientRow(fiber, expanded: true)
                         }
-                        Text("Vitaminer")
-                            .font(AppTypography.sectionTitle)
-                            .accessibilityAddTraits(.isHeader)
-                        CardContainer {
-                            VStack(spacing: 16) {
-                                ForEach(rows.dropFirst()) { row in
-                                    nutrientRow(row)
-                                    if row.id != rows.last?.id {
-                                        Divider()
-                                    }
-                                }
-                            }
-                        }
+                        nutrientSection("Salt og fett", ids: ["salt", "saturatedFat"])
+                        nutrientSection("Vitaminer", ids: ["vitaminD", "vitaminB12", "folate", "vitaminC"])
+                        nutrientSection("Mineraler", ids: ["iron", "calcium", "iodine"])
                     } else {
                         CardContainer {
                             Text("Ingen mat loggført denne dagen")
@@ -2266,6 +2256,22 @@ private struct HomeNutritionSheet: View {
                     ? "Alle loggføringer har en oppgitt verdi. Tallene bygger på registrert mengde og tilgjengelige kildeverdier."
                     : "Summen inkluderer loggføringer med oppgitt verdi. Manglende verdier teller ikke som null.\n\nMangler verdi for\n" + row.missingFoods.joined(separator: "\n")),
                   dismissButton: .default(Text("Lukk")))
+        }
+    }
+
+    private func nutrientSection(_ title: String, ids: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(AppTypography.sectionTitle)
+                .accessibilityAddTraits(.isHeader)
+            CardContainer {
+                VStack(spacing: 16) {
+                    ForEach(rows.filter { ids.contains($0.id) }) { row in
+                        nutrientRow(row)
+                        if row.id != ids.last { Divider() }
+                    }
+                }
+            }
         }
     }
 
