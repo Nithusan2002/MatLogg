@@ -9,6 +9,47 @@ import XCTest
 
 final class MatLoggUITests: XCTestCase {
     @MainActor
+    func testBottomBarKeepsEveryActionVisibleWithLargestText() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+
+        let logging = app.buttons["tab-log-food"]
+        XCTAssertTrue(logging.waitForExistence(timeout: 15))
+        let labels = ["Hjem", "Søk", "tab-log-food", "Utvikling", "Profil"]
+        let buttons = labels.map { app.buttons[$0].firstMatch }
+        for (label, button) in zip(labels, buttons) {
+            XCTAssertTrue(button.isHittable, "\(label) must be reachable without scrolling the bar")
+            if button.exists {
+                XCTAssertTrue(app.frame.contains(button.frame), "\(label) must fit on screen")
+                XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+                XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+            }
+        }
+        guard buttons.allSatisfy(\.isHittable) else { return }
+        for (index, button) in buttons.enumerated() {
+            for other in buttons.dropFirst(index + 1) {
+                XCTAssertFalse(button.frame.intersects(other.frame), "Bottom bar buttons must not overlap")
+            }
+        }
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Bunnmeny – største tekst"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        for label in ["Søk", "Utvikling", "Profil", "Hjem"] {
+            let button = app.buttons[label].firstMatch
+            button.tap()
+            XCTAssertTrue(button.isSelected, "\(label) must become the selected tab")
+        }
+        logging.tap()
+        XCTAssertTrue(app.staticTexts["Loggfør mat"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testPendingAccountLinkResumesAfterRestartAndPreservesLog() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

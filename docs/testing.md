@@ -856,9 +856,21 @@ største tekststørrelse. Resultat: `/tmp/MatLoggRemediation-ui-unlocked-final.x
 Skjermbildene er inspisert og eksportert til
 `build/remediation-qa/ui-attachments/`. Den gjenopprettede verdien og den
 bevarte loggen vises riktig. Ved aller største tekststørrelse blir teksten i
-den eksisterende bunnmenyen klippet/overlappet; dette er et separat åpent
-UI-punkt og er ikke rettet som del av profil-/synkendringen.
+den eksisterende bunnmenyen klippet eller overlappet. Feilen ble rettet
+separat 7. november, se kontrollen nedenfor.
 Testoppsettet bruker samme app-rot og injiserer også nødvendig demokontekst;
 kun testoppsettet ble justert etter den grønne enhetstestkjøringen. Ingen
 fysisk Apple-innlogging, VoiceOver eller releasekontroll er utført i denne
 endringen. Dette gir ingen produksjonsgodkjenning.
+
+### Bunnmeny ved største tekststørrelse – 2026-11-07
+
+`testBottomBarKeepsEveryActionVisibleWithLargestText` feilet før rettingen
+fordi Utvikling gikk utenfor skjermen. Testen bestod etter rettingen på
+MatLogg Privacy QA med iOS 26.5. Alle fem knappene ligger innenfor skjermen,
+har minst 44 × 44 pt trykkflate og kan brukes uten å rulle menyen.
+`testDebugSessionShowsHomeAndPrimaryNavigation` og
+`testLegacyDetailsRequireExplicitRecovery` bestod også (3/3 totalt).
+Skjermbildet bekrefter at hele «Loggfør» får plass på egen rad.
+Resultat: `/tmp/MatLoggTabBar-verified.xcresult`. Skjermbilder ligger i
+`build/remediation-qa/tab-bar-final-attachments/`.

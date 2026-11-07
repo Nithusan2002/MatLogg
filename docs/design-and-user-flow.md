@@ -568,6 +568,7 @@ Unngå:
 
 - effektiv trykkflate på minst 44 × 44 pt
 - Dynamic Type uten tap av kritisk informasjon eller handling
+- Ved tilgjengelighetsstørrelser vises fanene over to rader med Loggfør på en egen rad mellom dem. Alle handlingene er synlige samtidig.
 - logisk VoiceOver-rekkefølge og meningsfulle etiketter
 - normal tekst minst 4,5:1 kontrast; stor tekst og meningsfulle UI-elementer
   minst 3:1
