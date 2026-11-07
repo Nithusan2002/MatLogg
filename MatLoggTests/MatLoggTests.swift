@@ -1375,6 +1375,133 @@ private final class PersonalDetailsStoreSpy: PersonalDetailsStore {
 
 @MainActor
 struct AuthViewModelTests {
+    @Test func restartAfterCommittedClaimFinishesWithoutDuplicatingOrLosingEvents() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = "InterruptedClaim.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = try LocalStore(databaseURL: directory.appendingPathComponent("claim.sqlite"))
+        let database = DatabaseService(store: store, defaults: defaults)
+        let sessions = AuthSessionStoreSpy()
+        let local = sessions.activateLocalProfile()
+        let account = makeUser()
+        try store.saveWeightEntry(WeightEntry(userId: local.id, date: Date(), weightKg: 81))
+        let original = try #require(store.fetchPendingEvents(ownerUserId: local.id, limit: 50).first)
+        sessions.pendingLink = .init(localOwnerId: local.id, accountOwnerId: account.id, shouldOnboard: false, phase: .confirmed)
+        // Crash boundary: SQLite/defaults transfer committed, account-session completion did not.
+        try await database.claimLocalData(from: local.id, to: account.id)
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = account
+        let restarted = AuthViewModel(authRepository: repository, localStore: sessions, localProfileManager: database)
+        await restarted.restoreSession()
+        #expect(restarted.currentUser?.id == account.id)
+        #expect(sessions.pendingLink == nil)
+        #expect(store.getWeightEntries(userId: account.id).count == 1)
+        #expect(store.getWeightEntries(userId: local.id).isEmpty)
+        #expect(store.fetchPendingEvents(ownerUserId: account.id, limit: 50).map(\.eventId) == [original.eventId])
+    }
+
+    @Test func confirmedLinkRetriesAfterInterruptedClaimWithoutNewConfirmation() async throws {
+        let store = AuthSessionStoreSpy()
+        let account = makeUser()
+        let local = store.activateLocalProfile()
+        store.setOnboardingCompleted(true, userId: local.id)
+        store.pendingLink = .init(localOwnerId: local.id, accountOwnerId: account.id, shouldOnboard: false, phase: .confirmed)
+        let manager = LocalProfileManagerSpy()
+        manager.claimError = TestRepositoryError.saveFailed
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = account
+        let first = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await first.restoreSession()
+        #expect(first.currentUser?.id == local.id)
+        #expect(store.pendingLink?.phase == .confirmed)
+        #expect(first.errorMessage != nil)
+        manager.claimError = nil
+        let restarted = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await restarted.restoreSession()
+        #expect(restarted.currentUser?.id == account.id)
+        #expect(manager.claimCalls == 2)
+        #expect(store.pendingLink == nil && store.localUser == nil)
+    }
+
+    @Test func restoredDifferentAccountNeverReceivesPendingLocalData() async {
+        let store = AuthSessionStoreSpy()
+        let local = store.activateLocalProfile()
+        let expectedAccount = makeUser()
+        store.pendingLink = .init(localOwnerId: local.id, accountOwnerId: expectedAccount.id, shouldOnboard: false)
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = makeUser()
+        let manager = LocalProfileManagerSpy()
+        let model = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await model.restoreSession()
+        await model.confirmLocalDataLink()
+        #expect(model.currentUser?.id == local.id)
+        #expect(model.authenticatedUser == nil)
+        #expect(manager.claimCalls == 0)
+        #expect(store.pendingLink?.accountOwnerId == expectedAccount.id)
+    }
+
+    @Test func failedCancellationSurvivesRestartAndBlocksNewLoginUntilSignOutFinishes() async throws {
+        let store = AuthSessionStoreSpy()
+        let local = store.activateLocalProfile()
+        let account = makeUser()
+        store.pendingLink = .init(localOwnerId: local.id, accountOwnerId: account.id, shouldOnboard: false)
+        let repository = AccountAuthRepositorySpy()
+        repository.signOutError = TestRepositoryError.saveFailed
+        let manager = LocalProfileManagerSpy()
+        let first = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await first.cancelLocalDataLink()
+        #expect(store.pendingLink?.phase == .canceling)
+        await first.loginWithApple(identityToken: "synthetic", authorizationCode: nil, nonce: "synthetic")
+        #expect(repository.signInCalls == 0)
+        repository.signOutError = nil
+        let restarted = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await restarted.restoreSession()
+        #expect(store.pendingLink == nil)
+        #expect(restarted.currentUser?.id == local.id)
+        #expect(manager.claimCalls == 0)
+    }
+
+    @Test func accountRestoreRecoversBeforeMarkerWasWritten() async throws {
+        let store = AuthSessionStoreSpy()
+        let local = store.activateLocalProfile()
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = makeUser()
+        let manager = LocalProfileManagerSpy()
+        manager.summary = LocalDataSummary(logs: 1, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
+        let restarted = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await restarted.restoreSession()
+        #expect(restarted.currentUser?.id == local.id)
+        #expect(restarted.pendingLocalDataSummary?.logs == 1)
+        #expect(store.pendingLink?.localOwnerId == local.id)
+        #expect(manager.claimCalls == 0)
+    }
+
+    @Test func restartBeforeLinkConfirmationKeepsLocalOwnerAndResumesConfirmation() async throws {
+        let store = AuthSessionStoreSpy()
+        let repository = AccountAuthRepositorySpy()
+        let account = makeUser()
+        repository.callbackUser = account
+        let manager = LocalProfileManagerSpy()
+        manager.summary = LocalDataSummary(logs: 2, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
+        let first = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await first.restoreSession()
+        let localId = try #require(first.currentUser?.id)
+        await first.loginWithApple(identityToken: "synthetic", authorizationCode: nil, nonce: "synthetic")
+        repository.restoredUser = account
+        let restarted = AuthViewModel(authRepository: repository, localStore: store, localProfileManager: manager)
+        await restarted.restoreSession()
+        #expect(restarted.currentUser?.id == localId)
+        #expect(restarted.authenticatedUser == nil)
+        #expect(restarted.pendingLocalDataSummary?.logs == 2)
+        #expect(manager.claimedFrom == nil)
+        await restarted.confirmLocalDataLink()
+        #expect(manager.claimedFrom == localId)
+        #expect(restarted.authenticatedUser?.id == account.id)
+    }
+
     @Test func appleNameIsStoredLocallyAndRetainedOnSessionRestore() async {
         let account = User(id: UUID(), email: "test@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
         let store = AuthSessionStoreSpy()
@@ -1465,7 +1592,7 @@ struct AuthViewModelTests {
         let owner = try #require(model.currentUser?.id)
         await model.loginWithApple(identityToken: "test-token", authorizationCode: nil, nonce: "test-nonce")
         #expect(model.pendingLocalDataSummary != nil)
-        model.cancelLocalDataLink()
+        await model.cancelLocalDataLink()
         #expect(model.currentUser?.id == owner)
         #expect(model.isOnboarding)
         #expect(model.pendingLocalDataSummary == nil)
@@ -1806,6 +1933,8 @@ struct AuthViewModelTests {
 
 @MainActor
 private final class AccountAuthRepositorySpy: AccountAuthRepository {
+    var signOutError: Error?
+    var signInCalls = 0
     var registrationResult: AccountRegistrationResult?
     var callbackUser: User?
     var restoredUser: User?
@@ -1822,6 +1951,7 @@ private final class AccountAuthRepositorySpy: AccountAuthRepository {
     }
     func resendEmailVerification(to email: String) async throws { resentAddress = email }
     func signInWithApple(identityToken: String, nonce: String) async throws -> User {
+        signInCalls += 1
         guard let callbackUser else { throw TestRepositoryError.saveFailed }
         return callbackUser
     }
@@ -1829,7 +1959,7 @@ private final class AccountAuthRepositorySpy: AccountAuthRepository {
         guard let callbackUser else { throw TestRepositoryError.saveFailed }
         return callbackUser
     }
-    func signOut() async throws {}
+    func signOut() async throws { if let signOutError { throw signOutError } }
     func deleteAccount() async throws -> AccountDeletionReceipt {
         AccountDeletionReceipt(
             code: "ACCOUNT_PENDING_DELETION",
@@ -1876,6 +2006,8 @@ private final class AuthAPIClientSpy: AuthAPIClient {
 }
 
 private final class LocalProfileManagerSpy: LocalProfileManaging {
+    var claimError: Error?
+    var claimCalls = 0
     var deleteCallCount = 0
     var summary: LocalDataSummary = .empty
     var claimedFrom: UUID?
@@ -1883,6 +2015,8 @@ private final class LocalProfileManagerSpy: LocalProfileManaging {
 
     func localDataSummary(ownerId: UUID) async -> LocalDataSummary { summary }
     func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
+        claimCalls += 1
+        if let claimError { throw claimError }
         claimedFrom = localOwnerId
         claimedTo = accountOwnerId
     }
@@ -1917,6 +2051,9 @@ struct AppStateTests {
 }
 
 private final class AuthSessionStoreSpy: AuthSessionStore {
+    var pendingLink: PendingLocalDataLink?
+    func pendingLocalDataLink() -> PendingLocalDataLink? { pendingLink }
+    func setPendingLocalDataLink(_ link: PendingLocalDataLink?) { pendingLink = link }
     var pendingDeletion: PendingProfileDeletion?
     func pendingProfileDeletion() -> PendingProfileDeletion? { pendingDeletion }
     func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) { pendingDeletion = deletion }

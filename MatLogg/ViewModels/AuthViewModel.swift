@@ -89,10 +89,32 @@ final class AuthViewModel: ObservableObject {
             _ = await finishPendingLocalDeletion()
             return
         }
+        if localStore.pendingLocalDataLink()?.phase == .canceling {
+            await cancelLocalDataLink()
+            return
+        }
         if let restored = await authRepository.restoreSession() {
             let user = restored.preservingAppleNameSuggestion(previous: localStore.getStoredUser())
-            localStore.storeUser(user)
-            show(user: user, account: true)
+            if let pending = localStore.pendingLocalDataLink() {
+                let localUser = localStore.getActiveLocalProfile() ?? .local(id: pending.localOwnerId)
+                show(user: localUser, account: false)
+                guard pending.accountOwnerId == user.id else {
+                    errorMessage = "Logg inn på kontoen som venter på kobling, eller avbryt koblingen."
+                    pendingLocalDataSummary = await localProfileManager.localDataSummary(ownerId: pending.localOwnerId)
+                    return
+                }
+                pendingAccountSession = (user, localUser, pending.shouldOnboard)
+                pendingLocalDataSummary = await localProfileManager.localDataSummary(ownerId: pending.localOwnerId)
+                if pending.phase == .confirmed { await confirmLocalDataLink() }
+            } else if let localUser = localStore.getActiveLocalProfile() {
+                // Also recover the gap between SDK session persistence and our marker write.
+                show(user: localUser, account: false)
+                do { try await prepareAccountSession(user: user, shouldOnboard: false) }
+                catch { present(error) }
+            } else {
+                localStore.storeUser(user)
+                show(user: user, account: true)
+            }
         } else if let localUser = localStore.getActiveLocalProfile() {
             show(user: localUser, account: false)
         } else if localStore.getStoredUser() != nil {
@@ -107,7 +129,7 @@ final class AuthViewModel: ObservableObject {
     }
 
     func continueLocally() {
-        guard pendingDeletion == nil else { return }
+        guard pendingDeletion == nil, localStore.pendingLocalDataLink() == nil else { return }
         errorMessage = nil
         pendingVerificationEmail = nil
         show(user: localStore.activateLocalProfile(), account: false)
@@ -185,33 +207,42 @@ final class AuthViewModel: ObservableObject {
     }
 
     func confirmLocalDataLink() async {
-        guard let pending = pendingAccountSession else { return }
+        guard !isLoading, let pending = pendingAccountSession,
+              var link = localStore.pendingLocalDataLink(),
+              link.accountOwnerId == pending.user.id, link.phase != .canceling else { return }
+        link.phase = .confirmed
+        localStore.setPendingLocalDataLink(link)
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
         do {
-            try await localProfileManager.claimLocalData(from: pending.localUser.id, to: pending.user.id)
-            let completedLocally = localStore.hasCompletedOnboarding(userId: pending.localUser.id)
-            if completedLocally { localStore.setOnboardingCompleted(true, userId: pending.user.id) }
-            completeAccountSession(
-                user: pending.user,
-                shouldOnboard: pending.shouldOnboard && !completedLocally
-            )
-            pendingAccountSession = nil
-            pendingLocalDataSummary = nil
+            try await completePendingLink(pending)
         } catch {
-            errorMessage = "Kunne ikke knytte lokale data til kontoen. Ingen data ble flyttet."
+            errorMessage = "Kontokoblingen ble ikke fullført. Dataene er beholdt. Prøv igjen for å fullføre koblingen."
         }
     }
 
-    func cancelLocalDataLink() {
-        guard let pending = pendingAccountSession else { return }
-        Task { try? await authRepository.signOut() }
-        pendingAccountSession = nil
-        pendingLocalDataSummary = nil
-        currentUser = pending.localUser
-        isOnboarding = !localStore.hasCompletedOnboarding(userId: pending.localUser.id)
-        authState = isOnboarding ? .onboarding(user: pending.localUser) : .local(user: pending.localUser)
+    func cancelLocalDataLink() async {
+        guard !isLoading, var link = localStore.pendingLocalDataLink(), link.phase != .confirmed else { return }
+        link.phase = .canceling
+        localStore.setPendingLocalDataLink(link)
+        let localUser = localStore.getActiveLocalProfile() ?? .local(id: link.localOwnerId)
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await authRepository.signOut()
+            guard localStore.clearStoredCredentials() else { throw SessionStorageError.credentialDeletionFailed }
+            localStore.setPendingLocalDataLink(nil)
+            pendingAccountSession = nil
+            pendingLocalDataSummary = nil
+            errorMessage = nil
+            show(user: localUser, account: false)
+        } catch {
+            // Keep the cancellation durable and block new sign-ins until sign-out succeeds.
+            show(user: localUser, account: false)
+            pendingLocalDataSummary = await localProfileManager.localDataSummary(ownerId: link.localOwnerId)
+            errorMessage = "Kontokoblingen kunne ikke avbrytes. Prøv Avbryt igjen før du logger inn."
+        }
     }
 
     func finishOnboarding() {
@@ -334,6 +365,11 @@ final class AuthViewModel: ObservableObject {
     }
 
     private func canStartAccountOperation() -> Bool {
+        guard !isLoading else { return false }
+        guard localStore.pendingLocalDataLink()?.phase != .canceling, pendingAccountSession == nil else {
+            errorMessage = "Fullfør eller avbryt den ventende kontokoblingen først."
+            return false
+        }
         guard pendingDeletion == nil, !isDeletingAccount else {
             errorMessage = "Fullfør lokal sletting før du logger inn på en konto."
             return false
@@ -355,10 +391,35 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    private func completePendingLink(_ pending: (user: User, localUser: User, shouldOnboard: Bool)) async throws {
+        try await localProfileManager.claimLocalData(from: pending.localUser.id, to: pending.user.id)
+        let completedLocally = localStore.hasCompletedOnboarding(userId: pending.localUser.id)
+        completeAccountSession(user: pending.user, shouldOnboard: pending.shouldOnboard && !completedLocally)
+        pendingAccountSession = nil
+        pendingLocalDataSummary = nil
+    }
+
+    var canCancelLocalDataLink: Bool { localStore.pendingLocalDataLink()?.phase != .confirmed }
+
     private func prepareAccountSession(user: User, shouldOnboard: Bool) async throws {
+        if let link = localStore.pendingLocalDataLink() {
+            guard link.accountOwnerId == user.id else { throw AccountAuthError.pendingLinkAccountMismatch }
+            let localUser = localStore.getActiveLocalProfile() ?? .local(id: link.localOwnerId)
+            let pending = (user: user, localUser: localUser, shouldOnboard: link.shouldOnboard)
+            pendingAccountSession = pending
+            pendingLocalDataSummary = await localProfileManager.localDataSummary(ownerId: link.localOwnerId)
+            if link.phase == .confirmed {
+                try await completePendingLink(pending)
+            } else {
+                authState = .awaitingLocalDataLink(localUser: localUser, accountUser: user)
+            }
+            return
+        }
         if let localUser = currentUser, localUser.isLocalProfile {
             let summary = await localProfileManager.localDataSummary(ownerId: localUser.id)
             if summary.hasData {
+                localStore.setPendingLocalDataLink(.init(localOwnerId: localUser.id,
+                    accountOwnerId: user.id, shouldOnboard: shouldOnboard))
                 pendingAccountSession = (user, localUser, shouldOnboard)
                 pendingLocalDataSummary = summary
                 authState = .awaitingLocalDataLink(localUser: localUser, accountUser: user)
@@ -371,6 +432,7 @@ final class AuthViewModel: ObservableObject {
     private func completeAccountSession(user: User, shouldOnboard: Bool) {
         localStore.storeUser(user)
         localStore.consumeLocalProfile()
+        localStore.setPendingLocalDataLink(nil)
         currentUser = user
         localStore.setOnboardingCompleted(!shouldOnboard, userId: user.id)
         isOnboarding = shouldOnboard && !localStore.hasCompletedOnboarding(userId: user.id)

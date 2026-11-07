@@ -815,3 +815,50 @@ Xcode fant ingen tilgjengelig simulator, og `simctl` svarte ikke på statusfores
 Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
 `/tmp/matlogg-share-format-build.log`; blokkeringslogg:
 `/tmp/matlogg-share-format-tests.log`.
+
+
+### Profilisolasjon og synkrekkefølge – 2026-11-06
+
+Målrettede suiter: `ProfileTests`, `AuthViewModelTests`, `AuthServiceTests`,
+`SyncRetryTests` og `AutomaticSyncRetryTests`. De dekker eksplisitt tilordning
+av eldre personopplysninger, profilbytte, bevaring av eksisterende/ugyldige
+data, avbrutt og allerede utført kontoflytting, feil ved avbryt og retry av
+samme ressurs etter delvis ACK og omstart. Testene bruker egne SQLite-filer
+og isolerte defaults; ingen ekte kontoer kreves.
+
+UI-regresjoner på dedikert QA-simulator:
+`MatLoggUITests/testPendingAccountLinkResumesAfterRestartAndPreservesLog` og
+`MatLoggUITests/testLegacyDetailsRequireExplicitRecovery`. Debug-argumentet
+`--local-link-qa` bruker egen database/defaults og en injisert syntetisk
+kontotjeneste. `--local-link-qa-reset` tilbakestiller bare dette testoppsettet.
+Første test avslutter appen før bekreftelse og etter fullført kobling, og
+kontrollerer at loggen fortsatt vises. Andre test kontrollerer avbryt og
+bekreftet gjenoppretting med største tekststørrelse. Mac-en må være ulåst.
+
+`supabase/tests/database/ordered_sync_replay.test.sql` har åtte
+transaksjonelle pgTAP-kontroller mot en bekreftet lokal QA-database: siste
+mengde, sletting og inbox bevares ved replay. Alle testendringer rulles
+tilbake, inkludert et eventuelt midlertidig pgTAP-oppsett. Dette tester
+serverens deduplisering; klientens leveringsrekkefølge kontrolleres i
+`SyncRetryTests`. Wire-format, schema-versjon og produksjonsflagg endres ikke.
+
+
+Verifisering 2026-11-06: `build-for-testing` bestod. De fem målrettede
+suitene ovenfor bestod med 76 tester på MatLogg Privacy QA / iOS 26.5
+(`build/remediation-qa`; resultat `/tmp/MatLoggRemediation-current-unit.xcresult`).
+De tre første regresjonene feilet mot opprinnelig implementasjon før retting.
+Åtte pgTAP-kontroller bestod mot den bekreftede lokale `matlogg-nutrients-qa`-
+databasen, med rollback og etterkontroll av avslått synkflagg og null testrester.
+Separate kjøringer av faktisk Swift-lagrings-/køkode bestod også uten simulator.
+Etter opplåsing bestod begge UI-kontrollene (2/2, null feil): kontokobling
+før og etter omstart med bevart logg, og eksplisitt gjenoppretting/avbryt med
+største tekststørrelse. Resultat: `/tmp/MatLoggRemediation-ui-unlocked-final.xcresult`.
+Skjermbildene er inspisert og eksportert til
+`build/remediation-qa/ui-attachments/`. Den gjenopprettede verdien og den
+bevarte loggen vises riktig. Ved aller største tekststørrelse blir teksten i
+den eksisterende bunnmenyen klippet/overlappet; dette er et separat åpent
+UI-punkt og er ikke rettet som del av profil-/synkendringen.
+Testoppsettet bruker samme app-rot og injiserer også nødvendig demokontekst;
+kun testoppsettet ble justert etter den grønne enhetstestkjøringen. Ingen
+fysisk Apple-innlogging, VoiceOver eller releasekontroll er utført i denne
+endringen. Dette gir ingen produksjonsgodkjenning.

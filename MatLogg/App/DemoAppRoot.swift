@@ -2,7 +2,16 @@ import SwiftUI
 
 @main
 struct MatLoggApp: App {
-    var body: some Scene { WindowGroup { DemoAppRoot() } }
+    var body: some Scene {
+        WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
+            else { DemoAppRoot() }
+            #else
+            DemoAppRoot()
+            #endif
+        }
+    }
 }
 
 struct DemoAppRoot: View {
@@ -84,3 +93,19 @@ struct AppStartupLoadingView: View {
     AppStartupLoadingView()
         .environment(\.dynamicTypeSize, .accessibility3)
 }
+
+#if DEBUG
+private struct LocalDataLinkQARoot: View {
+    @StateObject private var fixture = LocalDataLinkQAFixture()
+    var body: some View {
+        Group {
+            if let context = fixture.context {
+                MatLoggContent(databaseService: context.database, defaults: context.defaults, accountRepository: context.repository)
+                    .environmentObject(context.mode)
+            } else if let error = fixture.errorMessage { Text(error) }
+            else { AppStartupLoadingView() }
+        }
+        .task { fixture.load() }
+    }
+}
+#endif

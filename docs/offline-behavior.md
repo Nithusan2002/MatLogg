@@ -75,7 +75,10 @@ triggerne ingen opplasting, heller ikke etter innlogging eller kontokobling.
    ikke lastes opp uten separat opplastingsvalg; kontokobling alene er utilstrekkelig.
 3. Eldre hendelser uten verifiserbar eierbinding beholdes lokalt i karantene.
    De sendes aldri, og Innstillinger viser bare et generisk antall uten innhold.
-4. Ventende hendelser sendes i rekkefølge i batcher på maksimalt 50.
+4. Ventende hendelser sendes i lokal innsettingsrekkefølge i batcher på
+   maksimalt 50, med høyst én uavklart hendelse per logisk ressurs. Backoff,
+   in-flight og dead letter blokkerer etterfølgere for samme ressurs til ACK;
+   andre ressurser kan fortsette. Se synkkontrakten for grupperingsreglene.
 5. Backend dedupliserer på stabil `eventId`; et timeout-retry skal derfor ikke
    duplisere en domeneskriving.
 6. Bekreftede hendelser markeres `acked`. Midlertidige feil forblir `pending`

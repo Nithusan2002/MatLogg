@@ -123,7 +123,9 @@ struct LoginView: View {
         .onAppear { showLocalDataLinkAlert = authViewModel.pendingLocalDataSummary != nil }
         .alert("Knytt lokale data til kontoen?", isPresented: $showLocalDataLinkAlert) {
             Button("Knytt til konto") { Task { await authViewModel.confirmLocalDataLink() } }
-            Button("Avbryt", role: .cancel) { authViewModel.cancelLocalDataLink() }
+            if authViewModel.canCancelLocalDataLink {
+                Button("Avbryt", role: .cancel) { Task { await authViewModel.cancelLocalDataLink() } }
+            }
         } message: {
             Text(localDataSummaryText)
         }

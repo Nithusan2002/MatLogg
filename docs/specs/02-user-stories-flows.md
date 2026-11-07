@@ -554,3 +554,18 @@ produktoppslag og produktkort brukes, med valgt måltid og dato beholdt.
 Feil beholder input og tilbyr nytt oppslag, navnesøk eller manuell
 produktregistrering med strekkoden videreført. Lokale treff fungerer uten
 nett; ukjente eksterne produkter krever nett.
+
+
+### Gjenoppretting av profiltilknytning (2026-11-06)
+
+Ved omstart før kontokobling er bekreftet vises samme bekreftelse igjen, med
+lokal profil som aktiv eier. Bekreftet flytting som ble avbrutt fullføres ved
+neste validerte innlogging på samme konto. Avbryt må fullføre utlogging før
+ny kontohandling kan starte. Dataene forblir lokale.
+
+Under Personlige detaljer vises «Gjenopprett eldre opplysninger» bare når
+eldre globale opplysninger mangler eier. Handlingen viser først en bekreftelse
+uten persondata. Ved «Knytt til denne profilen» fylles manglende lagrede felt
+fra de eldre opplysningene; eksisterende lagrede verdier beholdes. Ulagrede
+skjemaendringer erstattes, som opplyst i dialogen. Avbryt lar eldre data ligge
+urørt. Handlingen endrer ikke mål eller vekthistorikk og krever ikke nett.

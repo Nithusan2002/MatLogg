@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 enum AccountRegistrationResult {
     case authenticated(User)
@@ -89,6 +90,7 @@ enum AccountAuthError: LocalizedError {
     case configurationMissing
     case credentialPersistenceFailed
     case unsupportedOperation
+    case pendingLinkAccountMismatch
 
     var errorDescription: String? {
         switch self {
@@ -96,6 +98,8 @@ enum AccountAuthError: LocalizedError {
             "Kontotjenesten er ikke konfigurert. Du kan fortsatt bruke MatLogg lokalt."
         case .credentialPersistenceFailed:
             "Innloggingen kunne ikke lagres sikkert på enheten. Prøv igjen."
+        case .pendingLinkAccountMismatch:
+            "Denne profilen venter på kobling til en annen konto. Logg inn på den kontoen eller avbryt koblingen."
         case .unsupportedOperation:
             "Denne kontohandlingen er ikke tilgjengelig i den valgte konfigurasjonen."
         }
@@ -108,7 +112,17 @@ nonisolated struct PendingProfileDeletion: Codable, Equatable, Sendable {
     var serverConfirmed: Bool
 }
 
+nonisolated struct PendingLocalDataLink: Codable, Equatable, Sendable {
+    enum Phase: String, Codable, Sendable { case awaitingConfirmation, confirmed, canceling }
+    let localOwnerId: UUID
+    let accountOwnerId: UUID
+    let shouldOnboard: Bool
+    var phase: Phase = .awaitingConfirmation
+}
+
 protocol AuthSessionStore {
+    func pendingLocalDataLink() -> PendingLocalDataLink?
+    func setPendingLocalDataLink(_ link: PendingLocalDataLink?)
     func pendingProfileDeletion() -> PendingProfileDeletion?
     func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?)
     func removeOnboardingCompletion(userId: UUID)
@@ -147,3 +161,67 @@ protocol LocalProfileManaging {
 }
 
 extension DatabaseService: LocalProfileManaging {}
+
+#if DEBUG
+/// Isolated synthetic context for testing interrupted linking without Apple or a network session.
+@MainActor
+final class LocalDataLinkQAFixture: ObservableObject {
+    struct Context {
+        let database: DatabaseService
+        let defaults: UserDefaults
+        let repository: any AccountAuthRepository
+        let mode: DemoMode
+    }
+    @Published private(set) var context: Context?
+    @Published private(set) var errorMessage: String?
+
+    func load() {
+        guard context == nil else { return }
+        do {
+            let directory = URL.applicationSupportDirectory.appendingPathComponent("LocalDataLinkQA", isDirectory: true)
+            guard let defaults = UserDefaults(suiteName: "app.matlogg.local-link-qa") else {
+                throw AccountAuthError.credentialPersistenceFailed
+            }
+            if ProcessInfo.processInfo.arguments.contains("--local-link-qa-reset") {
+                defaults.removePersistentDomain(forName: "app.matlogg.local-link-qa")
+                if FileManager.default.fileExists(atPath: directory.path) { try FileManager.default.removeItem(at: directory) }
+            }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let store = try LocalStore(databaseURL: directory.appendingPathComponent("qa.sqlite"))
+            let repository = LocalDataLinkQAAuthRepository(defaults: defaults)
+            let auth = AuthService(defaults: defaults)
+            if defaults.object(forKey: "seeded") == nil {
+                let local = auth.activateLocalProfile()
+                auth.setOnboardingCompleted(true, userId: local.id)
+                let product = Product(name: "Kontokobling testmat", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3)
+                try store.saveProduct(product, ownerUserId: local.id)
+                try store.saveLog(FoodLog(userId: local.id, productId: product.id, mealType: "lunsj", amountG: 100,
+                    loggedDate: Date(), calories: 100, proteinG: 1, carbsG: 2, fatG: 3))
+                auth.setPendingLocalDataLink(.init(localOwnerId: local.id, accountOwnerId: repository.user.id, shouldOnboard: false))
+                defaults.set(try JSONEncoder().encode(PersonalDetails(displayName: "Eldre testnavn", heightCm: 178)), forKey: "personalDetails")
+                defaults.set(true, forKey: "session")
+                defaults.set(true, forKey: "seeded")
+            }
+            let database = DatabaseService(store: store, defaults: defaults)
+            let mode = DemoMode(selectionDefaults: defaults, demoDefaults: defaults, directory: directory,
+                openDatabase: { database })
+            context = Context(database: database, defaults: defaults, repository: repository, mode: mode)
+        } catch { errorMessage = "Testoppsettet kunne ikke åpnes." }
+    }
+}
+
+private final class LocalDataLinkQAAuthRepository: AccountAuthRepository {
+    let user = User(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 64, 0, 128, 0, 0, 0, 0, 0, 0, 42)),
+        email: "local-link@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+    private let defaults: UserDefaults
+    init(defaults: UserDefaults) { self.defaults = defaults }
+    func restoreSession() async -> User? { defaults.bool(forKey: "session") ? user : nil }
+    func signIn(email: String, password: String) async throws -> User { throw AccountAuthError.unsupportedOperation }
+    func signUp(email: String, password: String) async throws -> AccountRegistrationResult { throw AccountAuthError.unsupportedOperation }
+    func resendEmailVerification(to email: String) async throws { throw AccountAuthError.unsupportedOperation }
+    func signInWithApple(identityToken: String, nonce: String) async throws -> User { throw AccountAuthError.unsupportedOperation }
+    func handleAuthCallback(_ url: URL) async throws -> User { throw AccountAuthError.unsupportedOperation }
+    func signOut() async throws { defaults.set(false, forKey: "session") }
+    func deleteAccount() async throws -> AccountDeletionReceipt { throw AccountAuthError.unsupportedOperation }
+}
+#endif

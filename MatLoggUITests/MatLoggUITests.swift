@@ -8,6 +8,64 @@
 import XCTest
 
 final class MatLoggUITests: XCTestCase {
+    @MainActor
+    func testPendingAccountLinkResumesAfterRestartAndPreservesLog() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--local-link-qa", "--local-link-qa-reset"]
+        app.launch()
+        XCTAssertTrue(app.alerts["Knytt lokale data til kontoen?"].waitForExistence(timeout: 15))
+        app.terminate()
+        app.launchArguments = ["--local-link-qa"]
+        app.launch()
+        let confirmation = app.alerts["Knytt lokale data til kontoen?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 15))
+        XCTAssertTrue(confirmation.staticTexts.matching(NSPredicate(format: "label CONTAINS '1 loggføringer'")).firstMatch.exists)
+        confirmation.buttons["Knytt til konto"].tap()
+        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 10))
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.alerts["Knytt lokale data til kontoen?"].exists)
+        app.buttons["home-daily-log"].tap()
+        XCTAssertTrue(app.staticTexts["Kontokobling testmat"].firstMatch.waitForExistence(timeout: 8))
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Kontokobling etter omstart – bevart logg"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+
+    @MainActor
+    func testLegacyDetailsRequireExplicitRecovery() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--local-link-qa", "--local-link-qa-reset", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let link = app.alerts["Knytt lokale data til kontoen?"]
+        XCTAssertTrue(link.waitForExistence(timeout: 15))
+        link.buttons["Knytt til konto"].tap()
+        XCTAssertTrue(app.buttons["Profil"].waitForExistence(timeout: 10))
+        app.buttons["Profil"].tap()
+        app.buttons["profile-personal-details"].tap()
+        let recovery = app.buttons["personal-details-recover-legacy"]
+        XCTAssertTrue(recovery.waitForExistence(timeout: 8))
+        let name = app.textFields["personal-details-name"]
+        XCTAssertNotEqual(name.value as? String, "Eldre testnavn")
+        recovery.tap()
+        let confirmation = app.alerts["Tilhører opplysningene denne profilen?"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        confirmation.buttons["Avbryt"].tap()
+        XCTAssertNotEqual(name.value as? String, "Eldre testnavn")
+        recovery.tap()
+        confirmation.buttons["Knytt til denne profilen"].tap()
+        XCTAssertEqual(name.value as? String, "Eldre testnavn")
+        XCTAssertFalse(recovery.exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Eksplisitt gjenoppretting – største tekst"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
 
     @MainActor
     func testPreparedProductUsesCookedWeightAndLogs() throws {

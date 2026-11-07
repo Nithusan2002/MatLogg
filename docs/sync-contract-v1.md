@@ -41,7 +41,15 @@ Ved delvis batch-svar bekreftes bare event-ID-er fra den sendte batchen.
 Avvisning med `SERVER_ERROR` eller `SYNC_DISABLED` er midlertidig og følger vanlig retry/backoff;
 `RATE_LIMITED` i et event-svar er midlertidig og prøves igjen etter 60 sekunder med samme event-ID;
 øvrige eksplisitte avvisninger går til `deadLetter`. Manglende ACK prøves igjen
-med samme event-ID. Etter fem automatiske forsøk beholdes hendelsen for
+med samme event-ID. Klienten sender bare første uavklarte hendelse per logisk
+ressurs i hver batch, i lokal innsettingsrekkefølge (uavhengig av klokkeavvik).
+`pending` med backoff, `inFlight`, `deadLetter` og karantene blokkerer senere
+hendelser for samme ressurs. Andre ressurser kan fortsatt sendes. Mål er én
+ressurs per eier; favoritter grupperes per produkt, også når lokal favoritt-ID
+endres. Permanent avvisning løser ikke rekkefølgen: manuelt retry må få ACK
+før etterfølgere kan sendes. Ingen hendelser slettes eller komprimeres.
+Dette gjelder køvalg på én enhet, ikke konfliktløsning mellom flere enheter.
+Wire-format og schema-versjon er uendret. Etter fem automatiske forsøk beholdes hendelsen for
 manuelt nytt forsøk. Dupliserte avvisninger skal ikke krasje klienten.
 
 Hver lokal køhendelse har i tillegg `ownerUserId`, som brukes til å velge bare

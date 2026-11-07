@@ -47,6 +47,19 @@ final class AuthService {
         self.keychain = keychain
     }
     
+    func pendingLocalDataLink() -> PendingLocalDataLink? {
+        guard let data = defaults.data(forKey: "ml_pending_local_data_link") else { return nil }
+        return try? JSONDecoder().decode(PendingLocalDataLink.self, from: data)
+    }
+
+    func setPendingLocalDataLink(_ link: PendingLocalDataLink?) {
+        if let link, let data = try? JSONEncoder().encode(link) {
+            defaults.set(data, forKey: "ml_pending_local_data_link")
+        } else {
+            defaults.removeObject(forKey: "ml_pending_local_data_link")
+        }
+    }
+
     func pendingProfileDeletion() -> PendingProfileDeletion? {
         guard let data = defaults.data(forKey: "ml_pending_profile_deletion") else { return nil }
         return try? JSONDecoder().decode(PendingProfileDeletion.self, from: data)

@@ -353,6 +353,9 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
 
     func claimLocalData(from localOwnerId: UUID, to accountOwnerId: UUID) async throws {
         try await perform { try $0.claimLocalData(from: localOwnerId, to: accountOwnerId) }
+        if defaults.string(forKey: "personalDetails.legacyOwnerId") == localOwnerId.uuidString {
+            defaults.set(accountOwnerId.uuidString, forKey: "personalDetails.legacyOwnerId")
+        }
         let oldKey = "personalDetails.\(localOwnerId.uuidString)"
         let newKey = "personalDetails.\(accountOwnerId.uuidString)"
         if defaults.object(forKey: newKey) == nil, let details = defaults.data(forKey: oldKey) {
@@ -373,6 +376,10 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
             try UserDataExportService.removeOwnedExports(ownerId: ownerId, in: FileManager.default.temporaryDirectory)
         }
         defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
+        if defaults.string(forKey: "personalDetails.legacyOwnerId") == ownerId.uuidString {
+            defaults.removeObject(forKey: "personalDetails")
+            defaults.removeObject(forKey: "personalDetails.legacyOwnerId")
+        }
         defaults.removeObject(forKey: UserDefaultsMorningCheckInStore.key(ownerId))
         let profilePrefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]
         for key in defaults.dictionaryRepresentation().keys

@@ -39,7 +39,7 @@ struct MatLoggContent: View {
     #endif
     private let isDemo: Bool
 
-    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false) {
+    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false, accountRepository: (any AccountAuthRepository)? = nil) {
         let timing = PerformanceSignposts.begin("Startup.Compose")
         defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
@@ -59,7 +59,10 @@ struct MatLoggContent: View {
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
-        if !isDemo, let configuration = try? SupabaseConfiguration.load() {
+        if let accountRepository {
+            authRepository = accountRepository
+            syncAPIClient = UnavailableSyncAPIClient()
+        } else if !isDemo, let configuration = try? SupabaseConfiguration.load() {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
@@ -258,6 +261,8 @@ struct MatLoggContent: View {
                 HomeView()
             } else if authViewModel.isRestoringSession {
                 AppStartupLoadingView()
+            } else if authViewModel.pendingLocalDataSummary != nil {
+                NavigationStack { LoginView() }
             } else if authViewModel.currentUser != nil {
                 HomeView()
             } else {
