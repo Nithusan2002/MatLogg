@@ -744,3 +744,7 @@ til produktoppføringen, siden eldre porsjonssnapshots mangler egen kildehistori
 Dagsinnsikten viser også «Salt og fett» med salt og mettet fett, og
 «Mineraler» med jern, kalsium og jod. Alle radene bruker samme datadekning,
 kildevisning og bidragsliste som fiber og vitaminer.
+
+Næringsstoffer uten verdier samles i én utvidbar rad nederst. Seksjoner
+vises når minst én rad har data, også ved kildeoppgitt null. Datadekningen
+står rett under mengden, og bare rader med bidrag kan utvides.

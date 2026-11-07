@@ -2211,7 +2211,9 @@ private enum ScanHelpHint: String, Identifiable {
 
 private struct HomeNutritionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var coverageRow: HomeNutritionRow?
+    @State private var expandedNutrients: Set<String> = ["fiber"]
     let date: Date
     let rows: [HomeNutritionRow]
 
@@ -2228,14 +2230,31 @@ private struct HomeNutritionSheet: View {
             .padding(.bottom, 14)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     if let fiber = rows.first, fiber.logCount > 0 {
-                        CardContainer {
-                            nutrientRow(fiber, expanded: true)
+                        if fiber.total != nil {
+                            CardContainer { nutrientRow(fiber) }
                         }
                         nutrientSection("Salt og fett", ids: ["salt", "saturatedFat"])
                         nutrientSection("Vitaminer", ids: ["vitaminD", "vitaminB12", "folate", "vitaminC"])
                         nutrientSection("Mineraler", ids: ["iron", "calcium", "iodine"])
+                        let missing = rows.filter { $0.total == nil }
+                        if !missing.isEmpty {
+                            CardContainer {
+                                DisclosureGroup {
+                                    Text(missing.map(\.name).joined(separator: ", "))
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                        .padding(.bottom, 8)
+                                } label: {
+                                    Text(missing.count == 1
+                                         ? "1 næringsstoff uten data"
+                                         : "\(missing.count) næringsstoffer uten data")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .frame(minHeight: 44, alignment: .leading)
+                                }
+                            }
+                        }
                     } else {
                         CardContainer {
                             Text("Ingen mat loggført denne dagen")
@@ -2259,110 +2278,116 @@ private struct HomeNutritionSheet: View {
         }
     }
 
+    @ViewBuilder
     private func nutrientSection(_ title: String, ids: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(AppTypography.sectionTitle)
-                .accessibilityAddTraits(.isHeader)
-            CardContainer {
-                VStack(spacing: 16) {
-                    ForEach(rows.filter { ids.contains($0.id) }) { row in
-                        nutrientRow(row)
-                        if row.id != ids.last { Divider() }
+        let visible = rows.filter { ids.contains($0.id) && $0.total != nil }
+        if !visible.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(AppTypography.sectionTitle)
+                    .accessibilityAddTraits(.isHeader)
+                CardContainer {
+                    VStack(spacing: 6) {
+                        ForEach(visible) { row in
+                            nutrientRow(row)
+                            if row.id != visible.last?.id { Divider() }
+                        }
                     }
                 }
             }
         }
     }
 
-    private func nutrientRow(_ row: HomeNutritionRow, expanded: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-        HomeNutrientDisclosure(expanded: expanded) {
+    private func nutrientRow(_ row: HomeNutritionRow) -> some View {
+        let expanded = expandedNutrients.contains(row.id)
+        return VStack(alignment: .leading, spacing: 0) {
             if !row.contributions.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
+                Button {
+                    if expanded {
+                        expandedNutrients.remove(row.id)
+                    } else {
+                        expandedNutrients.insert(row.id)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        nutrientTotal(row)
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                            .font(AppTypography.captionEmphasis)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(expanded ? "Skjuler største bidrag" : "Viser største bidrag")
+            } else {
+                nutrientTotal(row)
+            }
+
+            Button {
+                coverageRow = row
+            } label: {
+                HStack(spacing: 6) {
+                    Text(row.knownCount == row.logCount
+                         ? "Data for alle \(row.logCount) loggføringer"
+                         : "Data for \(row.knownCount) av \(row.logCount) loggføringer")
+                    Image(systemName: "info.circle")
+                        .accessibilityHidden(true)
+                }
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .frame(minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Forklarer datadekningen")
+
+            if expanded && !row.contributions.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Største bidrag")
                         .font(AppTypography.caption)
                         .foregroundStyle(AppColors.textSecondary)
                     ForEach(row.contributions) { contribution in
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(contribution.name)
-                                    Text("Produktkilde: " + contribution.source)
-                                        .font(AppTypography.caption)
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(contribution.name)
                                     .fixedSize(horizontal: false, vertical: true)
-                                Spacer(minLength: 8)
-                                contributionAmount(contribution.amount, unit: row.unit)
-                                    .fixedSize()
+                                Text("Produktkilde: " + contribution.source)
+                                    .font(AppTypography.caption)
+                                    .foregroundStyle(AppColors.textSecondary)
                             }
-                            VStack(alignment: .leading, spacing: 4) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(contribution.name)
-                                    Text("Produktkilde: " + contribution.source)
-                                        .font(AppTypography.caption)
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
-                                contributionAmount(contribution.amount, unit: row.unit)
-                            }
+                            Spacer(minLength: 8)
+                            contributionAmount(contribution.amount, unit: row.unit)
+                                .fixedSize()
                         }
                         .font(AppTypography.body)
                         .accessibilityElement(children: .combine)
                     }
                 }
-                .padding(.top, 12)
+                .padding(.bottom, 6)
             }
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                if let total = row.total {
-                    if row.id == "fiber" {
-                        Text(row.name).font(AppTypography.bodyEmphasis)
-                        Text(amount(total, unit: row.unit) + " registrert")
-                            .font(AppTypography.sectionTitle)
-                    } else {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                Text(row.name).font(AppTypography.bodyEmphasis)
-                                Spacer(minLength: 8)
-                                Text(amount(total, unit: row.unit) + " registrert")
-                                    .font(AppTypography.bodyEmphasis)
-                            }
-                            .fixedSize(horizontal: false, vertical: true)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(row.name).font(AppTypography.bodyEmphasis)
-                                Text(amount(total, unit: row.unit) + " registrert")
-                                    .font(AppTypography.bodyEmphasis)
-                            }
-                        }
-                    }
+        }
+    }
 
-                } else {
+    private func nutrientTotal(_ row: HomeNutritionRow) -> some View {
+        let total = row.total.map { amount($0, unit: row.unit) + " registrert" } ?? ""
+        return Group {
+            if row.id == "fiber" || dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(row.name).font(AppTypography.bodyEmphasis)
-                    Text("Ingen verdier tilgjengelig")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
+                    Text(total).font(row.id == "fiber" ? AppTypography.sectionTitle : AppTypography.bodyEmphasis)
                 }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(row.name)
+                    Spacer(minLength: 4)
+                    Text(total).multilineTextAlignment(.trailing)
+                }
+                .font(AppTypography.bodyEmphasis)
             }
-            .foregroundStyle(AppColors.deepInk)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
         }
-        Button {
-            coverageRow = row
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(row.knownCount == row.logCount
-                     ? "Data for alle \(row.logCount) loggføringer"
-                     : "Data for \(row.knownCount) av \(row.logCount) loggføringer")
-                Image(systemName: "info.circle")
-            }
-            .font(AppTypography.caption)
-            .foregroundStyle(AppColors.textSecondary)
-            .frame(minHeight: 44, alignment: .leading)
-        }
-        .buttonStyle(.plain)
-        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 
     private func contributionAmount(_ value: Double, unit: String) -> some View {
@@ -2375,15 +2400,5 @@ private struct HomeNutritionSheet: View {
             return "\(value.formatted(.number.precision(.significantDigits(1...2)))) \(unit)"
         }
         return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit)"
-    }
-}
-
-private struct HomeNutrientDisclosure<Content: View, Label: View>: View {
-    @State var expanded: Bool
-    @ViewBuilder let content: () -> Content
-    @ViewBuilder let label: () -> Label
-
-    var body: some View {
-        DisclosureGroup(isExpanded: $expanded, content: content, label: label)
     }
 }
