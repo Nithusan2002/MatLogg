@@ -59,7 +59,7 @@ private struct ProgressTabContent: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, 10)
             }
             .matLoggTabBarScrollClearance()
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -153,16 +153,21 @@ private struct ProgressTabContent: View {
             .font(AppTypography.hero)
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("progress-hub-title")
+        let stackedHeading = VStack(alignment: .leading, spacing: 4) {
+            title
+            customizeButton
+        }
         return VStack(alignment: .leading, spacing: 4) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    title.fixedSize(horizontal: true, vertical: false)
-                    Spacer(minLength: 0)
-                    customizeButton.fixedSize(horizontal: true, vertical: false)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    title
-                    customizeButton
+            if dynamicTypeSize.isAccessibilitySize {
+                stackedHeading
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) {
+                        title.fixedSize(horizontal: true, vertical: false)
+                        Spacer(minLength: 0)
+                        customizeButton.fixedSize(horizontal: true, vertical: false)
+                    }
+                    stackedHeading
                 }
             }
             if demoMode.isDemo || steps.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true
@@ -178,7 +183,7 @@ private struct ProgressTabContent: View {
 
     private var customizeButton: some View {
         Button("Tilpass") { hub.beginEditing() }
-            .font(AppTypography.bodyEmphasis)
+            .font(AppTypography.secondaryEmphasis)
             .foregroundStyle(AppColors.actionText)
             .frame(minHeight: 44)
             .disabled(hub.owner == nil || hub.owner != authViewModel.currentUser?.id)

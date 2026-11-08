@@ -67,6 +67,7 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(title.exists)
         XCTAssertLessThan(title.frame.maxX, customizeButton.frame.minX)
         XCTAssertEqual(title.frame.midY, customizeButton.frame.midY, accuracy: 4)
+        capture("Utvikling – toppfelt", app)
         customize(app)
         app.buttons["Gjenopprett standard"].tap()
         let steps = app.switches["progress-hub-toggle-steps"]
@@ -290,6 +291,7 @@ final class ProgressHubUITests: XCTestCase {
         let title = app.staticTexts["progress-hub-title"]
         XCTAssertTrue(title.exists)
         XCTAssertLessThan(title.frame.maxY, app.buttons["progress-hub-customize"].frame.minY)
+        capture("Utvikling – toppfelt med stor tekst", app)
         customize(app)
         XCTAssertTrue(app.navigationBars["Tilpass"].exists)
         capture("Hub – tilpass med stor tekst", app)
