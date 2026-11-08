@@ -457,6 +457,8 @@ Aktivitet og Vekt er små kort på samme rad ved vanlig tekststørrelse; detalje
 og kontroller ligger én navigasjon inn. Ved tilgjengelighetsstørrelser stables
 kortene og makrofooteren uten å kutte tekst. Tilpass står til høyre for
 skjermtittelen og flyttes til en egen linje når tittelen trenger mer plass.
+Treningsøkter bruker full bredde i alle posisjoner og viser inntil to
+økter på kortet. Dagstall for mat ligger i et ark med kompakte listerader.
 
 `metricValue` er en skalerbar, kraftig avrundet title-verdi med tabellariske
 sifre for kompakte metrikker. `onAction` er kontrastfargen på fylte action-flater

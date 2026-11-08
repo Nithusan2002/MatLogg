@@ -28,12 +28,12 @@ Det du logger i appen
   - Valgfri fremgang/vektlogg dersom du velger a bruke den.
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
 
-Valgfri visning av skritt og vekt fra Apple Helse
-  - I Profil → Innstillinger → Apple Helse kan du slå på Skritt eller Vekt. Appen ber om lesetilgang til datatypen du valgte og henter målinger når kortet vises i Utvikling. Helse er knyttet til denne iPhonen. Hver MatLogg-profil velger hvilke datatyper som skal kobles til.
-  - Appen viser skritt for valgt dag, uke eller måned og vektmålinger med dato og kilde. For vekt kan appen vise siste måling før perioden når den mangler nyere data. Manuelle vektregistreringer i MatLogg vises separat.
-  - Skritt og vekt fra Helse holdes midlertidig i appens minne og brukes bare til visning i Utvikling. MatLogg lagrer eller laster ikke opp Helse-målinger og bruker dem ikke i målberegning, eksport, analyse eller logger. Kildedataene forblir i Helse.
-  - Tilkoblingsvalgene lagres lokalt per profil og inngår i eksport og sletting av profilens innstillinger. Ved skjuling, bakgrunn eller profilbytte tømmes de viste målingene. Du kan stoppe lesing for profilen ved å slå av bryteren i MatLoggs Apple Helse-innstillinger. Systemets lesetillatelse styres i Helse.
-  - Et tomt resultat kan skyldes manglende målinger eller lesetilgang. Helse-data inngår ikke i MatLoggs JSON-eksport eller i sletting av MatLogg-data.
+Valgfri visning av skritt, vekt og treningsøkter fra Apple Helse
+  - I Profil → Innstillinger → Apple Helse kan du slå på Skritt, Vekt og Treningsøkter hver for seg. Appen ber om lesetilgang til datatypen du valgte og henter målinger når kortet vises i Utvikling. Helse er knyttet til denne iPhonen. Hver MatLogg-profil velger hvilke datatyper som skal kobles til.
+  - Appen viser skritt for valgt dag, uke eller måned og vektmålinger med dato og kilde. For vekt kan appen vise siste måling før perioden når den mangler nyere data. Manuelle vektregistreringer i MatLogg vises separat. Treningsøkter vises med type, starttid og varighet for valgt periode.
+  - Skritt, vekt og treningsøkter fra Helse holdes midlertidig i appens minne og brukes bare til visning i Utvikling. MatLogg lagrer eller laster ikke opp Helse-data og bruker dem ikke i målberegning, eksport, analyse eller logger. Kildedataene forblir i Helse.
+  - Tilkoblingsvalgene lagres lokalt per profil og inngår i eksport og sletting av profilens innstillinger. Ved skjuling, bakgrunn eller profilbytte tømmes de viste dataene. Du kan stoppe lesing for profilen ved å slå av bryteren i MatLoggs Apple Helse-innstillinger. Systemets lesetillatelse styres i Helse.
+  - Et tomt resultat kan skyldes manglende registreringer eller lesetilgang. Helse-data inngår ikke i MatLoggs JSON-eksport eller i sletting av MatLogg-data.
 
 Produktdata
   - Nar du skanner eller aktivt slar opp et inntastet strekkodenummer som ikke finnes lokalt, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.

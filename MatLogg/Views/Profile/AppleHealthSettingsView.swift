@@ -4,16 +4,18 @@ struct AppleHealthSettingsView: View {
     @EnvironmentObject private var auth: AuthViewModel
     @EnvironmentObject private var steps: StepCountViewModel
     @EnvironmentObject private var weight: HealthWeightViewModel
+    @EnvironmentObject private var workouts: HealthWorkoutViewModel
 
     var body: some View {
         Form {
             Section {
                 sourceToggle("Skritt", kind: .steps, model: steps)
                 sourceToggle("Vekt", kind: .weight, model: weight)
+                sourceToggle("Treningsøkter", kind: .workouts, model: workouts)
             } header: {
                 Text("Hent fra Apple Helse")
             } footer: {
-                Text("Valgene gjelder denne MatLogg-profilen. MatLogg viser målingene i Utvikling og lagrer dem bare midlertidig. Du styrer lesetilgangen i Helse.")
+                Text("Valgene gjelder denne MatLogg-profilen. MatLogg bruker dataene midlertidig for å vise dem i Utvikling. Du styrer lesetilgangen i Helse.")
             }
             .listRowBackground(AppColors.surface)
         }
@@ -26,7 +28,7 @@ struct AppleHealthSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var isAuthorizing: Bool { steps.isAuthorizing || weight.isAuthorizing }
+    private var isAuthorizing: Bool { steps.isAuthorizing || weight.isAuthorizing || workouts.isAuthorizing }
 
     private func sourceToggle<Snapshot: HealthReadSnapshot>(
         _ title: String, kind: HealthReadKind, model: HealthReadViewModel<Snapshot>
@@ -49,7 +51,7 @@ struct AppleHealthSettingsView: View {
                 }
             ))
             .disabled(!matchesOwner || isAuthorizing || model.availability != .available)
-            .accessibilityIdentifier(kind == .steps ? "apple-health-steps-toggle" : "apple-health-weight-toggle")
+            .accessibilityIdentifier("apple-health-\(kind.rawValue)-toggle")
             if matchesOwner {
                 if model.isAuthorizing {
                     ProgressView("Ber om tilgang …")

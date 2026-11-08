@@ -73,11 +73,12 @@ Neste steg: lukk mottaker-/retensjonsvurderingen i
 App Privacy, manifest og publiserte tekster der vurderingen krever det.
 Ingen kategorier er endret i manifest eller App Store Connect her.
 
-## Valgfri visning av skritt og vekt fra Apple Helse
+## Valgfri visning av skritt, vekt og treningsøkter fra Apple Helse
 
-Appen leser `.stepCount` og `.bodyMass` separat etter brukerhandling og
-systemets tilgangsforespørsel. Skrittsummer per time eller dag og enkeltmålinger
-for vekt brukes bare i minnet til visning i Utvikling. Målingene inngår verken i opplasting,
+Appen ber om separat lesetilgang til `.stepCount`, `.bodyMass` og HealthKit-økter
+etter brukerhandling. Skrittsummer per time eller dag, vektmålinger og
+økttype, starttid og varighet brukes i minnet til visning i Utvikling.
+Helse-data inngår verken i opplasting,
 synkkø, logger, analyse eller eksport. Profilens lokale tilkoblingsvalg
 lagres i UserDefaults og følger eksport og sletting av innstillinger.
 Helse på iPhonen er felles for MatLogg-profilene. Skrivetilgang og

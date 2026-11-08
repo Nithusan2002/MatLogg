@@ -17,6 +17,7 @@ private struct ProgressTabContent: View {
     @EnvironmentObject private var hub: ProgressHubViewModel
     @EnvironmentObject private var steps: StepCountViewModel
     @EnvironmentObject private var healthWeight: HealthWeightViewModel
+    @EnvironmentObject private var workouts: HealthWorkoutViewModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @State private var showsHealthSettings = false
@@ -24,6 +25,7 @@ private struct ProgressTabContent: View {
     var body: some View {
         let stepContext = healthReadContext(for: .steps)
         let weightContext = healthReadContext(for: .weight)
+        let workoutContext = healthReadContext(for: .workouts)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -107,6 +109,10 @@ private struct ProgressTabContent: View {
             guard weightContext.owner == authViewModel.currentUser?.id else { return }
             await healthWeight.update(owner: weightContext.owner, isVisible: weightContext.isVisible, range: weightContext.range)
         }
+        .task(id: workoutContext) {
+            guard workoutContext.owner == authViewModel.currentUser?.id else { return }
+            await workouts.update(owner: workoutContext.owner, isVisible: workoutContext.isVisible, range: workoutContext.range)
+        }
         .onChange(of: authViewModel.currentUser?.id) { _, _ in
             showsHealthSettings = false
         }
@@ -136,7 +142,7 @@ private struct ProgressTabContent: View {
     private var rows: [Row] {
         var groups: [[ProgressHubArea]] = []
         for area in hub.layout.visibleAreas {
-            if area != .nutrition, let last = groups.last, last.count == 1, last.first != .nutrition {
+            if area.isCompact, let last = groups.last, last.count == 1, last.first?.isCompact == true {
                 groups[groups.count - 1].append(area)
             } else { groups.append([area]) }
         }
@@ -250,6 +256,14 @@ private struct ProgressTabContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("progress-hub-weight-open")
+        } else if area == .workouts {
+            NavigationLink {
+                WorkoutDetailView(model: workouts, dateRange: viewModel.dateRange, onOpenHealthSettings: openHealthSettings)
+            } label: {
+                CompactWorkoutCard(model: workouts, dateRange: viewModel.dateRange)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("progress-hub-workouts-open")
         }
     }
 
@@ -280,13 +294,15 @@ private struct ProgressTabContent: View {
 
     private func refreshHealthReads() async {
         async let stepRefresh: Void = steps.refresh()
-        await healthWeight.refresh()
-        await stepRefresh
+        async let weightRefresh: Void = healthWeight.refresh()
+        await workouts.refresh()
+        _ = await (stepRefresh, weightRefresh)
     }
 
     private func openHealthSettings() {
         steps.suspend()
         healthWeight.suspend()
+        workouts.suspend()
         showsHealthSettings = true
     }
 

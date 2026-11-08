@@ -104,6 +104,7 @@ final class HealthStepsUITests: XCTestCase {
         app.openAppleHealthSettings()
         XCTAssertFalse(app.switches["apple-health-steps-toggle"].isEnabled)
         XCTAssertFalse(app.switches["apple-health-weight-toggle"].isEnabled)
+        XCTAssertFalse(app.switches["apple-health-workouts-toggle"].isEnabled)
         configureStepsCard(app)
         let demoLabel = app.staticTexts["progress-hub-demo-label"]
         XCTAssertTrue(demoLabel.exists)

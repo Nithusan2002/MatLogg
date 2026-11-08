@@ -4,13 +4,14 @@ nonisolated enum HealthDataAvailability: Equatable, Sendable {
     case available, unavailable, demo
 }
 
-nonisolated enum HealthReadKind: CaseIterable {
-    case steps, weight
+nonisolated enum HealthReadKind: String, CaseIterable {
+    case steps, weight, workouts
 
     var preferencePrefix: String {
         switch self {
         case .steps: "healthStepsEnabled."
         case .weight: "healthWeightEnabled."
+        case .workouts: "healthWorkoutsEnabled."
         }
     }
 

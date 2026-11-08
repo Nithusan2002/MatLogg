@@ -99,7 +99,7 @@ MVP-en prioriterer:
 - navngitte lagrede måltider for rask, eksplisitt gjenbruk
 - lokal lagring og versjonert synkkø
 - mål og valgfri vektregistrering
-- valgfri lesing av skritt og vekt for valgt dag, uke eller måned fra Apple Helse, uten opplasting eller endring av kalorimål
+- valgfri lesing av skritt, vekt og treningsøkter for valgt dag, uke eller måned fra Apple Helse, uten opplasting eller endring av kalorimål
 - synlig datakilde når brukeren ønsker det
 - eksport og sletting av brukerdata
 
@@ -114,7 +114,7 @@ Følgende skal ikke innføres uten en ny produktbeslutning:
 - sosial feed, venner, konkurranser eller gamification utover den diskrete loggerekkefunksjonen på Hjem
 - medisinske anbefalinger eller automatiske behandlingsråd
 - automatisk utfylling av manglende næringsverdier
-- skrivetilgang til Apple Helse, treningsklokker eller helseintegrasjoner utover valgfri visning av skritt og vekt
+- skrivetilgang til Apple Helse, treningsklokker eller helseintegrasjoner utover valgfri visning av skritt, vekt og treningsøkter
 - annonser, abonnement eller andre inntektsflater
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og

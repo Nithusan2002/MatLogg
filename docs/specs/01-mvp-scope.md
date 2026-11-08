@@ -235,6 +235,13 @@ Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
 Utvikling bruker kompakt næringskort, Aktivitet/Vekt på delt rad og detaljer
 bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
 inkludert. Hovedtall og makroer er snitt per logget dag, med synlig dekning;
-ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i uke- og månedsvisning. Ingen
-endring i lagrede logger, målberegning, HealthKit-lesetyper eller synkformat.
-Treningsøkter og ytterligere helseimport er fortsatt utenfor scope.
+ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i
+uke- og månedsvisning.
+
+### Valgfri visning av treningsøkter fra Apple Helse
+
+Treningsøkter slås på separat i Profil → Innstillinger → Apple Helse.
+Kortet er skjult som standard og kan vises og flyttes under Tilpass.
+Det viser antall økter og de to nyeste i valgt dag, uke eller måned.
+Detaljene viser alle øktene i perioden. MatLogg bruker type, starttid og
+varighet midlertidig på enheten til visning i Utvikling.

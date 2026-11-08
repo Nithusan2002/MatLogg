@@ -3,6 +3,7 @@ import Combine
 
 typealias StepCountViewModel = HealthReadViewModel<StepCountSnapshot>
 typealias HealthWeightViewModel = HealthReadViewModel<HealthWeightSnapshot>
+typealias HealthWorkoutViewModel = HealthReadViewModel<HealthWorkoutSnapshot>
 
 @MainActor
 final class HealthReadViewModel<Snapshot: HealthReadSnapshot>: ObservableObject {

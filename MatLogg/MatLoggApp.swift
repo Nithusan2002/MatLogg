@@ -13,6 +13,7 @@ struct MatLoggContent: View {
     @StateObject private var progressHubViewModel: ProgressHubViewModel
     @StateObject private var stepCountViewModel: StepCountViewModel
     @StateObject private var healthWeightViewModel: HealthWeightViewModel
+    @StateObject private var healthWorkoutViewModel: HealthWorkoutViewModel
     @StateObject private var scanHistoryViewModel: ScanHistoryViewModel
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
@@ -93,7 +94,12 @@ struct MatLoggContent: View {
             repository: UserDefaultsProgressHubRepository(defaults: defaults)))
         let stepRepository: any HealthReadRepository<StepCountSnapshot>
         let weightRepository: any HealthReadRepository<HealthWeightSnapshot>
+        var workoutRepository: any HealthReadRepository<HealthWorkoutSnapshot> =
+            isDemo ? DemoHealthReadRepository<HealthWorkoutSnapshot>() : HealthWorkoutRepository()
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--health-workouts-qa") {
+            workoutRepository = QAHealthWorkoutRepository()
+        }
         if ProcessInfo.processInfo.arguments.contains("--steps-qa") {
             stepRepository = QAStepCountRepository(count: ProcessInfo.processInfo.arguments.contains("--steps-qa-no-data") ? nil : 6543)
         } else {
@@ -112,6 +118,8 @@ struct MatLoggContent: View {
             repository: stepRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .steps)))
         _healthWeightViewModel = StateObject(wrappedValue: HealthWeightViewModel(
             repository: weightRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .weight)))
+        _healthWorkoutViewModel = StateObject(wrappedValue: HealthWorkoutViewModel(
+            repository: workoutRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .workouts)))
         _scanHistoryViewModel = StateObject(wrappedValue: ScanHistoryViewModel(repository: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
@@ -204,6 +212,7 @@ struct MatLoggContent: View {
             .onChange(of: authViewModel.currentUser?.id, initial: true) { _, owner in
                 stepCountViewModel.activate(owner: owner)
                 healthWeightViewModel.activate(owner: owner)
+                healthWorkoutViewModel.activate(owner: owner)
             }
             .onChange(of: appState.selectedTab) { _, tab in
                 if tab != .progress { suspendHealthReads() }
@@ -274,6 +283,7 @@ struct MatLoggContent: View {
     private func suspendHealthReads() {
         stepCountViewModel.suspend()
         healthWeightViewModel.suspend()
+        healthWorkoutViewModel.suspend()
     }
 
     private func loadHealthProfile() async {
@@ -310,6 +320,7 @@ struct MatLoggContent: View {
         .environmentObject(progressHubViewModel)
         .environmentObject(stepCountViewModel)
         .environmentObject(healthWeightViewModel)
+        .environmentObject(healthWorkoutViewModel)
         .environmentObject(scanHistoryViewModel)
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)

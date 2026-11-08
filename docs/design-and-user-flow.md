@@ -271,13 +271,14 @@ siden av tittelen når det er plass. Deretter følger Dag/Uke/Måned,
 datonavigasjon og et kompakt Mat og næring-kort. Aktivitet og Vekt deler en rad
 når de står ved siden av hverandre i valgt rekkefølge. Ved store
 tilgjengelighetsstørrelser stables de.
-Kortene åpner detaljer. Registrering og sletting av manuell vekt ligger i
+Aktivitet, Vekt og Treningsøkter åpner detaljer. Registrering og sletting av manuell vekt ligger i
 vektdetaljene. Tilkoblingsvalg for Apple Helse ligger i Innstillinger.
 
 «Tilpass» åpner et ark med synlighetsvalg og Opp/Ned-handlinger. Rekkefølge og
 synlighet redigeres som utkast; «Lagre» bekrefter og «Avbryt» forkaster.
-«Gjenopprett standard» velger rekkefølgen mat, aktivitet, vekt. Mat er synlig;
-vekt er synlig når historikk finnes, og aktivitet kan velges eksplisitt.
+«Gjenopprett standard» velger rekkefølgen mat, aktivitet, vekt, treningsøkter.
+Mat er synlig, og vekt er synlig når historikk finnes. Brukeren kan velge å vise
+aktivitet og treningsøkter.
 Eldre standardrekkefølge normaliseres ved lesing; eksplisitte nye valg og
 eldre egendefinerte rekkefølger beholdes. Begge/alle kort kan skjules; da vises
 «Velg hva du vil se her» med inngang til tilpasning. Visningspreferanse v2 er
@@ -290,21 +291,25 @@ loggede dager og periodens lengde vises ved tallet; manglende dager er ikke
 nullinntak. En logget dag med null beholdes som reell null. Dette er en ny
 presentasjonsregel, ikke endring i lagrede næringsverdier eller kalorimål.
 Diagrammet bruker ekte dagsverdier, nullbasert y-akse og korallfargede søyler;
-ulogget/fremtidig dato har ingen søyle. **Vis dagstall** åpner et ark med én rad per logget dag og fulle næringsnavn
-i uke- og månedsvisning. Dagsvisning viser tallene direkte på kortet.
+ulogget/fremtidig dato har ingen søyle. **Vis dagstall** åpner et ark med én
+rad per logget dag og fulle næringsnavn i uke- og månedsvisning. Dagsvisning
+viser tallene direkte på kortet.
 
 Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
 vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato, og
 detaljene viser kilden. Demomodus er merket ved tittelen i Utvikling.
 Aktivitet bruker samme periode og datonavigasjon som mat og vekt, med
-tilgjengelige skritt fra Apple Helse.
+tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
+rekkefølge og viser antall økter og de to nyeste etter starttid i perioden.
+Detaljene viser hele listen med starttid, varighet og Apple Helse som kilde.
 
 Oppsettet lagres per profil på enheten og følger overføring, eksport og sletting.
 NavigationStack tilbakestilles ved profilbytte. Loading, tomtilstand og feil
 bevarer skillet mellom manglende og registrerte data. Kortet kan vise siste
 matdata ved oppdateringsfeil; ny periode tømmer gamle periodetall før lesing.
 
-**Profil → Innstillinger → Apple Helse** samler bryterne for Skritt og Vekt.
+**Profil → Innstillinger → Apple Helse** samler bryterne for Skritt, Vekt
+og Treningsøkter.
 Å slå på en datatype ber om lesetilgang til den datatypen. Bryterne viser
 hvilke datatyper MatLogg er satt opp til å hente for profilen. Systemets
 lesetilgang styres i Helse. Å slå av en bryter stopper lesing for profilen

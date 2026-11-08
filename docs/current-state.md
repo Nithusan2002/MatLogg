@@ -153,12 +153,13 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   -måned og datonavigasjon, samt Aktivitet og Vekt ved siden av hverandre ved
   vanlig tekststørrelse. Aktivitet og Vekt åpner detaljer med historikk og manuell
   vektregistrering. Næring vises som snitt per logget dag med datadekning.
-  Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning. Uloggede dager blir ikke nullinntak.
+  Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning.
+  Uloggede dager blir ikke nullinntak.
 - Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
   standardrekkefølge til mat/aktivitet/vekt uten å aktivere skjulte områder eller
   endre helsevalg. Egendefinerte oppsett beholdes.
 - **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
-  og Vekt. Kortdetaljene har en snarvei hit før tilkobling. Målinger hentes
+  og Vekt samt Treningsøkter. Kortdetaljene har en snarvei hit før tilkobling. Data hentes
   bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.
 - Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
   Kortet viser den nyeste målingen før periodens slutt og en linje
@@ -171,6 +172,10 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   Første lesing krever en aktiv tilkobling fra brukeren.
   Tall holdes bare i minnet, og tilkoblingsvalget er lokalt og profilbundet.
   Native HealthKit-tilgang må fortsatt verifiseres på fysisk iPhone.
+- Treningsøkter er et valgfritt kort i full bredde, skjult som standard.
+  Det viser antall økter og de to siste øktene etter starttid i valgt periode.
+  Detaljene viser alle øktene med type, starttid og varighet. Opplysningene
+  brukes midlertidig i Utvikling på enheten.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
   og andre sporbarhetsfelt forkastes lokalt. Gyldige treff

@@ -1013,3 +1013,13 @@ kortvalg. Tilkoblingsvalgene bruker eksisterende profilnøkler. Det er mulig
 Utvikling. Tillatelsesforespørsel og dataforespørsel har separate identiteter,
 slik at skjuling stopper publisering av målinger og profilbytte forkaster
 sene svar fra begge forespørsler.
+
+
+## 2026-11-08 – Treningsøkter som valgfritt kort i Utvikling
+
+Kortet bruker full bredde og legges sist i eksisterende kortoppsett uten å
+endre synligheten. Brukeren aktiverer lesing separat i Apple Helse-
+innstillingene. Perioden avgjøres av øktens starttid. Oversikten viser antall
+og de to nyeste, med hele listen i detaljene. Bare økttype, starttid og
+varighet brukes til visning, med en midlertidig rad-ID. Øktdata følger samme
+livssyklus som skritt og vekt. Tilkoblingsvalget lagres lokalt per profil.

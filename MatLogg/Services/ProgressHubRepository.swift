@@ -23,8 +23,9 @@ struct UserDefaultsProgressHubRepository: ProgressHubRepository {
             if let area = ProgressHubArea(rawValue: raw), !order.contains(area) { order.append(area) }
         }
         order += ProgressHubArea.allCases.filter { !order.contains($0) }
-        if record.version == 1 && order == [.nutrition, .weight, .steps] {
-            order = [.nutrition, .steps, .weight]
+        // Version 1 stored nutrition and weight before steps was appended.
+        if record.version == 1 && order == [.nutrition, .weight, .steps, .workouts] {
+            order = ProgressHubLayout.standard(hasWeightHistory: false).order
         }
         return ProgressHubLayout(order: order, visible: Set(record.visible.compactMap(ProgressHubArea.init(rawValue:))))
     }
