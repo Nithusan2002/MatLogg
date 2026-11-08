@@ -28,7 +28,7 @@ final class LandingCaptureUITests: XCTestCase {
         app.buttons["Lukk"].firstMatch.tap()
         app.buttons["Hjem"].firstMatch.tap()
         app.buttons["Utvikling"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Kalorier gjennom uka"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Mat og næring"].firstMatch.waitForExistence(timeout: 10))
         capture("overview", app)
 
         app.buttons["Hjem"].firstMatch.tap()

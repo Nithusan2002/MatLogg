@@ -10,6 +10,9 @@ import SwiftUI
 struct MatLoggContent: View {
     @StateObject private var appState: AppState
     @StateObject private var progressViewModel: ProgressViewModel
+    @StateObject private var progressHubViewModel: ProgressHubViewModel
+    @StateObject private var stepCountViewModel: StepCountViewModel
+    @StateObject private var healthWeightViewModel: HealthWeightViewModel
     @StateObject private var scanHistoryViewModel: ScanHistoryViewModel
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
@@ -86,6 +89,29 @@ struct MatLoggContent: View {
         ))
         _waterViewModel = StateObject(wrappedValue: WaterViewModel(repository: databaseService))
         _progressViewModel = StateObject(wrappedValue: ProgressViewModel(repository: databaseService))
+        _progressHubViewModel = StateObject(wrappedValue: ProgressHubViewModel(
+            repository: UserDefaultsProgressHubRepository(defaults: defaults)))
+        let stepRepository: any HealthReadRepository<StepCountSnapshot>
+        let weightRepository: any HealthReadRepository<HealthWeightSnapshot>
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--steps-qa") {
+            stepRepository = QAStepCountRepository(count: ProcessInfo.processInfo.arguments.contains("--steps-qa-no-data") ? nil : 6543)
+        } else {
+            stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>() : HealthKitStepCountRepository()
+        }
+        if ProcessInfo.processInfo.arguments.contains("--health-weight-qa") {
+            weightRepository = QAHealthWeightRepository()
+        } else {
+            weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>() : HealthWeightRepository()
+        }
+        #else
+        stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>() : HealthKitStepCountRepository()
+        weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>() : HealthWeightRepository()
+        #endif
+        _stepCountViewModel = StateObject(wrappedValue: StepCountViewModel(
+            repository: stepRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .steps)))
+        _healthWeightViewModel = StateObject(wrappedValue: HealthWeightViewModel(
+            repository: weightRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .weight)))
         _scanHistoryViewModel = StateObject(wrappedValue: ScanHistoryViewModel(repository: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
@@ -164,6 +190,8 @@ struct MatLoggContent: View {
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
                 logViewModel.resetSelectedSummary()
                 progressViewModel.reset()
+                progressHubViewModel.reset()
+                healthProfileViewModel.resetUserState()
                 scanHistoryViewModel.reset()
                 quickLogViewModel.reset()
                 profileExportViewModel.reset()
@@ -172,6 +200,13 @@ struct MatLoggContent: View {
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
+            }
+            .onChange(of: authViewModel.currentUser?.id, initial: true) { _, owner in
+                stepCountViewModel.activate(owner: owner)
+                healthWeightViewModel.activate(owner: owner)
+            }
+            .onChange(of: appState.selectedTab) { _, tab in
+                if tab != .progress { suspendHealthReads() }
             }
             .alert(item: $appState.activeError) { error in
                 Alert(
@@ -214,6 +249,7 @@ struct MatLoggContent: View {
                 await authViewModel.restoreSession()
             }
             .onChange(of: scenePhase) { _, phase in
+                if phase == .background { suspendHealthReads() }
                 if phase == .active {
                     Task { await appState.triggerSync(reason: .foreground) }
                 }
@@ -233,6 +269,11 @@ struct MatLoggContent: View {
             }
             .task(id: authViewModel.currentUser?.id) { await loadHealthProfile() }
             .task(id: authViewModel.currentUser?.id) { await loggingDraftViewModel.load(owner: authViewModel.currentUser?.id) }
+    }
+
+    private func suspendHealthReads() {
+        stepCountViewModel.suspend()
+        healthWeightViewModel.suspend()
     }
 
     private func loadHealthProfile() async {
@@ -266,6 +307,9 @@ struct MatLoggContent: View {
         }
         .environmentObject(appState)
         .environmentObject(progressViewModel)
+        .environmentObject(progressHubViewModel)
+        .environmentObject(stepCountViewModel)
+        .environmentObject(healthWeightViewModel)
         .environmentObject(scanHistoryViewModel)
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)

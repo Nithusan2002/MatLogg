@@ -93,7 +93,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 ## 1.4 Out-of-Scope Metrikker (v1+)
 
 - Social adoption (shares, friend invites)
-- Platform-spesifikk analytics (Apple Health integration)
+- Platform-spesifikk analytics og ytterligere Apple Health-integrasjon utover valgfri visning av skritt og vekt
 - Revenue (ads, premium)
 
 ---
@@ -204,3 +204,37 @@ Kortet kan også lagres direkte i Bilder med kun tilgang til å legge til bilder
 Formatene 3:4 og 9:16 støttes i alle stiler; sist valgte format huskes lokalt.
 Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
 Se [lagrede måltider](../saved-meals.md#del-måltidskort).
+
+## Tillegg 2026-11-06: personlig oversikt på Utvikling
+
+Eksisterende mat-/næringsoversikt og valgfri vektregistrering samles i to kort.
+Brukeren kan skjule og flytte kort gjennom Tilpass; valgene lagres lokalt per
+profil. Begge kan skjules uten å miste tilgang til tilpasning. Første versjon
+beholder siste sju dager og eksisterende vekthistorikk.
+
+### Valgfri skrittvisning fra Apple Helse
+
+Skritt slås på i Profil → Innstillinger → Apple Helse og ber om separat
+lesetilgang. Aktivitetskortet er valgfritt og skjult som standard. HealthKit
+leverer tilgjengelige summer per time i Dag og per dag i Uke og Måned, også
+tilbake i tid. Kortet viser periodens sum, kilde og graf. Detaljene viser
+fordelingen som søyler. Tallene
+ligger bare i minnet. Lokal tilkobling lagres per profil og følger eksport og
+sletting. Ekte HealthKit-tilgang krever verifisering på fysisk iPhone før release.
+
+### Valgfri vektvisning fra Apple Helse
+
+Vekt slås på med en egen bryter i Profil → Innstillinger → Apple Helse og
+ber om separat lesetilgang. Kortet viser
+siste måling før slutten av valgt periode og en graf fra samme kilde.
+Detaljene skiller målinger fra Helse og manuelle registreringer i MatLogg.
+Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
+
+### Visuell korrigering etter valgt prototype (2026-11-06)
+
+Utvikling bruker kompakt næringskort, Aktivitet/Vekt på delt rad og detaljer
+bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
+inkludert. Hovedtall og makroer er snitt per logget dag, med synlig dekning;
+ulogget dag er ikke null. Dagsverdier er tilgjengelige i detaljer. Ingen
+endring i lagrede logger, målberegning, HealthKit-lesetyper eller synkformat.
+Treningsøkter og ytterligere helseimport er fortsatt utenfor scope.

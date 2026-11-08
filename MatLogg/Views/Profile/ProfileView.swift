@@ -189,6 +189,8 @@ private struct ProfileSettingsView: View {
         Form {
             Section("Personvern") {
                 NavigationLink("Personvern og valg") { PrivacyChoicesView() }
+                NavigationLink("Apple Helse") { AppleHealthSettingsView() }
+                    .accessibilityIdentifier("profile-apple-health")
             }
             .listRowBackground(AppColors.surface)
             Section {

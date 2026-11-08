@@ -6,6 +6,7 @@ enum AppTypography {
         .system(size: size, weight: .medium, design: .default)
     }
     static let hero = Font.system(.largeTitle, design: .rounded, weight: .heavy)
+    static let metricValue = Font.system(.title, design: .rounded, weight: .heavy).monospacedDigit()
     static let heroValue = Font.system(.largeTitle, design: .default, weight: .medium).monospacedDigit()
     static let title = Font.system(.title2, design: .rounded, weight: .semibold)
     static let sectionTitle = Font.system(.headline, design: .rounded, weight: .semibold)

@@ -1,6 +1,6 @@
 # App Store Connect – databruk
 
-Sist oppdatert: 19. oktober 2026
+Sist oppdatert: 6. november 2026
 
 Arbeidsgrunnlag, ikke bekreftelse på det innsendte App Privacy-skjemaet.
 Kontroller faktisk releasekonfigurasjon, arkiv og leverandørers datalagring før innsending.
@@ -72,3 +72,19 @@ Neste steg: lukk mottaker-/retensjonsvurderingen i
 `docs/privacy-data-inventory.md`, kontroller faktisk kandidatarkiv og samordne
 App Privacy, manifest og publiserte tekster der vurderingen krever det.
 Ingen kategorier er endret i manifest eller App Store Connect her.
+
+## Valgfri visning av skritt og vekt fra Apple Helse
+
+Appen leser `.stepCount` og `.bodyMass` separat etter brukerhandling og
+systemets tilgangsforespørsel. Skrittsummer per time eller dag og enkeltmålinger
+for vekt brukes bare i minnet til visning i Utvikling. Målingene inngår verken i opplasting,
+synkkø, logger, analyse eller eksport. Profilens lokale tilkoblingsvalg
+lagres i UserDefaults og følger eksport og sletting av innstillinger.
+Helse på iPhonen er felles for MatLogg-profilene. Skrivetilgang og
+bakgrunnslevering er utenfor denne dataflyten.
+
+Dette dokumenterer implementert lokal bruk, ikke godkjenning av App Privacy-
+skjema eller produksjonsarkiv. Før innsending: kontroller signert HealthKit-
+entitlement, formålstekst, native tillatelsesflyt, tomt/tilbaketrukket lesetilgang
+og faktisk fravær av ekstern overføring på fysisk iPhone. Ingen App Store
+Connect-felt er endret i denne implementeringen.

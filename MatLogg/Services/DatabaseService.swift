@@ -342,7 +342,8 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
     func resetAllLocalData() async throws {
         try await perform { try $0.resetAllData() }
         defaults.removeObject(forKey: "personalDetails")
-        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("morningCheckIn.") {
+        let prefixes = ["morningCheckIn.", ProgressHubStorage.prefix] + HealthReadKind.allCases.map(\.preferencePrefix)
+        for key in defaults.dictionaryRepresentation().keys where prefixes.contains(where: { key.hasPrefix($0) }) {
             defaults.removeObject(forKey: key)
         }
     }
@@ -363,6 +364,20 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         if defaults.object(forKey: accountCheckInKey) == nil, let status = defaults.object(forKey: checkInKey) {
             defaults.set(status, forKey: accountCheckInKey)
         }
+        let oldHubKey = ProgressHubStorage.key(localOwnerId)
+        let newHubKey = ProgressHubStorage.key(accountOwnerId)
+        if defaults.object(forKey: newHubKey) == nil, let layout = defaults.data(forKey: oldHubKey) {
+            defaults.set(layout, forKey: newHubKey)
+        }
+        for kind in HealthReadKind.allCases {
+            let oldKey = kind.preferenceKey(owner: localOwnerId)
+            let newKey = kind.preferenceKey(owner: accountOwnerId)
+            if defaults.object(forKey: newKey) == nil, let choice = defaults.object(forKey: oldKey) {
+                defaults.set(choice, forKey: newKey)
+            }
+            defaults.removeObject(forKey: oldKey)
+        }
+        defaults.removeObject(forKey: oldHubKey)
         defaults.removeObject(forKey: checkInKey)
         defaults.removeObject(forKey: oldKey)
     }
@@ -373,6 +388,10 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
             try UserDataExportService.removeOwnedExports(ownerId: ownerId, in: FileManager.default.temporaryDirectory)
         }
         defaults.removeObject(forKey: "personalDetails.\(ownerId.uuidString)")
+        defaults.removeObject(forKey: ProgressHubStorage.key(ownerId))
+        for kind in HealthReadKind.allCases {
+            defaults.removeObject(forKey: kind.preferenceKey(owner: ownerId))
+        }
         defaults.removeObject(forKey: UserDefaultsMorningCheckInStore.key(ownerId))
         let profilePrefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]
         for key in defaults.dictionaryRepresentation().keys
@@ -440,8 +459,9 @@ nonisolated private struct ProfilePreferenceExporter: @unchecked Sendable {
 
     func records(ownerId: UUID) throws -> [Data] {
         let prefixes = ["lastAmount.\(ownerId.uuidString).", "useLastAmount.\(ownerId.uuidString)."]
+        let keys = [ProgressHubStorage.key(ownerId)] + HealthReadKind.allCases.map { $0.preferenceKey(owner: ownerId) }
         return try defaults.dictionaryRepresentation()
-            .filter { entry in prefixes.contains { entry.key.hasPrefix($0) } }
+            .filter { entry in keys.contains(entry.key) || prefixes.contains { entry.key.hasPrefix($0) } }
             .sorted { $0.key < $1.key }
             .map { key, value in
                 let data = value as? Data

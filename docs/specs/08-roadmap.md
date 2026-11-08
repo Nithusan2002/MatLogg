@@ -69,7 +69,7 @@ avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
 ❌ Recipes / meal plans  
 ❌ Web app  
 ❌ Multi-language (MVP: Norsk + English UI)  
-❌ Apple Health integration  
+❌ Ytterligere Apple Health-integrasjon (valgfri visning av skritt og vekt med historikk inngår i Utvikling)
 ❌ Widgets / Apple Watch  
 ❌ Push notifications  
 ❌ Premium features / paywall  
@@ -148,7 +148,7 @@ MatLogg becomes not just a logging tool, but a **community platform** for food t
 | **Recipe builder** | P1 | L | Create meals from ingredients |
 | **Meal planning** | P1 | L | Plan next week, auto-log |
 | **Progress graphs** | P1 | M | Trend lines, 7/30-day views |
-| **Apple Health sync** | P2 | L | Read/write health data |
+| **Apple Health sync** | P2 | L | Ytterligere read/write; skritt- og vektvisning med historikk er lokale lesefunksjoner |
 | **Notifications** | P2 | M | Goal reminders, achievements |
 | **Web app** | P2 | XL | Full feature parity on web |
 | **Android port** | P2 | XL | 100% feature parity |

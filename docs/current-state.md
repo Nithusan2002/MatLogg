@@ -149,9 +149,28 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
-- Oversikt med dagens energi, sju dagers oversikt, makroer mot mål
-  og vektregistrering. Måltidsfordelingskortet er fjernet. Kalorier og tilgjengelige makroverdier
-  vises også når brukeren ikke har opprettet mål.
+- Utvikling følger kompakt kortprototype: Mat og næring med kalenderdag/-uke/
+  -måned og datonavigasjon, samt Aktivitet og Vekt ved siden av hverandre ved
+  vanlig tekststørrelse. Kort åpner detaljer med historikk og manuell
+  vektregistrering. Næring vises som snitt per logget dag med datadekning, og
+  dagsverdier finnes i detaljene. Uloggede dager blir ikke nullinntak.
+- Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
+  standardrekkefølge til mat/aktivitet/vekt uten å aktivere skjulte områder eller
+  endre helsevalg. Egendefinerte oppsett beholdes.
+- **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
+  og Vekt. Kortdetaljene har en snarvei hit før tilkobling. Målinger hentes
+  bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.
+- Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
+  Kortet viser den nyeste målingen før periodens slutt, med kilde og en linje
+  basert på målinger fra samme kilde i valgt periode. Helse-målinger og manuelle
+  MatLogg-registreringer vises hver for seg i detaljene. Bare tilkoblingsvalget
+  lagres lokalt per profil. Helse-målinger brukes kun til visning i Utvikling.
+- Aktivitet viser skrittsummen og en kompakt graf fra Apple Helse for valgt dag,
+  uke eller måned. Graf og detaljer bruker timer i dagsvisning og dager i
+  uke- og månedsvisning. Pilene gir tilgang til tidligere perioder.
+  Første lesing krever en aktiv tilkobling fra brukeren.
+  Tall holdes bare i minnet, og tilkoblingsvalget er lokalt og profilbundet.
+  Native HealthKit-tilgang må fortsatt verifiseres på fysisk iPhone.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
   og andre sporbarhetsfelt forkastes lokalt. Gyldige treff

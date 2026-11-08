@@ -108,8 +108,9 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 Typografien følger godkjent prototype 10: kraftige, avrundede hovedoverskrifter,
 avrundede titler og seksjonsoverskrifter med halvfet vekt, og vanlig systemfont
 i brødtekst, matvarenavn og metadata. Store næringsverdier bruker `heroValue`
-med middels vekt og tabellariske sifre. Unntaket er de fremhevede kaloritallene
-på Utvikling, som bruker `hero` for å bevare tung, avrundet typografi. Native tekststiler bevarer Dynamic Type;
+med middels vekt og tabellariske sifre. Den kompakte Utvikling-prototypen bruker
+`hero` for hovedtallet og `metricValue` for de små metrikktallene.
+Native tekststiler bevarer Dynamic Type;
 prototypens pikselstørrelser kopieres ikke direkte. Lange forklaringer skal
 ikke bruke tunge displaystiler. Kritiske krav, kilder og feil
 skal kunne bryte over flere linjer og ikke skjules av trunkering.
@@ -423,3 +424,52 @@ bak innholdet og `surface` på ordinære rader. Primærknapper i skjemaer
 har transparent radbakgrunn. Ordinære kort bruker `CardContainer` eller
 `matLoggCardSurface()`; kamera, bildeleser, delingsgrafikk og systemkontroller
 beholder sine formålstilpassede flater.
+
+### Tilpassbar hub på Utvikling (2026-11-06)
+
+Mat og næring samt Vekt bruker hver sin ordinære `CardContainer`, med
+semantisk ikon, `title`-overskrift og sekundær forklaring om registrering i
+MatLogg. Dagens energi, ukediagram og makroer samles i matkortet uten kort inni
+kort. Store verdier bruker `heroValue`. Kilder for underliggende matvarer
+endres ikke av denne grupperingen. Ingen nye fargetokens innføres.
+
+«Tilpass» står ved skjermtittelen og flyttes under den ved store tekststørrelser.
+Tilpasningsarket bruker native List/Toggle og eksplisitte Opp/Ned-knapper med
+minst 44 pt trykkflate og VoiceOver-navn som inkluderer området. Avbryt, Lagre
+og Gjenopprett standard virker på et redigeringsutkast. Huben og vekthistorikken
+holder innhold over bunnmenyen med `matLoggTabBarScrollClearance()`.
+
+### Skritt fra Apple Helse (2026-11-06)
+
+Skritt er et valgfritt ordinært hub-kort med `figure.walk`, `heroValue` for
+antallet, eksplisitt enhet og sekundær kilde-/hentetidstekst. Bruk eksisterende
+semantiske farger og knapper med minst 44 pt trykkflate. Loading, ikke tilkoblet,
+ingen data, lesefeil, utilgjengelig enhet og demomodus har egne teksttilstander.
+Ingen helsescore, daglig kvote eller belønningsfarge. Manglende data blir ikke
+null. Brødtekst kan brytes ved store tekststørrelser, og VoiceOver leser antall
+og «skritt». Helse-forespørselen startes bare av tilkoblingsknappen.
+
+### Kompakt Utvikling-prototype (2026-11-06)
+
+Den valgte prototypen er visuell referanse for faktisk UI. Matkortet samler ett
+hovedtall, kilde, periodeforklaring, lavt korallfarget diagram og makrofooter.
+Aktivitet og Vekt er små kort på samme rad ved vanlig tekststørrelse; detaljer
+og kontroller ligger én navigasjon inn. Ved tilgjengelighetsstørrelser stables
+kortene og makrofooteren uten å kutte tekst. Tilpass står til høyre for
+skjermtittelen og flyttes til en egen linje når tittelen trenger mer plass.
+
+`metricValue` er en skalerbar, kraftig avrundet title-verdi med tabellariske
+sifre for kompakte metrikker. `onAction` er kontrastfargen på fylte action-flater
+(lys flate i lys modus, plomme i mørk modus). Periodeknappene bruker action/
+onAction, eksplisitt valgt-trait og minst 44 pt trykkflate. Dato-pilene er
+44 pt. Kortene bruker de delte skygge- og flatevariantene.
+
+Aktivitet og Vekt har lik høyde på delt rad og viser kilden under tittelen.
+På egne rader deler målingen og tidspunktet bredden når teksten får plass.
+Ved større tekst kan de stables. Bakgrunnen ved statuslinjen skjermer
+systemikonene når oversikten rulles.
+Vektlinjen vises fra to målinger i perioden og bruker bare reelle punkter.
+Aktivitetsgrafen bruker den turkise `activityChart`-fargen og vises fra to
+registrerte punkter. Timer eller dager uten data gir brudd i linjen.
+Detaljvisningens søyler har nullbasert akse og tilgjengelige tall per intervall.
+Datakilden står på kortet.
