@@ -7,14 +7,7 @@ struct CompactWorkoutCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    ProgressCardHeading(title: "Treningsøkter", symbol: "dumbbell")
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .accessibilityHidden(true)
-                }
+                ProgressCardHeading(title: "Treningsøkter", symbol: "dumbbell", opensDetails: true)
                 if let snapshot = model.snapshot(for: dateRange.interval) {
                     Text(snapshot.workouts.count == 1 ? "1 økt i perioden" : "\(snapshot.workouts.count) økter i perioden")
                         .font(AppTypography.bodyEmphasis)

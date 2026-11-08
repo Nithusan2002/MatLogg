@@ -23,6 +23,7 @@ final class ProgressViewModel: ObservableObject {
     private let calendar: Calendar
     private let now: () -> Date
     private var anchorDate: Date
+    private var preferredMonthDay: Int?
     private var weightEntries: [WeightEntry] = []
 
     init(repository: any FoodLogRepository, calendar: Calendar = .current, now: @escaping () -> Date = Date.init) {
@@ -35,15 +36,36 @@ final class ProgressViewModel: ObservableObject {
         weightOverview = ProgressWeightOverview(entries: [], range: range.interval, owner: nil)
     }
 
+    var isCurrentPeriod: Bool {
+        let today = now()
+        return today >= dateRange.interval.start && today < dateRange.interval.end
+    }
+
     func selectPeriod(_ period: ProgressPeriod) {
         guard self.period != period else { return }
         self.period = period
+        preferredMonthDay = nil
         selectRange(anchor: anchorDate)
     }
 
     func movePeriod(by offset: Int) {
-        guard let anchor = calendar.date(byAdding: period.component, value: offset, to: dateRange.interval.start) else { return }
-        selectRange(anchor: anchor)
+        if period == .month {
+            guard let start = calendar.date(byAdding: .month, value: offset, to: dateRange.interval.start),
+                  let days = calendar.range(of: .day, in: .month, for: start) else { return }
+            let preferredDay = preferredMonthDay ?? calendar.component(.day, from: anchorDate)
+            let day = min(preferredDay, days.upperBound - 1)
+            guard let anchor = calendar.date(byAdding: .day, value: day - days.lowerBound, to: start) else { return }
+            preferredMonthDay = preferredDay
+            selectRange(anchor: anchor)
+        } else if let anchor = calendar.date(byAdding: period.component, value: offset, to: anchorDate) {
+            selectRange(anchor: anchor)
+        }
+    }
+
+    func goToCurrentPeriod() {
+        guard !isCurrentPeriod else { return }
+        preferredMonthDay = nil
+        selectRange(anchor: calendar.startOfDay(for: now()))
     }
 
     private func selectRange(anchor: Date) {
@@ -68,6 +90,7 @@ final class ProgressViewModel: ObservableObject {
         requestID = UUID()
         owner = nil
         period = .week
+        preferredMonthDay = nil
         anchorDate = calendar.startOfDay(for: now())
         dateRange = ProgressDateRange(period: .week, anchor: anchorDate, calendar: calendar)
         weightEntries = []

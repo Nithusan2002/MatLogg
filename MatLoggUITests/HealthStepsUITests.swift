@@ -20,7 +20,7 @@ final class HealthStepsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["QA – eksempeldata"].exists)
         XCTAssertTrue(app.staticTexts["Skritt per dag"].exists)
         capture("Skritt – ukesum og dagsfordeling", app)
-        app.navigationBars["Aktivitet"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["Skritt"].buttons.element(boundBy: 0).tap()
         capture("Skritt – kompakt kort med QA-data", app)
 
         app.buttons["progress-period-day"].tap()
@@ -34,7 +34,7 @@ final class HealthStepsUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts["health-steps-period"].label, "\(previousDay) · Apple Helse")
         XCTAssertTrue(app.staticTexts["Skritt per time"].exists)
         XCTAssertEqual(count.label.components(separatedBy: .whitespacesAndNewlines).joined(), "6543skritt")
-        app.navigationBars["Aktivitet"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["Skritt"].buttons.element(boundBy: 0).tap()
         capture("Skritt – dagsvisning med graf på Aktivitetskortet", app)
 
         app.buttons["progress-period-month"].tap()
@@ -50,7 +50,7 @@ final class HealthStepsUITests: XCTestCase {
         openActivity(app)
         XCTAssertTrue(count.waitForExistence(timeout: 10))
         XCTAssertEqual(count.label.components(separatedBy: .whitespacesAndNewlines).joined(), "6543skritt")
-        app.navigationBars["Aktivitet"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["Skritt"].buttons.element(boundBy: 0).tap()
         app.openAppleHealthSettings()
         XCTAssertEqual(app.switches["apple-health-steps-toggle"].value as? String, "1")
         app.setAppleHealthToggle("apple-health-steps-toggle", enabled: false)
@@ -148,7 +148,7 @@ final class HealthStepsUITests: XCTestCase {
         }
         XCTAssertTrue(card.isHittable)
         card.tap()
-        XCTAssertTrue(app.navigationBars["Aktivitet"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Skritt"].waitForExistence(timeout: 5))
     }
 
     @MainActor private func openHub(_ app: XCUIApplication) {

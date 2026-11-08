@@ -83,11 +83,13 @@ final class ProgressHubUITests: XCTestCase {
         }
         activity.tap()
         XCTAssertTrue(app.staticTexts["health-step-count"].waitForExistence(timeout: 5))
-        app.navigationBars["Aktivitet"].buttons.element(boundBy: 0).tap()
+        app.navigationBars["Skritt"].buttons.element(boundBy: 0).tap()
         app.swipeDown()
         let weight = app.buttons["progress-hub-weight-open"]
         let nutrition = app.buttons["progress-hub-nutrition-daily-totals"]
         XCTAssertTrue(weight.waitForExistence(timeout: 5))
+        XCTAssertTrue(activity.label.contains("Skritt"))
+        XCTAssertFalse(activity.label.contains("Hentet"))
         XCTAssertFalse(activity.label.contains("Apple Helse"))
         XCTAssertFalse(weight.label.contains("MatLogg"))
         XCTAssertFalse(app.staticTexts["MatLogg"].exists)
@@ -105,6 +107,11 @@ final class ProgressHubUITests: XCTestCase {
         let originalDay = range.label
         app.buttons["progress-period-previous"].tap()
         XCTAssertNotEqual(range.label, originalDay)
+        let returnToCurrent = app.buttons["progress-period-current"]
+        XCTAssertEqual(returnToCurrent.label, "I dag")
+        returnToCurrent.tap()
+        XCTAssertEqual(range.label, originalDay)
+        XCTAssertFalse(returnToCurrent.exists)
         app.buttons["progress-period-month"].tap()
         XCTAssertNotEqual(range.label, originalWeek)
         for period in ["month", "week"] {
@@ -165,6 +172,17 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(save.isHittable)
         save.tap()
         XCTAssertTrue(app.staticTexts["74,3 kg"].firstMatch.waitForExistence(timeout: 5))
+        app.navigationBars["Vekt"].buttons.element(boundBy: 0).tap()
+        app.swipeDown()
+        app.buttons["progress-period-previous"].tap()
+        XCTAssertFalse(weightCard.label.contains("74,3 kg"))
+        let historicalCardLabel = weightCard.label
+        weightCard.tap()
+        let periodWeight = app.staticTexts["local-weight-latest"]
+        XCTAssertTrue(periodWeight.waitForExistence(timeout: 5))
+        XCTAssertTrue(historicalCardLabel.contains(periodWeight.label))
+        XCTAssertNotEqual(periodWeight.label, "74,3 kg")
+        capture("Vekt – valgt historisk periode", app)
         let history = app.buttons["Se alle registreringer"]
         for _ in 0..<5 {
             if history.isHittable { break }
@@ -244,6 +262,7 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(title.exists)
         XCTAssertLessThan(title.frame.maxY, app.buttons["progress-hub-customize"].frame.minY)
         customize(app)
+        XCTAssertTrue(app.navigationBars["Tilpass"].exists)
         capture("Hub – tilpass med stor tekst", app)
         let toggle = app.switches["progress-hub-toggle-nutrition"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))

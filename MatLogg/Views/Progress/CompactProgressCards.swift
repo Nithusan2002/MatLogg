@@ -20,7 +20,7 @@ struct CompactNutritionCard: View {
                             Text("kcal").font(AppTypography.bodyEmphasis)
                         }
                     }
-                    Text(model.period == .day ? "Registrert denne dagen" : "Snitt per logget dag · \(model.overview.recordedDays.count)/\(model.dateRange.dates.count)")
+                    Text(model.period == .day ? "Registrert denne dagen" : "Snitt per logget dag · \(model.overview.coverage)")
                         .font(AppTypography.secondary).foregroundStyle(AppColors.textSecondary)
                     periodChart
                     Divider().overlay(AppColors.separator)
@@ -127,26 +127,21 @@ struct CompactStepsCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Aktivitet", symbol: "figure.walk", compact: true)
+                ProgressCardHeading(title: "Skritt", symbol: "figure.walk", compact: true, opensDetails: true)
                 switch model.state {
                 case .loaded(let snapshot):
                     if let count = snapshot.count {
-                        ProgressMetricReading(isPaired: isPaired) {
-                            let layout = isPaired || dynamicTypeSize.isAccessibilitySize
-                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                                : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 6))
-                            layout {
-                                Text(count.formatted(.number.locale(Locale(identifier: "nb_NO"))))
-                                    .font(AppTypography.metricValue)
-                                    .accessibilityLabel("\(count) skritt")
-                                    .accessibilityIdentifier("health-step-count-summary")
-                                Text(isPaired ? "skritt totalt" : "skritt")
-                                    .font(AppTypography.secondary)
-                                    .accessibilityHidden(true)
-                            }
-                        } detail: {
-                            Text("Hentet \(snapshot.updatedAt.formatted(.dateTime.hour().minute()))")
-                                .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                        let layout = isPaired || dynamicTypeSize.isAccessibilitySize
+                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 6))
+                        layout {
+                            Text(count.formatted(.number.locale(Locale(identifier: "nb_NO"))))
+                                .font(AppTypography.metricValue)
+                                .accessibilityLabel("\(count) skritt")
+                                .accessibilityIdentifier("health-step-count-summary")
+                            Text("skritt totalt")
+                                .font(AppTypography.secondary)
+                                .accessibilityHidden(true)
                         }
                         if let first = snapshot.buckets.first, let last = snapshot.buckets.last,
                            first.date < last.date {
@@ -157,7 +152,6 @@ struct CompactStepsCard: View {
                     ProgressView().frame(minHeight: 40)
                     Text("Henter skritt …").font(AppTypography.secondary)
                 case .notConnected:
-                    Text("Skritt").font(AppTypography.title)
                     Text("Slås på i Innstillinger").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 case .noData:
                     Text("Ingen data").font(AppTypography.title)
@@ -168,7 +162,6 @@ struct CompactStepsCard: View {
                 case .unavailable:
                     Text("Utilgjengelig").font(AppTypography.bodyEmphasis)
                 case .demo:
-                    Text("Skritt").font(AppTypography.title)
                     Text("Ikke tilkoblet").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 }
             }
@@ -215,7 +208,7 @@ struct CompactWeightCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Vekt", symbol: "scalemass", compact: true)
+                ProgressCardHeading(title: "Vekt", symbol: "scalemass", compact: true, opensDetails: true)
                 if let latest = overview.latest {
                     let formattedWeight = latest.weightKg.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "nb_NO")))
                     ProgressMetricReading(isPaired: isPaired) {
@@ -228,7 +221,8 @@ struct CompactWeightCard: View {
                             }
                         }
                     } detail: {
-                        Text("Sist \(latest.date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                        let date = latest.date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
+                        Text(overview.showsEarlierMeasurement ? "Før perioden · \(date)" : "Sist \(date)")
                             .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                     }
                     if overview.points.count > 1 {
@@ -290,8 +284,24 @@ struct ProgressCardHeading: View {
     let symbol: String
     var detail: String? = nil
     var compact = false
+    var opensDetails = false
 
     var body: some View {
+        if opensDetails {
+            HStack(spacing: 8) {
+                titleContent
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            titleContent
+        }
+    }
+
+    @ViewBuilder private var titleContent: some View {
         if let detail {
             let detailLabel = Text(detail).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
             ViewThatFits(in: .horizontal) {
@@ -408,7 +418,7 @@ struct StepCountDetailView: View {
         }
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
-        .navigationTitle("Aktivitet").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Skritt").navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .task { await model.refresh() }
         .refreshable { await model.refresh() }

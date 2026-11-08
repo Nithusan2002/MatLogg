@@ -70,6 +70,39 @@ struct ProgressPeriodTests {
         #expect(repository.dates.last?.count == 31)
     }
 
+    @Test func monthNavigationClampsShortMonthsAndRestoresThePreferredDay() {
+        let model = ProgressViewModel(repository: PeriodRepository(calendar: calendar), calendar: calendar,
+                                      now: { self.date(2028, 1, 31) })
+        model.selectPeriod(.month)
+        model.movePeriod(by: 1)
+        model.selectPeriod(.day)
+        #expect(model.dateRange.interval.start == calendar.startOfDay(for: date(2028, 2, 29)))
+        model.goToCurrentPeriod()
+        #expect(model.dateRange.interval.start == calendar.startOfDay(for: date(2028, 1, 31)))
+
+        model.selectPeriod(.month)
+        model.movePeriod(by: 1)
+        model.movePeriod(by: 1)
+        model.selectPeriod(.day)
+        #expect(model.dateRange.interval.start == calendar.startOfDay(for: date(2028, 3, 31)))
+    }
+
+    @Test func weekNavigationPreservesWeekdayAndCurrentPeriodKeepsTheSelectedScale() {
+        let today = date(2026, 12, 30)
+        let model = ProgressViewModel(repository: PeriodRepository(calendar: calendar), calendar: calendar, now: { today })
+        #expect(model.isCurrentPeriod)
+        model.movePeriod(by: 1)
+        #expect(!model.isCurrentPeriod)
+        model.selectPeriod(.day)
+        #expect(model.dateRange.interval.start == calendar.startOfDay(for: date(2027, 1, 6)))
+        model.selectPeriod(.week)
+        model.goToCurrentPeriod()
+        #expect(model.period == .week)
+        #expect(model.isCurrentPeriod)
+        model.selectPeriod(.day)
+        #expect(model.dateRange.interval.start == calendar.startOfDay(for: today))
+    }
+
     @Test func oldPeriodResponseCannotOverwriteNewSelection() async throws {
         let repository = PeriodRepository(calendar: calendar)
         repository.delay = true
@@ -105,6 +138,8 @@ struct ProgressPeriodTests {
         let fallback = ProgressWeightOverview(entries: [older], range: range.interval, owner: owner)
         #expect(fallback.latest?.id == older.id)
         #expect(fallback.points.isEmpty)
+        #expect(fallback.showsEarlierMeasurement)
+        #expect(!result.showsEarlierMeasurement)
     }
 
     @Test func profileResetClearsWeightAndNutritionPresentation() async {

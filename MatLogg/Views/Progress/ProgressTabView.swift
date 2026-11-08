@@ -212,14 +212,23 @@ private struct ProgressTabContent: View {
     }
 
     private var dateNavigation: some View {
-        HStack(spacing: 8) {
-            periodArrow("chevron.left", label: viewModel.period.previousLabel, offset: -1)
-            Text(viewModel.dateRange.label)
-                .font(AppTypography.sectionTitle)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .accessibilityIdentifier("progress-period-range")
-            periodArrow("chevron.right", label: viewModel.period.nextLabel, offset: 1)
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                periodArrow("chevron.left", label: viewModel.period.previousLabel, offset: -1)
+                Text(viewModel.dateRange.label)
+                    .font(AppTypography.sectionTitle)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("progress-period-range")
+                periodArrow("chevron.right", label: viewModel.period.nextLabel, offset: 1)
+            }
+            if !viewModel.isCurrentPeriod {
+                Button(viewModel.period.currentLabel) { viewModel.goToCurrentPeriod() }
+                    .font(AppTypography.secondaryEmphasis)
+                    .foregroundStyle(AppColors.actionText)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("progress-period-current")
+            }
         }
         .foregroundStyle(AppColors.deepInk)
     }
@@ -246,7 +255,7 @@ private struct ProgressTabContent: View {
         } else if area == .weight {
             let healthOverview = healthWeight.snapshot(for: viewModel.dateRange.interval)?.overview
             NavigationLink {
-                WeightDetailView(healthWeight: healthWeight, dateRange: viewModel.dateRange, onOpenHealthSettings: openHealthSettings)
+                WeightDetailView(progress: viewModel, healthWeight: healthWeight, dateRange: viewModel.dateRange, onOpenHealthSettings: openHealthSettings)
             } label: {
                 CompactWeightCard(
                     overview: viewModel.weightOverview.showingLatest(with: healthOverview),
@@ -317,26 +326,43 @@ private struct ProgressTabContent: View {
 private struct WeightDetailView: View {
     @EnvironmentObject private var health: HealthProfileViewModel
     @EnvironmentObject private var auth: AuthViewModel
+    @ObservedObject var progress: ProgressViewModel
     @ObservedObject var healthWeight: HealthWeightViewModel
     let dateRange: ProgressDateRange
     let onOpenHealthSettings: () -> Void
 
+    private var sources: [ProgressWeightOverview.Source] {
+        let imported = healthWeight.snapshot(for: dateRange.interval)?.overview
+        let first = progress.weightOverview.showingLatest(with: imported).source
+        return first == .appleHealth ? [.appleHealth, .matLogg] : [.matLogg, .appleHealth]
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HealthWeightCardContent(model: healthWeight, dateRange: dateRange, onOpenHealthSettings: onOpenHealthSettings)
-                CardContainer {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Registrert i MatLogg")
-                            .font(AppTypography.sectionTitle)
-                            .accessibilityAddTraits(.isHeader)
-                        WeightCardContent()
+                ForEach(sources, id: \.self) { source in
+                    switch source {
+                    case .appleHealth:
+                        HealthWeightCardContent(model: healthWeight, dateRange: dateRange, onOpenHealthSettings: onOpenHealthSettings)
+                    case .matLogg:
+                        CardContainer {
+                            VStack(alignment: .leading, spacing: 16) {
+                                ProgressCardHeading(title: "Registrert i MatLogg", symbol: "scalemass", detail: dateRange.label)
+                                if health.isLoadingWeights && progress.weightOverview.latest == nil {
+                                    ProgressView("Henter vekthistorikk …")
+                                } else {
+                                    WeightPeriodMeasurements(overview: progress.weightOverview)
+                                }
+                                WeightEntryContent()
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(16)
         }
+        .foregroundStyle(AppColors.deepInk)
         .matLoggTabBarScrollClearance()
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Vekt")
@@ -345,28 +371,15 @@ private struct WeightDetailView: View {
         .task {
             if let owner = auth.currentUser?.id { await health.loadWeightEntries(userId: owner) }
         }
-        .task { await healthWeight.refresh() }
+        .task {
+            if healthWeight.snapshot(for: dateRange.interval) == nil { await healthWeight.refresh() }
+        }
         .refreshable { await healthWeight.refresh() }
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { hideKeyboard() }.foregroundStyle(AppColors.actionText)
-            }
-        }
-    }
-}
-
-private struct WeightCardContent: View {
-    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
-
-    var body: some View {
-        Group {
-            if healthProfileViewModel.isLoadingWeights {
-                ProgressView("Henter vekthistorikk …")
-            }
-            if !healthProfileViewModel.isLoadingWeights || !healthProfileViewModel.weightEntries.isEmpty {
-                WeightEntryContent()
             }
         }
     }
@@ -382,30 +395,6 @@ private struct WeightEntryContent: View {
 
     var body: some View {
         Group {
-            if let latest = healthProfileViewModel.weightEntries.last {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Siste registrering")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.textSecondary)
-                    Text("\(formatWeight(latest.weightKg)) kg")
-                        .font(AppTypography.heroValue)
-                        .foregroundColor(AppColors.deepInk)
-                    Text("Registrert \(weightDate(latest.date))")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                .accessibilityElement(children: .combine)
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Ingen vekt registrert")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.deepInk)
-                    Text("Vektregistrering er valgfritt. Du kan skjule kortet under Tilpass.")
-                        .font(AppTypography.body)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
-
             Divider().overlay(AppColors.separator)
             Button {
                 showWeightEntry.toggle()
@@ -435,12 +424,6 @@ private struct WeightEntryContent: View {
 
             if !healthProfileViewModel.weightEntries.isEmpty {
                 Divider()
-                if healthProfileViewModel.weightEntries.count > 1 {
-                    Text("Tidligere registreringer")
-                        .font(AppTypography.captionEmphasis)
-                        .foregroundColor(AppColors.textSecondary)
-                    WeightHistoryRows(entries: Array(healthProfileViewModel.weightEntries.suffix(4).reversed().dropFirst()))
-                }
                 NavigationLink {
                     WeightHistoryView()
                 } label: {
@@ -464,14 +447,6 @@ private struct WeightEntryContent: View {
         } else {
             appState.errorMessage = healthProfileViewModel.errorMessage
         }
-    }
-
-    private func formatWeight(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(format: "%.1f", locale: Locale(identifier: "nb_NO"), value)
-    }
-
-    private func weightDate(_ date: Date) -> String {
-        date.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
     }
 }
 

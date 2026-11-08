@@ -9,6 +9,9 @@ nonisolated enum ProgressPeriod: String, CaseIterable, Identifiable, Sendable {
     var component: Calendar.Component {
         switch self { case .day: .day; case .week: .weekOfYear; case .month: .month }
     }
+    var currentLabel: String {
+        switch self { case .day: "I dag"; case .week: "Denne uken"; case .month: "Denne måneden" }
+    }
     var previousLabel: String {
         switch self { case .day: "Forrige dag"; case .week: "Forrige uke"; case .month: "Forrige måned" }
     }
@@ -96,6 +99,8 @@ nonisolated struct ProgressWeightOverview: Equatable, Sendable {
     let source: Source
     let chartLowerBound: Double
     let chartUpperBound: Double
+
+    var showsEarlierMeasurement: Bool { latest != nil && points.isEmpty }
 
     init(entries: [WeightEntry], range: DateInterval, owner: UUID?) {
         let valid = entries.filter { $0.userId == owner && $0.weightKg.isFinite && $0.weightKg > 0 && $0.date < range.end }

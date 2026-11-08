@@ -268,24 +268,28 @@ Brukeren kan alltid endre måltid før lagring.
 
 Utvikling starter med skjermtittelen, Tilpass og undertekst. Tilpass vises ved
 siden av tittelen når det er plass. Deretter følger Dag/Uke/Måned,
-datonavigasjon og et kompakt Mat og næring-kort. Aktivitet og Vekt deler en rad
+datonavigasjon og et kompakt Mat og næring-kort. Skritt og Vekt deler en rad
 når de står ved siden av hverandre i valgt rekkefølge. Ved store
 tilgjengelighetsstørrelser stables de.
-Aktivitet, Vekt og Treningsøkter åpner detaljer. Registrering og sletting av manuell vekt ligger i
-vektdetaljene. Tilkoblingsvalg for Apple Helse ligger i Innstillinger.
+Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
+Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
+for Apple Helse ligger i Innstillinger.
 
 «Tilpass» åpner et ark med synlighetsvalg og Opp/Ned-handlinger. Rekkefølge og
 synlighet redigeres som utkast; «Lagre» bekrefter og «Avbryt» forkaster.
-«Gjenopprett standard» velger rekkefølgen mat, aktivitet, vekt, treningsøkter.
+«Gjenopprett standard» velger rekkefølgen mat, skritt, vekt, treningsøkter.
 Mat er synlig, og vekt er synlig når historikk finnes. Brukeren kan velge å vise
-aktivitet og treningsøkter.
+skritt og treningsøkter.
 Eldre standardrekkefølge normaliseres ved lesing; eksplisitte nye valg og
 eldre egendefinerte rekkefølger beholdes. Begge/alle kort kan skjules; da vises
 «Velg hva du vil se her» med inngang til tilpasning. Visningspreferanse v2 er
 separat fra SQLite-/synkskjemaet.
 
 Matperiodene er kalenderdag, mandag–søndag og kalendermåned. Pilene flytter én
-valgt periode, og endring av periode bevarer ankret dato. Kortet viser dagens
+valgt periode og beholder ukedagen eller månedsdagen der kalenderen tillater
+det. Ved blaing over en kort måned brukes siste gyldige dag. Bytte av
+visning beholder ankret dato. Ved andre perioder hopper I dag, Denne uken
+eller Denne måneden tilbake til den gjeldende perioden. Kortet viser dagens
 eller periodens registrerte kcal og makroer som **snitt per logget dag**. Antall
 loggede dager og periodens lengde vises ved tallet; manglende dager er ikke
 nullinntak. En logget dag med null beholdes som reell null. Dette er en ny
@@ -296,9 +300,11 @@ rad per logget dag og fulle næringsnavn i uke- og månedsvisning. Dagsvisning
 viser tallene direkte på kortet.
 
 Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
-vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato, og
-detaljene viser kilden. Demomodus er merket ved tittelen i Utvikling.
-Aktivitet bruker samme periode og datonavigasjon som mat og vekt, med
+vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato.
+Detaljene viser samme periode, med kilden fra oversikten øverst. Begge
+kildene merker eventuelle eldre målinger med at de er fra før perioden. Registrering og full manuell historikk er
+tilgjengelig fra MatLogg-delen. Demomodus er merket ved tittelen i Utvikling.
+Skritt bruker samme periode og datonavigasjon som mat og vekt, med
 tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
 rekkefølge. Kortet viser antall økter og de to nyeste med type, dato og
 høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
@@ -318,11 +324,11 @@ lesetilgang styres i Helse. Å slå av en bryter stopper lesing for profilen
 og tømmer de viste målingene. Brukeren kan sette opp Helse med kortet skjult.
 Målinger hentes når kortet vises i Utvikling. Før tilkobling kan brukeren
 åpne samme innstillingsside i et ark fra kortdetaljene. **Tilpass** styrer
-kortenes synlighet.
+kortenes synlighet og forklarer hvor datatilgangen styres.
 
-Aktivitetskortet åpner en egen skrittvisning med valgt periode og kilde.
+Skrittkortet åpner en detaljvisning med valgt periode, kilde og hentetid.
 
-Kortet viser periodens tilgjengelige sum, hentetid og en liten graf fra to
+Kortet viser periodens tilgjengelige sum og en liten graf fra to
 registrerte punkter. Detaljene viser søyler per time for Dag og per dag for
 Uke og Måned. Timer og dager uten skrittdata gir hull i grafene.
 Kortet oppdateres ved periodebytte,

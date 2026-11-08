@@ -19,7 +19,10 @@ struct HealthWeightCardContent: View {
                     ProgressView("Henter vekt …")
                 case .loaded:
                     if let snapshot = model.snapshot(for: dateRange.interval) {
-                        measurements(snapshot)
+                        WeightPeriodMeasurements(overview: snapshot.overview)
+                        if snapshot.isExampleData {
+                            Text("QA – eksempeldata").font(AppTypography.caption)
+                        }
                     }
                 case .noData:
                     Text("Ingen vektdata tilgjengelig").font(AppTypography.bodyEmphasis)
@@ -40,31 +43,38 @@ struct HealthWeightCardContent: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+}
 
-    @ViewBuilder private func measurements(_ snapshot: HealthWeightSnapshot) -> some View {
-        if let latest = snapshot.overview.latest {
+struct WeightPeriodMeasurements: View {
+    let overview: ProgressWeightOverview
+
+    var body: some View {
+        if let latest = overview.latest {
+            if overview.showsEarlierMeasurement {
+                Text("Siste måling før perioden")
+                    .font(AppTypography.captionEmphasis)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
             Text(weight(latest))
                 .font(AppTypography.heroValue)
-                .accessibilityIdentifier("health-weight-latest")
-            Text("Målt \(date(latest))")
+                .accessibilityIdentifier(overview.source == .appleHealth ? "health-weight-latest" : "local-weight-latest")
+            let dateLabel = date(latest)
+            Text(overview.source == .appleHealth ? "Målt \(dateLabel)" : "Registrert \(dateLabel)")
                 .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+        } else {
+            Text("Ingen målinger i valgt periode.")
+                .font(AppTypography.body)
                 .foregroundStyle(AppColors.textSecondary)
         }
-        if snapshot.overview.points.isEmpty {
-            Text("Ingen målinger i valgt periode.")
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColors.textSecondary)
-        } else if snapshot.overview.points.count > 1 {
+        if overview.points.count > 1 {
             Text("Tidligere målinger i perioden")
                 .font(AppTypography.captionEmphasis)
                 .foregroundStyle(AppColors.textSecondary)
-            ForEach(Array(snapshot.overview.points.reversed().dropFirst())) { measurement in
+            ForEach(overview.points.reversed().dropFirst()) { measurement in
                 Divider()
                 Text("\(date(measurement)) · \(weight(measurement))")
             }
-        }
-        if snapshot.isExampleData {
-            Text("QA – eksempeldata").font(AppTypography.caption)
         }
     }
 
@@ -73,6 +83,7 @@ struct HealthWeightCardContent: View {
     }
 
     private func date(_ measurement: ProgressWeightMeasurement) -> String {
-        measurement.date.formatted(.dateTime.day().month(.abbreviated).year().hour().minute().locale(Locale(identifier: "nb_NO")))
+        let style = Date.FormatStyle.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))
+        return measurement.date.formatted(overview.source == .appleHealth ? style.hour().minute() : style)
     }
 }

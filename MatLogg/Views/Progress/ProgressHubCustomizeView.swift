@@ -57,7 +57,10 @@ struct ProgressHubCustomizeView: View {
                 } header: {
                     Text("Dine områder")
                 } footer: {
-                    Text("Velg hva du vil se, og flytt områdene i ønsket rekkefølge. Valgene lagres på denne enheten for profilen din.")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Velg hvilke kort som vises her, og flytt dem i ønsket rekkefølge.")
+                        Text("Du styrer hvilke data MatLogg henter under Innstillinger → Apple Helse.")
+                    }
                 }
                 Section {
                     Button("Gjenopprett standard") { model.restoreDefault() }
@@ -71,7 +74,7 @@ struct ProgressHubCustomizeView: View {
             .scrollContentBackground(.hidden)
             .background(AppColors.background)
             .tint(AppColors.action)
-            .navigationTitle("Tilpass oversikten")
+            .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "Tilpass" : "Tilpass oversikten")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -150,13 +150,14 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
 - Utvikling følger kompakt kortprototype: Mat og næring med kalenderdag/-uke/
-  -måned og datonavigasjon, samt Aktivitet og Vekt ved siden av hverandre ved
-  vanlig tekststørrelse. Aktivitet og Vekt åpner detaljer med historikk og manuell
-  vektregistrering. Næring vises som snitt per logget dag med datadekning.
+  -måned og datonavigasjon, samt Skritt og Vekt ved siden av hverandre ved
+  vanlig tekststørrelse. Begge kort har historikk. Vektdetaljene har også
+  manuell registrering. Næring vises som snitt per logget dag med datadekning.
   Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning.
-  Uloggede dager blir ikke nullinntak.
+  Uloggede dager blir ikke nullinntak. Periodenavigasjonen har en snarvei
+  tilbake til inneværende dag, uke eller måned.
 - Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
-  standardrekkefølge til mat/aktivitet/vekt uten å aktivere skjulte områder eller
+  standardrekkefølge til mat/skritt/vekt uten å aktivere skjulte områder eller
   endre helsevalg. Egendefinerte oppsett beholdes.
 - **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
   og Vekt samt Treningsøkter. Kortdetaljene har en snarvei hit før tilkobling. Data hentes
@@ -164,9 +165,10 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
 - Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
   Kortet viser den nyeste målingen før periodens slutt og en linje
   basert på målinger fra samme kilde i valgt periode. Helse-målinger og manuelle
-  MatLogg-registreringer vises hver for seg i detaljene. Bare tilkoblingsvalget
+  MatLogg-registreringer vises hver for seg for valgt periode, med kilden fra
+  oversikten først. Full manuell historikk åpnes separat. Bare tilkoblingsvalget
   lagres lokalt per profil. Helse-målinger brukes kun til visning i Utvikling.
-- Aktivitet viser skrittsummen og en kompakt graf fra Apple Helse for valgt dag,
+- Skritt viser skrittsummen og en kompakt graf fra Apple Helse for valgt dag,
   uke eller måned. Graf og detaljer bruker timer i dagsvisning og dager i
   uke- og månedsvisning. Pilene gir tilgang til tidligere perioder.
   Første lesing krever en aktiv tilkobling fra brukeren.
