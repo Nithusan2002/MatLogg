@@ -217,7 +217,7 @@ beholder siste sju dager og eksisterende vekthistorikk.
 Skritt slås på i Profil → Innstillinger → Apple Helse og ber om separat
 lesetilgang. Aktivitetskortet er valgfritt og skjult som standard. HealthKit
 leverer tilgjengelige summer per time i Dag og per dag i Uke og Måned, også
-tilbake i tid. Kortet viser periodens sum, kilde og graf. Detaljene viser
+tilbake i tid. Kortet viser periodens sum og graf. Detaljene viser kilden og
 fordelingen som søyler. Tallene
 ligger bare i minnet. Lokal tilkobling lagres per profil og følger eksport og
 sletting. Ekte HealthKit-tilgang krever verifisering på fysisk iPhone før release.
@@ -235,6 +235,6 @@ Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
 Utvikling bruker kompakt næringskort, Aktivitet/Vekt på delt rad og detaljer
 bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
 inkludert. Hovedtall og makroer er snitt per logget dag, med synlig dekning;
-ulogget dag er ikke null. Dagsverdier er tilgjengelige i detaljer. Ingen
+ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i uke- og månedsvisning. Ingen
 endring i lagrede logger, målberegning, HealthKit-lesetyper eller synkformat.
 Treningsøkter og ytterligere helseimport er fortsatt utenfor scope.

@@ -442,7 +442,7 @@ holder innhold over bunnmenyen med `matLoggTabBarScrollClearance()`.
 ### Skritt fra Apple Helse (2026-11-06)
 
 Skritt er et valgfritt ordinært hub-kort med `figure.walk`, `heroValue` for
-antallet, eksplisitt enhet og sekundær kilde-/hentetidstekst. Bruk eksisterende
+antallet, eksplisitt enhet og sekundær hentetidstekst. Bruk eksisterende
 semantiske farger og knapper med minst 44 pt trykkflate. Loading, ikke tilkoblet,
 ingen data, lesefeil, utilgjengelig enhet og demomodus har egne teksttilstander.
 Ingen helsescore, daglig kvote eller belønningsfarge. Manglende data blir ikke
@@ -452,7 +452,7 @@ og «skritt». Helse-forespørselen startes bare av tilkoblingsknappen.
 ### Kompakt Utvikling-prototype (2026-11-06)
 
 Den valgte prototypen er visuell referanse for faktisk UI. Matkortet samler ett
-hovedtall, kilde, periodeforklaring, lavt korallfarget diagram og makrofooter.
+hovedtall, periodeforklaring, lavt korallfarget diagram og makrofooter.
 Aktivitet og Vekt er små kort på samme rad ved vanlig tekststørrelse; detaljer
 og kontroller ligger én navigasjon inn. Ved tilgjengelighetsstørrelser stables
 kortene og makrofooteren uten å kutte tekst. Tilpass står til høyre for
@@ -464,7 +464,7 @@ sifre for kompakte metrikker. `onAction` er kontrastfargen på fylte action-flat
 onAction, eksplisitt valgt-trait og minst 44 pt trykkflate. Dato-pilene er
 44 pt. Kortene bruker de delte skygge- og flatevariantene.
 
-Aktivitet og Vekt har lik høyde på delt rad og viser kilden under tittelen.
+Aktivitet og Vekt har lik høyde på delt rad.
 På egne rader deler målingen og tidspunktet bredden når teksten får plass.
 Ved større tekst kan de stables. Bakgrunnen ved statuslinjen skjermer
 systemikonene når oversikten rulles.
@@ -472,4 +472,5 @@ Vektlinjen vises fra to målinger i perioden og bruker bare reelle punkter.
 Aktivitetsgrafen bruker den turkise `activityChart`-fargen og vises fra to
 registrerte punkter. Timer eller dager uten data gir brudd i linjen.
 Detaljvisningens søyler har nullbasert akse og tilgjengelige tall per intervall.
-Datakilden står på kortet.
+Datakildene står i detaljene. Demomodus har én Demodata-etikett ved
+skjermtittelen i Utvikling.

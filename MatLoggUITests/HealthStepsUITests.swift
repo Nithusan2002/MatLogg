@@ -105,6 +105,12 @@ final class HealthStepsUITests: XCTestCase {
         XCTAssertFalse(app.switches["apple-health-steps-toggle"].isEnabled)
         XCTAssertFalse(app.switches["apple-health-weight-toggle"].isEnabled)
         configureStepsCard(app)
+        let demoLabel = app.staticTexts["progress-hub-demo-label"]
+        XCTAssertTrue(demoLabel.exists)
+        XCTAssertEqual(demoLabel.label, "Demodata")
+        XCTAssertEqual(app.staticTexts.matching(identifier: "Demodata").count, 1)
+        XCTAssertFalse(app.buttons["progress-hub-steps-open"].label.contains("Apple Helse"))
+        capture("Utvikling – én Demodata-etikett", app)
         openActivity(app)
         let message = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Apple Helse kobles ikke til i demomodus.'")).firstMatch
         XCTAssertTrue(message.waitForExistence(timeout: 5))

@@ -86,27 +86,49 @@ final class ProgressHubUITests: XCTestCase {
         app.navigationBars["Aktivitet"].buttons.element(boundBy: 0).tap()
         app.swipeDown()
         let weight = app.buttons["progress-hub-weight-open"]
-        let nutrition = app.buttons["progress-hub-nutrition-open"]
+        let nutrition = app.buttons["progress-hub-nutrition-daily-totals"]
         XCTAssertTrue(weight.waitForExistence(timeout: 5))
+        XCTAssertFalse(activity.label.contains("Apple Helse"))
+        XCTAssertFalse(weight.label.contains("MatLogg"))
+        XCTAssertFalse(app.staticTexts["MatLogg"].exists)
         XCTAssertTrue(activity.isHittable && weight.isHittable)
         XCTAssertLessThan(activity.frame.width, app.frame.width * 0.6)
         XCTAssertLessThan(abs(activity.frame.minY - weight.frame.minY), 8)
         XCTAssertEqual(activity.frame.height, weight.frame.height, accuracy: 1)
         XCTAssertLessThan(activity.frame.minX, weight.frame.minX)
-        XCTAssertLessThan(nutrition.frame.height, app.frame.height * 0.5)
         capture("Utvikling – kompakt prototypeoppsett", app)
         let range = app.staticTexts["progress-period-range"]
         let originalWeek = range.label
         app.buttons["progress-period-day"].tap()
         XCTAssertNotEqual(range.label, originalWeek)
+        XCTAssertFalse(nutrition.exists)
         let originalDay = range.label
         app.buttons["progress-period-previous"].tap()
         XCTAssertNotEqual(range.label, originalDay)
         app.buttons["progress-period-month"].tap()
         XCTAssertNotEqual(range.label, originalWeek)
-        app.buttons["progress-period-week"].tap()
-        nutrition.tap()
-        XCTAssertTrue(app.navigationBars["Mat og næring"].waitForExistence(timeout: 5))
+        for period in ["month", "week"] {
+            app.buttons["progress-period-\(period)"].tap()
+            let periodLabel = range.label
+            XCTAssertTrue(nutrition.waitForExistence(timeout: 5))
+            if !nutrition.isHittable { app.swipeUp() }
+            nutrition.tap()
+            XCTAssertTrue(app.navigationBars["Dagstall"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts[periodLabel].exists)
+            XCTAssertTrue(app.staticTexts["Registrert i MatLogg"].exists)
+            let loggedDays = app.descendants(matching: .any).matching(identifier: "nutrition-day-total")
+            XCTAssertTrue(loggedDays.firstMatch.exists)
+            XCTAssertTrue(loggedDays.firstMatch.label.contains("kcal"))
+            XCTAssertTrue(loggedDays.firstMatch.label.contains("Karbohydrater"))
+            capture("Mat og næring – dagstall for " + period, app)
+            XCTAssertFalse(app.staticTexts["Ingen registreringer"].exists)
+            app.buttons["Ferdig"].tap()
+            XCTAssertEqual(range.label, periodLabel)
+        }
+        app.swipeDown()
+        app.buttons["progress-period-next"].tap()
+        XCTAssertTrue(app.staticTexts["Ingen mat registrert"].waitForExistence(timeout: 5))
+        XCTAssertFalse(nutrition.exists)
     }
 
     @MainActor
@@ -193,12 +215,14 @@ final class ProgressHubUITests: XCTestCase {
         let latest = app.staticTexts["health-weight-latest"]
         XCTAssertTrue(latest.waitForExistence(timeout: 5))
         XCTAssertEqual(latest.label, "71,2 kg")
+        XCTAssertTrue(app.staticTexts["Vekt fra Apple Helse"].exists)
+        XCTAssertTrue(app.staticTexts["Registrert i MatLogg"].exists)
         XCTAssertTrue(app.buttons["Registrer vekt"].exists)
         capture("Vekt fra Apple Helse og MatLogg", app)
 
         app.navigationBars["Vekt"].buttons.element(boundBy: 0).tap()
         XCTAssertTrue(card.waitForExistence(timeout: 5))
-        XCTAssertTrue(card.label.contains("Apple Helse"))
+        XCTAssertFalse(card.label.contains("Apple Helse"))
         app.openAppleHealthSettings()
         app.setAppleHealthToggle("apple-health-weight-toggle", enabled: false)
         openHub(app)
@@ -231,6 +255,19 @@ final class ProgressHubUITests: XCTestCase {
         app.buttons["Avbryt"].tap()
         XCTAssertTrue(app.buttons["progress-hub-customize"].waitForExistence(timeout: 5))
         capture("Hub – mørk modus og stor tekst", app)
+
+        let dailyTotals = app.buttons["progress-hub-nutrition-daily-totals"]
+        for _ in 0..<8 {
+            if dailyTotals.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(dailyTotals.isHittable)
+        dailyTotals.tap()
+        XCTAssertTrue(app.navigationBars["Dagstall"].waitForExistence(timeout: 5))
+        let row = app.descendants(matching: .any).matching(identifier: "nutrition-day-total").firstMatch
+        XCTAssertTrue(row.isHittable)
+        XCTAssertTrue(app.buttons["Ferdig"].isHittable)
+        capture("Mat og næring – dagstall med stor tekst", app)
     }
 
     @MainActor private func openHub(_ app: XCUIApplication) {

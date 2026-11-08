@@ -8,7 +8,7 @@ struct HealthWeightCardContent: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 12) {
-                ProgressCardHeading(title: "Vekt fra Apple Helse", symbol: "heart", source: dateRange.label)
+                ProgressCardHeading(title: "Vekt fra Apple Helse", symbol: "heart", detail: dateRange.label)
                 switch model.state {
                 case .notConnected:
                     if !model.isEnabled {

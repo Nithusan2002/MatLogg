@@ -12,6 +12,7 @@ private struct ProgressTabContent: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var demoMode: DemoMode
     @EnvironmentObject private var viewModel: ProgressViewModel
     @EnvironmentObject private var hub: ProgressHubViewModel
     @EnvironmentObject private var steps: StepCountViewModel
@@ -34,13 +35,9 @@ private struct ProgressTabContent: View {
                         }
                         ForEach(rows) { row in
                             if row.areas == [.nutrition] {
-                                NavigationLink {
-                                    NutritionPeriodDetailView(model: viewModel)
-                                } label: {
-                                    CompactNutritionCard(model: viewModel)
+                                CompactNutritionCard(model: viewModel) {
+                                    Task { await viewModel.load(userId: authViewModel.currentUser?.id) }
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("progress-hub-nutrition-open")
                             } else {
                                 let isPaired = row.areas.count == 2 && !dynamicTypeSize.isAccessibilitySize
                                 let layout = !isPaired
@@ -166,11 +163,12 @@ private struct ProgressTabContent: View {
             Text("Din oversikt, på ett sted")
                 .font(AppTypography.body)
                 .foregroundStyle(AppColors.textSecondary)
-            if steps.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true
+            if demoMode.isDemo || steps.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true
                 || healthWeight.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true {
-                Text("Eksempeldata")
+                Text(demoMode.isDemo ? "Demodata" : "Eksempeldata")
                     .font(AppTypography.caption)
                     .foregroundStyle(AppColors.textSecondary)
+                    .accessibilityIdentifier("progress-hub-demo-label")
             }
         }
         .foregroundStyle(AppColors.deepInk)

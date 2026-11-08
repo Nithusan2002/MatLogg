@@ -151,9 +151,9 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
 - Dagsoppsummering og gruppering av logger per måltid.
 - Utvikling følger kompakt kortprototype: Mat og næring med kalenderdag/-uke/
   -måned og datonavigasjon, samt Aktivitet og Vekt ved siden av hverandre ved
-  vanlig tekststørrelse. Kort åpner detaljer med historikk og manuell
-  vektregistrering. Næring vises som snitt per logget dag med datadekning, og
-  dagsverdier finnes i detaljene. Uloggede dager blir ikke nullinntak.
+  vanlig tekststørrelse. Aktivitet og Vekt åpner detaljer med historikk og manuell
+  vektregistrering. Næring vises som snitt per logget dag med datadekning.
+  Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning. Uloggede dager blir ikke nullinntak.
 - Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
   standardrekkefølge til mat/aktivitet/vekt uten å aktivere skjulte områder eller
   endre helsevalg. Egendefinerte oppsett beholdes.
@@ -161,7 +161,7 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   og Vekt. Kortdetaljene har en snarvei hit før tilkobling. Målinger hentes
   bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.
 - Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
-  Kortet viser den nyeste målingen før periodens slutt, med kilde og en linje
+  Kortet viser den nyeste målingen før periodens slutt og en linje
   basert på målinger fra samme kilde i valgt periode. Helse-målinger og manuelle
   MatLogg-registreringer vises hver for seg i detaljene. Bare tilkoblingsvalget
   lagres lokalt per profil. Helse-målinger brukes kun til visning i Utvikling.

@@ -3,12 +3,14 @@ import Charts
 
 struct CompactNutritionCard: View {
     @ObservedObject var model: ProgressViewModel
+    let onRetry: () -> Void
+    @State private var showsDailyTotals = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Mat og næring", symbol: "fork.knife", source: "MatLogg")
+                ProgressCardHeading(title: "Mat og næring", symbol: "fork.knife")
                 if let calories = model.overview.averageCalories {
                     ViewThatFits(in: .horizontal) {
                         Text("\(calories.formatted(.number.locale(Locale(identifier: "nb_NO")))) kcal")
@@ -28,17 +30,33 @@ struct CompactNutritionCard: View {
                 } else {
                     Text(model.errorMessage == nil ? "Ingen mat registrert" : "Kunne ikke hente oversikten")
                         .font(AppTypography.bodyEmphasis)
-                    Text(model.errorMessage == nil ? "Registrerte måltider vises her." : "Åpne kortet for å prøve igjen.")
-                        .font(AppTypography.body).foregroundStyle(AppColors.textSecondary)
+                    if model.errorMessage == nil {
+                        Text("Registrerte måltider vises her.")
+                            .font(AppTypography.body).foregroundStyle(AppColors.textSecondary)
+                    }
                 }
-                if model.errorMessage != nil && model.overview.averageCalories != nil {
-                    Text("Kunne ikke oppdatere. Åpne kortet for å prøve igjen.")
-                        .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                if model.errorMessage != nil {
+                    if model.overview.averageCalories != nil {
+                        Text("Kunne ikke oppdatere oversikten")
+                            .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    }
+                    Button("Prøv igjen", action: onRetry)
+                        .frame(minHeight: 44)
+                        .disabled(model.isLoading)
+                }
+                if model.period != .day && !model.overview.recordedDays.isEmpty {
+                    Button("Vis dagstall") { showsDailyTotals = true }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("progress-hub-nutrition-daily-totals")
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .foregroundStyle(AppColors.deepInk)
+        .tint(AppColors.actionText)
+        .sheet(isPresented: $showsDailyTotals) {
+            NutritionDayTotalsSheet(periodLabel: model.dateRange.label, days: model.overview.recordedDays)
+        }
     }
 
     private var periodChart: some View {
@@ -109,7 +127,7 @@ struct CompactStepsCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Aktivitet", symbol: "figure.walk", source: "Apple Helse", compact: true)
+                ProgressCardHeading(title: "Aktivitet", symbol: "figure.walk", compact: true)
                 switch model.state {
                 case .loaded(let snapshot):
                     if let count = snapshot.count {
@@ -151,7 +169,7 @@ struct CompactStepsCard: View {
                     Text("Utilgjengelig").font(AppTypography.bodyEmphasis)
                 case .demo:
                     Text("Skritt").font(AppTypography.title)
-                    Text("Ikke tilkoblet i demo").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    Text("Ikke tilkoblet").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: isPaired ? 116 : nil,
@@ -197,7 +215,7 @@ struct CompactWeightCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Vekt", symbol: "scalemass", source: overview.source.rawValue, compact: true)
+                ProgressCardHeading(title: "Vekt", symbol: "scalemass", compact: true)
                 if let latest = overview.latest {
                     let formattedWeight = latest.weightKg.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "nb_NO")))
                     ProgressMetricReading(isPaired: isPaired) {
@@ -270,34 +288,26 @@ private struct ProgressMetricReading<Value: View, Detail: View>: View {
 struct ProgressCardHeading: View {
     let title: String
     let symbol: String
-    let source: String
+    var detail: String? = nil
     var compact = false
+
     var body: some View {
-        if compact {
-            stackedHeading
-        } else {
+        if let detail {
+            let detailLabel = Text(detail).font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
                     heading.fixedSize(horizontal: true, vertical: false)
                     Spacer(minLength: 4)
-                    sourceLabel.fixedSize(horizontal: true, vertical: false)
+                    detailLabel.fixedSize(horizontal: true, vertical: false)
                 }
-                stackedHeading
+                VStack(alignment: .leading, spacing: 3) {
+                    heading
+                    detailLabel
+                }
             }
-        }
-    }
-
-    private var stackedHeading: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        } else {
             heading
-            sourceLabel
         }
-    }
-
-    private var sourceLabel: some View {
-        Text(source)
-            .font(compact ? AppTypography.chartLabel : AppTypography.caption)
-            .foregroundStyle(AppColors.textSecondary)
     }
 
     private var heading: some View {
@@ -312,47 +322,74 @@ struct ProgressCardHeading: View {
     }
 }
 
-struct NutritionPeriodDetailView: View {
-    @ObservedObject var model: ProgressViewModel
-    @EnvironmentObject private var auth: AuthViewModel
+private struct NutritionDayTotalsSheet: View {
+    let periodLabel: String
+    let days: [DailySummary]
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                Text(model.dateRange.label).font(AppTypography.sectionTitle)
-                if model.isLoading { ProgressView("Henter oversikten …") }
-                if let error = model.errorMessage {
-                    ErrorMessageView(error)
-                    Button("Prøv igjen") { Task { await model.load(userId: auth.currentUser?.id) } }
-                        .frame(minHeight: 44)
-                }
-                ForEach(model.summaries, id: \.date) { day in
-                    CardContainer {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(day.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).locale(Locale(identifier: "nb_NO"))))
-                                .font(AppTypography.sectionTitle)
-                            if day.logs.isEmpty {
-                                Text("Ingen registreringer").foregroundStyle(AppColors.textSecondary)
-                            } else {
-                                Text("\(NutritionDisplay.wholeCalories(day.totalCalories)) kcal").font(AppTypography.title)
-                                Text("Protein \(NutritionDisplay.wholeGrams(day.totalProtein)) g")
-                                Text("Karbohydrater \(NutritionDisplay.wholeGrams(day.totalCarbs)) g")
-                                Text("Fett \(NutritionDisplay.wholeGrams(day.totalFat)) g")
-                            }
-                        }
-                        .font(AppTypography.body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(days, id: \.date) { day in
+                        dayRow(day)
+                            .listRowBackground(AppColors.surface)
                     }
+                } header: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(periodLabel).font(AppTypography.sectionTitle).foregroundStyle(AppColors.deepInk)
+                        Text("Registrert i MatLogg")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                    .textCase(nil)
                 }
-            }.padding(16)
+            }
+            .scrollContentBackground(.hidden)
+            .background(AppColors.background)
+            .navigationTitle("Dagstall")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Ferdig") { dismiss() }
+                }
+            }
         }
-        .matLoggTabBarScrollClearance()
-        .background(AppColors.background.ignoresSafeArea())
-        .navigationTitle("Mat og næring").navigationBarTitleDisplayMode(.inline)
-        .toolbar(.visible, for: .navigationBar)
-        .task {
-            if model.summaries.isEmpty { await model.load(userId: auth.currentUser?.id) }
+    }
+
+    private func dayRow(_ day: DailySummary) -> some View {
+        let date = day.date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).locale(Locale(identifier: "nb_NO")))
+        let calories = "\(NutritionDisplay.wholeCalories(day.totalCalories)) kcal"
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return VStack(alignment: .leading, spacing: 5) {
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text(date).fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 8)
+                    Text(calories).fixedSize(horizontal: true, vertical: false)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(date)
+                    Text(calories)
+                }
+            }
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.deepInk)
+
+            layout {
+                Text("Protein \(NutritionDisplay.wholeGrams(day.totalProtein)) g")
+                Text("Karbohydrater \(NutritionDisplay.wholeGrams(day.totalCarbs)) g")
+                Text("Fett \(NutritionDisplay.wholeGrams(day.totalFat)) g")
+            }
+            .font(AppTypography.caption)
+            .foregroundStyle(AppColors.textSecondary)
         }
+        .padding(.vertical, 3)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("nutrition-day-total")
     }
 }
 

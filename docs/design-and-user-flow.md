@@ -290,11 +290,12 @@ loggede dager og periodens lengde vises ved tallet; manglende dager er ikke
 nullinntak. En logget dag med null beholdes som reell null. Dette er en ny
 presentasjonsregel, ikke endring i lagrede næringsverdier eller kalorimål.
 Diagrammet bruker ekte dagsverdier, nullbasert y-akse og korallfargede søyler;
-ulogget/fremtidig dato har ingen søyle. Mat og næring-detaljer gir tilgjengelige
-dagstall med fulle næringsnavn, også uten opprettede mål.
+ulogget/fremtidig dato har ingen søyle. **Vis dagstall** åpner et ark med én rad per logget dag og fulle næringsnavn
+i uke- og månedsvisning. Dagsvisning viser tallene direkte på kortet.
 
 Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
-vektpunkter fra samme kilde i valgt periode. Kortet oppgir kilde og måledato.
+vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato, og
+detaljene viser kilden. Demomodus er merket ved tittelen i Utvikling.
 Aktivitet bruker samme periode og datonavigasjon som mat og vekt, med
 tilgjengelige skritt fra Apple Helse.
 
