@@ -266,11 +266,20 @@ Brukeren kan alltid endre måltid før lagring.
 
 ### Utvikling
 
-Utvikling starter med skjermtittelen, Tilpass og undertekst. Tilpass vises ved
-siden av tittelen når det er plass. Deretter følger Dag/Uke/Måned,
-datonavigasjon og et kompakt Mat og næring-kort. Skritt og Vekt deler en rad
-når de står ved siden av hverandre i valgt rekkefølge. Ved store
+Utvikling starter med skjermtittelen og Tilpass. Tilpass vises ved siden av
+tittelen når det er plass. Deretter følger Dag/Uke/Måned,
+datonavigasjon og kortene for valgt periode. I Dag og Måned deler Skritt og
+Vekt en rad når de står ved siden av hverandre i valgt rekkefølge. Ved store
 tilgjengelighetsstørrelser stables de.
+
+I Uke samles de synlige radene Mat og næring, Skritt og Treningsøkter i ett
+kort med sju delte dagkolonner. Radene følger rekkefølgen i Tilpass, og
+ukekortet står der den første synlige raden ellers ville stått. Vekt står
+før eller etter kortet. Trykk på mat åpner dagstallarket. Skritt og
+Treningsøkter åpner sine detaljvisninger. Hver rad viser egne tom-, laste-
+og feiltilstander. Mat viser ukesum, snitt og dekning. Skritt viser ukesum
+og snitt per dag med data. Treningsøkter viser antall i uken og markerer
+dagene med økt. Flere økter på én dag får et antall.
 Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
 Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
 for Apple Helse ligger i Innstillinger.
@@ -289,15 +298,20 @@ Matperiodene er kalenderdag, mandag–søndag og kalendermåned. Pilene flytter 
 valgt periode og beholder ukedagen eller månedsdagen der kalenderen tillater
 det. Ved blaing over en kort måned brukes siste gyldige dag. Bytte av
 visning beholder ankret dato. Ved andre perioder hopper I dag, Denne uken
-eller Denne måneden tilbake til den gjeldende perioden. Kortet viser dagens
-eller periodens registrerte kcal og makroer som **snitt per logget dag**. Antall
-loggede dager og periodens lengde vises ved tallet; manglende dager er ikke
-nullinntak. En logget dag med null beholdes som reell null. Dette er en ny
-presentasjonsregel, ikke endring i lagrede næringsverdier eller kalorimål.
-Diagrammet bruker ekte dagsverdier, nullbasert y-akse og korallfargede søyler;
-ulogget/fremtidig dato har ingen søyle. **Vis dagstall** åpner et ark med én
-rad per logget dag og fulle næringsnavn i uke- og månedsvisning. Dagsvisning
-viser tallene direkte på kortet.
+eller Denne måneden tilbake til den gjeldende perioden.
+
+Matkortet i Dag viser totalt logget energi og en vannrett fordeling av
+energien fra registrerte makroer, med gram og prosent. Fordelingen
+beregnes med 4 kcal per gram protein og karbohydrat og 9 kcal per gram fett.
+Ved en registrering med energi og uten identifiserbart makrobidrag vises
+en nøytral stripe. Uke merker kcal-tallet «Totalt i uken» og viser snitt
+per logget dag separat. Måned viser snitt per logget dag som hovedtall.
+Uke og Måned oppgir antall loggede dager og periodens lengde.
+
+Søylene i Uke og Måned viser registrerte dagsverdier på en nullbasert
+skala. Dager uten data står tomme, mens en registrert null markeres på
+grunnlinjen i Uke. Dagstallarket viser én rad per logget dag med fulle
+næringsnavn.
 
 Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
 vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato.
@@ -306,8 +320,8 @@ kildene merker eventuelle eldre målinger med at de er fra før perioden. Regist
 tilgjengelig fra MatLogg-delen. Demomodus er merket ved tittelen i Utvikling.
 Skritt bruker samme periode og datonavigasjon som mat og vekt, med
 tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
-rekkefølge. Kortet viser antall økter og de to nyeste med type, dato og
-høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
+rekkefølge. I Dag og Måned viser det egne kortet antall økter og de to
+nyeste med type, dato og høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
 Detaljene viser hele listen med klokkeslett og Apple Helse som kilde.
 Begge visningene bruker timer og minutter for økter på minst én time.
 
@@ -328,8 +342,8 @@ kortenes synlighet og forklarer hvor datatilgangen styres.
 
 Skrittkortet åpner en detaljvisning med valgt periode, kilde og hentetid.
 
-Kortet viser periodens tilgjengelige sum og en liten graf fra to
-registrerte punkter. Detaljene viser søyler per time for Dag og per dag for
+Skritt viser periodens tilgjengelige sum. I Uke vises dagsfordelingen
+som søyler. I Dag og Måned vises en liten graf fra to registrerte punkter. Detaljene viser søyler per time for Dag og per dag for
 Uke og Måned. Timer og dager uten skrittdata gir hull i grafene.
 Kortet oppdateres ved periodebytte,
 når kortet åpnes, når appen kommer til forgrunnen, ved

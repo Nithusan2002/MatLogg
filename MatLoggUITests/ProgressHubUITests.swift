@@ -55,11 +55,12 @@ final class ProgressHubUITests: XCTestCase {
     func testPrototypeLayoutAndCalendarNavigation() {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-demoModeActive", "YES", "--steps-qa", "-appAppearance", "dark",
+        app.launchArguments = ["-demoModeActive", "YES", "--steps-qa", "--health-workouts-qa", "-appAppearance", "dark",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         app.openAppleHealthSettings()
         app.setAppleHealthToggle("apple-health-steps-toggle", enabled: true)
+        app.setAppleHealthToggle("apple-health-workouts-toggle", enabled: true)
         openHub(app)
         let title = app.staticTexts["progress-hub-title"]
         let customizeButton = app.buttons["progress-hub-customize"]
@@ -75,6 +76,13 @@ final class ProgressHubUITests: XCTestCase {
         }
         steps.tap()
         XCTAssertEqual(steps.value as? String, "1")
+        let showWorkouts = app.switches["progress-hub-toggle-workouts"]
+        for _ in 0..<4 {
+            if showWorkouts.isHittable { break }
+            app.swipeUp()
+        }
+        showWorkouts.tap()
+        XCTAssertEqual(showWorkouts.value as? String, "1")
         app.buttons["progress-hub-save"].tap()
         let activity = app.buttons["progress-hub-steps-open"]
         for _ in 0..<6 {
@@ -89,21 +97,38 @@ final class ProgressHubUITests: XCTestCase {
         let nutrition = app.buttons["progress-hub-nutrition-daily-totals"]
         XCTAssertTrue(weight.waitForExistence(timeout: 5))
         XCTAssertTrue(activity.label.contains("Skritt"))
+        XCTAssertTrue(activity.label.contains("skritt per dag med data"))
+        XCTAssertTrue(activity.label.lowercased().contains("mandag"))
+        XCTAssertTrue(nutrition.label.lowercased().contains("mandag"))
+        XCTAssertTrue(nutrition.label.contains("Totalt i uken"))
         XCTAssertFalse(activity.label.contains("Hentet"))
         XCTAssertFalse(activity.label.contains("Apple Helse"))
         XCTAssertFalse(weight.label.contains("MatLogg"))
         XCTAssertFalse(app.staticTexts["MatLogg"].exists)
-        XCTAssertTrue(activity.isHittable && weight.isHittable)
-        XCTAssertLessThan(activity.frame.width, app.frame.width * 0.6)
-        XCTAssertLessThan(abs(activity.frame.minY - weight.frame.minY), 8)
-        XCTAssertEqual(activity.frame.height, weight.frame.height, accuracy: 1)
-        XCTAssertLessThan(activity.frame.minX, weight.frame.minX)
-        capture("Utvikling – kompakt prototypeoppsett", app)
+        let workouts = app.buttons["progress-hub-workouts-open"]
+        XCTAssertTrue(workouts.waitForExistence(timeout: 5))
+        XCTAssertTrue(workouts.label.contains("3 økter"))
+        XCTAssertGreaterThan(activity.frame.width, app.frame.width * 0.8)
+        XCTAssertLessThanOrEqual(activity.frame.maxY, workouts.frame.minY)
+        XCTAssertLessThanOrEqual(workouts.frame.maxY, weight.frame.minY)
+        XCTAssertTrue(app.staticTexts["progress-week-title"].exists)
+        capture("Ukeoversikt – mat, skritt og treningsøkter", app)
         let range = app.staticTexts["progress-period-range"]
         let originalWeek = range.label
         app.buttons["progress-period-day"].tap()
         XCTAssertNotEqual(range.label, originalWeek)
         XCTAssertFalse(nutrition.exists)
+        XCTAssertFalse(app.staticTexts["progress-week-title"].exists)
+        let distribution = app.staticTexts["progress-day-macro-distribution"]
+        XCTAssertTrue(distribution.waitForExistence(timeout: 5))
+        XCTAssertEqual(distribution.label, "Energifordeling fra makroer")
+        XCTAssertTrue(app.staticTexts["Totalt logget denne dagen"].exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH 'Protein,' AND label CONTAINS 'av energien fra makroene'")
+        ).firstMatch.exists)
+        capture("Utvikling – makrofordeling i Dag", app)
+        XCTAssertLessThan(activity.frame.width, app.frame.width * 0.6)
+        XCTAssertEqual(activity.frame.minY, weight.frame.minY, accuracy: 8)
         let originalDay = range.label
         app.buttons["progress-period-previous"].tap()
         XCTAssertNotEqual(range.label, originalDay)
@@ -114,6 +139,9 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertFalse(returnToCurrent.exists)
         app.buttons["progress-period-month"].tap()
         XCTAssertNotEqual(range.label, originalWeek)
+        XCTAssertFalse(distribution.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Snitt per logget dag'")).firstMatch.waitForExistence(timeout: 5))
+        capture("Utvikling – datoetiketter i månedsgrafen", app)
         for period in ["month", "week"] {
             app.buttons["progress-period-\(period)"].tap()
             let periodLabel = range.label
@@ -136,6 +164,7 @@ final class ProgressHubUITests: XCTestCase {
         app.buttons["progress-period-next"].tap()
         XCTAssertTrue(app.staticTexts["Ingen mat registrert"].waitForExistence(timeout: 5))
         XCTAssertFalse(nutrition.exists)
+        XCTAssertEqual(app.staticTexts["progress-week-title"].label, "Ukeoversikt")
     }
 
     @MainActor
@@ -273,15 +302,26 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(toggle.isHittable)
         app.buttons["Avbryt"].tap()
         XCTAssertTrue(app.buttons["progress-hub-customize"].waitForExistence(timeout: 5))
-        capture("Hub – mørk modus og stor tekst", app)
+        let visibleBottom = app.buttons["Hjem"].firstMatch.frame.minY - 16
+        let scrollStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: (visibleBottom - 12) / app.frame.height))
+        let scrollEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.30))
+        let weekTitle = app.staticTexts["progress-week-title"]
+        for _ in 0..<8 {
+            if weekTitle.isHittable && weekTitle.frame.midY < visibleBottom { break }
+            scrollStart.press(forDuration: 0.05, thenDragTo: scrollEnd)
+        }
+        XCTAssertTrue(weekTitle.isHittable && weekTitle.frame.midY < visibleBottom)
+        capture("Ukeoversikt – stor tekst", app)
 
         let dailyTotals = app.buttons["progress-hub-nutrition-daily-totals"]
+        // Use the visible upper portion of the row when the chart extends below the tab bar.
+        let tapPoint = dailyTotals.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.15))
         for _ in 0..<8 {
-            if dailyTotals.isHittable { break }
-            app.swipeUp()
+            if dailyTotals.isHittable && tapPoint.screenPoint.y < visibleBottom { break }
+            scrollStart.press(forDuration: 0.05, thenDragTo: scrollEnd)
         }
-        XCTAssertTrue(dailyTotals.isHittable)
-        dailyTotals.tap()
+        XCTAssertTrue(dailyTotals.isHittable && tapPoint.screenPoint.y < visibleBottom)
+        tapPoint.tap()
         XCTAssertTrue(app.navigationBars["Dagstall"].waitForExistence(timeout: 5))
         let row = app.descendants(matching: .any).matching(identifier: "nutrition-day-total").firstMatch
         XCTAssertTrue(row.isHittable)

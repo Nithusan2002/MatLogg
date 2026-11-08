@@ -36,10 +36,11 @@ private struct ProgressTabContent: View {
                             dateNavigation
                         }
                         ForEach(rows) { row in
-                            if row.areas == [.nutrition] {
-                                CompactNutritionCard(model: viewModel) {
-                                    Task { await viewModel.load(userId: authViewModel.currentUser?.id) }
-                                }
+                            if viewModel.period == .week && row.areas != [.weight] {
+                                ProgressWeekCard(areas: row.areas, progress: viewModel, steps: steps, workouts: workouts,
+                                                 onRetryNutrition: retryNutrition, onOpenHealthSettings: openHealthSettings)
+                            } else if row.areas == [.nutrition] {
+                                CompactNutritionCard(model: viewModel, onRetry: retryNutrition)
                             } else {
                                 let isPaired = row.areas.count == 2 && !dynamicTypeSize.isAccessibilitySize
                                 let layout = !isPaired
@@ -140,13 +141,11 @@ private struct ProgressTabContent: View {
         var id: String { areas.map(\.rawValue).joined(separator: ".") }
     }
     private var rows: [Row] {
-        var groups: [[ProgressHubArea]] = []
-        for area in hub.layout.visibleAreas {
-            if area.isCompact, let last = groups.last, last.count == 1, last.first?.isCompact == true {
-                groups[groups.count - 1].append(area)
-            } else { groups.append([area]) }
-        }
-        return groups.map { Row(areas: $0) }
+        hub.layout.cardGroups(for: viewModel.period).map { Row(areas: $0) }
+    }
+
+    private func retryNutrition() {
+        Task { await viewModel.load(userId: authViewModel.currentUser?.id) }
     }
 
     private var header: some View {
@@ -166,9 +165,6 @@ private struct ProgressTabContent: View {
                     customizeButton
                 }
             }
-            Text("Din oversikt, på ett sted")
-                .font(AppTypography.body)
-                .foregroundStyle(AppColors.textSecondary)
             if demoMode.isDemo || steps.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true
                 || healthWeight.snapshot(for: viewModel.dateRange.interval)?.isExampleData == true {
                 Text(demoMode.isDemo ? "Demodata" : "Eksempeldata")

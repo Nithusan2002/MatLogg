@@ -80,6 +80,10 @@ final class ProgressViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    func weekOverview(steps: StepCountSnapshot?, workouts: HealthWorkoutSnapshot?) -> ProgressWeekOverview {
+        ProgressWeekOverview(range: dateRange, nutrition: overview, steps: steps, workouts: workouts, calendar: calendar)
+    }
+
     func updateWeights(_ entries: [WeightEntry], owner: UUID?) {
         guard self.owner == owner else { return }
         weightEntries = entries.filter { $0.userId == owner }

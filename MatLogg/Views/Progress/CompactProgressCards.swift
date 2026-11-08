@@ -20,11 +20,15 @@ struct CompactNutritionCard: View {
                             Text("kcal").font(AppTypography.bodyEmphasis)
                         }
                     }
-                    Text(model.period == .day ? "Registrert denne dagen" : "Snitt per logget dag · \(model.overview.coverage)")
+                    Text(model.period == .day ? "Totalt logget denne dagen" : "Snitt per logget dag · \(model.overview.coverage)")
                         .font(AppTypography.secondary).foregroundStyle(AppColors.textSecondary)
-                    periodChart
-                    Divider().overlay(AppColors.separator)
-                    macroFooter
+                    if model.period == .day {
+                        dailyMacroDistribution
+                    } else {
+                        monthChart
+                        Divider().overlay(AppColors.separator)
+                        macroFooter()
+                    }
                 } else if model.isLoading {
                     ProgressView("Henter oversikten …").frame(maxWidth: .infinity, minHeight: 140)
                 } else {
@@ -59,7 +63,7 @@ struct CompactNutritionCard: View {
         }
     }
 
-    private var periodChart: some View {
+    private var monthChart: some View {
         Chart(model.overview.recordedDays, id: \.date) { day in
             BarMark(x: .value("Dato", day.date, unit: .day), y: .value("kcal", day.totalCalories), width: .ratio(0.65))
                 .foregroundStyle(AppColors.brand)
@@ -68,14 +72,14 @@ struct CompactNutritionCard: View {
         .chartXScale(domain: model.dateRange.interval.start...model.dateRange.interval.end)
         .chartYScale(domain: 0...model.overview.chartUpperBound)
         .chartXAxis {
-            AxisMarks(values: axisDates) { value in
-                AxisValueLabel(centered: model.period != .month) {
-                    if let date = value.as(Date.self), date < model.dateRange.interval.end {
-                        Text(date.formatted(model.period == .week
-                            ? .dateTime.weekday(.narrow).locale(Locale(identifier: "nb_NO"))
-                            : .dateTime.day().locale(Locale(identifier: "nb_NO"))))
+            AxisMarks(values: monthAxisDates) { value in
+                if let date = value.as(Date.self) {
+                    let anchor: UnitPoint = date == model.dateRange.interval.start ? .topLeading : .top
+                    AxisValueLabel(centered: false, anchor: anchor, collisionResolution: .greedy) {
+                        Text(date.formatted(.dateTime.day().locale(Locale(identifier: "nb_NO"))))
                             .font(AppTypography.chartLabel)
                             .foregroundStyle(AppColors.textSecondary)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                 }
             }
@@ -91,32 +95,74 @@ struct CompactNutritionCard: View {
         .accessibilityHidden(true)
     }
 
-    private var axisDates: [Date] {
-        if model.period == .month {
-            return model.dateRange.dates.enumerated().filter { $0.offset % 7 == 0 }.map(\.element)
-        }
-        return model.dateRange.dates + [model.dateRange.interval.end]
+    private var monthAxisDates: [Date] {
+        model.dateRange.dates.enumerated().filter { $0.offset % 7 == 0 }.map(\.element)
     }
 
-    private var macroFooter: some View {
+    private var dailyMacroDistribution: some View {
+        let distribution = model.overview.dayMacroDistribution
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(distribution == nil ? "Makrofordeling ikke tilgjengelig" : "Energifordeling fra makroer")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityIdentifier("progress-day-macro-distribution")
+            GeometryReader { geometry in
+                if let distribution {
+                    HStack(spacing: 0) {
+                        AppColors.macroProteinTint.frame(width: geometry.size.width * distribution.protein)
+                        AppColors.macroCarbTint.frame(width: geometry.size.width * distribution.carbs)
+                        AppColors.macroFatTint.frame(width: geometry.size.width * distribution.fat)
+                    }
+                } else {
+                    AppColors.progressTrack
+                }
+            }
+            .frame(height: 10)
+            .clipShape(Capsule())
+            .accessibilityHidden(true)
+            macroFooter(distribution: distribution)
+        }
+        .padding(.top, 6)
+    }
+
+    private func macroFooter(distribution: ProgressMacroDistribution? = nil) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
-            : AnyLayout(HStackLayout(spacing: 8))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
         return layout {
-            macro("Protein", value: model.overview.protein)
+            macro("Protein", value: model.overview.protein, fraction: distribution?.protein, tint: AppColors.macroProteinTint)
             if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-            macro("Karbo", value: model.overview.carbs)
+            macro("Karbo", value: model.overview.carbs, fraction: distribution?.carbs, tint: AppColors.macroCarbTint)
             if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-            macro("Fett", value: model.overview.fat)
+            macro("Fett", value: model.overview.fat, fraction: distribution?.fat, tint: AppColors.macroFatTint)
         }
         .font(AppTypography.captionEmphasis)
     }
-    private func macro(_ title: String, value: Float?) -> some View {
-        Text(value.map { "\(title) \(NutritionDisplay.wholeGrams($0)) g" } ?? "\(title) –")
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityLabel(value.map { "\(title == "Karbo" ? "Karbohydrater" : title) \(NutritionDisplay.wholeGrams($0)) gram" }
-                                ?? "\(title) ikke tilgjengelig")
+
+    @ViewBuilder private func macro(_ title: String, value: Float?, fraction: Double?, tint: Color) -> some View {
+        let fullTitle = title == "Karbo" ? "Karbohydrater" : title
+        if let fraction, let value {
+            let grams = NutritionDisplay.wholeGrams(value)
+            let percentage = fraction.formatted(.percent.precision(.fractionLength(0)).locale(Locale(identifier: "nb_NO")))
+            VStack(alignment: .leading, spacing: 3) {
+                Label {
+                    Text(title)
+                } icon: {
+                    Circle().fill(tint).frame(width: 7, height: 7).accessibilityHidden(true)
+                }
+                Text("\(grams) g · \(percentage)")
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(fullTitle), \(grams) gram, \(percentage) av energien fra makroene")
+        } else {
+            Text(value.map { "\(title) \(NutritionDisplay.wholeGrams($0)) g" } ?? "\(title) –")
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(value.map { "\(fullTitle) \(NutritionDisplay.wholeGrams($0)) gram" }
+                                    ?? "\(fullTitle) ikke tilgjengelig")
+        }
     }
+
 }
 
 struct CompactStepsCard: View {
@@ -332,7 +378,7 @@ struct ProgressCardHeading: View {
     }
 }
 
-private struct NutritionDayTotalsSheet: View {
+struct NutritionDayTotalsSheet: View {
     let periodLabel: String
     let days: [DailySummary]
     @Environment(\.dismiss) private var dismiss

@@ -56,6 +56,27 @@ nonisolated struct ProgressDateRange {
     }
 }
 
+nonisolated struct ProgressMacroDistribution {
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+
+    init?(day: DailySummary) {
+        guard !day.logs.contains(where: { log in
+            log.calories > 0 && log.proteinG == 0 && log.carbsG == 0 && log.fatG == 0
+        }) else { return nil }
+
+        let proteinEnergy = Double(day.totalProtein) * 4
+        let carbEnergy = Double(day.totalCarbs) * 4
+        let fatEnergy = Double(day.totalFat) * 9
+        let total = proteinEnergy + carbEnergy + fatEnergy
+        guard total.isFinite, total > 0, proteinEnergy >= 0, carbEnergy >= 0, fatEnergy >= 0 else { return nil }
+        protein = proteinEnergy / total
+        carbs = carbEnergy / total
+        fat = fatEnergy / total
+    }
+}
+
 nonisolated struct ProgressNutritionOverview {
     let recordedDays: [DailySummary]
     let averageCalories: Int?
@@ -63,10 +84,12 @@ nonisolated struct ProgressNutritionOverview {
     let carbs: Float?
     let fat: Float?
     let coverage: String
+    let dayMacroDistribution: ProgressMacroDistribution?
     let chartUpperBound: Double
 
     init(summaries: [DailySummary], periodDays: Int) {
         recordedDays = summaries.filter { !$0.logs.isEmpty }
+        dayMacroDistribution = periodDays == 1 ? recordedDays.first.flatMap(ProgressMacroDistribution.init(day:)) : nil
         let maximum = Double(recordedDays.map(\.totalCalories).filter { $0.isFinite && $0 >= 0 }.max() ?? 0)
         chartUpperBound = max(500, (maximum / 500).rounded(.up) * 500)
         let count = Float(recordedDays.count)

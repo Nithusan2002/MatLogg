@@ -454,14 +454,25 @@ og «skritt». Helse-forespørselen startes bare av tilkoblingsknappen.
 ### Kompakt Utvikling-prototype (2026-11-06)
 
 Den valgte prototypen er visuell referanse for faktisk UI. Matkortet samler ett
-hovedtall, periodeforklaring, lavt korallfarget diagram og makrofooter.
-Skritt og Vekt er små kort på samme rad ved vanlig tekststørrelse; detaljer
+hovedtall og periodeforklaring. Dag har en vannrett makrofordeling i
+appens makrofarger med gram og prosent ved hvert navn. Måned bruker et
+lavt korallfarget diagram og en makrofooter.
+I Dag og Måned er Skritt og Vekt små kort på samme rad ved vanlig tekststørrelse; detaljer
 og kontroller ligger én navigasjon inn. Ved tilgjengelighetsstørrelser stables
 kortene og makrofooteren uten å kutte tekst. Tilpass står til høyre for
 skjermtittelen og flyttes til en egen linje når tittelen trenger mer plass.
 Skritt, Vekt og Treningsøkter viser en pil i tittellinjen.
 Treningsøkter bruker full bredde i alle posisjoner og viser inntil to
-økter på kortet. Dagstall for mat ligger i et ark med kompakte listerader.
+økter på kortet i Dag og Måned. Dagstall for mat ligger i et ark med
+kompakte listerader.
+
+Ukeoversikt bruker én datoakse med sju like kolonner, korallfargede
+matsøyler, turkise skrittsøyler og øktmarkører. Søylediagrammene har fem svake
+hjelpelinjer fra null til toppen av skalaen. Dager uten tall står tomme i
+søylediagrammene. En treningsrad med tilgjengelige økter viser en liten grå
+prikk på dager uten viste økter.
+Ved smal bredde eller tilgjengelighetsstørrelser vises oppsummeringen over
+grafen. Diagramverdier har dato og verdi i tilgjengelighetsteksten.
 
 `metricValue` er en skalerbar, kraftig avrundet title-verdi med tabellariske
 sifre for kompakte metrikker. `onAction` er kontrastfargen på fylte action-flater

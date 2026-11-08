@@ -149,13 +149,17 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
-- Utvikling følger kompakt kortprototype: Mat og næring med kalenderdag/-uke/
-  -måned og datonavigasjon, samt Skritt og Vekt ved siden av hverandre ved
-  vanlig tekststørrelse. Begge kort har historikk. Vektdetaljene har også
-  manuell registrering. Næring vises som snitt per logget dag med datadekning.
+- Utvikling viser kalenderdag, kalenderuke og kalendermåned med datonavigasjon.
+  I Dag og Måned kan Skritt og Vekt stå ved siden av hverandre ved vanlig
+  tekststørrelse. Begge kort har historikk. Vektdetaljene har også
+  manuell registrering. Mat viser dagssum med makrofordeling, ukesum med
+  snitt og månedssnitt per logget dag.
   Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning.
   Uloggede dager blir ikke nullinntak. Periodenavigasjonen har en snarvei
   tilbake til inneværende dag, uke eller måned.
+- I Uke samles synlig Mat og næring, Skritt og Treningsøkter med en felles
+  mandag–søndag-akse. Hver rad åpner detaljene for valgt uke. Vekt er eget
+  kort. Radene følger Tilpass og bruker dagsverdiene appen allerede leser.
 - Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
   standardrekkefølge til mat/skritt/vekt uten å aktivere skjulte områder eller
   endre helsevalg. Egendefinerte oppsett beholdes.
@@ -175,7 +179,8 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   Tall holdes bare i minnet, og tilkoblingsvalget er lokalt og profilbundet.
   Native HealthKit-tilgang må fortsatt verifiseres på fysisk iPhone.
 - Treningsøkter er et valgfritt kort i full bredde, skjult som standard.
-  Det viser antall økter og de to siste øktene etter starttid i valgt periode.
+  I Dag og Måned vises antall økter og de to siste etter starttid.
+  I Uke vises antall og en markør per treningsdag.
   Detaljene viser alle øktene med type, starttid og varighet. Opplysningene
   brukes midlertidig i Utvikling på enheten.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.

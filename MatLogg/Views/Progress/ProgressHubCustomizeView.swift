@@ -59,6 +59,7 @@ struct ProgressHubCustomizeView: View {
                 } footer: {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Velg hvilke kort som vises her, og flytt dem i ønsket rekkefølge.")
+                        Text("I Uke samles mat, skritt og treningsøkter i ett kort. Vekt vises før eller etter ukekortet.")
                         Text("Du styrer hvilke data MatLogg henter under Innstillinger → Apple Helse.")
                     }
                 }

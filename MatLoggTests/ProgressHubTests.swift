@@ -4,6 +4,33 @@ import Testing
 
 @MainActor
 struct ProgressHubTests {
+    @Test func weekGroupsAllVisibilityChoicesAndPreservesOrderWithinTheCard() {
+        let areas = ProgressHubArea.allCases
+        for first in areas {
+            for second in areas where second != first {
+                for third in areas where third != first && third != second {
+                    let fourth = areas.first { $0 != first && $0 != second && $0 != third }!
+                    let order = [first, second, third, fourth]
+                    for mask in 0..<(1 << areas.count) {
+                        let visible = order.enumerated().compactMap { index, area in
+                            mask & (1 << index) != 0 ? area : nil
+                        }
+                        let layout = ProgressHubLayout(order: order, visible: Set(visible))
+                        let groups = layout.cardGroups(for: .week)
+                        let weekAreas = visible.filter { $0 != .weight }
+                        #expect(groups.filter { $0 != [.weight] } == (weekAreas.isEmpty ? [] : [weekAreas]))
+                        #expect(groups.contains([.weight]) == visible.contains(.weight))
+                        if visible.contains(.weight), !weekAreas.isEmpty {
+                            #expect((groups.first == [.weight]) == (visible.first == .weight))
+                        }
+                        #expect(layout.cardGroups(for: .day).flatMap { $0 } == visible)
+                        #expect(layout.cardGroups(for: .month).flatMap { $0 } == visible)
+                    }
+                }
+            }
+        }
+    }
+
     @Test func defaultsFollowHistoryUntilExplicitlySaved() {
         let repository = HubRepositoryStub()
         let model = ProgressHubViewModel(repository: repository)

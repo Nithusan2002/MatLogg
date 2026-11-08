@@ -49,6 +49,32 @@ struct ProgressPeriodTests {
         #expect(ProgressNutritionOverview(summaries: [missing], periodDays: 7).averageCalories == nil)
     }
 
+    @Test func dayMacroDistributionUsesEnergyAndFallsBackWhenEnergyHasNoMacros() throws {
+        let owner = UUID()
+        let day = date(2026, 11, 2)
+        let food = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 100,
+                           loggedDate: day, calories: 100, proteinG: 10, carbsG: 0, fatG: 5)
+        let water = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 100,
+                            loggedDate: day, calories: 0, proteinG: 0, carbsG: 0, fatG: 0)
+        let energyOnly = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 100,
+                                 loggedDate: day, calories: 20, proteinG: 0, carbsG: 0, fatG: 0)
+        let summaries = DailySummary.summaries(userId: owner, dates: [day], logs: [food, water], calendar: calendar)
+        let overview = ProgressNutritionOverview(summaries: summaries, periodDays: 1)
+        let distribution = try #require(overview.dayMacroDistribution)
+        #expect(abs(distribution.protein - 40.0 / 85.0) < 0.000001)
+        #expect(distribution.carbs == 0)
+        #expect(abs(distribution.fat - 45.0 / 85.0) < 0.000001)
+        #expect(overview.averageCalories == 100)
+        #expect(ProgressNutritionOverview(summaries: summaries, periodDays: 7).dayMacroDistribution == nil)
+
+        let incomplete = DailySummary.summaries(userId: owner, dates: [day], logs: [food, energyOnly], calendar: calendar)
+        let fallback = ProgressNutritionOverview(summaries: incomplete, periodDays: 1)
+        #expect(fallback.dayMacroDistribution == nil)
+        #expect(fallback.averageCalories == 120)
+        let zero = DailySummary.summaries(userId: owner, dates: [day], logs: [water], calendar: calendar)
+        #expect(ProgressNutritionOverview(summaries: zero, periodDays: 1).dayMacroDistribution == nil)
+    }
+
     @Test func periodChangesLoadRealDateRangesAndNavigationCrossesYearBoundary() async {
         let repository = PeriodRepository(calendar: calendar)
         let model = ProgressViewModel(repository: repository, calendar: calendar, now: { self.date(2026, 11, 6) })
@@ -68,6 +94,35 @@ struct ProgressPeriodTests {
         #expect(calendar.component(.year, from: model.dateRange.interval.start) == 2027)
         #expect(calendar.component(.month, from: model.dateRange.interval.start) == 1)
         #expect(repository.dates.last?.count == 31)
+    }
+
+    @Test func weekOverviewAlignsSourcesAndPreservesZeroAcrossMonthBoundary() {
+        let owner = UUID()
+        let range = ProgressDateRange(period: .week, anchor: date(2026, 11, 1), calendar: calendar)
+        let monday = date(2026, 10, 26), wednesday = date(2026, 10, 28), sunday = date(2026, 11, 1)
+        let missing = DailySummary(date: wednesday, totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
+        let nutrition = ProgressNutritionOverview(
+            summaries: [summary(owner, monday, calories: 0), missing, summary(owner, sunday, calories: 2400)], periodDays: 7
+        )
+        let steps = StepCountSnapshot(range: range.interval, buckets: [
+            StepCountBucket(date: monday, steps: 2000), StepCountBucket(date: wednesday, steps: 0)
+        ], updatedAt: sunday)
+        let workouts = HealthWorkoutSnapshot(range: range.interval, workouts: [
+            HealthWorkoutSummary(id: UUID(), startDate: sunday, title: "Løping", duration: 1800),
+            HealthWorkoutSummary(id: UUID(), startDate: sunday.addingTimeInterval(-3600), title: "Styrke", duration: 2700)
+        ])
+        let overview = ProgressWeekOverview(range: range, nutrition: nutrition, steps: steps, workouts: workouts, calendar: calendar)
+        #expect(overview.days.map(\.calories) == [0, nil, nil, nil, nil, nil, 2400])
+        #expect(overview.days.map(\.steps) == [2000, nil, 0, nil, nil, nil, nil])
+        #expect(overview.days.last?.workouts.map(\.title) == ["Løping", "Styrke"])
+        #expect(overview.totalCalories == 2400 && overview.averageCalories == 1200)
+        #expect(overview.totalSteps == steps.count && overview.averageSteps == 1000)
+        #expect(overview.loggedDays == 2 && overview.workoutCount == 2)
+
+        let next = ProgressDateRange(period: .week, anchor: date(2026, 11, 2), calendar: calendar)
+        let later = ProgressWeekOverview(range: next, nutrition: nutrition, steps: steps, workouts: workouts, calendar: calendar)
+        #expect(later.totalSteps == nil && later.totalCalories == nil && later.workoutCount == 0)
+        #expect(later.days.allSatisfy { $0.steps == nil && $0.calories == nil && $0.workouts.isEmpty })
     }
 
     @Test func monthNavigationClampsShortMonthsAndRestoresThePreferredDay() {

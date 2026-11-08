@@ -31,6 +31,26 @@ nonisolated struct ProgressHubLayout: Equatable, Sendable {
     }
 
     var visibleAreas: [ProgressHubArea] { order.filter { visible.contains($0) } }
+
+    func cardGroups(for period: ProgressPeriod) -> [[ProgressHubArea]] {
+        if period == .week {
+            let weekAreas = visibleAreas.filter { $0 != .weight }
+            return visibleAreas.compactMap { area in
+                if area == .weight { return [.weight] }
+                return area == weekAreas.first ? weekAreas : nil
+            }
+        }
+
+        var groups: [[ProgressHubArea]] = []
+        for area in visibleAreas {
+            if area.isCompact, let last = groups.last, last.count == 1, last.first?.isCompact == true {
+                groups[groups.count - 1].append(area)
+            } else {
+                groups.append([area])
+            }
+        }
+        return groups
+    }
 }
 
 nonisolated enum ProgressHubStorage {

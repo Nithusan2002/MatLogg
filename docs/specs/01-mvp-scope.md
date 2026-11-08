@@ -235,7 +235,9 @@ Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
 
 Utvikling bruker kompakt næringskort, Skritt/Vekt på delt rad og detaljer
 bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
-inkludert. Hovedtall og makroer er snitt per logget dag, med synlig dekning;
+inkludert. Uke samler synlige mat-, skritt- og treningsrader på en felles
+dagsakse med kildespesifikke detaljer. Matkortet viser snitt per logget dag,
+med synlig dekning;
 ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i
 uke- og månedsvisning.
 

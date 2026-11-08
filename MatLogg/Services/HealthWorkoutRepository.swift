@@ -6,6 +6,7 @@ nonisolated struct HealthWorkoutSummary: Equatable, Identifiable, Sendable {
     let startDate: Date
     let title: String
     let duration: TimeInterval
+    var symbol = "dumbbell"
 }
 
 nonisolated struct HealthWorkoutSnapshot: HealthReadSnapshot {
@@ -34,25 +35,27 @@ final class HealthWorkoutRepository: HealthReadRepository {
         )
         let samples = try await query.result(for: store)
         let workouts = samples.map {
-            HealthWorkoutSummary(id: $0.uuid, startDate: $0.startDate, title: title(for: $0.workoutActivityType), duration: $0.duration)
+            let activity = presentation(for: $0.workoutActivityType)
+            return HealthWorkoutSummary(id: $0.uuid, startDate: $0.startDate, title: activity.title,
+                                        duration: $0.duration, symbol: activity.symbol)
         }
         return HealthWorkoutSnapshot(range: range, workouts: workouts)
     }
 
-    private func title(for activity: HKWorkoutActivityType) -> String {
+    private func presentation(for activity: HKWorkoutActivityType) -> (title: String, symbol: String) {
         switch activity {
-        case .walking: "Gåtur"
-        case .hiking: "Fottur"
-        case .running: "Løping"
-        case .cycling: "Sykling"
-        case .traditionalStrengthTraining, .functionalStrengthTraining: "Styrke"
-        case .swimming: "Svømming"
-        case .yoga: "Yoga"
-        case .highIntensityIntervalTraining: "Intervalltrening"
-        case .rowing: "Roing"
-        case .crossCountrySkiing: "Langrenn"
-        case .dance, .socialDance, .cardioDance: "Dans"
-        default: "Annen trening"
+        case .walking: ("Gåtur", "figure.walk")
+        case .hiking: ("Fottur", "figure.hiking")
+        case .running: ("Løping", "figure.run")
+        case .cycling: ("Sykling", "bicycle")
+        case .traditionalStrengthTraining, .functionalStrengthTraining: ("Styrke", "dumbbell")
+        case .swimming: ("Svømming", "figure.pool.swim")
+        case .yoga: ("Yoga", "figure.yoga")
+        case .highIntensityIntervalTraining: ("Intervalltrening", "figure.highintensity.intervaltraining")
+        case .rowing: ("Roing", "figure.rower")
+        case .crossCountrySkiing: ("Langrenn", "figure.skiing.crosscountry")
+        case .dance, .socialDance, .cardioDance: ("Dans", "figure.dance")
+        default: ("Annen trening", "dumbbell")
         }
     }
 }
@@ -69,9 +72,9 @@ struct QAHealthWorkoutRepository: HealthReadRepository {
         let previousWeek = Calendar.current.date(byAdding: .day, value: -7, to: date) ?? date
         let workouts = [
             HealthWorkoutSummary(id: ids[0], startDate: date, title: "Styrke", duration: 2700),
-            HealthWorkoutSummary(id: ids[1], startDate: date, title: "Gåtur", duration: 4080),
-            HealthWorkoutSummary(id: ids[2], startDate: date, title: "Løping", duration: 1200),
-            HealthWorkoutSummary(id: ids[3], startDate: previousWeek, title: "Sykling", duration: 3600)
+            HealthWorkoutSummary(id: ids[1], startDate: date, title: "Gåtur", duration: 4080, symbol: "figure.walk"),
+            HealthWorkoutSummary(id: ids[2], startDate: date, title: "Løping", duration: 1200, symbol: "figure.run"),
+            HealthWorkoutSummary(id: ids[3], startDate: previousWeek, title: "Sykling", duration: 3600, symbol: "bicycle")
         ]
         return HealthWorkoutSnapshot(
             range: range,
