@@ -31,11 +31,17 @@ struct MatLoggTabBar: View {
 
     @ViewBuilder private var tabBarContent: some View {
         if dynamicTypeSize.isAccessibilitySize {
-            ScrollView(.horizontal) {
-                tabButtons
+            VStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    tabButton(tabs[0])
+                    tabButton(tabs[1])
+                }
+                loggingButton
+                HStack(spacing: 4) {
+                    tabButton(tabs[2])
+                    tabButton(tabs[3])
+                }
             }
-            .scrollIndicators(.hidden)
-            .accessibilityIdentifier("matlogg-tab-bar-scroll")
             .fixedSize(horizontal: false, vertical: true)
         } else {
             tabButtons
@@ -46,34 +52,40 @@ struct MatLoggTabBar: View {
         HStack(spacing: 4) {
             tabButton(tabs[0])
             tabButton(tabs[1])
-            Button { selection = .add } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 25, weight: .semibold))
-                        .foregroundColor(AppColors.onVibrant)
-                        .frame(width: 56, height: 56)
-                        .background {
-                            Circle().fill(AppColors.brand)
-                                .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
-                        }
-                        .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
-                    Text("Loggfør")
-                        .font(AppTypography.captionEmphasis)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize, vertical: true)
-                        .foregroundColor(AppColors.deepInk)
-                }
-                .frame(maxWidth: .infinity, minHeight: 70)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Loggfør mat")
-            .accessibilityIdentifier("tab-log-food")
-            .padding(.top, -4)
+            loggingButton.padding(.top, -4)
             tabButton(tabs[2])
             tabButton(tabs[3])
         }
         .frame(minHeight: 70)
+    }
+
+    private var loggingButton: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(HStackLayout(spacing: 8))
+            : AnyLayout(VStackLayout(spacing: 4))
+        return Button { selection = .add } label: {
+            layout {
+                Image(systemName: "plus")
+                    .font(.system(size: 25, weight: .semibold))
+                    .foregroundColor(AppColors.onVibrant)
+                    .frame(width: 56, height: 56)
+                    .background {
+                        Circle().fill(AppColors.brand)
+                            .shadow(color: AppColors.deepInk.opacity(0.10), radius: 6, y: 2)
+                    }
+                    .overlay(Circle().stroke(AppColors.surface, lineWidth: 2))
+                Text("Loggfør")
+                    .font(AppTypography.captionEmphasis)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundColor(AppColors.deepInk)
+            }
+            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 56 : 70)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Loggfør mat")
+        .accessibilityIdentifier("tab-log-food")
     }
 
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
@@ -84,13 +96,14 @@ struct MatLoggTabBar: View {
                 Text(tab.1)
                     .font(selection == tab.0 ? AppTypography.captionEmphasis : AppTypography.caption)
                     .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize, vertical: true)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
             .frame(maxWidth: .infinity, minHeight: 52)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(tab.1)
         .accessibilityAddTraits(selection == tab.0 ? .isSelected : [])
     }
 }

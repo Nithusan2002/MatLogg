@@ -148,7 +148,9 @@ over flere linjer. Detaljer per vare vises når måltidet åpnes.
 Alle `ScrollView`, `List` og `Form` som vises inne i appens vedvarende
 fanenavigasjon skal bruke `matLoggTabBarScrollClearance()`. Dette gjelder både
 hovedfaner og skjermer som pushes i fanenes `NavigationStack`, slik at siste rad
-alltid kan rulles helt over den egendefinerte bunnmenyen.
+alltid kan rulles helt over den egendefinerte bunnmenyen. Ved
+tilgjengelighetsstørrelser vises fanene over to rader med Loggfør på en
+egen rad mellom dem.
 
 Modifieren skal ikke brukes i sheets, fullskjermsvisninger, innlogging eller
 onboarding, fordi bunnmenyen ikke er synlig der. Nye fanebaserte skjermer skal

@@ -7,27 +7,27 @@ final class DailyGoalsUITests: XCTestCase {
     private func openGoals(_ app: XCUIApplication) {
         let profile = app.buttons.matching(NSPredicate(format: "label == 'Profil' AND identifier != 'person.crop.circle'")).firstMatch
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
-        let tabBar = app.scrollViews["matlogg-tab-bar-scroll"]
-        if tabBar.exists {
-            for _ in 0..<4 {
-                if tabBar.frame.contains(profile.frame) { break }
-                tabBar.swipeLeft()
-            }
-        }
         profile.tap()
         let goals = app.buttons["profile-edit-goals"]
         XCTAssertTrue(goals.waitForExistence(timeout: 5))
-        for _ in 0..<8 {
-            let visibleBottom = tabBar.exists ? tabBar.frame.minY : profile.frame.minY
-            if goals.isHittable && goals.frame.maxY < visibleBottom { break }
-            // Keep the gesture inside profile content, clear of the persistent tab bar.
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.65))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3)))
-        }
-        XCTAssertTrue(goals.isHittable)
-        XCTAssertLessThan(goals.frame.maxY, tabBar.exists ? tabBar.frame.minY : profile.frame.minY)
+        scrollAboveTabBar(goals, in: app)
         goals.tap()
         XCTAssertTrue(app.navigationBars["Daglige mål"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    private func scrollAboveTabBar(_ element: XCUIElement, in app: XCUIApplication) {
+        let home = app.buttons["Hjem"].firstMatch
+        XCTAssertTrue(home.exists)
+        let visibleBottom = home.frame.minY - 8
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: min(0.65, (visibleBottom - 8) / app.frame.height)))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3))
+        for _ in 0..<8 {
+            if element.isHittable && element.frame.maxY < visibleBottom { break }
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTAssertTrue(element.isHittable)
+        XCTAssertLessThan(element.frame.maxY, visibleBottom)
     }
 
     @MainActor
@@ -132,15 +132,7 @@ final class DailyGoalsUITests: XCTestCase {
         top.lifetime = .keepAlways
         add(top)
         let saveButton = app.buttons["daily-goals-save"]
-        let tabBar = app.scrollViews["matlogg-tab-bar-scroll"]
-        for _ in 0..<8 {
-            if saveButton.isHittable && saveButton.frame.maxY < tabBar.frame.minY { break }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.65))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3)))
-        }
-        XCTAssertTrue(saveButton.isHittable)
-        XCTAssertTrue(tabBar.exists)
-        XCTAssertLessThan(saveButton.frame.maxY, tabBar.frame.minY)
+        scrollAboveTabBar(saveButton, in: app)
         let bottom = XCTAttachment(screenshot: app.screenshot())
         bottom.name = "Daglige mål – lagring med stor tekst"
         bottom.lifetime = .keepAlways
