@@ -42,11 +42,20 @@ final class HealthWorkoutUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Apple Helse"].waitForExistence(timeout: 5))
         let rows = app.descendants(matching: .any).matching(identifier: "workout-row")
         XCTAssertTrue(rows.containing(NSPredicate(format: "label CONTAINS 'Løping'")).firstMatch.waitForExistence(timeout: 5))
+        let walk = rows.containing(NSPredicate(format: "label CONTAINS 'Gåtur'")).firstMatch
+        XCTAssertTrue(walk.label.contains("1 t 8 min"))
+        XCTAssertTrue(walk.label.contains(":"))
+        capture("Treningsøkter – detaljer", app)
         back.tap()
         XCTAssertTrue(card.label.contains("3 økter"))
         XCTAssertTrue(card.label.contains("Styrke"))
         XCTAssertTrue(card.label.contains("Gåtur"))
+        let today = Date().formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "nb_NO")))
+        XCTAssertTrue(card.label.contains(today))
+        XCTAssertTrue(card.label.contains("45 min"))
+        XCTAssertTrue(card.label.contains("1 t 8 min"))
         XCTAssertFalse(card.label.contains("Løping"))
+        capture("Treningsøkter – oversikt", app)
 
         app.buttons["progress-period-day"].tap()
         expectCard(card, contains: "3 økter")
@@ -56,6 +65,7 @@ final class HealthWorkoutUITests: XCTestCase {
         app.buttons["progress-period-previous"].tap()
         expectCard(card, contains: "Sykling")
         XCTAssertTrue(card.label.contains("1 økt"))
+        XCTAssertTrue(card.label.contains("1 t"))
         app.buttons["progress-period-previous"].tap()
         expectCard(card, contains: "Ingen treningsøkter tilgjengelig i perioden")
 
@@ -64,6 +74,13 @@ final class HealthWorkoutUITests: XCTestCase {
         openHub(app)
         expectCard(card, contains: "Koble til i Innstillinger")
         XCTAssertFalse(card.label.contains("Styrke"))
+    }
+
+    @MainActor private func capture(_ name: String, _ app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     @MainActor private func makeVisible(_ element: XCUIElement, in app: XCUIApplication) {

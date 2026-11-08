@@ -300,8 +300,10 @@ vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato, og
 detaljene viser kilden. Demomodus er merket ved tittelen i Utvikling.
 Aktivitet bruker samme periode og datonavigasjon som mat og vekt, med
 tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
-rekkefølge og viser antall økter og de to nyeste etter starttid i perioden.
-Detaljene viser hele listen med starttid, varighet og Apple Helse som kilde.
+rekkefølge. Kortet viser antall økter og de to nyeste med type, dato og
+høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
+Detaljene viser hele listen med klokkeslett og Apple Helse som kilde.
+Begge visningene bruker timer og minutter for økter på minst én time.
 
 Oppsettet lagres per profil på enheten og følger overføring, eksport og sletting.
 NavigationStack tilbakestilles ved profilbytte. Loading, tomtilstand og feil

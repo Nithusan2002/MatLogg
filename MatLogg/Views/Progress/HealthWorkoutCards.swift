@@ -7,13 +7,20 @@ struct CompactWorkoutCard: View {
     var body: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 8) {
-                ProgressCardHeading(title: "Treningsøkter", symbol: "dumbbell")
+                HStack(spacing: 8) {
+                    ProgressCardHeading(title: "Treningsøkter", symbol: "dumbbell")
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(AppTypography.captionEmphasis)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
+                }
                 if let snapshot = model.snapshot(for: dateRange.interval) {
                     Text(snapshot.workouts.count == 1 ? "1 økt i perioden" : "\(snapshot.workouts.count) økter i perioden")
                         .font(AppTypography.bodyEmphasis)
                     ForEach(snapshot.workouts.prefix(2)) { workout in
                         Divider().overlay(AppColors.separator)
-                        WorkoutRow(workout: workout, showsDate: false)
+                        WorkoutRow(workout: workout, showsTime: false)
                     }
                 } else {
                     WorkoutStatus(state: model.state)
@@ -38,7 +45,7 @@ struct WorkoutDetailView: View {
                     if let snapshot = model.snapshot(for: dateRange.interval) {
                         ForEach(snapshot.workouts) { workout in
                             Divider().overlay(AppColors.separator)
-                            WorkoutRow(workout: workout, showsDate: true)
+                            WorkoutRow(workout: workout, showsTime: true)
                         }
                     } else {
                         WorkoutStatus(state: model.state)
@@ -87,27 +94,60 @@ private struct WorkoutStatus: View {
 
 private struct WorkoutRow: View {
     let workout: HealthWorkoutSummary
-    let showsDate: Bool
+    let showsTime: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(workout.title + " · " + durationLabel)
-                .font(AppTypography.body)
-            if showsDate {
-                Text(workout.startDate.formatted(.dateTime.day().month(.abbreviated).hour().minute().locale(Locale(identifier: "nb_NO"))))
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                sessionLabel.fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
+                duration.fixedSize(horizontal: true, vertical: false)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                sessionLabel
+                duration
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("workout-row")
     }
+
+    private var sessionLabel: some View {
+        let date = Date.FormatStyle.dateTime.day().month(.abbreviated).locale(norwegian)
+        return Group {
+            if showsTime {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(workout.title)
+                    Text(workout.startDate.formatted(date.hour().minute()))
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            } else {
+                let shortDate = Text(workout.startDate.formatted(date))
+                    .foregroundStyle(AppColors.textSecondary)
+                Text("\(Text(workout.title)) · \(shortDate)")
+            }
+        }
+        .font(AppTypography.body)
+    }
+
+    private var duration: some View {
+        Text(durationLabel)
+            .font(AppTypography.bodyEmphasis)
+            .monospacedDigit()
+    }
+
+    private var norwegian: Locale { Locale(identifier: "nb_NO") }
 
     private var durationLabel: String {
         guard let minutes = Int(exactly: (workout.duration / 60).rounded(.down)), minutes >= 0 else {
             return "Ukjent varighet"
         }
         if minutes < 1 { return "Under 1 min" }
-        return "\(minutes.formatted(.number.locale(Locale(identifier: "nb_NO")))) min"
+        if minutes < 60 { return "\(minutes) min" }
+        let hours = (minutes / 60).formatted(.number.locale(norwegian))
+        let remaining = minutes % 60
+        return remaining == 0 ? "\(hours) t" : "\(hours) t \(remaining) min"
     }
 }

@@ -69,7 +69,7 @@ struct QAHealthWorkoutRepository: HealthReadRepository {
         let previousWeek = Calendar.current.date(byAdding: .day, value: -7, to: date) ?? date
         let workouts = [
             HealthWorkoutSummary(id: ids[0], startDate: date, title: "Styrke", duration: 2700),
-            HealthWorkoutSummary(id: ids[1], startDate: date, title: "Gåtur", duration: 1920),
+            HealthWorkoutSummary(id: ids[1], startDate: date, title: "Gåtur", duration: 4080),
             HealthWorkoutSummary(id: ids[2], startDate: date, title: "Løping", duration: 1200),
             HealthWorkoutSummary(id: ids[3], startDate: previousWeek, title: "Sykling", duration: 3600)
         ]
