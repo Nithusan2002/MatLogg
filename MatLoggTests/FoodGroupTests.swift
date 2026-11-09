@@ -19,6 +19,21 @@ struct FoodGroupTests {
         #expect(FoodGroupResolver.resolve(source: "user", category: nil, selected: "future_group") == .other)
     }
 
+    @Test func norwegianCatalogUsesSpecificIconsForOatsAndProcessedPoultry() async throws {
+        let catalog = try await MatvaretabellenService().fetchCommonFoods()
+        let cases: [(String, FoodGroup)] = [
+            ("05.003", .grain), ("05.497", .grain), // Havregryn
+            ("03.307", .poultry), ("03.320", .poultry), // Kyllingnuggets
+            ("03.451", .poultry), ("03.323", .poultry), // Kalkunpølse og kalkunfilet
+            ("05.337", .ricePasta), ("05.332", .ricePasta), // Ris og pasta
+            ("03.363", .meat), ("03.144", .meat) // Chorizo og grillpølse
+        ]
+        for (id, expected) in cases {
+            let item = try #require(catalog.first { $0.id == id }, "Missing catalog ID: \(id)")
+            #expect(FoodSearchCatalog.product(item).foodGroup == expected, "\(item.name)")
+        }
+    }
+
     @Test func offTagsHandleParentsDishesConflictsAndLocalizedText() {
         let cases: [([String], FoodGroup)] = [
             (["en:meats", "en:poultry"], .poultry), (["en:dairies", "en:cheeses"], .cheese),

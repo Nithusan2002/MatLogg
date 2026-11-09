@@ -434,6 +434,8 @@ samme kategoriikon uten feilmelding eller layoutendring.
 
 Matvaretabellens eksplisitt støttede gruppe-ID-er og Open Food Facts sine
 kategoritagger (med kategoritekst som reserve) kobles av `FoodGroupResolver`.
+For havregryn og bearbeidede fjærkrevarer gir konkrete matvare-ID-er et mer
+treffende ikon enn de brede gruppene i Matvaretabellen.
 Ukjente eller tvetydige grupper bruker tallerkenikon. Kategorien brukes ikke
 til ernæringsberegning eller til å bekrefte innholdet i maten. Råkategori og
 kilde bevares. Ikonet er dekorativt for VoiceOver når raden har matvarens navn.

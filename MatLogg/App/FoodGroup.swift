@@ -30,11 +30,13 @@ nonisolated enum FoodGroup: String, CaseIterable, Sendable {
 
 /// Source-specific, deterministic mapping. Unrecognized or conflicting groups stay neutral.
 nonisolated enum FoodGroupResolver {
-    static func resolve(source: String, category: String?, tags: [String]? = nil,
+    static func resolve(source: String, category: String?, externalID: String? = nil, tags: [String]? = nil,
                         selected: String? = nil) -> FoodGroup {
         if let selected, let group = FoodGroup(rawValue: selected) { return group }
         switch source {
-        case "matvaretabellen": return norwegianCategory(category)
+        case "matvaretabellen":
+            if let externalID, let group = norwegianOverrides[externalID] { return group }
+            return norwegianCategory(category)
         case "openfoodfacts": return offCategory(tags: tags, category: category)
         default: return .other
         }
@@ -44,6 +46,16 @@ nonisolated enum FoodGroupResolver {
         guard let category else { return .other }
         return norwegianGroups.first { $0.1.contains(category) }?.0 ?? .other
     }
+
+    // Group 5.2 also contains oats, and group 3.5 includes processed poultry.
+    // These catalog IDs distinguish the affected items within those broad groups.
+    private static let norwegianOverrides: [String: FoodGroup] = [
+        "05.003": .grain, "05.497": .grain,
+        "03.307": .poultry, "03.318": .poultry, "03.320": .poultry, "03.321": .poultry,
+        "03.322": .poultry, "03.323": .poultry, "03.356": .poultry, "03.361": .poultry,
+        "03.436": .poultry, "03.437": .poultry, "03.438": .poultry, "03.451": .poultry,
+        "03.458": .poultry, "03.459": .poultry
+    ]
 
     private static let norwegianGroups: [(FoodGroup, [String])] = [
         (.dairy, ["1.1", "1.2", "1.3"]),
@@ -99,6 +111,7 @@ nonisolated enum FoodGroupResolver {
 
 extension Product {
     var foodGroup: FoodGroup {
-        FoodGroupResolver.resolve(source: source, category: category, tags: categoryTags, selected: selectedFoodGroup)
+        FoodGroupResolver.resolve(source: source, category: category, externalID: externalID,
+                                  tags: categoryTags, selected: selectedFoodGroup)
     }
 }
