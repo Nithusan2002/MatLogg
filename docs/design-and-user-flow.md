@@ -268,14 +268,14 @@ Brukeren kan alltid endre måltid før lagring.
 
 Utvikling starter med skjermtittelen og Tilpass. Tilpass vises ved siden av
 tittelen når det er plass. Deretter følger Dag/Uke/Måned,
-datonavigasjon og kortene for valgt periode. I Dag og Måned deler Skritt og
-Vekt en rad når de står ved siden av hverandre i valgt rekkefølge. Ved store
+datonavigasjon og kortene for valgt periode. I Dag og Måned kommer Mat og
+næring først, så Skritt og Vekt og til slutt Treningsøkter. Skritt og Vekt
+deler en rad når begge vises ved vanlig tekststørrelse. Ved store
 tilgjengelighetsstørrelser stables de.
 
 I Uke samles de synlige radene Mat og næring, Skritt og Treningsøkter i ett
-kort med sju delte dagkolonner. Radene følger rekkefølgen i Tilpass, og
-ukekortet står der den første synlige raden ellers ville stått. Vekt står
-før eller etter kortet. Trykk på mat åpner dagstallarket. Skritt og
+kort med sju delte dagkolonner i den rekkefølgen. Vekt står i eget kort
+under. Trykk på mat åpner dagstallarket. Skritt og
 Treningsøkter åpner sine detaljvisninger. Hver rad viser egne tom-, laste-
 og feiltilstander. Mat viser ukesum, snitt og dekning. Skritt viser ukesum
 og snitt per dag med data. Treningsøkter viser antall i uken og markerer
@@ -284,17 +284,12 @@ Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
 Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
 for Apple Helse ligger i Innstillinger.
 
-«Tilpass» åpner et ark med brytere for synlighet. Synlige områder har
-drahåndtak når det er flere å sortere, og skjulte områder ligger i en egen
-seksjon. Rekkefølge og synlighet redigeres som utkast. «Lagre» bekrefter,
-og «Avbryt» forkaster.
-«Gjenopprett standard» velger rekkefølgen mat, skritt, vekt, treningsøkter.
-Mat er synlig, og vekt er synlig når historikk finnes. Brukeren kan velge å vise
-skritt og treningsøkter.
-Eldre standardrekkefølge normaliseres ved lesing; eksplisitte nye valg og
-eldre egendefinerte rekkefølger beholdes. Begge/alle kort kan skjules; da vises
-«Velg hva du vil se her» med inngang til tilpasning. Visningspreferanse v2 er
-separat fra SQLite-/synkskjemaet.
+«Tilpass» åpner et ark med fire brytere i fast rekkefølge. Valgene gjelder
+alle perioder. «Lagre» bekrefter utkastet, og «Avbryt» forkaster det.
+«Gjenopprett standard» viser Mat og næring, samt Vekt når historikk finnes.
+Eksisterende valg om synlighet beholdes. Når alle områder er skjult, vises
+«Velg hva du vil se her» med inngang til tilpasning. Visningspreferansen er
+lokal per profil og separat fra SQLite-/synkskjemaet.
 
 Matperiodene er kalenderdag, mandag–søndag og kalendermåned. Pilene flytter én
 valgt periode og beholder ukedagen eller månedsdagen der kalenderen tillater

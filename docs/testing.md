@@ -949,8 +949,8 @@ Verifisert i avgrensede kjøringer på MatLogg Hub QA / iOS 26.5:
 Periodetestene dekker mandag–søndag, månedslengde/skuddår, norsk DST-uke,
 reelle nullverdier versus uloggede dager, registrerte dagsgjennomsnitt,
 årsskifte, eldre svar etter periodebytte og profilavgrensede vektpunkter.
-Preferansetesten dekker normalisering av gammelt standardoppsett uten å
-aktivere skjulte kort eller overskrive nye/egendefinerte rekkefølger.
+Preferansetestene dekker v1- og v2-valg, inkludert at alle områder er skjult.
+Alle 16 synlighetskombinasjoner testes med fast rekkefølge i Dag, Uke og Måned.
 Den første kontrollen bekreftet også tilpasning, alle kort skjult, mørk modus,
 stor tekst og eksisterende lokal data-/Helse-adferd gjennom de berørte suitene.
 

@@ -4,30 +4,24 @@ import Testing
 
 @MainActor
 struct ProgressHubTests {
-    @Test func weekGroupsAllVisibilityChoicesAndPreservesOrderWithinTheCard() {
-        let areas = ProgressHubArea.allCases
-        for first in areas {
-            for second in areas where second != first {
-                for third in areas where third != first && third != second {
-                    let fourth = areas.first { $0 != first && $0 != second && $0 != third }!
-                    let order = [first, second, third, fourth]
-                    for mask in 0..<(1 << areas.count) {
-                        let visible = order.enumerated().compactMap { index, area in
-                            mask & (1 << index) != 0 ? area : nil
-                        }
-                        let layout = ProgressHubLayout(order: order, visible: Set(visible))
-                        let groups = layout.cardGroups(for: .week)
-                        let weekAreas = visible.filter { $0 != .weight }
-                        #expect(groups.filter { $0 != [.weight] } == (weekAreas.isEmpty ? [] : [weekAreas]))
-                        #expect(groups.contains([.weight]) == visible.contains(.weight))
-                        if visible.contains(.weight), !weekAreas.isEmpty {
-                            #expect((groups.first == [.weight]) == (visible.first == .weight))
-                        }
-                        #expect(layout.cardGroups(for: .day).flatMap { $0 } == visible)
-                        #expect(layout.cardGroups(for: .month).flatMap { $0 } == visible)
-                    }
-                }
-            }
+    @Test func fixedLayoutCoversEveryVisibilityCombination() {
+        let standard: [ProgressHubArea] = [.nutrition, .steps, .weight, .workouts]
+        for mask in 0..<(1 << standard.count) {
+            let visible = Set(standard.enumerated().compactMap { index, area in
+                mask & (1 << index) != 0 ? area : nil
+            })
+            let layout = ProgressHubLayout(visible: visible)
+            let compact = [ProgressHubArea.steps, .weight].filter { visible.contains($0) }
+            let expectedCards = (visible.contains(.nutrition) ? [[ProgressHubArea.nutrition]] : [])
+                + (compact.isEmpty ? [] : [compact])
+                + (visible.contains(.workouts) ? [[.workouts]] : [])
+            let weekRows = [ProgressHubArea.nutrition, .steps, .workouts].filter { visible.contains($0) }
+            let expectedWeek = (weekRows.isEmpty ? [] : [weekRows])
+                + (visible.contains(.weight) ? [[.weight]] : [])
+
+            #expect(layout.cardGroups(for: .day) == expectedCards)
+            #expect(layout.cardGroups(for: .week) == expectedWeek)
+            #expect(layout.cardGroups(for: .month) == expectedCards)
         }
     }
 
@@ -62,15 +56,12 @@ struct ProgressHubTests {
         #expect(model.layout.visibleAreas == [.nutrition])
     }
 
-    @Test func cancelRestoreAndMoveOperateOnDraftOnly() {
+    @Test func cancelAndRestoreOperateOnDraftOnly() {
         let model = ProgressHubViewModel(repository: HubRepositoryStub())
         let owner = UUID()
         model.activate(owner: owner)
         model.updateDefault(hasWeightHistory: true, owner: owner)
         model.beginEditing()
-        model.move(.weight, by: -1)
-        #expect(model.draft?.order == [.weight, .steps, .nutrition, .workouts])
-        #expect(model.draft?.visibleAreas == [.weight, .nutrition])
         model.setVisible(.nutrition, isVisible: false)
         #expect(model.draft?.visibleAreas == [.weight])
         #expect(model.layout.visibleAreas == [.nutrition, .weight])
@@ -82,7 +73,7 @@ struct ProgressHubTests {
         #expect(model.draft == model.layout)
     }
 
-    @Test func reopeningPreservesOrderHiddenCardsAndValidEmptyLayout() throws {
+    @Test func reopeningPreservesVisibilityAndValidEmptyLayout() throws {
         try withDefaults { defaults in
             let owner = UUID()
             let repository = UserDefaultsProgressHubRepository(defaults: defaults)
@@ -90,11 +81,10 @@ struct ProgressHubTests {
             model.activate(owner: owner)
             model.beginEditing()
             model.setVisible(.weight, isVisible: true)
-            model.reorderVisibleAreas([.weight, .nutrition])
             #expect(model.save())
             let reopened = ProgressHubViewModel(repository: repository)
             reopened.activate(owner: owner)
-            #expect(reopened.layout.visibleAreas == [.weight, .nutrition])
+            #expect(reopened.layout.visibleAreas == [.nutrition, .weight])
             reopened.beginEditing()
             reopened.setVisible(.nutrition, isVisible: false)
             reopened.setVisible(.weight, isVisible: false)
@@ -147,7 +137,6 @@ struct ProgressHubTests {
             #expect(repository.load(owner: owner) == nil)
             let data = Data(#"{"version":1,"order":["weight","future","weight"],"visible":["weight","future"]}"#.utf8)
             defaults.set(data, forKey: ProgressHubStorage.key(owner))
-            #expect(repository.load(owner: owner)?.order == [.weight, .nutrition, .steps, .workouts])
             #expect(repository.load(owner: owner)?.visibleAreas == [.weight])
             #expect(repository.load(owner: other) == nil)
             defaults.set(Data(#"{"version":9,"order":[],"visible":[]}"#.utf8), forKey: ProgressHubStorage.key(owner))
@@ -155,22 +144,26 @@ struct ProgressHubTests {
         }
     }
 
-    @Test func originalDefaultAdoptsPrototypeOrderWhileCustomOrderIsPreserved() throws {
+    @Test func olderPreferencesKeepVisibilityAndAdoptTheFixedOrder() throws {
         try withDefaults { defaults in
             let owner = UUID()
             let repository = UserDefaultsProgressHubRepository(defaults: defaults)
-            defaults.set(Data(#"{"version":1,"order":["nutrition","weight"],"visible":["nutrition","weight"]}"#.utf8), forKey: ProgressHubStorage.key(owner))
-            let migrated = try #require(repository.load(owner: owner))
-            #expect(migrated.order == [.nutrition, .steps, .weight, .workouts])
-            #expect(migrated.visibleAreas == [.nutrition, .weight])
-            defaults.set(Data(#"{"version":2,"order":["weight","steps","nutrition"],"visible":["weight","steps"]}"#.utf8), forKey: ProgressHubStorage.key(owner))
-            #expect(repository.load(owner: owner)?.order == [.weight, .steps, .nutrition, .workouts])
-            #expect(repository.load(owner: owner)?.visibleAreas == [.weight, .steps])
-            let custom = ProgressHubLayout(order: [.nutrition, .workouts, .weight, .steps], visible: [.nutrition, .steps, .weight, .workouts])
-            try repository.save(custom, owner: owner)
-            #expect(repository.load(owner: owner) == custom)
-            defaults.set(Data(#"{"version":1,"order":["weight","nutrition"],"visible":["weight","nutrition"]}"#.utf8), forKey: ProgressHubStorage.key(owner))
-            #expect(repository.load(owner: owner)?.order == [.weight, .nutrition, .steps, .workouts])
+            let key = ProgressHubStorage.key(owner)
+            defaults.set(Data(#"{"version":1,"order":["weight","nutrition"],"visible":["weight","nutrition"]}"#.utf8), forKey: key)
+            #expect(repository.load(owner: owner)?.visibleAreas == [.nutrition, .weight])
+            defaults.set(Data(#"{"version":2,"order":["weight","steps","nutrition"],"visible":["weight","steps"]}"#.utf8), forKey: key)
+            let selected = try #require(repository.load(owner: owner))
+            #expect(selected.visibleAreas == [.steps, .weight])
+
+            try repository.save(selected, owner: owner)
+            let data = try #require(defaults.data(forKey: key))
+            let record = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            #expect(record["version"] as? Int == 2)
+            #expect(record["order"] as? [String] == ["nutrition", "steps", "weight", "workouts"])
+            #expect(repository.load(owner: owner) == selected)
+
+            defaults.set(Data(#"{"version":2,"order":["weight","nutrition"],"visible":[]}"#.utf8), forKey: key)
+            #expect(repository.load(owner: owner)?.visibleAreas == [])
         }
     }
 
@@ -184,7 +177,7 @@ struct ProgressHubTests {
         let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("hub.sqlite")), defaults: defaults)
         let local = UUID(), account = UUID(), other = UUID()
         let repository = UserDefaultsProgressHubRepository(defaults: defaults)
-        let selected = ProgressHubLayout(order: [.weight, .nutrition, .steps, .workouts], visible: [.weight])
+        let selected = ProgressHubLayout(visible: [.weight])
         try repository.save(selected, owner: local)
         try repository.save(.standard(hasWeightHistory: false), owner: other)
         let records = try await database.exportProfileRecords(ownerId: local)

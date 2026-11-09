@@ -132,7 +132,6 @@ final class HealthStepsUITests: XCTestCase {
         XCTAssertTrue(toggle.isHittable)
         if isVisible {
             app.setToggle(toggle, enabled: true)
-            app.moveProgressArea("steps", named: "Skritt", above: "nutrition")
         } else {
             XCTAssertEqual(toggle.value as? String, "0")
         }

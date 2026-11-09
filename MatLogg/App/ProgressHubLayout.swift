@@ -23,22 +23,20 @@ nonisolated enum ProgressHubArea: String, CaseIterable, Codable, Identifiable, S
 }
 
 nonisolated struct ProgressHubLayout: Equatable, Sendable {
-    var order: [ProgressHubArea]
+    static let standardOrder: [ProgressHubArea] = [.nutrition, .steps, .weight, .workouts]
+
     var visible: Set<ProgressHubArea>
 
     static func standard(hasWeightHistory: Bool) -> Self {
-        Self(order: [.nutrition, .steps, .weight, .workouts], visible: hasWeightHistory ? [.nutrition, .weight] : [.nutrition])
+        Self(visible: hasWeightHistory ? [.nutrition, .weight] : [.nutrition])
     }
 
-    var visibleAreas: [ProgressHubArea] { order.filter { visible.contains($0) } }
+    var visibleAreas: [ProgressHubArea] { Self.standardOrder.filter { visible.contains($0) } }
 
     func cardGroups(for period: ProgressPeriod) -> [[ProgressHubArea]] {
         if period == .week {
             let weekAreas = visibleAreas.filter { $0 != .weight }
-            return visibleAreas.compactMap { area in
-                if area == .weight { return [.weight] }
-                return area == weekAreas.first ? weekAreas : nil
-            }
+            return (weekAreas.isEmpty ? [] : [weekAreas]) + (visible.contains(.weight) ? [[.weight]] : [])
         }
 
         var groups: [[ProgressHubArea]] = []

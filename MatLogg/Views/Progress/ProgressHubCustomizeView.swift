@@ -6,39 +6,11 @@ struct ProgressHubCustomizeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let visible = model.draft?.visibleAreas ?? []
-        let hidden = model.draft?.order.filter { !visible.contains($0) } ?? []
-
         NavigationStack {
             List {
-                if !visible.isEmpty {
-                    Section {
-                        ForEach(visible) { area in
-                            areaToggle(area)
-                                .accessibilityActions {
-                                    if area != visible.first {
-                                        Button("Flytt opp") { model.move(area, by: -1) }
-                                    }
-                                    if area != visible.last {
-                                        Button("Flytt ned") { model.move(area, by: 1) }
-                                    }
-                                }
-                                .moveDisabled(visible.count < 2)
-                        }
-                        .onMove { source, destination in
-                            var reordered = visible
-                            reordered.move(fromOffsets: source, toOffset: destination)
-                            model.reorderVisibleAreas(reordered)
-                        }
-                    } header: {
-                        Text("Vises i oversikten")
-                    } footer: {
-                        Text("I ukevisningen samles mat, skritt og trening i ett kort. Vekt vises separat.")
-                    }
-                }
-                if !hidden.isEmpty {
-                    Section("Skjulte områder") {
-                        ForEach(hidden, id: \.hiddenRowID) { area in
+                if model.draft != nil {
+                    Section("Vises i oversikten") {
+                        ForEach(ProgressHubLayout.standardOrder) { area in
                             areaToggle(area)
                         }
                     }
@@ -52,7 +24,6 @@ struct ProgressHubCustomizeView: View {
                     Section { ErrorMessageView(error).listRowBackground(AppColors.surface) }
                 }
             }
-            .environment(\.editMode, .constant(.active))
             .scrollContentBackground(.hidden)
             .background(AppColors.background)
             .tint(AppColors.action)
@@ -85,9 +56,4 @@ struct ProgressHubCustomizeView: View {
         .accessibilityIdentifier("progress-hub-toggle-" + area.rawValue)
         .listRowBackground(AppColors.surface)
     }
-}
-
-private extension ProgressHubArea {
-    // A newly visible area needs a new list row with a reorder control.
-    var hiddenRowID: String { "hidden-" + rawValue }
 }

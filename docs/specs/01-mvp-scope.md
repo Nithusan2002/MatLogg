@@ -208,8 +208,8 @@ Se [lagrede måltider](../saved-meals.md#del-måltidskort).
 ## Tillegg 2026-11-06: personlig oversikt på Utvikling
 
 Eksisterende mat-/næringsoversikt og valgfri vektregistrering samles i to kort.
-Brukeren kan skjule og flytte kort gjennom Tilpass; valgene lagres lokalt per
-profil. Begge kan skjules uten å miste tilgang til tilpasning. Første versjon
+Brukeren kan vise eller skjule områder gjennom Tilpass. Valgene lagres lokalt
+per profil. Alle kan skjules uten å miste tilgang til tilpasning. Første versjon
 beholder siste sju dager og eksisterende vekthistorikk.
 
 ### Valgfri skrittvisning fra Apple Helse
@@ -244,7 +244,7 @@ uke- og månedsvisning.
 ### Valgfri visning av treningsøkter fra Apple Helse
 
 Treningsøkter slås på separat i Profil → Innstillinger → Apple Helse.
-Kortet er skjult som standard og kan vises og flyttes under Tilpass.
+Kortet er skjult som standard og kan vises under Tilpass.
 Det viser antall økter og de to nyeste i valgt dag, uke eller måned.
 Detaljene viser alle øktene i perioden. MatLogg bruker type, starttid og
 varighet midlertidig på enheten til visning i Utvikling.

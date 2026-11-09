@@ -159,10 +159,10 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   tilbake til inneværende dag, uke eller måned.
 - I Uke samles synlig Mat og næring, Skritt og Treningsøkter med en felles
   mandag–søndag-akse. Hver rad åpner detaljene for valgt uke. Vekt er eget
-  kort. Radene følger Tilpass og bruker dagsverdiene appen allerede leser.
-- Kortvalg er lokale per profil. Visningspreferanse v2 normaliserer eldre
-  standardrekkefølge til mat/skritt/vekt uten å aktivere skjulte områder eller
-  endre helsevalg. Egendefinerte oppsett beholdes.
+  kort under ukeoversikten. Radene bruker dagsverdiene appen allerede leser.
+- Kortvalg er lokale per profil og gjelder alle perioder. Tilpass har fire
+  brytere i fast rekkefølge. Eksisterende visningsvalg beholdes, og
+  egendefinert rekkefølge erstattes av standardrekkefølgen.
 - **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
   og Vekt samt Treningsøkter. Kortdetaljene har en snarvei hit før tilkobling. Data hentes
   bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.

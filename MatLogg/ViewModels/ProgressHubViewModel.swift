@@ -45,23 +45,6 @@ final class ProgressHubViewModel: ObservableObject {
         if isVisible { draft?.visible.insert(area) } else { draft?.visible.remove(area) }
     }
 
-    func move(_ area: ProgressHubArea, by offset: Int) {
-        guard var areas = draft?.visibleAreas, let index = areas.firstIndex(of: area),
-              areas.indices.contains(index + offset) else { return }
-        areas.swapAt(index, index + offset)
-        reorderVisibleAreas(areas)
-    }
-
-    func reorderVisibleAreas(_ areas: [ProgressHubArea]) {
-        guard var value = draft, areas.count == value.visible.count,
-              Set(areas) == value.visible else { return }
-        let visibleSlots = value.order.indices.filter { value.visible.contains(value.order[$0]) }
-        for (index, area) in zip(visibleSlots, areas) {
-            value.order[index] = area
-        }
-        draft = value
-    }
-
     func restoreDefault() {
         guard draft != nil, owner != nil else { return }
         draft = .standard(hasWeightHistory: hasWeightHistory)

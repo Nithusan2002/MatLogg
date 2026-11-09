@@ -1023,3 +1023,11 @@ innstillingene. Perioden avgjøres av øktens starttid. Oversikten viser antall
 og de to nyeste, med hele listen i detaljene. Bare økttype, starttid og
 varighet brukes til visning, med en midlertidig rad-ID. Øktdata følger samme
 livssyklus som skritt og vekt. Tilkoblingsvalget lagres lokalt per profil.
+
+## 2026-11-09 – Fast rekkefølge i Utvikling
+
+Tilpass styrer synlighet med én bryter per område. Fast rekkefølge gjør at
+valgene fungerer likt på tvers av perioder, også når mat, skritt og trening
+deler ett ukekort. Vekt står separat under ukekortet. Tidligere valg om
+synlighet beholdes. V1 og v2 kan leses, og nye valg skrives som v2 med
+standardrekkefølgen.

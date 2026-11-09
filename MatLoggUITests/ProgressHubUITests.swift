@@ -12,28 +12,18 @@ final class ProgressHubUITests: XCTestCase {
         app.buttons["Gjenopprett standard"].tap()
         app.buttons["progress-hub-save"].tap()
         XCTAssertTrue(app.staticTexts["Mat og næring"].firstMatch.waitForExistence(timeout: 5))
-        capture("Hub – mat og vekt", app)
 
         customize(app)
-        app.moveProgressArea("weight", named: "Vekt", above: "nutrition")
-        capture("Tilpass oversikten – synlige og skjulte områder", app)
-        app.buttons["progress-hub-save"].tap()
-        let weight = app.staticTexts["Vekt"].firstMatch
-        XCTAssertTrue(weight.waitForExistence(timeout: 5))
-        capture("Hub – vekt øverst", app)
-        app.terminate()
-        app.launch()
-        openHub(app)
-        XCTAssertTrue(weight.waitForExistence(timeout: 5))
-        XCTAssertLessThan(weight.frame.minY, app.staticTexts["Mat og næring"].firstMatch.frame.minY)
-
-        customize(app)
-        let nutritionSwitch = app.switches["progress-hub-toggle-nutrition"]
-        let weightSwitch = app.switches["progress-hub-toggle-weight"]
-        app.setToggle(nutritionSwitch, enabled: false)
-        app.setToggle(weightSwitch, enabled: false)
-        XCTAssertFalse(app.staticTexts["Vises i oversikten"].exists)
-        XCTAssertTrue(app.staticTexts["Skjulte områder"].exists)
+        let switches = ["nutrition", "steps", "weight", "workouts"].map {
+            app.switches["progress-hub-toggle-" + $0]
+        }
+        XCTAssertTrue(switches.allSatisfy(\.isHittable))
+        let rowOrder = switches.map { $0.frame.midY }
+        XCTAssertEqual(rowOrder, rowOrder.sorted())
+        capture("Tilpass oversikten – fire brytere", app)
+        app.setToggle(switches[0], enabled: false)
+        app.setToggle(switches[2], enabled: false)
+        XCTAssertEqual(switches.map { $0.frame.midY }, rowOrder)
         app.buttons["progress-hub-save"].tap()
         XCTAssertTrue(app.staticTexts["Velg hva du vil se her"].waitForExistence(timeout: 5))
         capture("Hub – alle områder skjult", app)
@@ -175,7 +165,6 @@ final class ProgressHubUITests: XCTestCase {
         openHub(app)
         customize(app)
         app.buttons["Gjenopprett standard"].tap()
-        app.moveProgressArea("weight", named: "Vekt", above: "nutrition")
         app.buttons["progress-hub-save"].tap()
         let weightCard = app.buttons["progress-hub-weight-open"]
         for _ in 0..<6 {
@@ -240,7 +229,6 @@ final class ProgressHubUITests: XCTestCase {
         openHub(app)
         customize(app)
         app.buttons["Gjenopprett standard"].tap()
-        app.moveProgressArea("weight", named: "Vekt", above: "nutrition")
         app.buttons["progress-hub-save"].tap()
 
         let card = app.buttons["progress-hub-weight-open"]
@@ -348,19 +336,5 @@ final class ProgressHubUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-    }
-}
-
-extension XCUIApplication {
-    @MainActor func moveProgressArea(_ area: String, named title: String, above target: String) {
-        let toggle = switches["progress-hub-toggle-" + area]
-        let targetToggle = switches["progress-hub-toggle-" + target]
-        let reorderLabel = NSPredicate(format: "label ENDSWITH %@", title)
-        let handle = buttons.containing(.image, identifier: "line.horizontal.3").matching(reorderLabel).firstMatch
-        XCTAssertTrue(handle.waitForExistence(timeout: 5))
-        let destination = targetToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.1))
-        handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.4, thenDragTo: destination)
-        XCTAssertLessThan(toggle.frame.minY, targetToggle.frame.minY)
     }
 }

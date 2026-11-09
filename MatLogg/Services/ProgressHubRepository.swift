@@ -18,21 +18,13 @@ struct UserDefaultsProgressHubRepository: ProgressHubRepository {
         guard let data = defaults.data(forKey: ProgressHubStorage.key(owner)),
               let record = try? JSONDecoder().decode(Record.self, from: data),
               (1...2).contains(record.version) else { return nil }
-        var order: [ProgressHubArea] = []
-        for raw in record.order {
-            if let area = ProgressHubArea(rawValue: raw), !order.contains(area) { order.append(area) }
-        }
-        order += ProgressHubArea.allCases.filter { !order.contains($0) }
-        // Version 1 stored nutrition and weight before steps was appended.
-        if record.version == 1 && order == [.nutrition, .weight, .steps, .workouts] {
-            order = ProgressHubLayout.standard(hasWeightHistory: false).order
-        }
-        return ProgressHubLayout(order: order, visible: Set(record.visible.compactMap(ProgressHubArea.init(rawValue:))))
+        return ProgressHubLayout(visible: Set(record.visible.compactMap(ProgressHubArea.init(rawValue:))))
     }
 
     func save(_ layout: ProgressHubLayout, owner: UUID) throws {
-        let record = Record(version: 2, order: layout.order.map(\.rawValue),
-                            visible: layout.order.filter { layout.visible.contains($0) }.map(\.rawValue))
+        // Keep the existing format readable by earlier versions of the app.
+        let record = Record(version: 2, order: ProgressHubLayout.standardOrder.map(\.rawValue),
+                            visible: layout.visibleAreas.map(\.rawValue))
         defaults.set(try JSONEncoder().encode(record), forKey: ProgressHubStorage.key(owner))
     }
 }
