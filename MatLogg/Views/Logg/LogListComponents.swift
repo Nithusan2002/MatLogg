@@ -6,6 +6,7 @@ struct LogRowView: View {
     let productName: String
     var compact: Bool = false
     var mealRoom: Bool = false
+    var showsMealNutrition = true
     var imageURL: URL? = nil
     var imageData: Data? = nil
     var foodGroup: FoodGroup = .other
@@ -77,11 +78,13 @@ struct LogRowView: View {
                 ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {
                     productDescription
-                    Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel("\(NutritionDisplay.wholeCalories(log.calories)) kilokalorier, protein \(NutritionDisplay.wholeGrams(log.proteinG)) gram, karbohydrat \(NutritionDisplay.wholeGrams(log.carbsG)) gram, fett \(NutritionDisplay.wholeGrams(log.fatG)) gram")
+                    if showsMealNutrition {
+                        Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("\(NutritionDisplay.wholeCalories(log.calories)) kilokalorier, protein \(NutritionDisplay.wholeGrams(log.proteinG)) gram, karbohydrat \(NutritionDisplay.wholeGrams(log.carbsG)) gram, fett \(NutritionDisplay.wholeGrams(log.fatG)) gram")
+                    }
 
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,5 +174,23 @@ struct CompactLogListView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 4)
         }
+    }
+}
+
+struct LogMealCardBackground: View {
+    var top = false
+    var bottom = false
+
+    var body: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: top ? 24 : 0,
+            bottomLeadingRadius: bottom ? 24 : 0,
+            bottomTrailingRadius: bottom ? 24 : 0,
+            topTrailingRadius: top ? 24 : 0,
+            style: .continuous
+        )
+        .fill(AppColors.surface)
+        .padding(.horizontal, 16)
+        .background(AppColors.background)
     }
 }

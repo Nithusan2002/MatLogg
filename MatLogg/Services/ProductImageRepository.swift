@@ -69,7 +69,7 @@ actor CachedProductImageRepository: ProductImageRepository {
         return try await ProductImagePreparation.pixels(from: data(for: url), maximumPixelSize: maximumPixelSize)
     }
 
-    private static func smallFrontImageURL(for url: URL) -> URL? {
+    private nonisolated static func smallFrontImageURL(for url: URL) -> URL? {
         guard url.scheme == "https", url.host == "images.openfoodfacts.org",
               url.path.hasPrefix("/images/products/"), url.query == nil, url.fragment == nil,
               url.lastPathComponent.range(of: #"^front_[a-z]{2}\.[0-9]+\.(400|full)\.jpg$"#,

@@ -51,6 +51,10 @@ private struct HomeNavigationContent: View {
         return TabView(selection: tabSelection) {
             HomeTabView(
                 onOpenQuickLog: { showAddActions = true },
+                onDeleteComplete: {
+                    dismissReceipt()
+                    savedMealsViewModel.dismissReceipt()
+                },
                 onLogComplete: { payload in
                     Task { await loadTodaysSummary() }
                     receiptPayload = payload
@@ -286,6 +290,7 @@ struct HomeTabView: View {
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
+    let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
 
     var body: some View {
@@ -293,7 +298,7 @@ struct HomeTabView: View {
             HomeTabContent(repository: repository, appState: appState, logViewModel: logViewModel,
                 authViewModel: authViewModel, savedMealsViewModel: savedMealsViewModel,
                 healthProfileViewModel: healthProfileViewModel, preferencesViewModel: preferencesViewModel,
-                onOpenQuickLog: onOpenQuickLog, onLogComplete: onLogComplete)
+                onOpenQuickLog: onOpenQuickLog, onDeleteComplete: onDeleteComplete, onLogComplete: onLogComplete)
         } else {
             ContentUnavailableView("Oversikt er utilgjengelig", systemImage: "fork.knife")
         }
@@ -304,6 +309,7 @@ private struct HomeTabContent: View {
     @EnvironmentObject private var productViewModel: ProductViewModel
     let savedMealsViewModel: SavedMealsViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @EnvironmentObject var mealReuseViewModel: MealReuseViewModel
     let appState: AppState
     let logViewModel: LogViewModel
@@ -311,6 +317,7 @@ private struct HomeTabContent: View {
     let authViewModel: AuthViewModel
     let preferencesViewModel: PreferencesViewModel
     let onOpenQuickLog: () -> Void
+    let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     @State private var isPullRefreshing = false
     @StateObject private var overviewModel: HomeOverviewViewModel
@@ -325,7 +332,8 @@ private struct HomeTabContent: View {
     init(repository: any FoodLogRepository, appState: AppState, logViewModel: LogViewModel,
          authViewModel: AuthViewModel, savedMealsViewModel: SavedMealsViewModel,
          healthProfileViewModel: HealthProfileViewModel, preferencesViewModel: PreferencesViewModel,
-         onOpenQuickLog: @escaping () -> Void, onLogComplete: @escaping (ReceiptPayload) -> Void) {
+         onOpenQuickLog: @escaping () -> Void, onDeleteComplete: @escaping () -> Void,
+         onLogComplete: @escaping (ReceiptPayload) -> Void) {
         self.appState = appState
         self.logViewModel = logViewModel
         self.authViewModel = authViewModel
@@ -333,6 +341,7 @@ private struct HomeTabContent: View {
         self.healthProfileViewModel = healthProfileViewModel
         self.preferencesViewModel = preferencesViewModel
         self.onOpenQuickLog = onOpenQuickLog
+        self.onDeleteComplete = onDeleteComplete
         self.onLogComplete = onLogComplete
         _overviewModel = StateObject(wrappedValue: HomeOverviewViewModel(repository: repository,
             appState: appState, auth: authViewModel, logs: logViewModel, savedMeals: savedMealsViewModel,
@@ -345,7 +354,7 @@ private struct HomeTabContent: View {
         let logsByMeal = overviewModel.overview.logsByMeal
 
         return NavigationStack {
-            ScrollView {
+            List {
                 VStack(alignment: .leading, spacing: 16) {
                     DayNavigationBar(selection: selectedDateBinding)
 
@@ -470,50 +479,70 @@ private struct HomeTabContent: View {
                         }
                     }
 
-                    if selectedSummary != nil {
-                        ForEach(MealPresentation.all) { meal in
-                            MealOverviewCard(
-                                meal: meal,
-                                logs: logsByMeal[meal.key] ?? [],
-                                totals: overviewModel.overview.mealTotals[meal.key] ?? NutritionCalculator.totals(for: []),
-                                productName: { productNames[$0] ?? "Ukjent produkt" },
-                                productImageURL: { overviewModel.products[$0]?.imageUrl.flatMap(URL.init(string:)) },
-                                productImageData: { overviewModel.products[$0]?.localImageData },
-                                productFoodGroup: { overviewModel.products[$0]?.foodGroup ?? .other },
-                                onOpen: { selectedMealForLog = meal },
-                                onEdit: { editingLog = $0 },
-                                onAdd: {
-                                    appState.selectedMealType = meal.key
-                                    onOpenQuickLog()
-                                },
-                                reuseSuggestion: mealReuseViewModel.suggestions.first { $0.mealType == meal.key },
-                                isReusing: mealReuseViewModel.isSaving,
-                                onReuse: { suggestion in
-                                    Task {
-                                        if await mealReuseViewModel.log(suggestion) { await refreshAfterMealReuse() }
-                                    }
-                                },
-                                onAdjustReuse: { mealReuseViewModel.edit($0) },
-                                onDismissReuse: { mealReuseViewModel.dismissSuggestion(mealType: meal.key) }
-                            )
-                        }
-                    }
-
-                    HomeQuickProductsSection(userId: authViewModel.currentUser?.id, date: selectedDate,
-                        logRevision: logViewModel.mutationRevision, savedMealRevision: savedMealsViewModel.mutationRevision,
-                        onSelect: { selectedProduct = $0 })
-
-
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
+                .padding(.bottom, 16)
+                .buttonStyle(.borderless)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
+
+                if selectedSummary != nil {
+                    ForEach(MealPresentation.all) { meal in
+                        MealOverviewCard(
+                            meal: meal,
+                            logs: logsByMeal[meal.key] ?? [],
+                            totals: overviewModel.overview.mealTotals[meal.key] ?? NutritionCalculator.totals(for: []),
+                            productName: { productNames[$0] ?? "Ukjent produkt" },
+                            productImageURL: { overviewModel.products[$0]?.imageUrl.flatMap(URL.init(string:)) },
+                            productImageData: { overviewModel.products[$0]?.localImageData },
+                            productFoodGroup: { overviewModel.products[$0]?.foodGroup ?? .other },
+                            onOpen: { selectedMealForLog = meal },
+                            onEdit: { editingLog = $0 },
+                            onDelete: deleteLog,
+                            onAdd: {
+                                appState.selectedMealType = meal.key
+                                onOpenQuickLog()
+                            },
+                            reuseSuggestion: mealReuseViewModel.suggestions.first { $0.mealType == meal.key },
+                            isReusing: mealReuseViewModel.isSaving,
+                            onReuse: { suggestion in
+                                Task {
+                                    if await mealReuseViewModel.log(suggestion) { await refreshAfterMealReuse() }
+                                }
+                            },
+                            onAdjustReuse: { mealReuseViewModel.edit($0) },
+                            onDismissReuse: { mealReuseViewModel.dismissSuggestion(mealType: meal.key) }
+                        )
+                    }
+                }
+
+                HomeQuickProductsSection(userId: authViewModel.currentUser?.id, date: selectedDate,
+                    logRevision: logViewModel.mutationRevision, savedMealRevision: savedMealsViewModel.mutationRevision,
+                    onSelect: { selectedProduct = $0 })
+                    .padding(.horizontal, 16)
+                    .buttonStyle(.borderless)
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(AppColors.background)
+                    .listRowSeparator(.hidden)
             }
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .scrollContentBackground(.hidden)
             .refreshable {
                 isPullRefreshing = true
                 defer { isPullRefreshing = false }
                 await refreshSummaries()
             }
             .matLoggTabBarScrollClearance()
+            .overlay(alignment: .bottom) {
+                LogReceiptOverlay(logs: logViewModel, payload: nil, isUndoing: false,
+                    onDeletionUndo: undoDeletion, onLoggingUndo: {}, onLoggingDismiss: {})
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, tabBarScrollMargin)
+            }
+            .onDisappear(perform: dismissDeletion)
             .background(AppColors.background.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showDailyLog) {
@@ -524,6 +553,7 @@ private struct HomeTabContent: View {
             }
         }
         .task(id: authViewModel.currentUser?.id) {
+            dismissDeletion()
             appState.logSelectedDate = Date()
             await refreshSummaries()
         }
@@ -535,6 +565,7 @@ private struct HomeTabContent: View {
                 imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
                 imageData: overviewModel.products[log.productId]?.localImageData,
                 foodGroup: overviewModel.products[log.productId]?.foodGroup ?? .other,
+                favorites: overviewModel.products[log.productId] == nil ? nil : productViewModel.favoriteRepository,
                 onSave: { request in
                         guard let userId = authViewModel.currentUser?.id else { return false }
                         let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
@@ -583,9 +614,40 @@ private struct HomeTabContent: View {
             Task { await refreshSummaries() }
         }
         .onChange(of: appState.logSelectedDate) { _, _ in
+            dismissDeletion()
             Task { await refreshSummaries() }
         }
 
+    }
+
+    private func dismissDeletion() {
+        logViewModel.dismissDeletionReceipt()
+    }
+
+    private func deleteLog(_ log: FoodLog) {
+        Task {
+            guard let userId = authViewModel.currentUser?.id,
+                  log.userId == userId,
+                  Calendar.current.isDate(log.loggedDate, inSameDayAs: selectedDate),
+                  !logViewModel.isDeletingOrRestoring else { return }
+            if await logViewModel.deleteWithUndo(log, userId: userId) {
+                if logViewModel.deletionReceiptID != nil { onDeleteComplete() }
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
+            }
+        }
+    }
+
+    private func undoDeletion() {
+        Task {
+            guard let userId = authViewModel.currentUser?.id else { return }
+            if await logViewModel.undoDeletion(userId: userId) {
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
+            }
+        }
     }
 
     private func refreshAfterMealReuse() async {
@@ -839,7 +901,7 @@ struct QuickSearchBar: View {
     }
 }
 
-struct MealOverviewCard: View {
+private struct MealOverviewCard: View {
     let meal: MealPresentation
     let logs: [FoodLog]
     let totals: NutritionBreakdown
@@ -849,6 +911,7 @@ struct MealOverviewCard: View {
     var productFoodGroup: (UUID) -> FoodGroup = { _ in .other }
     let onOpen: () -> Void
     var onEdit: (FoodLog) -> Void = { _ in }
+    let onDelete: (FoodLog) -> Void
     let onAdd: () -> Void
     var reuseSuggestion: MealReuseSuggestion? = nil
     var isReusing = false
@@ -857,111 +920,146 @@ struct MealOverviewCard: View {
     var onDismissReuse: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: meal.icon)
-                    .font(AppTypography.secondaryEmphasis)
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundColor(AppColors.deepInk.opacity(0.8))
-                    .frame(width: 30, height: 30)
-                    .background(meal.tint.opacity(0.14), in: Circle())
-                    .accessibilityHidden(true)
-                Button(action: onOpen) {
-                    Text(meal.title)
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.deepInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Åpne \(meal.title)")
-                .accessibilityIdentifier("home-meal-open-\(meal.key)")
-                Spacer()
-                Button(action: onAdd) {
-                    Text("+ Legg til")
-                        .font(AppTypography.secondaryEmphasis)
-                        .foregroundColor(AppColors.actionText)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
+        Section {
+            header
+                .padding(.top, 16)
+                .padding(.bottom, 6)
+                .onTapGesture { if !logs.isEmpty { onOpen() } }
+                .listRowInsets(cardInsets)
+                .listRowBackground(LogMealCardBackground(top: true))
+                .listRowSeparator(.hidden)
 
-            if logs.isEmpty, let suggestion = reuseSuggestion {
-                MealReuseSuggestionView(
-                    suggestion: suggestion,
-                    isSaving: isReusing,
-                    onLog: { onReuse(suggestion) },
-                    onAdjust: { onAdjustReuse(suggestion) },
-                    onDismiss: onDismissReuse
-                )
-            } else if logs.isEmpty {
-                Text("Ikke logget ennå")
-                    .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if logs.isEmpty {
+                emptyContent
+                    .padding(.top, 6)
+                    .padding(.bottom, 16)
+                    .buttonStyle(.borderless)
+                    .listRowInsets(cardInsets)
+                    .listRowBackground(LogMealCardBackground(bottom: true))
+                    .listRowSeparator(.hidden)
             } else {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(logs.prefix(3)) { log in
-                        Button { onEdit(log) } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                ProductThumbnailView(url: productImageURL(log.productId), localData: productImageData(log.productId), foodGroup: productFoodGroup(log.productId), size: 52, imagePadding: 2)
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(productName(log.productId))
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
-                                        .font(AppTypography.secondary)
-                                        .foregroundColor(AppColors.textSecondary)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Rediger \(productName(log.productId)), \(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))")
-                        .accessibilityIdentifier("home-log-row-\(log.id.uuidString)")
-                    }
-                    if logs.count > 3 {
-                        Text("+ \(logs.count - 3) flere")
-                            .font(AppTypography.secondaryEmphasis).foregroundColor(AppColors.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                ForEach(logs.prefix(3)) { log in
+                    LogRowView(
+                        log: log,
+                        productName: productName(log.productId),
+                        compact: true,
+                        mealRoom: true,
+                        showsMealNutrition: false,
+                        imageURL: productImageURL(log.productId),
+                        imageData: productImageData(log.productId),
+                        foodGroup: productFoodGroup(log.productId),
+                        onEdit: { onEdit(log) },
+                        onMove: { onEdit(log) },
+                        onDelete: { onDelete(log) }
+                    )
+                    .accessibilityIdentifier("home-log-row-\(log.id.uuidString)")
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowBackground(LogMealCardBackground())
+                    .listRowSeparator(.hidden)
                 }
 
-                Rectangle()
-                    .fill(AppColors.separator)
-                    .frame(height: 1)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.deepInk)
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 8) {
-                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                        }
-                        VStack(alignment: .leading, spacing: 8) {
-                            mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
+                footer
+                    .padding(.top, 6)
+                    .padding(.bottom, 16)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onOpen)
+                    .listRowInsets(cardInsets)
+                    .listRowBackground(LogMealCardBackground(bottom: true))
+                    .listRowSeparator(.hidden)
             }
+
+            Color.clear
+                .frame(height: 16)
+                .accessibilityHidden(true)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
         }
-        .padding(16)
-        .matLoggCardSurface(cornerRadius: 24, borderEnabled: false)
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .onTapGesture {
-            if !logs.isEmpty { onOpen() }
+        .listSectionSeparator(.hidden)
+    }
+
+    private var cardInsets: EdgeInsets {
+        EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: meal.icon)
+                .font(AppTypography.secondaryEmphasis)
+                .symbolRenderingMode(.monochrome)
+                .foregroundColor(AppColors.deepInk.opacity(0.8))
+                .frame(width: 30, height: 30)
+                .background(meal.tint.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+            Button(action: onOpen) {
+                Text(meal.title)
+                    .font(AppTypography.sectionTitle)
+                    .foregroundColor(AppColors.deepInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Åpne \(meal.title)")
+            .accessibilityIdentifier("home-meal-open-\(meal.key)")
+            Spacer()
+            Button(action: onAdd) {
+                Text("+ Legg til")
+                    .font(AppTypography.secondaryEmphasis)
+                    .foregroundColor(AppColors.actionText)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityHint(logs.isEmpty ? "Bruk Legg til-knappen for å logge mat" : "Åpner alle innslag med redigering")
+    }
+
+    @ViewBuilder
+    private var emptyContent: some View {
+        if let suggestion = reuseSuggestion {
+            MealReuseSuggestionView(
+                suggestion: suggestion,
+                isSaving: isReusing,
+                onLog: { onReuse(suggestion) },
+                onAdjust: { onAdjustReuse(suggestion) },
+                onDismiss: onDismissReuse
+            )
+        } else {
+            Text("Ikke logget ennå")
+                .font(AppTypography.bodyEmphasis)
+                .foregroundColor(AppColors.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if logs.count > 3 {
+                Text("+ \(logs.count - 3) flere")
+                    .font(AppTypography.secondaryEmphasis)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            Rectangle()
+                .fill(AppColors.separator)
+                .frame(height: 1)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundColor(AppColors.deepInk)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        mealMacros(protein: totals.protein, carbs: totals.carbs, fat: totals.fat)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Totalt for \(meal.title): \(NutritionDisplay.wholeCalories(totals.calories)) kilokalorier, proteiner \(NutritionDisplay.wholeGrams(totals.protein)) gram, karbohydrater \(NutritionDisplay.wholeGrams(totals.carbs)) gram, fett \(NutritionDisplay.wholeGrams(totals.fat)) gram")
+        }
     }
 
     @ViewBuilder
@@ -982,7 +1080,6 @@ struct MealOverviewCard: View {
     }
 
 }
-
 
 struct MealTypeSelector: View {
     @EnvironmentObject var appState: AppState

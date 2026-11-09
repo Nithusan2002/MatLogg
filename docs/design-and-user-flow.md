@@ -70,6 +70,9 @@ Eksisterende visningsvalg beholdes og heter «Vis energi og mål på Hjem».
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Måltidsnavnet åpner valgt måltid for valgt dato. Synlige varerader åpner
 redigering direkte. «Se dagslogg» åpner alle måltider for valgt dato.
+Sveip til venstre på en synlig varerad for å vise «Rediger», «Flytt» og «Slett»,
+som i Dagslogg. Et fullt sveip sletter varen. Begge skjermene tilbyr «Angre»
+etter sletting. Flervalg er tilgjengelig i Dagslogg.
 Hurtigvalg viser favoritter og nylig loggede varer, med mengdevalg før logging.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
@@ -792,6 +795,9 @@ næringsoppsummering beregnet fra loggingens opprinnelige næringssnapshot og m�
 Det gjøres ikke nye katalogoppslag for å åpne arket. «Lagre endringer» er deaktivert
 uten en gyldig, reell endring. Under lagring låses kontrollene og lukking; feil vises
 ved lagreknappen og beholder utkastet. Stor tekst bruker full arkhøyde.
+For tilgjengelige matvarer viser arket et hjerte øverst til høyre. Trykk legger
+varen til i eller fjerner den fra favoritter med en gang, uavhengig av om
+endringer i loggingen lagres. Et fylt hjerte viser at varen er en favoritt.
 
 Hjems overskrift erstattes av «God morgen» kl. 05–11, «God ettermiddag» kl. 11–17,
 «God kveld» kl. 17–23 og «Hei» kl. 23–05, basert på enhetens lokale tid.
