@@ -46,9 +46,19 @@ final class ProgressHubViewModel: ObservableObject {
     }
 
     func move(_ area: ProgressHubArea, by offset: Int) {
-        guard var value = draft, let index = value.order.firstIndex(of: area),
-              value.order.indices.contains(index + offset) else { return }
-        value.order.swapAt(index, index + offset)
+        guard var areas = draft?.visibleAreas, let index = areas.firstIndex(of: area),
+              areas.indices.contains(index + offset) else { return }
+        areas.swapAt(index, index + offset)
+        reorderVisibleAreas(areas)
+    }
+
+    func reorderVisibleAreas(_ areas: [ProgressHubArea]) {
+        guard var value = draft, areas.count == value.visible.count,
+              Set(areas) == value.visible else { return }
+        let visibleSlots = value.order.indices.filter { value.visible.contains(value.order[$0]) }
+        for (index, area) in zip(visibleSlots, areas) {
+            value.order[index] = area
+        }
         draft = value
     }
 

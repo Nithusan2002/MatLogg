@@ -19,13 +19,8 @@ final class HealthWorkoutUITests: XCTestCase {
         let toggle = app.switches["progress-hub-toggle-workouts"]
         makeVisible(toggle, in: app)
         XCTAssertEqual(toggle.value as? String, "0")
-        toggle.tap()
-        XCTAssertEqual(toggle.value as? String, "1")
-        let moveUp = app.buttons["Flytt Treningsøkter opp"]
-        for _ in 0..<3 {
-            makeVisible(moveUp, in: app)
-            moveUp.tap()
-        }
+        app.setToggle(toggle, enabled: true)
+        app.moveProgressArea("workouts", named: "Treningsøkter", above: "nutrition")
         app.buttons["progress-hub-save"].tap()
 
         let card = app.buttons["progress-hub-workouts-open"]

@@ -284,8 +284,10 @@ Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
 Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
 for Apple Helse ligger i Innstillinger.
 
-«Tilpass» åpner et ark med synlighetsvalg og Opp/Ned-handlinger. Rekkefølge og
-synlighet redigeres som utkast; «Lagre» bekrefter og «Avbryt» forkaster.
+«Tilpass» åpner et ark med brytere for synlighet. Synlige områder har
+drahåndtak når det er flere å sortere, og skjulte områder ligger i en egen
+seksjon. Rekkefølge og synlighet redigeres som utkast. «Lagre» bekrefter,
+og «Avbryt» forkaster.
 «Gjenopprett standard» velger rekkefølgen mat, skritt, vekt, treningsøkter.
 Mat er synlig, og vekt er synlig når historikk finnes. Brukeren kan velge å vise
 skritt og treningsøkter.

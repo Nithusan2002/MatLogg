@@ -436,9 +436,10 @@ kort. Store verdier bruker `heroValue`. Kilder for underliggende matvarer
 endres ikke av denne grupperingen. Ingen nye fargetokens innføres.
 
 «Tilpass» står ved skjermtittelen og flyttes under den ved store tekststørrelser.
-Tilpasningsarket bruker native List/Toggle og eksplisitte Opp/Ned-knapper med
-minst 44 pt trykkflate og VoiceOver-navn som inkluderer området. Avbryt, Lagre
-og Gjenopprett standard virker på et redigeringsutkast. Huben og vekthistorikken
+Tilpasningsarket bruker native List/Toggle med minst 44 pt radhøyde. Synlige
+områder kan flyttes med drahåndtak eller VoiceOver-handlingene «Flytt opp»
+og «Flytt ned». Avbryt, Lagre og Gjenopprett standard virker på et
+redigeringsutkast. Huben og vekthistorikken
 holder innhold over bunnmenyen med `matLoggTabBarScrollClearance()`.
 
 ### Skritt fra Apple Helse (2026-11-06)

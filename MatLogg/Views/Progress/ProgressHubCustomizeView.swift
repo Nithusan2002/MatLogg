@@ -6,61 +6,41 @@ struct ProgressHubCustomizeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        let visible = model.draft?.visibleAreas ?? []
+        let hidden = model.draft?.order.filter { !visible.contains($0) } ?? []
+
         NavigationStack {
             List {
-                Section {
-                    ForEach(model.draft?.order ?? []) { area in
-                        VStack(alignment: .leading, spacing: 8) {
-                            let layout = dynamicTypeSize.isAccessibilitySize
-                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
-                                : AnyLayout(HStackLayout(spacing: 12))
-                            layout {
-                                Label(area.title, systemImage: area.symbol)
-                                    .font(AppTypography.bodyEmphasis)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                                Toggle(area.title, isOn: Binding(
-                                    get: { model.draft?.visible.contains(area) ?? false },
-                                    set: { model.setVisible(area, isVisible: $0) }
-                                ))
-                                .labelsHidden()
-                                .frame(minHeight: 44)
-                                .accessibilityLabel(area.title)
-                                .accessibilityIdentifier("progress-hub-toggle-" + area.rawValue)
-                            }
-                            let moveLayout = dynamicTypeSize.isAccessibilitySize
-                                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                                : AnyLayout(HStackLayout(spacing: 12))
-                            moveLayout {
-                                Button { model.move(area, by: -1) } label: {
-                                    Label("Opp", systemImage: "arrow.up")
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .frame(minHeight: 44)
+                if !visible.isEmpty {
+                    Section {
+                        ForEach(visible) { area in
+                            areaToggle(area)
+                                .accessibilityActions {
+                                    if area != visible.first {
+                                        Button("Flytt opp") { model.move(area, by: -1) }
+                                    }
+                                    if area != visible.last {
+                                        Button("Flytt ned") { model.move(area, by: 1) }
+                                    }
                                 }
-                                .accessibilityLabel("Flytt \(area.title) opp")
-                                .disabled(model.draft?.order.first == area)
-                                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                                Button { model.move(area, by: 1) } label: {
-                                    Label("Ned", systemImage: "arrow.down")
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .frame(minHeight: 44)
-                                }
-                                .accessibilityLabel("Flytt \(area.title) ned")
-                                .disabled(model.draft?.order.last == area)
-                            }
-                            .buttonStyle(.borderless)
-                            .font(AppTypography.secondaryEmphasis)
+                                .moveDisabled(visible.count < 2)
                         }
-                        .padding(.vertical, 4)
-                        .listRowBackground(AppColors.surface)
+                        .onMove { source, destination in
+                            var reordered = visible
+                            reordered.move(fromOffsets: source, toOffset: destination)
+                            model.reorderVisibleAreas(reordered)
+                        }
+                    } header: {
+                        Text("Vises i oversikten")
+                    } footer: {
+                        Text("I ukevisningen samles mat, skritt og trening i ett kort. Vekt vises separat.")
                     }
-                } header: {
-                    Text("Dine områder")
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Velg hvilke kort som vises her, og flytt dem i ønsket rekkefølge.")
-                        Text("I Uke samles mat, skritt og treningsøkter i ett kort. Vekt vises før eller etter ukekortet.")
-                        Text("Du styrer hvilke data MatLogg henter under Innstillinger → Apple Helse.")
+                }
+                if !hidden.isEmpty {
+                    Section("Skjulte områder") {
+                        ForEach(hidden, id: \.hiddenRowID) { area in
+                            areaToggle(area)
+                        }
                     }
                 }
                 Section {
@@ -72,6 +52,7 @@ struct ProgressHubCustomizeView: View {
                     Section { ErrorMessageView(error).listRowBackground(AppColors.surface) }
                 }
             }
+            .environment(\.editMode, .constant(.active))
             .scrollContentBackground(.hidden)
             .background(AppColors.background)
             .tint(AppColors.action)
@@ -90,4 +71,23 @@ struct ProgressHubCustomizeView: View {
         }
         .tint(AppColors.action)
     }
+
+    private func areaToggle(_ area: ProgressHubArea) -> some View {
+        Toggle(isOn: Binding(
+            get: { model.draft?.visible.contains(area) ?? false },
+            set: { model.setVisible(area, isVisible: $0) }
+        )) {
+            Label(area.title, systemImage: area.symbol)
+                .font(AppTypography.bodyEmphasis)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(minHeight: 44)
+        .accessibilityIdentifier("progress-hub-toggle-" + area.rawValue)
+        .listRowBackground(AppColors.surface)
+    }
+}
+
+private extension ProgressHubArea {
+    // A newly visible area needs a new list row with a reorder control.
+    var hiddenRowID: String { "hidden-" + rawValue }
 }

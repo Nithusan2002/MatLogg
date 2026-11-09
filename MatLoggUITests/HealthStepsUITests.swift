@@ -131,9 +131,8 @@ final class HealthStepsUITests: XCTestCase {
         }
         XCTAssertTrue(toggle.isHittable)
         if isVisible {
-            toggle.tap()
-            XCTAssertEqual(toggle.value as? String, "1")
-            app.buttons["Flytt Skritt opp"].tap()
+            app.setToggle(toggle, enabled: true)
+            app.moveProgressArea("steps", named: "Skritt", above: "nutrition")
         } else {
             XCTAssertEqual(toggle.value as? String, "0")
         }
@@ -184,7 +183,10 @@ extension XCUIApplication {
     }
 
     func setAppleHealthToggle(_ identifier: String, enabled: Bool) {
-        let toggle = switches[identifier]
+        setToggle(switches[identifier], enabled: enabled)
+    }
+
+    func setToggle(_ toggle: XCUIElement, enabled: Bool) {
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         let expectedValue = enabled ? "1" : "0"
         if toggle.value as? String != expectedValue {
