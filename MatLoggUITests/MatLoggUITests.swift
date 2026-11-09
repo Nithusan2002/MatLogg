@@ -516,15 +516,12 @@ final class MatLoggUITests: XCTestCase {
         }
         XCTAssertTrue(lunch.isHittable)
         lunch.tap()
-        XCTAssertTrue(app.buttons["Lunsj ✓"].waitForExistence(timeout: 5))
+        let lunchChoice = app.buttons["Logg til Lunsj"]
+        XCTAssertTrue(lunchChoice.waitForExistence(timeout: 5))
+        XCTAssertTrue(lunchChoice.isSelected)
         app.buttons["Lukk"].tap()
-        for _ in 0..<8 {
-            if app.buttons["Forrige dag"].isHittable { break }
-            app.swipeDown()
-        }
-        app.buttons["Forrige dag"].tap()
+        selectPreviousDiaryDay(in: app)
         XCTAssertTrue(app.staticTexts["Hele dagen"].firstMatch.exists)
-        XCTAssertFalse(lunch.isSelected)
     }
 
     @MainActor

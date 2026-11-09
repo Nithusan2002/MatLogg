@@ -260,36 +260,40 @@ private struct LoggContent: View {
         return ScrollViewReader { proxy in
             List {
                 Section {
-                    DayNavigationBar(selection: $selectedDate)
-                        .disabled(screen.isDeletingOrRestoring)
-                    if screen.isSelecting {
-                        HStack {
-                            Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
-                                screen.toggleGroup()
+                    VStack(alignment: .leading, spacing: 12) {
+                        DayNavigationBar(selection: $selectedDate)
+                            .disabled(screen.isDeletingOrRestoring)
+                        if screen.isSelecting {
+                            HStack {
+                                Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
+                                    screen.toggleGroup()
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("meal-room-select-all")
+                                Spacer()
                             }
-                            .frame(minHeight: 44)
-                            .accessibilityIdentifier("meal-room-select-all")
-                            Spacer()
+                            .disabled(screen.isDeletingOrRestoring)
                         }
-                        .disabled(screen.isDeletingOrRestoring)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Hele dagen")
-                            .font(AppTypography.hero)
-                            .foregroundStyle(AppColors.deepInk)
-                        if hasCurrentSummary {
-                            Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
-                                .font(AppTypography.secondary)
-                                .foregroundStyle(AppColors.textSecondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hele dagen")
+                                .font(AppTypography.title)
+                                .foregroundStyle(AppColors.deepInk)
+                                .accessibilityAddTraits(.isHeader)
+                            if hasCurrentSummary {
+                                Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        if hasCurrentSummary, let summary = screen.summary {
+                            StatusSummaryContent(summary: summary, goal: nil)
+                                .padding(20)
+                                .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+                                .accessibilityIdentifier("meal-room-totals")
                         }
                     }
-                    .padding(.vertical, 8)
-                    if hasCurrentSummary, let summary = screen.summary {
-                        StatusSummaryContent(summary: summary, goal: nil)
-                            .padding(20)
-                            .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
-                            .accessibilityIdentifier("meal-room-totals")
-                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
                 }
                 .listRowBackground(AppColors.background)
                 .listRowSeparator(.hidden)
