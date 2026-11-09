@@ -358,11 +358,7 @@ final class MatLoggUITests: XCTestCase {
         }
         breakfast.tap()
         XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].waitForExistence(timeout: 5))
-        for _ in 0..<8 {
-            if app.buttons["Forrige dag"].isHittable { break }
-            app.swipeDown()
-        }
-        app.buttons["Forrige dag"].tap()
+        selectPreviousDiaryDay(in: app)
         let dateLabel = app.buttons["day-navigation-date"].label
         let addFood = app.buttons["tab-log-food"]
         XCTAssertTrue(addFood.waitForExistence(timeout: 5))
@@ -417,11 +413,7 @@ final class MatLoggUITests: XCTestCase {
         }
         lunch.tap()
         XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].waitForExistence(timeout: 5))
-        for _ in 0..<8 {
-            if app.buttons["Forrige dag"].isHittable { break }
-            app.swipeDown()
-        }
-        app.buttons["Forrige dag"].tap()
+        selectPreviousDiaryDay(in: app)
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let restoredRow = app.buttons[loggedRowID]
         revealDiaryElement(restoredRow, in: app)
@@ -429,6 +421,28 @@ final class MatLoggUITests: XCTestCase {
         restoredRow.tap()
         XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
+    }
+
+    @MainActor
+    private func selectPreviousDiaryDay(in app: XCUIApplication) {
+        let previousDay = app.buttons["Forrige dag"]
+        let date = app.buttons["day-navigation-date"]
+        let navigationBar = app.navigationBars.firstMatch
+        for _ in 0..<8 {
+            // XCTest can report a button under the navigation bar as hittable.
+            if previousDay.isHittable && previousDay.frame.minY >= navigationBar.frame.maxY {
+                let oldLabel = date.label
+                previousDay.tap()
+                let changed = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "label != %@", oldLabel),
+                    object: date
+                )
+                XCTAssertEqual(XCTWaiter.wait(for: [changed], timeout: 5), .completed)
+                return
+            }
+            app.swipeDown()
+        }
+        XCTFail("Forrige dag ble ikke synlig under navigasjonslinjen.")
     }
 
     @MainActor
