@@ -423,3 +423,24 @@ bak innholdet og `surface` på ordinære rader. Primærknapper i skjemaer
 har transparent radbakgrunn. Ordinære kort bruker `CardContainer` eller
 `matLoggCardSurface()`; kamera, bildeleser, delingsgrafikk og systemkontroller
 beholder sine formålstilpassede flater.
+
+## Matgruppeikoner (6. november 2026)
+
+Matvarer uten tilgjengelig bilde bruker et av 15 lokale vektorikoner i
+`Assets.xcassets/FoodIcons`. Alle har samme avrundede strek, dempede aksenter og
+separate lys/mørk-varianter. `ProductThumbnailView` beholder dagens flate og mål;
+et lastet produktbilde prioriteres foran ikonet. Lasting og bildefeil bruker
+samme kategoriikon uten feilmelding eller layoutendring.
+
+Matvaretabellens eksplisitt støttede gruppe-ID-er og Open Food Facts sine
+kategoritagger (med kategoritekst som reserve) kobles av `FoodGroupResolver`.
+For havregryn og bearbeidede fjærkrevarer gir konkrete matvare-ID-er et mer
+treffende ikon enn de brede gruppene i Matvaretabellen.
+Ukjente eller tvetydige grupper bruker tallerkenikon. Kategorien brukes ikke
+til ernæringsberegning eller til å bekrefte innholdet i maten. Råkategori og
+kilde bevares. Ikonet er dekorativt for VoiceOver når raden har matvarens navn.
+
+Egne produkter har «Matgruppe (valgfritt)» med «Ikke valgt» som standard, både
+ved oppretting og i produktkortet. Valget viser en ikonforhåndsvisning, lagres
+lokalt og kan tømmes. Opprettingsutkastet bevarer valget. Produktkortet endrer
+bare matgruppen, ikke næringsdata, bilde, navn eller kilde.

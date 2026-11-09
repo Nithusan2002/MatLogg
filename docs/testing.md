@@ -816,7 +816,6 @@ Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
 `/tmp/matlogg-share-format-build.log`; blokkeringslogg:
 `/tmp/matlogg-share-format-tests.log`.
 
-
 ### Profilisolasjon og synkrekkefølge – 2026-11-06
 
 Målrettede suiter: `ProfileTests`, `AuthViewModelTests`, `AuthServiceTests`,
@@ -874,3 +873,15 @@ har minst 44 × 44 pt trykkflate og kan brukes uten å rulle menyen.
 Skjermbildet bekrefter at hele «Loggfør» får plass på egen rad.
 Resultat: `/tmp/MatLoggTabBar-verified.xcresult`. Skjermbilder ligger i
 `build/remediation-qa/tab-bar-final-attachments/`.
+
+### Matgruppeikoner
+
+Målrettede iOS-suiter: `FoodGroupTests`, `ProductSearchTests`,
+`ProductImageTests` og `ManualProductViewModelTests`. `FoodGroupUITests`
+kontrollerer kategorivalg, manuell logging og stor tekst med skjermbilder på
+QA-simulator. Testene bruker syntetiske produkter.
+
+Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
+og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
+lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
+replay, inbox og eierskap og ruller testdata tilbake.

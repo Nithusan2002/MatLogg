@@ -2097,6 +2097,7 @@ private nonisolated struct WeightSyncPayload: Codable {
 }
 
 private nonisolated struct ProductSyncPayload: Codable {
+    let selectedFoodGroup: ExplicitNullableString
     let nutritionPreparation: NutritionPreparation?
     let id: String
     let name: String
@@ -2110,6 +2111,7 @@ private nonisolated struct ProductSyncPayload: Codable {
     let manualNutritionInput: ManualNutritionInput?
 
     init(product: Product) {
+        selectedFoodGroup = ExplicitNullableString(value: product.selectedFoodGroup)
         nutritionPreparation = product.nutritionPreparation ?? .asSold
         id = product.id.uuidString
         name = product.name
@@ -2226,4 +2228,15 @@ private nonisolated enum SyncEventType: String {
     case waterDelete = "water.delete"
     case savedMealUpsert = "saved_meal.upsert"
     case savedMealDelete = "saved_meal.delete"
+}
+
+/// An explicit null is a user clearing metadata; omission is reserved for older clients.
+private nonisolated struct ExplicitNullableString: Codable {
+    let value: String?
+    init(value: String?) { self.value = value }
+    init(from decoder: Decoder) throws { value = try decoder.singleValueContainer().decode(String?.self) }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let value { try container.encode(value) } else { try container.encodeNil() }
+    }
 }

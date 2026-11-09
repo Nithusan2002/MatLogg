@@ -117,6 +117,7 @@ struct ManualProductForm: View {
                         .foregroundColor(AppColors.textSecondary)
                         .accessibilityLabel("Strekkode \(barcode)")
                 }
+                FoodGroupPicker(selection: $viewModel.selectedFoodGroup)
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
                 if viewModel.name.count >= ManualProductViewModel.maximumNameLength - 10 {
                     Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")

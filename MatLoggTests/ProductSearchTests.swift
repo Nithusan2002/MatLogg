@@ -5,6 +5,23 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProductSearchTests {
+    @Test func structuredFoodCategoriesSurviveParsingAndMissingTagsStayCompatible() async throws {
+        SearchURLProtocolStub.handler = { request in
+            #expect(request.url?.query?.contains("categories_tags") == true)
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            return (response, Data(#"{"products":[{"code":"123","product_name":"Synthetic rice","categories":"Cereals, Rices","categories_tags":["en:cereals","en:rices"],"nutriments":{"energy-kcal_100g":100,"proteins_100g":2,"carbohydrates_100g":20,"fat_100g":1}}]}"#.utf8))
+        }
+        defer { SearchURLProtocolStub.handler = nil }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SearchURLProtocolStub.self]
+        let service = APIService(httpClient: URLSessionHTTPClient(session: URLSession(configuration: configuration)), catalogRetryLimit: 0)
+        let product = try #require(try await service.searchProductsByNameOpenFoodFacts("rice").first)
+        #expect(product.category == "Cereals, Rices")
+        #expect(product.categoryTags == ["en:cereals", "en:rices"])
+        #expect(product.foodGroup == .ricePasta)
+    }
+
     @Test func nameSearchUsesSelectedCountryOrGlobalEndpoint() async throws {
         SearchURLProtocolStub.handler = { request in
             let url = try #require(request.url)
