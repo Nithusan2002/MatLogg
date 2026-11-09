@@ -25,7 +25,13 @@ struct SavedMealStorageTests {
             #expect(reopened.getSavedMeals(userId: userId) == [meal])
             try reopened.deleteSavedMeal(meal.id, userId: userId)
             #expect(reopened.getSavedMeals(userId: userId).isEmpty)
-            #expect(reopened.fetchPendingEvents(limit: 10).map(\.type) == ["saved_meal.upsert", "saved_meal.delete"])
+            #expect(reopened.pendingSyncCount() == 2)
+            #expect(reopened.fetchPendingEvents(limit: 10).map(\.eventId) == [event.eventId])
+            reopened.markEventsAcked([event.eventId])
+            let next = reopened.fetchPendingEvents(limit: 10)
+            #expect(next.map(\.type) == ["saved_meal.delete"])
+            #expect(next.first?.entityId == meal.id.uuidString)
+            #expect(next.first?.ownerUserId == userId)
         }
     }
 

@@ -56,6 +56,25 @@ struct ProductImageTests {
         #expect(try await repository.data(for: url) == bytes)
     }
 
+    @Test func openFoodFactsThumbnailsPreferSmallImageAndFallBackIfMissing() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [OpenFoodFactsImageStub.self]
+        let repository = CachedProductImageRepository(
+            cache: URLCache(memoryCapacity: 1024 * 1024, diskCapacity: 0, diskPath: nil),
+            configuration: configuration
+        )
+        let base = "https://images.openfoodfacts.org/images/products/123/"
+        let smallAvailable = try #require(URL(string: base + "front_nb.1.400.jpg"))
+        let smallMissing = try #require(URL(string: base + "front_nb.2.400.jpg"))
+
+        // The stub only serves the 200 px URL for revision 1 and the original for revision 2.
+        _ = try await repository.pixels(for: smallAvailable, maximumPixelSize: 160)
+        _ = try await repository.pixels(for: smallMissing, maximumPixelSize: 160)
+        await #expect(throws: URLError.self) {
+            try await repository.pixels(for: smallAvailable, maximumPixelSize: 1200)
+        }
+    }
+
     @MainActor @Test func decodedImagesAreSharedAndSeparatedBySize() async throws {
         let cache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 0, diskPath: UUID().uuidString)
         let url = try #require(URL(string: "https://images.example.invalid/shared.png"))
@@ -117,4 +136,27 @@ struct ProductImageTests {
 
 private struct InvalidImageRepository: ProductImageRepository {
     func data(for url: URL) async throws -> Data { Data("invalid image".utf8) }
+}
+
+private final class OpenFoodFactsImageStub: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url, let client else { return }
+        let hasImage = ["front_nb.1.200.jpg", "front_nb.2.400.jpg"].contains(url.lastPathComponent)
+        guard let response = HTTPURLResponse(url: url, statusCode: hasImage ? 200 : 404,
+                                             httpVersion: nil, headerFields: ["Content-Type": "image/gif"])
+        else {
+            client.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        client.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if hasImage, let bytes = Data(base64Encoded: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7") {
+            client.urlProtocol(self, didLoad: bytes)
+        }
+        client.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }

@@ -75,10 +75,14 @@ struct MealBatchStorageTests {
 
             try store.deleteLogs(logs.map(\.id))
             #expect(store.getAllLogs(userId: userId).isEmpty)
-            let events = store.fetchPendingEvents(limit: 20)
-            #expect(events.count == 4)
-            #expect(events.filter { $0.type == "log.delete" && $0.schemaVersion == 1 }.count == 2)
-            #expect(Set(created.map(\.eventId)).isSubset(of: Set(events.map(\.eventId))))
+            #expect(store.pendingSyncCount() == 4)
+            #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == created.map(\.eventId))
+            store.markEventsAcked(created.map(\.eventId))
+            let deleted = store.fetchPendingEvents(limit: 20)
+            #expect(deleted.count == 2)
+            #expect(deleted.allSatisfy { $0.type == "log.delete" && $0.schemaVersion == 1 && $0.ownerUserId == userId })
+            #expect(Set(deleted.compactMap(\.entityId)) == Set(logs.map { $0.id.uuidString }))
+            #expect(Set((created + deleted).map(\.eventId)).count == 4)
         }
     }
 

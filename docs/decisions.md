@@ -980,6 +980,34 @@ standardrekkefølgen til mat/aktivitet/vekt. Synlighet og tilkobling bevares;
 eksisterende egendefinerte rekkefølger og nye v2-valg normaliseres ikke bort.
 Dette er ingen endring i SQL- eller synkskjema. Feature-ViewModel eier
 periode, avledede tall og vektsammendrag; profilbytte nullstiller navigasjonen.
+## 2026-11-06 – Profilisolasjon, gjenopptakbar kontokobling og synkrekkefølge
+
+Eldre globale personopplysninger uten sikker eierbinding tildeles ikke ved
+lesing. De beholdes separat til brukeren uttrykkelig velger gjenoppretting
+under Personlige detaljer. Eksisterende lagrede verdier prioriteres, og en
+varig eiermarkør hindrer at avbrutt gjenoppretting flytter dem til en annen
+profil. Ingen historisk eier gjettes fra sist innloggede konto.
+
+Kontokobling lagrer lokal eier, kontoeier, onboardingvalg og fase lokalt.
+Omstart gjenopptar bekreftelse eller en allerede bekreftet, idempotent flytting.
+Avbryt venter på utlogging og bevarer avbruddsstatus ved feil. En annen konto
+kan ikke overta den ventende flyttingen. Dette endrer ikke serverautentisering
+eller åpner opplasting.
+
+Synkkøen slipper bare gjennom første uavklarte hendelse per logisk ressurs.
+Dead letter blokkerer etterfølgere inntil manuelt retry lykkes; den forkastes
+ikke automatisk. Uavhengige ressurser fortsetter. Køvalg bruker lokal
+innsettingsrekkefølge, ikke klientklokken. Dette bevarer opplastingskontrakt v1
+og serverens event-ID-baserte deduplisering. Produksjonssynk forblir av.
+
+### 2026-11-06 – Kategoriikoner for matvarer uten bilde
+
+Bruk 15 lokale vektorikoner som visuell reserve, valgt via eksplisitt
+kildespesifikk kategorikobling eller brukerens valg på egne produkter.
+Råkategori bevares separat; ingen navnegjetting eller næringsutledning.
+Egne produkter får et valgfritt, tømmbart valg med lokal utkastlagring og
+additiv synkkontrakt (fravær bevarer, null tømmer). Produksjonssynk forblir av.
+
 ## 2026-11-07 – Skritt følger perioden i Utvikling
 
 Aktivitet følger samme dag, uke eller måned som mat og vekt, også for tidligere

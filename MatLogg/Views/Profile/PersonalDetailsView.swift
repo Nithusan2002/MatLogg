@@ -6,6 +6,7 @@ struct PersonalDetailsView: View {
     @EnvironmentObject private var viewModel: PersonalDetailsViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var initialized = false
+    @State private var showLegacyRecovery = false
     @State private var showActivitySheet = false
     @State private var showActivityHelp = false
     @State private var showMeasurement: PersonalMeasurement?
@@ -20,6 +21,13 @@ struct PersonalDetailsView: View {
                 Text("Alle opplysningene er valgfrie. Du kan lagre bare navn.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
+
+                if viewModel.canRecoverLegacyDetails {
+                    Button("Gjenopprett eldre opplysninger") { showLegacyRecovery = true }
+                        .font(AppTypography.body)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("personal-details-recover-legacy")
+                }
 
                 VStack(alignment: .leading, spacing: 12) {
                     sectionTitle("Profil")
@@ -143,6 +151,12 @@ struct PersonalDetailsView: View {
                 Spacer()
                 Button("Ferdig") { focusedField = nil }
             }
+        }
+        .alert("Tilhører opplysningene denne profilen?", isPresented: $showLegacyRecovery) {
+            Button("Knytt til denne profilen") { viewModel.recoverLegacyDetails() }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            Text("Eldre opplysninger mangler profiltilknytning. Bekreft bare hvis de er dine. Eksisterende lagrede opplysninger beholdes. Ulagrede endringer i skjemaet erstattes.")
         }
         .onAppear {
             guard !initialized else { return }

@@ -19,6 +19,7 @@ final class LogScreenViewModel: ObservableObject {
     @Published private(set) var brands: [UUID: String] = [:]
     @Published private(set) var imageURLs: [UUID: URL] = [:]
     @Published private(set) var imageData: [UUID: Data] = [:]
+    @Published private(set) var foodGroups: [UUID: FoodGroup] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var presentation = LogListPresentation(groups: [], mealLogs: [],
         totals: NutritionCalculator.totals(for: []))
@@ -81,6 +82,7 @@ final class LogScreenViewModel: ObservableObject {
         logs.$mealProductBrands.removeDuplicates().assign(to: &$brands)
         logs.$mealProductImageURLs.removeDuplicates().assign(to: &$imageURLs)
         logs.$mealProductImageData.removeDuplicates().assign(to: &$imageData)
+        logs.$mealProductFoodGroups.removeDuplicates().assign(to: &$foodGroups)
         logs.$isSummaryLoading.removeDuplicates().assign(to: &$isLoading)
         logs.$isDeletingOrRestoring.removeDuplicates().assign(to: &$isDeletingOrRestoring)
         if let appState { observe(appState.$logSelectedDate.removeDuplicates()) }

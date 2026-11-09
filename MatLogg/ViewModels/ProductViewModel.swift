@@ -18,11 +18,15 @@ struct FoodSearchOutcome {
 
 @MainActor
 final class ProductViewModel: ObservableObject {
+    @Published private(set) var metadataRevision = 0
+    func metadataDidChange() { metadataRevision &+= 1 }
+
     @Published private(set) var errorMessage: String?
 
     private let repository: any ProductRepository
     private let catalogService: any ProductCatalogService
     let barcodeRepository: any BarcodeLookupRepository
+    var metadataRepository: any ProductRepository { repository }
     var favoriteRepository: any ProductFavoriteRepository { repository }
     private let nameSearchService: any ProductNameSearchService
     @Published private(set) var scannedProduct: Product?

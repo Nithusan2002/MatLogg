@@ -394,6 +394,7 @@ private struct SavedMealLogContent: View {
                                             ProductThumbnailView(
                                                 url: product?.imageUrl.flatMap(URL.init(string:)),
                                                 localData: product?.localImageData,
+                                                foodGroup: product?.foodGroup ?? .other,
                                                 imagePadding: 2
                                             )
                                             VStack(alignment: .leading, spacing: 4) {

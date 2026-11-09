@@ -405,6 +405,9 @@ struct APIServiceTests {
 }
 
 private final class APIAuthSessionStore: AuthSessionStore {
+    var pendingLink: PendingLocalDataLink?
+    func pendingLocalDataLink() -> PendingLocalDataLink? { pendingLink }
+    func setPendingLocalDataLink(_ link: PendingLocalDataLink?) { pendingLink = link }
     var pendingDeletion: PendingProfileDeletion?
     func pendingProfileDeletion() -> PendingProfileDeletion? { pendingDeletion }
     func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) { pendingDeletion = deletion }

@@ -41,7 +41,15 @@ Ved delvis batch-svar bekreftes bare event-ID-er fra den sendte batchen.
 Avvisning med `SERVER_ERROR` eller `SYNC_DISABLED` er midlertidig og følger vanlig retry/backoff;
 `RATE_LIMITED` i et event-svar er midlertidig og prøves igjen etter 60 sekunder med samme event-ID;
 øvrige eksplisitte avvisninger går til `deadLetter`. Manglende ACK prøves igjen
-med samme event-ID. Etter fem automatiske forsøk beholdes hendelsen for
+med samme event-ID. Klienten sender bare første uavklarte hendelse per logisk
+ressurs i hver batch, i lokal innsettingsrekkefølge (uavhengig av klokkeavvik).
+`pending` med backoff, `inFlight`, `deadLetter` og karantene blokkerer senere
+hendelser for samme ressurs. Andre ressurser kan fortsatt sendes. Mål er én
+ressurs per eier; favoritter grupperes per produkt, også når lokal favoritt-ID
+endres. Permanent avvisning løser ikke rekkefølgen: manuelt retry må få ACK
+før etterfølgere kan sendes. Ingen hendelser slettes eller komprimeres.
+Dette gjelder køvalg på én enhet, ikke konfliktløsning mellom flere enheter.
+Wire-format og schema-versjon er uendret. Etter fem automatiske forsøk beholdes hendelsen for
 manuelt nytt forsøk. Dupliserte avvisninger skal ikke krasje klienten.
 
 Hver lokal køhendelse har i tillegg `ownerUserId`, som brukes til å velge bare
@@ -178,3 +186,20 @@ bak avslått synkflagg før aktivering. Hosted staging ble oppgradert med begge
 migrasjonene og `sync-events` versjon 5 den 14. oktober 2026. Readback og
 rollback-kontroller bestod; globalt `sync_enabled=false` og produksjonssynk
 forblir av. Se [staging-resultatet](production-readiness.md#næringsmetadata-og-validering-på-staging--2026-10-14).
+
+## Visuell matgruppe (2026-11-06)
+
+`product.upsert.selectedFoodGroup` er additivt, valgfritt og nullable. Tillatte
+stabile ID-er er `rice_pasta`, `bread`, `grain`, `meat`, `poultry`, `fish`, `egg`,
+`dairy`, `cheese`, `oil_fat`, `fruit`, `vegetables`, `nuts`, `drinks`, `other`.
+Fravær i eldre payloads bevarer eksisterende serververdi; eksplisitt JSON-null
+tømmer valget. Nye rader uten felt får null. Klienten sender valgt ID eller
+null ved produktlagring. Kategoritekst/-tagger fra katalogene bevares lokalt
+og utledes ved visning; de erstattes ikke av dette feltet.
+
+Edge og database validerer samme ID-er. Feltet lagres i `selected_food_group`
+atomisk med produkt og inbox, med eksisterende eierskap og deduplisering.
+Migrasjonen `20261106120000_product_food_group.sql` og Edge-valideringen må
+være på plass før nye payloads tas i bruk. `schemaVersion` forblir 1.
+Produksjonsopplasting forblir deaktivert; dette innfører ikke toveis synk eller
+skybackup. Klienten tåler ukjente lokale gruppe-ID-er ved visning.

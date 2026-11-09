@@ -5,6 +5,91 @@ import SwiftUI
 
 @MainActor
 struct ProfileTests {
+    @Test func unownedLegacyDetailsAreNotAssignedOnRead() throws {
+        let suite = "LegacyDetails.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let legacy = try JSONEncoder().encode(PersonalDetails(displayName: "Synthetic legacy", weightKg: 81))
+        defaults.set(legacy, forKey: "personalDetails")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        for owner in [UUID(), UUID()] {
+            #expect(store.load(userId: owner).displayName == nil)
+            #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == nil)
+        }
+        #expect(defaults.data(forKey: "personalDetails") == legacy)
+    }
+
+    @Test func confirmedLegacyOwnershipFollowsLinkAndOwnerDeletion() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = "LegacyLifecycle.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let local = UUID(), account = UUID()
+        let data = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(data, forKey: "personalDetails")
+        defaults.set(local.uuidString, forKey: "personalDetails.legacyOwnerId")
+        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("lifecycle.sqlite")), defaults: defaults)
+        try await database.claimLocalData(from: local, to: account)
+        #expect(defaults.string(forKey: "personalDetails.legacyOwnerId") == account.uuidString)
+        try await database.deleteLocalData(ownerId: local)
+        #expect(defaults.data(forKey: "personalDetails") == data)
+        try await database.deleteLocalData(ownerId: account)
+        #expect(defaults.data(forKey: "personalDetails") == nil)
+        #expect(defaults.string(forKey: "personalDetails.legacyOwnerId") == nil)
+    }
+
+    @Test func legacyRecoveryPreservesUndecodableScopedDataAndUnrelatedProfiles() throws {
+        let suite = "LegacyCorrupt.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let owner = UUID()
+        let corrupt = Data("not-json".utf8)
+        let legacy = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(legacy, forKey: "personalDetails")
+        defaults.set(corrupt, forKey: "personalDetails.\(owner.uuidString)")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(throws: (any Error).self) { try store.recoverLegacyDetails(userId: owner) }
+        #expect(defaults.data(forKey: "personalDetails") == legacy)
+        #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == corrupt)
+        #expect(store.load(userId: UUID()).weightKg == nil)
+    }
+
+    @Test func explicitLegacyRecoveryBindsOnceAndPreservesCurrentDetails() throws {
+        let suite = "LegacyRecovery.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let legacy = PersonalDetails(displayName: "Legacy", weightKg: 81, heightCm: 178)
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "personalDetails")
+        let owner = UUID()
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        try store.save(PersonalDetails(displayName: "Current", weightKg: 79), userId: owner)
+        #expect(store.hasUnassignedLegacyDetails)
+        let recovered = try #require(try store.recoverLegacyDetails(userId: owner))
+        #expect(recovered.displayName == "Current" && recovered.weightKg == 79 && recovered.heightCm == 178)
+        let restarted = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(!restarted.hasUnassignedLegacyDetails)
+        #expect(restarted.load(userId: owner).heightCm == 178)
+        #expect(try restarted.recoverLegacyDetails(userId: UUID()) == nil)
+        #expect(restarted.load(userId: UUID()).heightCm == nil)
+    }
+
+    @Test func interruptedLegacyRecoveryResumesOnlyForConfirmedOwner() throws {
+        let suite = "LegacyInterrupted.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let owner = UUID()
+        let data = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(data, forKey: "personalDetails")
+        defaults.set(owner.uuidString, forKey: "personalDetails.legacyOwnerId")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(store.load(userId: UUID()).weightKg == nil)
+        #expect(defaults.data(forKey: "personalDetails") == data)
+        #expect(store.load(userId: owner).weightKg == 81)
+        #expect(defaults.data(forKey: "personalDetails") == nil)
+    }
+
     @Test func deletingOwnedExportsPreservesOtherProfilesAndUnrelatedFiles() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

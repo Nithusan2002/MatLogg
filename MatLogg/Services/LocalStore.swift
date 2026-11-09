@@ -1311,81 +1311,93 @@ nonisolated final class LocalStore: @unchecked Sendable {
 
     func nextPendingRetryDate(ownerUserId: UUID?) -> Date? {
         queue.sync {
-            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
-            let sql = "SELECT MIN(nextRetryAt) FROM sync_queue WHERE status = 'pending' AND nextRetryAt IS NOT NULL \(ownerClause);"
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            if let ownerUserId {
-                sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
-            }
-            defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW,
-                  sqlite3_column_type(stmt, 0) != SQLITE_NULL else { return nil }
-            return Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0))
+            syncQueueHeadsLocked(ownerUserId: ownerUserId)
+                .filter { $0.status == .pending }
+                .compactMap(\.nextRetryAt).min()
         }
     }
-    
+
     func fetchPendingEvents(limit: Int) -> [SyncEvent] {
         fetchPendingEvents(ownerUserId: nil, limit: limit)
     }
 
     func fetchPendingEvents(ownerUserId: UUID?, limit: Int) -> [SyncEvent] {
-        let now = Date().timeIntervalSince1970
+        guard limit > 0 else { return [] }
         return queue.sync {
-            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
-            let sql = """
-            SELECT eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError, ownerUserId
-            FROM sync_queue
-            WHERE status = 'pending' AND (nextRetryAt IS NULL OR nextRetryAt <= ?)
-            \(ownerClause)
-            ORDER BY createdAt ASC, rowid ASC
-            LIMIT ?;
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            sqlite3_bind_double(stmt, 1, now)
-            var index: Int32 = 2
-            if let ownerUserId {
-                sqlite3_bind_text(stmt, index, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
-                index += 1
-            }
-            sqlite3_bind_int(stmt, index, Int32(limit))
-            defer { sqlite3_finalize(stmt) }
-            var results: [SyncEvent] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                guard let eventIdText = sqlite3_column_text(stmt, 0),
-                      let typeText = sqlite3_column_text(stmt, 1) else { continue }
-                let eventId = UUID(uuidString: String(cString: eventIdText)) ?? UUID()
-                let type = String(cString: typeText)
-                let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
-                let entityId = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
-                let schemaVersion = Int(sqlite3_column_int(stmt, 4))
-                let payload = readBlob(stmt, index: 5) ?? Data()
-                let statusRaw = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "pending"
-                let attemptCount = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? 0 : Int(sqlite3_column_int(stmt, 7))
-                let lastAttemptAt = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8))
-                let nextRetryAt = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
-                let lastError = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
-                let storedOwnerUserId = sqlite3_column_text(stmt, 11)
-                    .flatMap { UUID(uuidString: String(cString: $0)) }
-                let status = SyncEventStatus(rawValue: statusRaw) ?? .pending
-                results.append(SyncEvent(
-                    eventId: eventId,
-                    type: type,
-                    createdAt: createdAt,
-                    entityId: entityId,
-                    schemaVersion: schemaVersion,
-                    payload: payload,
-                    status: status,
-                    attemptCount: attemptCount,
-                    lastAttemptAt: lastAttemptAt,
-                    nextRetryAt: nextRetryAt,
-                    lastError: lastError,
-                    ownerUserId: storedOwnerUserId
-                ))
-            }
-            return results
+            let now = Date()
+            return Array(syncQueueHeadsLocked(ownerUserId: ownerUserId).filter {
+                $0.status == .pending && ($0.nextRetryAt.map { $0 <= now } ?? true)
+            }.prefix(limit))
         }
+    }
+
+    /// Only the first unresolved event for each resource may enter a batch.
+    /// Dead letters block successors too, so a later manual retry cannot undo them.
+    private func syncQueueHeadsLocked(ownerUserId: UUID?) -> [SyncEvent] {
+        let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
+        let sql = """
+        SELECT eventId, type, createdAt, entityId, schemaVersion, payload, status, attemptCount, lastAttemptAt, nextRetryAt, lastError, ownerUserId
+        FROM sync_queue
+        WHERE status != 'acked'
+        \(ownerClause)
+        ORDER BY rowid ASC;
+        """
+        var stmt: OpaquePointer?
+        sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+        if let ownerUserId {
+            sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
+        }
+        defer { sqlite3_finalize(stmt) }
+        var results: [SyncEvent] = []
+        var seenResources = Set<String>()
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            guard let eventIdText = sqlite3_column_text(stmt, 0),
+                  let typeText = sqlite3_column_text(stmt, 1) else { continue }
+            let eventId = UUID(uuidString: String(cString: eventIdText)) ?? UUID()
+            let type = String(cString: typeText)
+            let createdAt = Date(timeIntervalSince1970: sqlite3_column_double(stmt, 2))
+            let entityId = sqlite3_column_text(stmt, 3).map { String(cString: $0) }
+            let schemaVersion = Int(sqlite3_column_int(stmt, 4))
+            let payload = readBlob(stmt, index: 5) ?? Data()
+            let statusRaw = sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "pending"
+            let attemptCount = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? 0 : Int(sqlite3_column_int(stmt, 7))
+            let lastAttemptAt = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 8))
+            let nextRetryAt = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 9))
+            let lastError = sqlite3_column_text(stmt, 10).map { String(cString: $0) }
+            let storedOwnerUserId = sqlite3_column_text(stmt, 11)
+                .flatMap { UUID(uuidString: String(cString: $0)) }
+            let status = SyncEventStatus(rawValue: statusRaw) ?? .quarantined
+            let resource = syncResourceKey(owner: storedOwnerUserId, type: type, entityId: entityId, payload: payload)
+            guard seenResources.insert(resource).inserted else { continue }
+            results.append(SyncEvent(
+                eventId: eventId,
+                type: type,
+                createdAt: createdAt,
+                entityId: entityId,
+                schemaVersion: schemaVersion,
+                payload: payload,
+                status: status,
+                attemptCount: attemptCount,
+                lastAttemptAt: lastAttemptAt,
+                nextRetryAt: nextRetryAt,
+                lastError: lastError,
+                ownerUserId: storedOwnerUserId
+            ))
+        }
+        return results
+    }
+
+    private func syncResourceKey(owner: UUID?, type: String, entityId: String?, payload: Data) -> String {
+        let family = type.split(separator: ".").first.map(String.init) ?? type
+        let resourceId: String
+        switch family {
+        case "goal": resourceId = "current"
+        case "favorite":
+            let json = try? JSONSerialization.jsonObject(with: payload) as? [String: Any]
+            resourceId = json?["productId"] as? String ?? "unknown"
+        default: resourceId = entityId ?? "unknown"
+        }
+        return "\(owner?.uuidString ?? "unknown").\(family).\(resourceId.lowercased())"
     }
     
     func markEventsInFlight(_ eventIds: [UUID]) {
@@ -2085,6 +2097,7 @@ private nonisolated struct WeightSyncPayload: Codable {
 }
 
 private nonisolated struct ProductSyncPayload: Codable {
+    let selectedFoodGroup: ExplicitNullableString
     let nutritionPreparation: NutritionPreparation?
     let id: String
     let name: String
@@ -2098,6 +2111,7 @@ private nonisolated struct ProductSyncPayload: Codable {
     let manualNutritionInput: ManualNutritionInput?
 
     init(product: Product) {
+        selectedFoodGroup = ExplicitNullableString(value: product.selectedFoodGroup)
         nutritionPreparation = product.nutritionPreparation ?? .asSold
         id = product.id.uuidString
         name = product.name
@@ -2214,4 +2228,15 @@ private nonisolated enum SyncEventType: String {
     case waterDelete = "water.delete"
     case savedMealUpsert = "saved_meal.upsert"
     case savedMealDelete = "saved_meal.delete"
+}
+
+/// An explicit null is a user clearing metadata; omission is reserved for older clients.
+private nonisolated struct ExplicitNullableString: Codable {
+    let value: String?
+    init(value: String?) { self.value = value }
+    init(from decoder: Decoder) throws { value = try decoder.singleValueContainer().decode(String?.self) }
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if let value { try container.encode(value) } else { try container.encodeNil() }
+    }
 }

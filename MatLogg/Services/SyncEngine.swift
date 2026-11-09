@@ -109,11 +109,12 @@ final class SyncEngine {
             return SyncResult(success: false, errorMessage: "Matloggene lagres bare på denne enheten")
         }
         
+        var syncErrorMessage: String?
         while true {
             let pending = await databaseService.fetchPendingEvents(ownerUserId: ownerUserId, limit: 50)
             guard !pending.isEmpty else {
                 await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
-                return SyncResult(success: true, errorMessage: nil)
+                return SyncResult(success: syncErrorMessage == nil, errorMessage: syncErrorMessage)
             }
 
             let ids = pending.map { $0.eventId }
@@ -156,12 +157,12 @@ final class SyncEngine {
                     }
                 }
 
-                guard unresolved.isEmpty else {
+                if !unresolved.isEmpty {
                     await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
                     let message = failedCount > 0
                         ? "\(failedCount) endring(er) krever et nytt manuelt synkforsøk."
                         : "Noen endringer ble ikke bekreftet av serveren og prøves igjen automatisk."
-                    return SyncResult(success: false, errorMessage: message)
+                    syncErrorMessage = syncErrorMessage ?? message
                 }
             } catch {
                 let permanent = Self.isPermanentFailure(error)
@@ -188,7 +189,7 @@ final class SyncEngine {
                 let message = failedCount > 0
                     ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. Dataene er fortsatt lagret på denne enheten."
                     : "Dataene er lagret på denne enheten. Synkroniseringen prøves igjen senere."
-                return SyncResult(success: false, errorMessage: message)
+                syncErrorMessage = syncErrorMessage ?? message
             }
         }
     }

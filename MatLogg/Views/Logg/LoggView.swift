@@ -16,6 +16,7 @@ struct LoggView: View {
 }
 
 private struct LoggContent: View {
+    @EnvironmentObject private var productViewModel: ProductViewModel
     let appState: AppState
     let logViewModel: LogViewModel
     let authViewModel: AuthViewModel
@@ -96,6 +97,9 @@ private struct LoggContent: View {
             if !Calendar.current.isDate(selectedDate, inSameDayAs: newValue) {
                 selectedDate = newValue
             }
+        }
+        .onChange(of: productViewModel.metadataRevision) { _, _ in
+            Task { await loadSelectedSummary() }
         }
         .onChange(of: logViewModel.mutationRevision) { _, _ in
             Task { await loadSelectedSummary() }
@@ -199,6 +203,8 @@ private struct LoggContent: View {
             brand: screen.brands[log.productId],
             imageURL: screen.imageURLs[log.productId],
             imageData: screen.imageData[log.productId],
+            foodGroup: screen.foodGroups[log.productId] ?? .other,
+            favorites: screen.names[log.productId] == nil ? nil : productViewModel.favoriteRepository,
             onSave: { request in
                     guard let userId = authViewModel.currentUser?.id else { return false }
                     let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
@@ -254,36 +260,40 @@ private struct LoggContent: View {
         return ScrollViewReader { proxy in
             List {
                 Section {
-                    DayNavigationBar(selection: $selectedDate)
-                        .disabled(screen.isDeletingOrRestoring)
-                    if screen.isSelecting {
-                        HStack {
-                            Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
-                                screen.toggleGroup()
+                    VStack(alignment: .leading, spacing: 12) {
+                        DayNavigationBar(selection: $selectedDate)
+                            .disabled(screen.isDeletingOrRestoring)
+                        if screen.isSelecting {
+                            HStack {
+                                Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
+                                    screen.toggleGroup()
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("meal-room-select-all")
+                                Spacer()
                             }
-                            .frame(minHeight: 44)
-                            .accessibilityIdentifier("meal-room-select-all")
-                            Spacer()
+                            .disabled(screen.isDeletingOrRestoring)
                         }
-                        .disabled(screen.isDeletingOrRestoring)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Hele dagen")
-                            .font(AppTypography.hero)
-                            .foregroundStyle(AppColors.deepInk)
-                        if hasCurrentSummary {
-                            Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
-                                .font(AppTypography.secondary)
-                                .foregroundStyle(AppColors.textSecondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hele dagen")
+                                .font(AppTypography.title)
+                                .foregroundStyle(AppColors.deepInk)
+                                .accessibilityAddTraits(.isHeader)
+                            if hasCurrentSummary {
+                                Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        if hasCurrentSummary, let summary = screen.summary {
+                            StatusSummaryContent(summary: summary, goal: nil)
+                                .padding(20)
+                                .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
+                                .accessibilityIdentifier("meal-room-totals")
                         }
                     }
-                    .padding(.vertical, 8)
-                    if hasCurrentSummary, let summary = screen.summary {
-                        StatusSummaryContent(summary: summary, goal: nil)
-                            .padding(20)
-                            .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
-                            .accessibilityIdentifier("meal-room-totals")
-                    }
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
                 }
                 .listRowBackground(AppColors.background)
                 .listRowSeparator(.hidden)
@@ -327,7 +337,7 @@ private struct LoggContent: View {
                                 }
                             }
                             .listRowInsets(EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32))
-                            .listRowBackground(mealCardBackground(top: true))
+                            .listRowBackground(LogMealCardBackground(top: true))
                             .listRowSeparator(.hidden)
                             if group.logs.isEmpty {
                                 Text("Ingen mat registrert")
@@ -335,7 +345,7 @@ private struct LoggContent: View {
                                     .foregroundStyle(AppColors.textSecondary)
                                     .padding(.bottom, 16)
                                     .listRowInsets(EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32))
-                                    .listRowBackground(mealCardBackground(bottom: true))
+                                    .listRowBackground(LogMealCardBackground(bottom: true))
                                     .listRowSeparator(.hidden)
                             }
                             ForEach(group.logs) { log in
@@ -346,6 +356,7 @@ private struct LoggContent: View {
                                     mealRoom: true,
                                     imageURL: screen.imageURLs[log.productId],
                                     imageData: screen.imageData[log.productId],
+                                    foodGroup: screen.foodGroups[log.productId] ?? .other,
                                     isSelected: screen.selectedLogIDs.contains(log.id),
                                     onSelect: screen.isSelecting ? { screen.toggleSelection(log.id) } : nil,
                                     onEdit: screen.isSelecting ? nil : { editingLog = log },
@@ -364,7 +375,7 @@ private struct LoggContent: View {
                                             .padding(.horizontal, 16)
                                     }
                                 }
-                                .listRowBackground(mealCardBackground(bottom: log.id == group.logs.last?.id))
+                                .listRowBackground(LogMealCardBackground(bottom: log.id == group.logs.last?.id))
                                 .listRowSeparator(.hidden)
                             }
                             Color.clear
@@ -412,19 +423,6 @@ private struct LoggContent: View {
         }
     }
 
-
-    private func mealCardBackground(top: Bool = false, bottom: Bool = false) -> some View {
-        UnevenRoundedRectangle(
-            topLeadingRadius: top ? 24 : 0,
-            bottomLeadingRadius: bottom ? 24 : 0,
-            bottomTrailingRadius: bottom ? 24 : 0,
-            topTrailingRadius: top ? 24 : 0,
-            style: .continuous
-        )
-        .fill(AppColors.surface)
-        .padding(.horizontal, 16)
-        .background(AppColors.background)
-    }
 
     private func beginAdding(to meal: String) {
         appState.selectedMealType = meal
@@ -550,38 +548,57 @@ struct LoggFilterSheet: View {
 struct EditLogView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
+    @EnvironmentObject private var quickLogViewModel: QuickLogViewModel
     let log: FoodLog
     let productName: String
     let brand: String?
     let imageURL: URL?
     let imageData: Data?
+    let foodGroup: FoodGroup
     let onSave: LogEditOperation
+    private let showsFavorite: Bool
     
     @StateObject private var model: EditLogViewModel
 
-    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil,
-         onSave: @escaping LogEditOperation) {
+    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil, foodGroup: FoodGroup = .other,
+         favorites: (any ProductFavoriteRepository)?, onSave: @escaping LogEditOperation) {
         self.log = log
         self.productName = productName
         self.brand = brand
         self.imageURL = imageURL
         self.imageData = imageData
+        self.foodGroup = foodGroup
         self.onSave = onSave
-        _model = StateObject(wrappedValue: EditLogViewModel(log: log))
+        showsFavorite = favorites != nil
+        _model = StateObject(wrappedValue: EditLogViewModel(log: log, favorites: favorites))
     }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 MatLoggSheetHeader(title: "Rediger logging", isCloseDisabled: model.isSaving) { dismiss() }
+                    .overlay(alignment: .trailing) {
+                        if showsFavorite, authViewModel.currentUser?.id == log.userId {
+                            favoriteButton
+                        }
+                    }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
+                if let error = model.favoriteError {
+                    ErrorMessageView(error)
+                        .font(AppTypography.caption)
+                        .padding(.horizontal, 16)
+                }
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .top, spacing: 12) {
-                            ProductThumbnailView(url: imageURL, localData: imageData, imagePadding: 2)
+                            ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, imagePadding: 2)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(productName)
                                     .font(AppTypography.bodyEmphasis)
@@ -644,9 +661,38 @@ struct EditLogView: View {
             }
 
         }
+        .task(id: authViewModel.currentUser?.id) {
+            await model.loadFavorite(owner: authViewModel.currentUser?.id)
+        }
         .interactiveDismissDisabled(model.isSaving)
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private var favoriteButton: some View {
+        let isFavorite = model.isFavorite == true
+        return Button {
+            Task {
+                if await model.toggleFavorite(owner: authViewModel.currentUser?.id) {
+                    HapticFeedbackService.shared.trigger(.favoriteToggle,
+                        isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
+                    if authViewModel.currentUser?.id == log.userId {
+                        await quickLogViewModel.load(userId: log.userId)
+                    }
+                    await appState.refreshSyncStatus()
+                }
+            }
+        } label: {
+            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(isFavorite ? AppColors.action : AppColors.deepInk)
+                .frame(width: 44, height: 44)
+                .background(AppColors.mutedSurface, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isFavorite == nil || model.isChangingFavorite || model.isSaving)
+        .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
+        .accessibilityIdentifier("log-editor-favorite")
     }
 
     @ViewBuilder private var nutritionSummary: some View {
@@ -697,7 +743,7 @@ struct EditLogView: View {
 
 }
 
-private struct LogReceiptOverlay: View {
+struct LogReceiptOverlay: View {
     @StateObject private var viewModel: LogDeletionReceiptViewModel
     let logs: LogViewModel
     let payload: ReceiptPayload?

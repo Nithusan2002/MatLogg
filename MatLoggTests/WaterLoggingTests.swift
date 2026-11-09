@@ -21,7 +21,13 @@ struct WaterLoggingTests {
             #expect(event.entityId == glass.id.uuidString)
             try reopened.deleteWaterGlass(glass.id, userId: owner)
             #expect(try reopened.getWaterGlasses(userId: owner).isEmpty)
-            #expect(reopened.fetchPendingEvents(limit: 10).map(\.type) == ["water.upsert", "water.delete"])
+            #expect(reopened.pendingSyncCount() == 2)
+            #expect(reopened.fetchPendingEvents(limit: 10).map(\.eventId) == [event.eventId])
+            reopened.markEventsAcked([event.eventId])
+            let next = reopened.fetchPendingEvents(limit: 10)
+            #expect(next.map(\.type) == ["water.delete"])
+            #expect(next.first?.entityId == glass.id.uuidString)
+            #expect(next.first?.ownerUserId == owner)
         }
     }
 

@@ -9,6 +9,7 @@ final class PersonalDetailsViewModel: ObservableObject {
     @Published var birthDate: Date?
     @Published var gender: GenderOption = .ikkeOppgi
     @Published var activity: ActivityLevel = .ikkeOppgi
+    @Published private(set) var canRecoverLegacyDetails = false
     @Published private(set) var errors: [String: String] = [:]
     @Published private(set) var errorMessage: String?
 
@@ -23,6 +24,7 @@ final class PersonalDetailsViewModel: ObservableObject {
 
     func begin(details: PersonalDetails, userId: UUID?) {
         self.userId = userId
+        canRecoverLegacyDetails = userId != nil && store.hasUnassignedLegacyDetails
         displayName = details.displayName ?? ""
         weight = details.weightKg.map { String($0).replacingOccurrences(of: ".", with: ",") } ?? ""
         height = details.heightCm.map { String($0).replacingOccurrences(of: ".", with: ",") } ?? ""
@@ -31,6 +33,17 @@ final class PersonalDetailsViewModel: ObservableObject {
         activity = details.activityLevel ?? .ikkeOppgi
         errors = [:]
         errorMessage = nil
+    }
+
+    func recoverLegacyDetails() {
+        guard let userId else { return }
+        do {
+            guard let recovered = try store.recoverLegacyDetails(userId: userId) else { return }
+            begin(details: recovered, userId: userId)
+            onSaved(recovered)
+        } catch {
+            errorMessage = "Eldre opplysninger kunne ikke gjenopprettes. Dataene er beholdt."
+        }
     }
 
     @discardableResult
