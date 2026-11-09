@@ -8,6 +8,7 @@ struct LogRowView: View {
     var mealRoom: Bool = false
     var imageURL: URL? = nil
     var imageData: Data? = nil
+    var foodGroup: FoodGroup = .other
     var isSelected: Bool = false
     var onSelect: (() -> Void)? = nil
     let onEdit: (() -> Void)?
@@ -73,7 +74,7 @@ struct LogRowView: View {
                         .accessibilityHidden(true)
                         .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }
-                ProductThumbnailView(url: imageURL, localData: imageData, size: 52, imagePadding: 2)
+                ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {
                     productDescription
                     Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")

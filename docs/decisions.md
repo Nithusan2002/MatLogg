@@ -921,3 +921,11 @@ nithusank.2002@gmail.com. Rollene samler mottak, oppfølging og dokumentasjon
 av rettighetskrav og hendelser. Dette er ikke en utnevnelse som formelt
 personvernombud eller en generell autorisasjon til produksjonsendringer.
 Rutine, stedfortreder og sakslogg følges opp i `privacy-data-inventory.md`.
+
+### 2026-11-06 – Kategoriikoner for matvarer uten bilde
+
+Bruk 15 lokale vektorikoner som visuell reserve, valgt via eksplisitt
+kildespesifikk kategorikobling eller brukerens valg på egne produkter.
+Råkategori bevares separat; ingen navnegjetting eller næringsutledning.
+Egne produkter får et valgfritt, tømmbart valg med lokal utkastlagring og
+additiv synkkontrakt (fravær bevarer, null tømmer). Produksjonssynk forblir av.

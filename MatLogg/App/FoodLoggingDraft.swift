@@ -11,6 +11,7 @@ nonisolated struct ManualProductInput: Codable, Sendable {
     var servingAmount = ""
     var servingUnit: AmountUnit = .grams
     var imageData: Data?
+    var selectedFoodGroup: String?
 }
 
 nonisolated struct FoodLoggingDraft: Codable, Identifiable, Sendable {
