@@ -94,14 +94,19 @@ struct FoodGroupTests {
             let product = try #require(await restored.save())
             let reopened = try LocalStore(databaseURL: url)
             #expect(reopened.getProduct(product.id)?.foodGroup == .bread)
-            var event = try #require(reopened.fetchPendingEvents(limit: 20).last)
-            var payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
-            #expect(payload["selectedFoodGroup"] as? String == "bread")
+            let initial = try #require(reopened.fetchPendingEvents(limit: 20).first)
+            let initialPayload = try #require(JSONSerialization.jsonObject(with: initial.payload) as? [String: Any])
+            #expect(initialPayload["selectedFoodGroup"] as? String == "bread")
             restored.selectedFoodGroup = nil
             _ = try #require(await restored.save())
             #expect(store.getProduct(product.id)?.selectedFoodGroup == nil)
-            event = try #require(store.fetchPendingEvents(limit: 20).first(where: { $0.eventId != event.eventId }))
-            payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            #expect(store.pendingSyncCount() == 2)
+            #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == [initial.eventId])
+            store.markEventsAcked([initial.eventId])
+            let cleared = try #require(store.fetchPendingEvents(limit: 20).first)
+            #expect(cleared.eventId != initial.eventId)
+            #expect(cleared.entityId == product.id.uuidString)
+            let payload = try #require(JSONSerialization.jsonObject(with: cleared.payload) as? [String: Any])
             #expect(payload["selectedFoodGroup"] is NSNull)
             #expect(payload["localImageData"] == nil)
             #expect(store.getProduct(product.id)?.caloriesPer100g == 100)
@@ -121,7 +126,7 @@ struct FoodGroupTests {
             await model.updateFoodGroup(.dairy, owner: UUID())
             #expect(model.foodGroupError != nil)
             #expect(store.getProduct(original.id)?.selectedFoodGroup == nil)
-            #expect(store.fetchPendingEvents(limit: 20).count == 1)
+            #expect(store.pendingSyncCount() == 1)
             await model.updateFoodGroup(.dairy, owner: owner)
             #expect(model.foodGroupError == nil)
             let saved = try #require(store.getProduct(original.id))
@@ -132,7 +137,21 @@ struct FoodGroupTests {
             #expect(saved.nutritionBasis == .per100ml)
             await model.updateFoodGroup(nil, owner: owner)
             #expect(model.product.foodGroup == .other)
-            #expect(store.fetchPendingEvents(limit: 20).count == 3)
+            #expect(store.pendingSyncCount() == 3)
+            for expectedGroup in [nil, FoodGroup.dairy.rawValue, nil] as [String?] {
+                let ready = store.fetchPendingEvents(ownerUserId: owner, limit: 20)
+                #expect(ready.count == 1)
+                let event = try #require(ready.first)
+                #expect(event.type == "product.upsert" && event.entityId == original.id.uuidString)
+                let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+                if let expectedGroup {
+                    #expect(payload["selectedFoodGroup"] as? String == expectedGroup)
+                } else {
+                    #expect(payload["selectedFoodGroup"] is NSNull)
+                }
+                store.markEventsAcked([event.eventId])
+            }
+            #expect(store.pendingSyncCount() == 0)
         }
     }
 

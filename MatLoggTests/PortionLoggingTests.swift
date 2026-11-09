@@ -210,7 +210,17 @@ struct PortionLoggingTests {
             #expect(await vm.updateLog(restored, amountG: 100, mealType: "lunsj", userId: owner, clearPortion: true))
             let direct = try #require(store.getAllLogs(userId: owner).first(where: { $0.id == restored.id }))
             #expect(direct.portionSelection == nil)
-            let directEvent = try #require(store.fetchPendingEvents(limit: 50).last)
+            let ready = store.fetchPendingEvents(ownerUserId: owner, limit: 50)
+                .filter { $0.entityId == restored.id.uuidString }
+            #expect(ready.count == 1)
+            let restoredEvent = try #require(ready.first)
+            let restoredPayload = try #require(JSONSerialization.jsonObject(with: restoredEvent.payload) as? [String: Any])
+            #expect((restoredPayload["portionSelection"] as? [String: Any])?["count"] as? Double == 3)
+            store.markEventsAcked([restoredEvent.eventId])
+            let directEvent = try #require(store.fetchPendingEvents(ownerUserId: owner, limit: 50)
+                .first { $0.entityId == restored.id.uuidString })
+            #expect(directEvent.eventId != restoredEvent.eventId)
+            #expect(directEvent.type == "log.upsert")
             let directPayload = try #require(JSONSerialization.jsonObject(with: directEvent.payload) as? [String: Any])
             #expect(directPayload["portionSelection"] is NSNull)
         }

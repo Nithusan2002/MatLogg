@@ -70,8 +70,14 @@ struct RepeatFoodTests {
             #expect(Set(store.getAllLogs(userId: owner).map(\.id)) == [source.id, identical.id])
             #expect(!(await vm.undoLatestLog(productId: item.id, mealType: "middag", amountG: repeated.amountG,
                 userId: owner, date: date, logID: repeated.id)))
-            let events = store.fetchPendingEvents(limit: 20)
-            #expect(events.filter { $0.entityId == repeated.id.uuidString }.map(\.type) == ["log.upsert", "log.delete"])
+            let ready = store.fetchPendingEvents(limit: 20)
+            let repeatEvents = ready.filter { $0.entityId == repeated.id.uuidString }
+            #expect(repeatEvents.map(\.type) == ["log.upsert"])
+            let upsert = try #require(repeatEvents.first)
+            store.markEventsAcked([upsert.eventId])
+            let next = store.fetchPendingEvents(limit: 20).filter { $0.entityId == repeated.id.uuidString }
+            #expect(next.map(\.type) == ["log.delete"])
+            let events = ready + next
             #expect(Set(events.map(\.eventId)).count == events.count)
             #expect(events.allSatisfy { $0.schemaVersion == 1 && $0.ownerUserId == owner })
         }
