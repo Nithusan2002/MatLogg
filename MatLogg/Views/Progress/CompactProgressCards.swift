@@ -198,7 +198,7 @@ struct CompactStepsCard: View {
                     ProgressView().frame(minHeight: 40)
                     Text("Henter skritt …").font(AppTypography.secondary)
                 case .notConnected:
-                    Text("Slås på i Innstillinger").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    Text("Slå på i MatLoggs innstillinger").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 case .noData:
                     Text("Ingen data").font(AppTypography.title)
                     Text("Se tilgang og detaljer").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)

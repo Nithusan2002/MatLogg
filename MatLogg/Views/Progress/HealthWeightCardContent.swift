@@ -12,7 +12,7 @@ struct HealthWeightCardContent: View {
                 switch model.state {
                 case .notConnected:
                     if !model.isEnabled {
-                        Text("Du kan slå på vekt fra Apple Helse i Innstillinger.")
+                        Text("Slå på under Profil → Innstillinger → Apple Helse.")
                         AppleHealthSettingsShortcut(action: onOpenHealthSettings)
                     }
                 case .loading:

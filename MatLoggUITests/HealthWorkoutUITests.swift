@@ -29,6 +29,7 @@ final class HealthWorkoutUITests: XCTestCase {
         let back = app.navigationBars["Treningsøkter"].buttons.element(boundBy: 0)
         let shortcut = app.buttons["apple-health-settings-shortcut"]
         XCTAssertTrue(shortcut.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Slå på under Profil → Innstillinger → Apple Helse."].exists)
         shortcut.tap()
         app.setAppleHealthToggle("apple-health-workouts-toggle", enabled: true)
         app.buttons["apple-health-settings-done"].tap()
@@ -66,7 +67,7 @@ final class HealthWorkoutUITests: XCTestCase {
         app.openAppleHealthSettings()
         app.setAppleHealthToggle("apple-health-workouts-toggle", enabled: false)
         openHub(app)
-        expectCard(card, contains: "Koble til i Innstillinger")
+        expectCard(card, contains: "Slå på i MatLoggs innstillinger")
         XCTAssertFalse(card.label.contains("Styrke"))
     }
 
