@@ -1,6 +1,8 @@
 # Implementeringsplan: Utvikling som personlig hub
 
-Status: planlagt første versjon, 6. november 2026. Ingen appkode er endret som del av planleggingen.
+Opprinnelig hub-plan. Utvidet med valgfri skrittlesing og deretter korrigert mot valgt prototype med kompakte kort og Dag/Uke/Måned etter brukerens tilbakemelding 6. november; se `decisions.md` og `design-and-user-flow.md`.
+
+Status: første versjon er implementert og målrettet verifisert på `codex/utvikling-hub`, 6. november 2026. Resultater og verifiseringshull står i `testing.md`.
 
 ## Mål og avgrensning
 

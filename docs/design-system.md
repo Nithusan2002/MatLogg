@@ -108,8 +108,9 @@ Typografiske roller defineres i `MatLogg/DesignSystem/Typography.swift`.
 Typografien følger godkjent prototype 10: kraftige, avrundede hovedoverskrifter,
 avrundede titler og seksjonsoverskrifter med halvfet vekt, og vanlig systemfont
 i brødtekst, matvarenavn og metadata. Store næringsverdier bruker `heroValue`
-med middels vekt og tabellariske sifre. Unntaket er de fremhevede kaloritallene
-på Utvikling, som bruker `hero` for å bevare tung, avrundet typografi. Native tekststiler bevarer Dynamic Type;
+med middels vekt og tabellariske sifre. Den kompakte Utvikling-prototypen bruker
+`hero` for hovedtallet og `metricValue` for de små metrikktallene.
+Native tekststiler bevarer Dynamic Type;
 prototypens pikselstørrelser kopieres ikke direkte. Lange forklaringer skal
 ikke bruke tunge displaystiler. Kritiske krav, kilder og feil
 skal kunne bryte over flere linjer og ikke skjules av trunkering.
@@ -147,7 +148,9 @@ over flere linjer. Detaljer per vare vises når måltidet åpnes.
 Alle `ScrollView`, `List` og `Form` som vises inne i appens vedvarende
 fanenavigasjon skal bruke `matLoggTabBarScrollClearance()`. Dette gjelder både
 hovedfaner og skjermer som pushes i fanenes `NavigationStack`, slik at siste rad
-alltid kan rulles helt over den egendefinerte bunnmenyen.
+alltid kan rulles helt over den egendefinerte bunnmenyen. Ved
+tilgjengelighetsstørrelser vises fanene over to rader med Loggfør på en
+egen rad mellom dem.
 
 Modifieren skal ikke brukes i sheets, fullskjermsvisninger, innlogging eller
 onboarding, fordi bunnmenyen ikke er synlig der. Nye fanebaserte skjermer skal
@@ -423,6 +426,70 @@ bak innholdet og `surface` på ordinære rader. Primærknapper i skjemaer
 har transparent radbakgrunn. Ordinære kort bruker `CardContainer` eller
 `matLoggCardSurface()`; kamera, bildeleser, delingsgrafikk og systemkontroller
 beholder sine formålstilpassede flater.
+
+### Tilpassbar hub på Utvikling (2026-11-06)
+
+Mat og næring samt Vekt bruker hver sin ordinære `CardContainer`, med
+semantisk ikon, `title`-overskrift og sekundær forklaring om registrering i
+MatLogg. Dagens energi, ukediagram og makroer samles i matkortet uten kort inni
+kort. Store verdier bruker `heroValue`. Kilder for underliggende matvarer
+endres ikke av denne grupperingen. Ingen nye fargetokens innføres.
+
+«Tilpass» står ved skjermtittelen og flyttes under den ved store tekststørrelser.
+Tilpasningsarket bruker native List/Toggle med minst 44 pt radhøyde og
+fast plassering for hver bryter. Avbryt, Lagre og Gjenopprett standard
+virker på et redigeringsutkast. Huben og vekthistorikken
+holder innhold over bunnmenyen med `matLoggTabBarScrollClearance()`.
+
+### Skritt fra Apple Helse (2026-11-06)
+
+Skritt er et valgfritt ordinært hub-kort med `figure.walk`, `heroValue` for
+antallet og eksplisitt enhet. Hentetid står i detaljene. Bruk eksisterende
+semantiske farger og knapper med minst 44 pt trykkflate. Loading, ikke tilkoblet,
+ingen data, lesefeil, utilgjengelig enhet og demomodus har egne teksttilstander.
+Ingen helsescore, daglig kvote eller belønningsfarge. Manglende data blir ikke
+null. Brødtekst kan brytes ved store tekststørrelser, og VoiceOver leser antall
+og «skritt». Helse-forespørselen startes bare av tilkoblingsknappen.
+
+### Kompakt Utvikling-prototype (2026-11-06)
+
+Den valgte prototypen er visuell referanse for faktisk UI. Matkortet samler ett
+hovedtall og periodeforklaring. Dag har en vannrett makrofordeling i
+appens makrofarger med gram og prosent ved hvert navn. Måned bruker et
+lavt korallfarget diagram og en makrofooter.
+I Dag og Måned er Skritt og Vekt små kort på samme rad ved vanlig tekststørrelse; detaljer
+og kontroller ligger én navigasjon inn. Ved tilgjengelighetsstørrelser stables
+kortene og makrofooteren uten å kutte tekst. Tilpass står til høyre for
+skjermtittelen og flyttes til en egen linje når tittelen trenger mer plass.
+Skritt, Vekt og Treningsøkter viser en pil i tittellinjen.
+Treningsøkter bruker full bredde i alle posisjoner og viser inntil to
+økter på kortet i Dag og Måned. Dagstall for mat ligger i et ark med
+kompakte listerader.
+
+Ukeoversikt bruker én datoakse med sju like kolonner, korallfargede
+matsøyler, turkise skrittsøyler og øktmarkører. Søylediagrammene har fem svake
+hjelpelinjer fra null til toppen av skalaen. Dager uten tall står tomme i
+søylediagrammene. En treningsrad med tilgjengelige økter viser en liten grå
+prikk på dager uten viste økter.
+Ved smal bredde eller tilgjengelighetsstørrelser vises oppsummeringen over
+grafen. Diagramverdier har dato og verdi i tilgjengelighetsteksten.
+
+`metricValue` er en skalerbar, kraftig avrundet title-verdi med tabellariske
+sifre for kompakte metrikker. `onAction` er kontrastfargen på fylte action-flater
+(lys flate i lys modus, plomme i mørk modus). Periodeknappene bruker action/
+onAction, eksplisitt valgt-trait og minst 44 pt trykkflate. Dato-pilene er
+44 pt. Kortene bruker de delte skygge- og flatevariantene.
+
+Skritt og Vekt har lik høyde på delt rad.
+På egen rad for Vekt deler målingen og måledatoen bredden når teksten får plass.
+Ved større tekst kan de stables. Bakgrunnen ved statuslinjen skjermer
+systemikonene når oversikten rulles.
+Vektlinjen vises fra to målinger i perioden og bruker bare reelle punkter.
+Skrittgrafen bruker den turkise `activityChart`-fargen og vises fra to
+registrerte punkter. Timer eller dager uten data gir brudd i linjen.
+Detaljvisningens søyler har nullbasert akse og tilgjengelige tall per intervall.
+Datakildene står i detaljene. Demomodus har én Demodata-etikett ved
+skjermtittelen i Utvikling.
 
 ## Matgruppeikoner (6. november 2026)
 

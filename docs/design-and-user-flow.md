@@ -269,12 +269,102 @@ Brukeren kan alltid endre måltid før lagring.
 
 ### Utvikling
 
+Utvikling starter med skjermtittelen og Tilpass. Tilpass vises ved siden av
+tittelen når det er plass. Deretter følger Dag/Uke/Måned,
+datonavigasjon og kortene for valgt periode. I Dag og Måned kommer Mat og
+næring først, så Skritt og Vekt og til slutt Treningsøkter. Skritt og Vekt
+deler en rad når begge vises ved vanlig tekststørrelse. Ved store
+tilgjengelighetsstørrelser stables de.
+
+I Uke samles de synlige radene Mat og næring, Skritt og Treningsøkter i ett
+kort med sju delte dagkolonner i den rekkefølgen. Vekt står i eget kort
+under. Trykk på mat åpner dagstallarket. Skritt og
+Treningsøkter åpner sine detaljvisninger. Hver rad viser egne tom-, laste-
+og feiltilstander. Mat viser ukesum, snitt og dekning. Skritt viser ukesum
+og snitt per dag med data. Treningsøkter viser antall i uken og markerer
+dagene med økt. Flere økter på én dag får et antall.
+Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
+Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
+for Apple Helse ligger i Innstillinger.
+
+«Tilpass» åpner et ark med fire brytere i fast rekkefølge. Valgene gjelder
+alle perioder. «Lagre» bekrefter utkastet, og «Avbryt» forkaster det.
+«Gjenopprett standard» viser Mat og næring, samt Vekt når historikk finnes.
+Eksisterende valg om synlighet beholdes. Når alle områder er skjult, vises
+«Velg hva du vil se her» med inngang til tilpasning. Visningspreferansen er
+lokal per profil og separat fra SQLite-/synkskjemaet.
+
+Matperiodene er kalenderdag, mandag–søndag og kalendermåned. Pilene flytter én
+valgt periode og beholder ukedagen eller månedsdagen der kalenderen tillater
+det. Ved blaing over en kort måned brukes siste gyldige dag. Bytte av
+visning beholder ankret dato. Ved andre perioder hopper I dag, Denne uken
+eller Denne måneden tilbake til den gjeldende perioden.
+
+Matkortet i Dag viser totalt logget energi og en vannrett fordeling av
+energien fra registrerte makroer, med gram og prosent. Fordelingen
+beregnes med 4 kcal per gram protein og karbohydrat og 9 kcal per gram fett.
+Ved en registrering med energi og uten identifiserbart makrobidrag vises
+en nøytral stripe. Uke merker kcal-tallet «Totalt i uken» og viser snitt
+per logget dag separat. Måned viser snitt per logget dag som hovedtall.
+Uke og Måned oppgir antall loggede dager og periodens lengde.
+
+Søylene i Uke og Måned viser registrerte dagsverdier på en nullbasert
+skala. Dager uten data står tomme, mens en registrert null markeres på
+grunnlinjen i Uke. Dagstallarket viser én rad per logget dag med fulle
+næringsnavn.
+
+Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
+vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato.
+Detaljene viser samme periode, med kilden fra oversikten øverst. Begge
+kildene merker eventuelle eldre målinger med at de er fra før perioden. Registrering og full manuell historikk er
+tilgjengelig fra MatLogg-delen. Demomodus er merket ved tittelen i Utvikling.
+Skritt bruker samme periode og datonavigasjon som mat og vekt, med
+tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
+rekkefølge. I Dag og Måned viser det egne kortet antall økter og de to
+nyeste med type, dato og høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
+Detaljene viser hele listen med klokkeslett og Apple Helse som kilde.
+Begge visningene bruker timer og minutter for økter på minst én time.
+
+Oppsettet lagres per profil på enheten og følger overføring, eksport og sletting.
+NavigationStack tilbakestilles ved profilbytte. Loading, tomtilstand og feil
+bevarer skillet mellom manglende og registrerte data. Kortet kan vise siste
+matdata ved oppdateringsfeil; ny periode tømmer gamle periodetall før lesing.
+
+**Profil → Innstillinger → Apple Helse** samler bryterne for Skritt, Vekt
+og Treningsøkter.
+Å slå på en datatype ber om lesetilgang til den datatypen. Bryterne viser
+hvilke datatyper MatLogg er satt opp til å hente for profilen. Systemets
+lesetilgang styres i Helse. Å slå av en bryter stopper lesing for profilen
+og tømmer de viste målingene. Brukeren kan sette opp Helse med kortet skjult.
+Målinger hentes når kortet vises i Utvikling. Før tilkobling kan brukeren
+åpne samme innstillingsside i et ark fra kortdetaljene. **Tilpass** styrer
+kortenes synlighet og forklarer hvor datatilgangen styres.
+
+Skrittkortet åpner en detaljvisning med valgt periode, kilde og hentetid.
+
+Skritt viser periodens tilgjengelige sum. I Uke vises dagsfordelingen
+som søyler. I Dag og Måned vises en liten graf fra to registrerte punkter. Detaljene viser søyler per time for Dag og per dag for
+Uke og Måned. Timer og dager uten skrittdata gir hull i grafene.
+Kortet oppdateres ved periodebytte,
+når kortet åpnes, når appen kommer til forgrunnen, ved
+lokalt døgn-/tidssoneskifte og når brukeren drar ned for å oppdatere.
+Ingen bakgrunnslevering eller kontinuerlig overvåking. Skjuling, bakgrunn og
+profilbytte fjerner visningens midlertidige tall og avviser sene svar.
+
+HealthKit avslører ikke om lesetilgang er avslått. Et tomt resultat vises som
+«Ingen skrittdata tilgjengelig», med forklaring om manglende registreringer
+eller tilgang og veiledning om å kontrollere tillatelsene i Helse. Et faktisk
+nulltall vises bare når kilden gir en sum på null. Lesefeil gir retry uten gamle
+skrittall. Demomodus leser ikke ekte helsedata. Ingen skrittmål, kalorijustering eller nye helseberegninger.
+
 Utvikling er valgfri og skal være nøytral. Den kan vise vektregistrering,
 historikk og graf, men skal ikke bruke gratulasjoner, advarsler eller farge alene
 til å vurdere vektendring. Sletting krever en tydelig bekreftelse.
-Vektkortet fremhever siste registrering og viser inntil tre tidligere
-registreringer uten å gjenta den siste. «Registrer vekt» åpner et avgrenset
-skjema i kortet. «Se alle registreringer» åpner
+Etter tilkobling viser Helse-kortet siste måling og tidligere målinger i valgt
+periode. En eldre måling kan vises med dato når det ikke finnes en i perioden.
+Helse-målingene ligger i minnet og følger reglene for skjuling, bakgrunn og
+profilbytte. MatLogg-kortet i detaljene viser manuelle registreringer separat.
+«Registrer vekt» åpner et avgrenset skjema i kortet. «Se alle registreringer» åpner
 hele den lokale vekthistorikken med nyeste dato først, dato og kg-verdi samt
 egen sletteknapp per registrering. Bekreftelsen identifiserer dato og vekt.
 

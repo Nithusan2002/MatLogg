@@ -149,9 +149,40 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
-- Oversikt med dagens energi, sju dagers oversikt, makroer mot mål
-  og vektregistrering. Måltidsfordelingskortet er fjernet. Kalorier og tilgjengelige makroverdier
-  vises også når brukeren ikke har opprettet mål.
+- Utvikling viser kalenderdag, kalenderuke og kalendermåned med datonavigasjon.
+  I Dag og Måned kan Skritt og Vekt stå ved siden av hverandre ved vanlig
+  tekststørrelse. Begge kort har historikk. Vektdetaljene har også
+  manuell registrering. Mat viser dagssum med makrofordeling, ukesum med
+  snitt og månedssnitt per logget dag.
+  Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning.
+  Uloggede dager blir ikke nullinntak. Periodenavigasjonen har en snarvei
+  tilbake til inneværende dag, uke eller måned.
+- I Uke samles synlig Mat og næring, Skritt og Treningsøkter med en felles
+  mandag–søndag-akse. Hver rad åpner detaljene for valgt uke. Vekt er eget
+  kort under ukeoversikten. Radene bruker dagsverdiene appen allerede leser.
+- Kortvalg er lokale per profil og gjelder alle perioder. Tilpass har fire
+  brytere i fast rekkefølge. Eksisterende visningsvalg beholdes, og
+  egendefinert rekkefølge erstattes av standardrekkefølgen.
+- **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
+  og Vekt samt Treningsøkter. Kortdetaljene har en snarvei hit før tilkobling. Data hentes
+  bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.
+- Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
+  Kortet viser den nyeste målingen før periodens slutt og en linje
+  basert på målinger fra samme kilde i valgt periode. Helse-målinger og manuelle
+  MatLogg-registreringer vises hver for seg for valgt periode, med kilden fra
+  oversikten først. Full manuell historikk åpnes separat. Bare tilkoblingsvalget
+  lagres lokalt per profil. Helse-målinger brukes kun til visning i Utvikling.
+- Skritt viser skrittsummen og en kompakt graf fra Apple Helse for valgt dag,
+  uke eller måned. Graf og detaljer bruker timer i dagsvisning og dager i
+  uke- og månedsvisning. Pilene gir tilgang til tidligere perioder.
+  Første lesing krever en aktiv tilkobling fra brukeren.
+  Tall holdes bare i minnet, og tilkoblingsvalget er lokalt og profilbundet.
+  Native HealthKit-tilgang må fortsatt verifiseres på fysisk iPhone.
+- Treningsøkter er et valgfritt kort i full bredde, skjult som standard.
+  I Dag og Måned vises antall økter og de to siste etter starttid.
+  I Uke vises antall og en markør per treningsdag.
+  Detaljene viser alle øktene med type, starttid og varighet. Opplysningene
+  brukes midlertidig i Utvikling på enheten.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
   og andre sporbarhetsfelt forkastes lokalt. Gyldige treff

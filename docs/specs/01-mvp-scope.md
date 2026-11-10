@@ -93,7 +93,7 @@ Data kan gå tapt ved avinstallering eller tap av telefonen.
 ## 1.4 Out-of-Scope Metrikker (v1+)
 
 - Social adoption (shares, friend invites)
-- Platform-spesifikk analytics (Apple Health integration)
+- Platform-spesifikk analytics og ytterligere Apple Health-integrasjon utover valgfri visning av skritt og vekt
 - Revenue (ads, premium)
 
 ---
@@ -204,3 +204,47 @@ Kortet kan også lagres direkte i Bilder med kun tilgang til å legge til bilder
 Formatene 3:4 og 9:16 støttes i alle stiler; sist valgte format huskes lokalt.
 Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
 Se [lagrede måltider](../saved-meals.md#del-måltidskort).
+
+## Tillegg 2026-11-06: personlig oversikt på Utvikling
+
+Eksisterende mat-/næringsoversikt og valgfri vektregistrering samles i to kort.
+Brukeren kan vise eller skjule områder gjennom Tilpass. Valgene lagres lokalt
+per profil. Alle kan skjules uten å miste tilgang til tilpasning. Første versjon
+beholder siste sju dager og eksisterende vekthistorikk.
+
+### Valgfri skrittvisning fra Apple Helse
+
+Skritt slås på i Profil → Innstillinger → Apple Helse og ber om separat
+lesetilgang. Skrittkortet er valgfritt og skjult som standard. HealthKit
+leverer tilgjengelige summer per time i Dag og per dag i Uke og Måned, også
+tilbake i tid. Kortet viser periodens sum og graf. Detaljene viser kilden og
+fordelingen som søyler. Tallene
+ligger bare i minnet. Lokal tilkobling lagres per profil og følger eksport og
+sletting. Ekte HealthKit-tilgang krever verifisering på fysisk iPhone før release.
+
+### Valgfri vektvisning fra Apple Helse
+
+Vekt slås på med en egen bryter i Profil → Innstillinger → Apple Helse og
+ber om separat lesetilgang. Kortet viser
+siste måling før slutten av valgt periode og en graf fra samme kilde.
+Detaljene skiller målinger fra Helse og manuelle registreringer i MatLogg
+for valgt periode. Full manuell historikk åpnes separat.
+Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
+
+### Visuell korrigering etter valgt prototype (2026-11-06)
+
+Utvikling bruker kompakt næringskort, Skritt/Vekt på delt rad og detaljer
+bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
+inkludert. Uke samler synlige mat-, skritt- og treningsrader på en felles
+dagsakse med kildespesifikke detaljer. Matkortet viser snitt per logget dag,
+med synlig dekning;
+ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i
+uke- og månedsvisning.
+
+### Valgfri visning av treningsøkter fra Apple Helse
+
+Treningsøkter slås på separat i Profil → Innstillinger → Apple Helse.
+Kortet er skjult som standard og kan vises under Tilpass.
+Det viser antall økter og de to nyeste i valgt dag, uke eller måned.
+Detaljene viser alle øktene i perioden. MatLogg bruker type, starttid og
+varighet midlertidig på enheten til visning i Utvikling.

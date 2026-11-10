@@ -922,6 +922,64 @@ av rettighetskrav og hendelser. Dette er ikke en utnevnelse som formelt
 personvernombud eller en generell autorisasjon til produksjonsendringer.
 Rutine, stedfortreder og sakslogg følges opp i `privacy-data-inventory.md`.
 
+## 2026-11-06 – Utvikling som tilpassbar lokal kortoversikt
+
+Utvikling samler eksisterende mat-/næringsdata og vekt i to områder med
+brukerstyrt synlighet og rekkefølge. Standard er mat først; vekt vises når
+profilen har historikk eller selv velger kortet. Tilpass bruker et utkast med
+Lagre/Avbryt. Lokale, profilbundne visningspreferanser lagres separat fra
+domenedata og følger eksisterende overføring, eksport og sletting.
+
+Dette gir en avgrenset første hub uten nye helseintegrasjoner, synkhendelser,
+SQL-migrasjoner eller endrede kalorimål. Eksisterende repositories og
+ViewModels beholder ansvar for fagdata; ny tilpasningsstate eies av en liten
+feature-ViewModel med injisert repository ved app-roten. Apple Helse, aktivitet
+og trening vurderes som en separat senere leveranse.
+
+## 2026-11-06 – Valgfri lesing av dagens skritt fra Apple Helse
+
+Brukerens nye scope inkluderer dagens skritt i Utvikling. Kortet velges i
+Tilpass, og lesing aktiveres deretter med en egen brukerhandling. HealthKit
+forespør bare `.stepCount` som lesetype, med tom mengde skrivetyper. Systemets
+kumulative statistikk fra lokal midnatt til hentetid brukes, uten manuell
+summering av råprøver, historikkimport eller nye målberegninger.
+
+Skrittsummen lagres bare i feature-state og sendes ikke til server, eksport,
+synkkø, analyse eller logger. Profilens lokale tilkoblingsvalg er en separat
+preferanse som følger eksisterende eksport, overføring og sletting. Apples
+lesetillatelse er app-/enhetsbundet; et lokalt valg må ikke presenteres som
+bekreftet HealthKit-tilgang. Tomt resultat kan bety manglende data eller tilgang
+og vises derfor aldri automatisk som null eller «avslått».
+
+ViewModel og repository injiseres ved app-roten. Demomodus kobler ikke til ekte
+Helse-data. Skjuling, frakobling, bakgrunn og profilbytte tømmer visningen og
+avviser sene svar. Ingen bakgrunnslevering, HealthKit-skriving, opplasting eller
+automatisk kalorijustering inngår. Fysisk verifisering av native tilgang og
+signering er en releaseport.
+
+Kilder for HealthKit-adferd:
+[Apple – Authorizing access to health data](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data),
+[HKStatisticsQueryDescriptor](https://developer.apple.com/documentation/healthkit/hkstatisticsquerydescriptor).
+
+## 2026-11-06 – Korriger Utvikling mot den valgte visuelle prototypen
+
+Etter brukerens visuelle tilbakemelding prioriteres prototypens faktiske
+hierarki og korttetthet: merkevarelinje, tittel, periode/datonavigasjon,
+kompakt næringskort og Aktivitet/Vekt på én rad. Detaljer og handlinger flyttes
+inn bak kortene. Kalenderdag/-uke/-måned leser eksisterende lokale dagsdata;
+ingen nye datakilder, databaseendringer eller helsepermissioner innføres.
+
+Periodens hovedtall/makroer er snitt av loggede dager. Dekning vises eksplisitt,
+og uloggede/fremtidige dager konstrueres ikke som null. Endringen gjelder
+presentasjon; matlogger og kalorimål endres ikke. Vektlinjen er nøytral, viser
+bare reelle punkter i perioden, og kilde er MatLogg. Aktivitet er fortsatt
+uttrykkelig dagens skritt; treningsøkter og ekstra helseimport er ikke bygget.
+
+Visningspreferanse v2 leser v1 og normaliserer bare den tidligere
+standardrekkefølgen til mat/aktivitet/vekt. Synlighet og tilkobling bevares;
+eksisterende egendefinerte rekkefølger og nye v2-valg normaliseres ikke bort.
+Dette er ingen endring i SQL- eller synkskjema. Feature-ViewModel eier
+periode, avledede tall og vektsammendrag; profilbytte nullstiller navigasjonen.
 ## 2026-11-06 – Profilisolasjon, gjenopptakbar kontokobling og synkrekkefølge
 
 Eldre globale personopplysninger uten sikker eierbinding tildeles ikke ved
@@ -949,3 +1007,55 @@ kildespesifikk kategorikobling eller brukerens valg på egne produkter.
 Råkategori bevares separat; ingen navnegjetting eller næringsutledning.
 Egne produkter får et valgfritt, tømmbart valg med lokal utkastlagring og
 additiv synkkontrakt (fravær bevarer, null tømmer). Produksjonssynk forblir av.
+
+## 2026-11-07 – Skritt følger perioden i Utvikling
+
+Aktivitet følger samme dag, uke eller måned som mat og vekt, også for tidligere
+perioder. En avgrenset HealthKit-spørring henter dagssummer for valgt periode.
+Kortet viser summen, og uke- og månedsdetaljene viser registrerte dager og
+datadekning. En dag uten lesbare skrittdata har ingen søyle.
+
+Tilgangen gjelder fortsatt lesing av skritt etter eksplisitt tilkobling.
+Dagssummene holdes i minnet og forkastes ved periodeskifte, skjuling,
+frakobling eller profilbytte. Dataflyten går fra visning via ViewModel og
+repository til HealthKit.
+
+
+## 2026-11-07 – Apple Helse som valgfri vektkilde i Utvikling
+
+Vekt bruker separat lesetilgang til kroppsmåltypen `.bodyMass`. Kortet viser
+nyeste måling før slutten av perioden, med kilde og punkter fra samme kilde.
+MatLogg prioriteres ved likt tidspunkt. Detaljene holder målinger fra Helse
+adskilt fra redigerbar MatLogg-historikk. Helse-målinger ligger bare i minnet
+og inngår ikke i lagring, eksport, synk eller målberegning. Bare
+tilkoblingsvalget lagres per profil. Skritt og vekt deler livssyklus for
+tilkobling og avvisning av utdaterte svar.
+
+
+## 2026-11-07 – Samle Apple Helse-tilkobling i Innstillinger
+
+Profil → Innstillinger → Apple Helse samler separate valg for Skritt og Vekt.
+Detaljene i Utvikling lenker til samme side før tilkobling. Tilpass styrer
+kortvalg. Tilkoblingsvalgene bruker eksisterende profilnøkler. Det er mulig
+å be om tilgang med skjulte kort. Selve lesingen krever et synlig kort i
+Utvikling. Tillatelsesforespørsel og dataforespørsel har separate identiteter,
+slik at skjuling stopper publisering av målinger og profilbytte forkaster
+sene svar fra begge forespørsler.
+
+
+## 2026-11-08 – Treningsøkter som valgfritt kort i Utvikling
+
+Kortet bruker full bredde og legges sist i eksisterende kortoppsett uten å
+endre synligheten. Brukeren aktiverer lesing separat i Apple Helse-
+innstillingene. Perioden avgjøres av øktens starttid. Oversikten viser antall
+og de to nyeste, med hele listen i detaljene. Bare økttype, starttid og
+varighet brukes til visning, med en midlertidig rad-ID. Øktdata følger samme
+livssyklus som skritt og vekt. Tilkoblingsvalget lagres lokalt per profil.
+
+## 2026-11-09 – Fast rekkefølge i Utvikling
+
+Tilpass styrer synlighet med én bryter per område. Fast rekkefølge gjør at
+valgene fungerer likt på tvers av perioder, også når mat, skritt og trening
+deler ett ukekort. Vekt står separat under ukekortet. Tidligere valg om
+synlighet beholdes. V1 og v2 kan leses, og nye valg skrives som v2 med
+standardrekkefølgen.

@@ -816,6 +816,157 @@ Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
 `/tmp/matlogg-share-format-build.log`; blokkeringslogg:
 `/tmp/matlogg-share-format-tests.log`.
 
+## Utvikling-hub (2026-11-06)
+
+På `codex/utvikling-hub` bestod 24 målrettede Swift Testing-tester i fire suiter
+og tre UI-tester på iPhone 16 Pro / iOS 26.5 i den dedikerte simulatoren
+`MatLogg Hub QA` (`2C8D196B-DA78-4FEE-8543-1A72C7477AE8`). QA bruker syntetiske
+demodata og isolerte midlertidige databaser/UserDefaults-suiter.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=2C8D196B-DA78-4FEE-8543-1A72C7477AE8' \
+  -derivedDataPath build/hub-qa \
+  -only-testing:MatLoggTests/ProgressHubTests \
+  -only-testing:MatLoggTests/LoadingStateTests \
+  -only-testing:MatLoggTests/HealthProfileViewModelTests \
+  -only-testing:MatLoggTests/RenderPresentationTests \
+  -only-testing:MatLoggUITests/ProgressHubUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Dekker standardoppsett, lagre/avbryt, omstart, gyldig tomt oppsett,
+normalisering av innstillinger, profilisolasjon, feil/retry, profiloverføring,
+eksport, sletting og reset. Eksisterende lastetester kontrollerer utdaterte
+asynkrone svar og lokale ukesdata. UI-testene kontrollerer bryterverdier,
+rekkefølge, alle kort skjult, gjenoppretting, stor tekst/mørk modus og
+registrering/sletting av en konkret vekt med dato og kg-verdi.
+
+Den første UI-kjøringen avdekket et uklart treffområde for brytere og en
+slettetest som etter sletting traff en annen historisk rad med samme vekt.
+Bryterne har nå eget treffområde, og slettetesten identifiserer dato og verdi.
+Flyttehandlingene stables ved tilgjengelighetsstørrelser. Regresjonskontrollene
+bestod etter retting; ingen tester ble svekket.
+
+Den nye arbeidskopien manglet det ignorerte lokale Xcode-skjemaet; eksisterende
+skjema ble kopiert inn for verifisering. Testoppstart med feilsøker hang lokalt;
+sluttkjøringen brukte et lokalt skjema uten feilsøker. Ingen av disse lokale
+oppsettsendringene inngår i produktkoden. Ingen backend-/synkkontrakter er endret,
+og full testpakke eller produksjonsutrulling er ikke kjørt. Manuell VoiceOver-
+gjennomgang og fysisk iPhone er ikke verifisert i denne leveransen.
+
+Arkitekturgjennomgang: nye visningsvalg går gjennom feature-ViewModel og injisert
+repository ved app-roten. Profilbytte tømmer hub- og helsestate. Eksisterende
+transaksjoner for mat/vekt og deaktivert opplasting beholdes. Ingen kjente
+arkitekturavvik. `git diff --check` bestod.
+
+Resultatpakken er `build/hub-qa/Logs/Test/Test-MatLogg-2026.11.06_14-35-21-+0100.xcresult`
+med 27 beståtte, null feilede og null hoppede tester (`TEST SUCCEEDED`).
+Skjermbilder i `artifacts/utvikling-hub/` viser normalvisning, vekt først,
+tom oversikt og tilpasning med største tekststørrelse. Bildene ble inspisert.
+Kjøringen registrerte fortsatt én SwiftUI-advarsel om ugyldig rammestørrelse
+under vektflyten. Testene bestod, men opprinnelsen er ikke lokalisert; dette
+står som et verifiseringshull før eventuell release.
+
+## Apple Helse – dagens skritt (2026-11-06)
+
+Sluttkjøringen bestod med **30 målrettede tester**: ti `StepCountTests`, åtte
+`ProgressHubTests`, seks `LoadingStateTests` og seks UI-tester i
+`HealthStepsUITests`/`ProgressHubUITests`. iPhone 16 Pro / iOS 26.5 i dedikert
+MatLogg Hub QA. Resultat: `TEST SUCCEEDED`, ingen feilede eller hoppede tester.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=2C8D196B-DA78-4FEE-8543-1A72C7477AE8' \
+  -derivedDataPath build/hub-qa \
+  -only-testing:MatLoggTests/StepCountTests \
+  -only-testing:MatLoggTests/ProgressHubTests \
+  -only-testing:MatLoggTests/LoadingStateTests \
+  -only-testing:MatLoggUITests/HealthStepsUITests \
+  -only-testing:MatLoggUITests/ProgressHubUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Resultatpakke:
+`build/hub-qa/Logs/Test/Test-MatLogg-2026.11.06_15-58-21-+0100.xcresult`.
+`plutil -lint` for prosjekt/entitlements og `git diff --check` bestod. Generert
+Debug-Info.plist ble kontrollert for norsk `NSHealthShareUsageDescription`;
+begge konfigurasjoner har formålsteksten og targetet har HealthKit-capability.
+
+Verifisert: ingen lesing/forespørsel før eksplisitt tilkobling, ekte null kontra
+manglende data, lesefeil/retry uten gamle tall, dagens hentetid, sene svar etter
+profilbytte/frakobling/skjuling, bakgrunn/suspendering, ikke-overlappende
+publisering ved samtidige oppdateringer og tilbakekomst fra tilgangsforespørsel.
+Tilkoblingsvalgets profilisolasjon, omstart, eksport, overføring og sletting er
+kontrollert mot isolert lokal database og UserDefaults-suite. Eksisterende
+hub-, uke- og vektflyter bestod fortsatt.
+
+UI bruker eksplisitt DEBUG-fixture `--steps-qa` (eventuelt
+`--steps-qa-no-data`), med «QA – eksempeldata» på visningen. Ingen ekte Helse-
+data eller systemtillatelser inngår i disse testene. Vanlig demomodus uten QA-
+flagget er verifisert uten tilbud om ekte Helse-tilkobling. Skjermbilder med
+skritt og stor tekst er inspisert og lagret i `artifacts/utvikling-hub/`.
+Den første talltesten ble korrigert for norsk tusenskille, med samme forventede
+antall og enhet. Ingen produksjonslogikk ble endret for å få den testen grønn.
+
+Arkitektur: feature-ViewModel går gjennom injiserte repositories, HealthKit-
+spørringen er asynkron, og bare en lokal visnings-/tilkoblingspreferanse skrives.
+Skrittall kommer ikke inn i SQLite, synkkø, målberegning eller eksport. Ingen
+nye backendkontrakter, migrasjoner, eksterne mottakere eller arkitekturavvik.
+Personvern-/databrukstekster er oppdatert lokalt; ingen publisering er utført.
+
+**Før release:** verifiser signert HealthKit-entitlement og native forespørsel
+på fysisk iPhone, at bare Skritt forespørres som lesetype og ingen skrivetyper,
+og sammenlign dagens tall med Helse. Prøv avslag, tilbaketrekking i Helse,
+frakobling, døgn-/tidssoneskifte og VoiceOver på enheten. Simulatorens fixtures
+beviser ikke native autorisasjon, HealthKit-kildesummering eller signering.
+Den tidligere registrerte SwiftUI-advarselen om ugyldig rammestørrelse finnes
+fortsatt i vektregistreringstesten; ingen nye runtime-advarsler ble registrert
+for skritt-testene. Dette er ikke en produksjonsgodkjenning.
+
+## Kompakt Utvikling etter visuell referanse (2026-11-06)
+
+Det faktiske UI-et er sammenlignet med brukerens valgte prototype. Ny
+skjermtest kontrollerer at næringskortet er under en halv skjerm høyt, at
+Aktivitet/Vekt ligger på samme rad i riktig rekkefølge og er tilgjengelige,
+og at Dag/Uke/Måned, pilnavigasjon og detaljvisning fungerer. Skjermbildet
+`artifacts/utvikling-hub/kompakt-prototype-faktisk-app.png` er fra appen med
+syntetiske data og er inspisert visuelt; ingen nye genererte mockuper er brukt.
+
+Verifisert i avgrensede kjøringer på MatLogg Hub QA / iOS 26.5:
+
+- Første berørte kontroll: 31 enhetstester og sju UI-tester bestod. Resultat:
+  `Test-MatLogg-2026.11.06_19-51-57-+0100.xcresult` i `build/hub-qa/Logs/Test/`.
+- Periode-/preferansekontroll etter v2-normalisering og aksejustering: 16
+  enhetstester og prototype-skjermtesten bestod, ingen runtime-advarsler.
+  Resultat: `Test-MatLogg-2026.11.06_20-04-22-+0100.xcresult`.
+- Siste navigasjonskontroll: 17 enhetstester (`ProgressPeriodTests` og
+  `StepCountTests`) samt tre UI-tester for prototype/periode, vektregistrering/
+  sletting og skritt med omstart/frakobling bestod. Resultat:
+  `Test-MatLogg-2026.11.06_20-08-29-+0100.xcresult`. Detaljsidene laster egne data
+  slik at avbrutt henting fra oversikten ikke etterlater fastlåst loading.
+
+Periodetestene dekker mandag–søndag, månedslengde/skuddår, norsk DST-uke,
+reelle nullverdier versus uloggede dager, registrerte dagsgjennomsnitt,
+årsskifte, eldre svar etter periodebytte og profilavgrensede vektpunkter.
+Preferansetestene dekker v1- og v2-valg, inkludert at alle områder er skjult.
+Alle 16 synlighetskombinasjoner testes med fast rekkefølge i Dag, Uke og Måned.
+Den første kontrollen bekreftet også tilpasning, alle kort skjult, mørk modus,
+stor tekst og eksisterende lokal data-/Helse-adferd gjennom de berørte suitene.
+
+`git diff --check` bestod. Ingen ekstra backend-/SQL-kontroller er kjørt:
+endringen leser eksisterende lokale data og endrer ikke database, synkformat,
+HealthKit-lesetyper eller lagrede næringsverdier. Arkitekturgjennomgangen
+bekrefter at periode og avledede tall eies av feature-ViewModel, med injisert
+repository ved IO-grensen. NavigationStack nullstilles per profil. Ingen
+arkitekturavvik. Fysisk HealthKit/VoiceOver er fortsatt en separat releaseport;
+treningsøkter og historisk skrittgraf er ikke implementert som del av denne
+visuelle korrigeringen.
+
+Siste navigasjonskjøring registrerte fortsatt den tidligere rapporterte
+SwiftUI-advarselen om ugyldig rammestørrelse i vektflyten. De 20 testene bestod;
+advarselen er ikke presentert som løst av den visuelle korrigeringen.
+
 ### Profilisolasjon og synkrekkefølge – 2026-11-06
 
 Målrettede suiter: `ProfileTests`, `AuthViewModelTests`, `AuthServiceTests`,

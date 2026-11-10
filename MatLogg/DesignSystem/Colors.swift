@@ -32,7 +32,9 @@ enum AppColors {
     )
     static let calorieBlue = energyTint
     static let energyChart = Color(UIColor.appEnergyChart)
+    static let activityChart = Color(UIColor.dynamic(light: 0x087F76, dark: 0x59D8C4))
     static let action = Color(UIColor.appAction)
+    static let onAction = Color(UIColor.dynamic(light: 0xFFFCF7, dark: 0x231937))
     static let actionText = action
     static let errorText = action
     static let onVibrant = Color(UIColor.appOnVibrant)

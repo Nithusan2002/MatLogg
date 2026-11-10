@@ -67,22 +67,22 @@ final class LoggingDraftUITests: XCTestCase {
                 return true // Collect all issues, then fail explicitly after exercising the full flow.
             }
         }
+        let visibleBottom = app.buttons["Hjem"].firstMatch.frame.minY - 8
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: min(0.65, (visibleBottom - 8) / app.frame.height)))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3))
         for _ in 0..<8 {
-            if resume.isHittable && resume.frame.maxY < app.buttons["tab-log-food"].frame.minY { break }
-            app.scrollViews.firstMatch.swipeUp()
+            if resume.isHittable && resume.frame.maxY < visibleBottom { break }
+            start.press(forDuration: 0.05, thenDragTo: end)
         }
+        XCTAssertTrue(resume.isHittable)
+        XCTAssertLessThan(resume.frame.maxY, visibleBottom)
         if largeText {
-            let menu = app.scrollViews["matlogg-tab-bar-scroll"]
-            XCTAssertTrue(menu.exists)
-            menu.swipeLeft()
-            XCTAssertTrue(app.buttons["Profil"].firstMatch.isHittable)
+            let profile = app.buttons["Profil"].firstMatch
+            XCTAssertTrue(profile.isHittable)
+            XCTAssertTrue(app.frame.contains(profile.frame))
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion]) { issue in
                 auditFindings.append("\(issue.auditType): \(issue.element?.debugDescription ?? "unknown element")")
-                return true
-            }
-            for _ in 0..<8 {
-                if resume.isHittable && resume.frame.maxY < app.buttons["tab-log-food"].frame.minY { break }
-                app.scrollViews.firstMatch.swipeUp()
+                return true // Collect all issues, then fail explicitly after exercising the full flow.
             }
         }
         resume.tap()
@@ -95,21 +95,33 @@ final class LoggingDraftUITests: XCTestCase {
         app.buttons["Lukk"].tap()
         app.terminate(); app.launch()
         XCTAssertTrue(resume.waitForExistence(timeout: 12))
-        // The logging sheet resumes the same draft and keeps it after cancelling discard.
+        // Hjem also shows the draft behind the sheet.
         app.buttons["tab-log-food"].tap()
-        XCTAssertTrue(resume.waitForExistence(timeout: 8))
+        let sheet = app.scrollViews["quick-log-scroll"]
+        let sheetResume = sheet.buttons["logging-draft-continue"]
+        XCTAssertTrue(sheetResume.waitForExistence(timeout: 8))
         for _ in 0..<8 {
-            if resume.isHittable { break }
-            app.scrollViews.firstMatch.swipeUp()
+            if sheetResume.isHittable { break }
+            sheet.swipeUp()
         }
-        XCTAssertEqual(resume.label, "Fortsett registreringen")
-        app.buttons["logging-draft-discard"].tap()
-        XCTAssertTrue(app.buttons["Avbryt"].waitForExistence(timeout: 5))
-        app.buttons["Avbryt"].tap()
-        XCTAssertTrue(resume.exists)
+        XCTAssertEqual(sheetResume.label, "Fortsett registreringen")
+        sheet.buttons["logging-draft-discard"].tap()
+        let confirmDiscard = app.buttons.matching(NSPredicate(
+            format: "label == %@ AND identifier != %@", "Forkast", "logging-draft-discard"
+        )).firstMatch
+        XCTAssertTrue(confirmDiscard.waitForExistence(timeout: 5))
+        let cancel = app.buttons["Avbryt"]
+        if cancel.exists {
+            cancel.tap()
+        } else {
+            // A popover is dismissed by tapping its backdrop.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.37)).tap()
+        }
+        XCTAssertTrue(confirmDiscard.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(sheetResume.exists)
         let sheetRecovery = XCTAttachment(screenshot: app.screenshot())
         sheetRecovery.name = "Fortsett registreringen i Loggfør"; sheetRecovery.lifetime = .keepAlways; add(sheetRecovery)
-        resume.tap()
+        sheetResume.tap()
         XCTAssertTrue(app.buttons["logging-draft-save"].waitForExistence(timeout: 8))
         if largeText {
             let save = app.buttons["logging-draft-save"]

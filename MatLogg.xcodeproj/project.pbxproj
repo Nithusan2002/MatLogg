@@ -193,6 +193,11 @@
 				TargetAttributes = {
 					8276A8DB2F21635F00FD2BF4 = {
 						CreatedOnToolsVersion = 26.2;
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
 					};
 					8276A8E82F21636100FD2BF4 = {
 						CreatedOnToolsVersion = 26.2;
@@ -426,6 +431,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Debug-Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "MatLogg leser skritt, vekt og treningsøkter du velger å dele fra Apple Helse for å vise dem i Utvikling. Dataene lastes ikke opp.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til MatLogg-backend på lokalnettet.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MatLogg trenger tilgang til å legge til bilder når du velger å lagre et måltidskort i Bilder.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -466,6 +472,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Config/Release-Info.plist";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "MatLogg leser skritt, vekt og treningsøkter du velger å dele fra Apple Helse for å vise dem i Utvikling. Dataene lastes ikke opp.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til MatLogg-backend på lokalnettet.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MatLogg trenger tilgang til å legge til bilder når du velger å lagre et måltidskort i Bilder.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

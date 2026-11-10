@@ -71,7 +71,7 @@ MatLogg har fem hovedinnganger:
 1. **Hjem** – dagens status og måltider.
 2. **Søk** – råvarer, produkter, favoritter og nylig brukt.
 3. **Loggfør** – sentral handling for søk, skanning og manuell registrering.
-4. **Utvikling** – valgfri vektregistrering og historikk.
+4. **Utvikling** – personlig kortoversikt for mat og næring samt valgfri vektregistrering og historikk.
 5. **Profil** – personlige detaljer, mål, trygghet, personvern, konto og synk.
 
 Den sentrale kjerneflyten er:
@@ -99,6 +99,7 @@ MVP-en prioriterer:
 - navngitte lagrede måltider for rask, eksplisitt gjenbruk
 - lokal lagring og versjonert synkkø
 - mål og valgfri vektregistrering
+- valgfri lesing av skritt, vekt og treningsøkter for valgt dag, uke eller måned fra Apple Helse, uten opplasting eller endring av kalorimål
 - synlig datakilde når brukeren ønsker det
 - eksport og sletting av brukerdata
 
@@ -113,7 +114,7 @@ Følgende skal ikke innføres uten en ny produktbeslutning:
 - sosial feed, venner, konkurranser eller gamification utover den diskrete loggerekkefunksjonen på Hjem
 - medisinske anbefalinger eller automatiske behandlingsråd
 - automatisk utfylling av manglende næringsverdier
-- Apple Health, treningsklokker eller andre helseintegrasjoner
+- skrivetilgang til Apple Helse, treningsklokker eller helseintegrasjoner utover valgfri visning av skritt, vekt og treningsøkter
 - annonser, abonnement eller andre inntektsflater
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og
