@@ -73,7 +73,7 @@ private struct WorkoutStatus: View {
         Group {
             switch state {
             case .loading, .loaded: ProgressView("Henter treningsøkter …")
-            case .notConnected: Text("Koble til i Innstillinger")
+            case .notConnected: Text("Slå på under Profil → Innstillinger → Apple Helse.")
             case .noData: Text("Ingen treningsøkter tilgjengelig i perioden")
             case .failed: Text("Kunne ikke hente treningsøkter")
             case .unavailable: Text("Apple Helse er utilgjengelig")

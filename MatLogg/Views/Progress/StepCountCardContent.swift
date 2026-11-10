@@ -15,7 +15,7 @@ struct StepCountCardContent: View {
             switch model.state {
             case .notConnected:
                 if !model.isEnabled {
-                    Text("Du kan slå på skritt fra Apple Helse i Innstillinger.")
+                    Text("Slå på under Profil → Innstillinger → Apple Helse.")
                     AppleHealthSettingsShortcut(action: onOpenHealthSettings)
                 }
             case .loading:

@@ -271,7 +271,7 @@ struct ProgressWeekCard: View {
     private func healthStatus<Snapshot>(_ state: HealthReadViewModel<Snapshot>.State) -> String {
         switch state {
         case .loading, .loaded: "Henter data …"
-        case .notConnected: "Koble til i Innstillinger"
+        case .notConnected: "Slå på i MatLoggs innstillinger"
         case .noData: "Ingen data tilgjengelig"
         case .failed: "Kunne ikke hente data"
         case .unavailable: "Apple Helse er utilgjengelig"
