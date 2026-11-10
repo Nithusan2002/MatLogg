@@ -17,6 +17,8 @@ struct LoggView: View {
 
 private struct LoggContent: View {
     @EnvironmentObject private var productViewModel: ProductViewModel
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
     let appState: AppState
     let logViewModel: LogViewModel
     let authViewModel: AuthViewModel
@@ -287,10 +289,15 @@ private struct LoggContent: View {
                             }
                         }
                         if hasCurrentSummary, let summary = screen.summary {
-                            StatusSummaryContent(summary: summary, goal: nil)
-                                .padding(20)
-                                .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
-                                .accessibilityIdentifier("meal-room-totals")
+                            DailyStatusCard(
+                                userId: authViewModel.currentUser?.id,
+                                date: selectedDate,
+                                showsEnergy: preferencesViewModel.showGoalStatusOnHome
+                            ) {
+                                StatusSummaryContent(summary: summary, goal: healthProfileViewModel.currentGoal)
+                                    .accessibilityIdentifier("meal-room-totals")
+                            }
+                            .disabled(screen.isDeletingOrRestoring)
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))

@@ -65,7 +65,7 @@ Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Nær
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
 sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
 Næringsfeltet viser registrerte verdier også uten mål; måltekst vises bare når mål finnes.
-Eksisterende visningsvalg beholdes og heter «Vis energi og mål på Hjem».
+Visningsvalget «Vis energi og mål» gjelder både Hjem og dagsloggen.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
 Måltidsnavnet åpner valgt måltid for valgt dato. Synlige varerader åpner
@@ -98,11 +98,11 @@ endringen påvirker ikke mål eller lagring. Ingen daglig innsjekk tilbys.
 «Se dagslogg» på Hjem åpner dagsloggen uten måltidsfilter. Måltidsnavnene
 på Hjem åpner dagsloggen ved det aktuelle måltidet. Dagsloggen har ingen
 måltidssnarveier; brukeren scroller mellom måltidene.
-Skjermen viser valgt dato, en kompakt dagsoppsummering og
+Skjermen viser valgt dato, samme dagsstatuskort som på Hjem og
 varer samlet i én lys kortflate per måltid med 24 pt avrundede hjørner.
-Overskrift og «Legg til» inngår i kortet, også når måltidet er tomt. Dagsoppsummeringen gjenbruker energitall og
-makrooppsett fra Hjem, med samme korall–aprikos-gradient, 24 pt hjørner
-og 20 pt padding. Den viser registrert næring uten målstatus og vann. Varerader viser navn, mengde med lagret
+Overskrift og «Legg til» inngår i kortet, også når måltidet er tomt.
+Dagsstatuskortet viser energi, makroer og eventuelle mål over vannraden.
+Varerader viser navn, mengde med lagret
 enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
 sletting med eksisterende angremulighet. Oppsummeringen er informasjon, ikke
 en skjult handling for å nullstille søk eller filter.
@@ -116,10 +116,10 @@ valgt dato. Dagsloggen har ingen egen stor «Legg til mat»-knapp.
 «Kopier hele dagen fra i går» når tilgjengelig, og «Gå til i dag».
 Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
-### Vann på Hjem
+### Vann på Hjem og i dagsloggen
 
 Vann vises som nederste rad i samme varme flate som energi og makroer,
-skilt med en diskret linje. Når «Vis energi og mål på Hjem» er av, viser
+skilt med en diskret linje. Når «Vis energi og mål» er av, viser
 flaten bare vannraden. Valgt dato gjelder hele dagsstatusen; den synlige
 etiketten er «Vann», mens VoiceOver inkluderer datoen.
 

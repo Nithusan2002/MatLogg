@@ -207,7 +207,7 @@ private struct ProfileSettingsView: View {
             }
             .listRowBackground(AppColors.surface)
             Section("Visning og tilbakemelding") {
-                Toggle("Vis energi og mål på Hjem", isOn: $preferencesViewModel.showGoalStatusOnHome)
+                Toggle("Vis energi og mål", isOn: $preferencesViewModel.showGoalStatusOnHome)
                 Toggle("Vibrasjon ved trykk", isOn: $preferencesViewModel.hapticsFeedbackEnabled)
                 Toggle("Lyd", isOn: $preferencesViewModel.soundFeedbackEnabled)
                 Toggle("Vis hvor næringstallene kommer fra", isOn: $preferencesViewModel.showNutritionSource)
