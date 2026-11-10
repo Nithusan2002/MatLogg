@@ -585,12 +585,14 @@ final class MatLoggUITests: XCTestCase {
 
         app.terminate()
         app.launch()
+        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 10))
         let lunch = app.buttons["home-meal-open-lunsj"]
-        XCTAssertTrue(lunch.waitForExistence(timeout: 8))
+        // The home list creates meal rows as they come into view.
         for _ in 0..<8 {
             if lunch.isHittable { break }
             app.swipeUp()
         }
+        XCTAssertTrue(lunch.isHittable)
         lunch.tap()
         XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].waitForExistence(timeout: 5))
         selectPreviousDiaryDay(in: app)
