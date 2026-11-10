@@ -60,7 +60,7 @@ Kveldsmat som visningsnavn.
 | `background` | Sidens grunnflate. |
 | `surface` | Kort, skjema og ordinære innholdsflater. |
 | `warmSurface` | Varm sekundær fremheving. |
-| `energySurface`, `energySurfaceEnd`, `energySurfaceGradient` | Korallsol: diagonal korall–aprikos-gradering for energi- og vannoversikten på Hjem (`#FFB5B9` → `#FFD8AE` i lys modus, `#542C33` → `#443121` i mørk modus). Flaten er lik uansett målstatus; vann beholder blå detaljer. |
+| `energySurface`, `energySurfaceEnd`, `energySurfaceGradient` | Korallsol: diagonal korall–aprikos-gradering for dagsstatuskortet på Hjem og i dagsloggen (`#FFB5B9` → `#FFD8AE` i lys modus, `#542C33` → `#443121` i mørk modus). Flaten er lik uansett målstatus; vann beholder blå detaljer. |
 | `energyTextSecondary` | Kontrastsikker sekundærtekst på Korallsol (`#594B54` i lys modus, `#C9BDC3` i mørk modus). |
 | `mutedSurface` | Diskret status, valgt bakgrunn eller sekundær informasjon. |
 | `ink` | Primær tekst og ikoner. |
@@ -319,7 +319,7 @@ på 12 % tonet bakgrunn og deepInk-tekst. Etikettene stables når bredden ikke
 rekker. VoiceOver leser totalen med fulle næringsnavn. Ingen ekstra
 progresjonsstolper eller måltidskvote introduseres.
 
-Vann på Hjem vises nederst i samme `warmSurface`-flate som næringsfeltet,
+Vann vises nederst i dagsstatuskortet på Hjem og i dagsloggen,
 med felles 20 pt padding og 24 pt hjørner. En `separator`-linje skiller delene;
 ingen kort legges inni kortet. Når energi og mål er skjult, vises bare vannraden.
 Raden viser «Husk å drikke vann» og «Du har drukket x glass i dag», med antall
@@ -328,7 +328,7 @@ i dag». Andre datoer bruker «Du registrerte x glass denne dagen» eller
 «Ingen glass registrert denne dagen». Raden har minus-/plussknapper formet som glass uten hank, med svakt skrå
 sider og avrundede hjørner. Begge har 44 × 44 pt rektangulær trykkflate og bruker
 `mutedSurface` og `separator`. Bare dråpen bruker `info`; tekst bruker
-`deepInk` og `textSecondary`. Ingen glassrutenett vises på Hjem.
+`deepInk` og `textSecondary`. Kortet har ikke glassrutenett.
 Teksten brytes over flere linjer ved liten bredde, mens knappene beholder sin
 plass til høyre. Ved tilgjengelighetsstørrelser i Dynamic Type stables innholdet.
 Lasting, lokal feil med

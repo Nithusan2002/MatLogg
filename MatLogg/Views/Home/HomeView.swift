@@ -384,52 +384,43 @@ private struct HomeTabContent: View {
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: 16) {
-                        if preferencesViewModel.showGoalStatusOnHome {
-                            if isSummaryLoading && selectedSummary == nil {
-                                HStack(spacing: 12) {
-                                    ProgressView()
-                                    Text("Henter oversikt …")
-                                        .font(AppTypography.body)
-                                        .foregroundColor(AppColors.energyTextSecondary)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
-                                .accessibilityElement(children: .combine)
-                            } else if let summary = selectedSummary {
-                                StatusSummaryContent(
-                                    summary: summary,
-                                    goal: healthProfileViewModel.currentGoal
-                                )
-                            } else if overviewModel.errorMessage == nil {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Label("Matloggen din er klar", systemImage: "chart.bar")
-                                        .font(AppTypography.bodyEmphasis)
-                                        .foregroundColor(AppColors.deepInk)
-                                    Text("Logg mat uten dagsmål. Du kan sette opp mål senere under Profil → Daglige mål.")
-                                        .font(AppTypography.body)
-                                        .foregroundColor(AppColors.energyTextSecondary)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    DailyStatusCard(
+                        userId: authViewModel.currentUser?.id,
+                        date: selectedDate,
+                        showsEnergy: preferencesViewModel.showGoalStatusOnHome
+                    ) {
+                        if isSummaryLoading && selectedSummary == nil {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                Text("Henter oversikt …")
+                                    .font(AppTypography.body)
+                                    .foregroundColor(AppColors.energyTextSecondary)
                             }
-                            if let error = overviewModel.errorMessage {
-                                ErrorMessageView(error)
-                                    .font(AppTypography.caption)
-                                Button("Prøv igjen") { Task { await refreshSummaries() } }
-                                    .frame(minHeight: 44)
+                            .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+                            .accessibilityElement(children: .combine)
+                        } else if let summary = selectedSummary {
+                            StatusSummaryContent(
+                                summary: summary,
+                                goal: healthProfileViewModel.currentGoal
+                            )
+                        } else if overviewModel.errorMessage == nil {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Matloggen din er klar", systemImage: "chart.bar")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.deepInk)
+                                Text("Logg mat uten dagsmål. Du kan sette opp mål senere under Profil → Daglige mål.")
+                                    .font(AppTypography.body)
+                                    .foregroundColor(AppColors.energyTextSecondary)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
-
-                        if preferencesViewModel.showGoalStatusOnHome {
-                            Rectangle()
-                                .fill(AppColors.separator)
-                                .frame(height: 1)
-                                .accessibilityHidden(true)
+                        if let error = overviewModel.errorMessage {
+                            ErrorMessageView(error)
+                                .font(AppTypography.caption)
+                            Button("Prøv igjen") { Task { await refreshSummaries() } }
+                                .frame(minHeight: 44)
                         }
-                        HomeWaterSection(userId: authViewModel.currentUser?.id, date: selectedDate)
                     }
-                    .padding(20)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .matLoggCardSurface(fill: AppColors.energySurfaceGradient, cornerRadius: 24, shadowEnabled: false, borderEnabled: false)
 
                     LoggingDraftBanner(onLogComplete: onLogComplete)
 
@@ -765,13 +756,6 @@ private struct HomeSyncBanner: View {
         return "\(count) \(noun) lagret på enheten og venter på synk"
     }
 
-}
-
-private struct HomeWaterSection: View {
-    @EnvironmentObject private var waterViewModel: WaterViewModel
-    let userId: UUID?
-    let date: Date
-    var body: some View { WaterCardView(viewModel: waterViewModel, userId: userId, date: date, compact: true, embedded: true) }
 }
 
 private struct HomeQuickProductsSection: View {

@@ -59,6 +59,17 @@ final class WaterLoggingUITests: XCTestCase {
         expectation(for: ready, evaluatedWith: add)
         waitForExpectations(timeout: 5)
         XCTAssertEqual(count.value as? String, String(initial + 1))
+        let diary = app.buttons["home-daily-log"]
+        XCTAssertTrue(diary.waitForExistence(timeout: 5))
+        for _ in 0..<5 {
+            if diary.isHittable { break }
+            app.swipeUp()
+        }
+        diary.tap()
+        XCTAssertTrue(app.staticTexts["Hele dagen"].waitForExistence(timeout: 5))
+        expectation(for: NSPredicate(format: "value == %@", String(initial + 1)), evaluatedWith: count)
+        waitForExpectations(timeout: 5)
+
         let remove = app.buttons["water-remove"]
         XCTAssertTrue(remove.isEnabled)
         remove.tap()
@@ -81,12 +92,13 @@ final class WaterLoggingUITests: XCTestCase {
             app.swipeUp()
         }
         settings.tap()
-        let toggle = app.switches["Vis energi og mål på Hjem"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Innstillinger"].waitForExistence(timeout: 5))
+        let toggle = app.switches["Vis energi og mål"]
         for _ in 0..<5 {
             if toggle.isHittable { break }
             app.swipeUp()
         }
+        XCTAssertTrue(toggle.isHittable)
         if (toggle.value as? String == "1") != visible {
             let control = toggle.switches.firstMatch
             if control.exists {
