@@ -1,6 +1,10 @@
-# MatLogg
+# Spor Mat (tidligere MatLogg)
 
-MatLogg er en norsk iOS-app for rask matlogging, ernæringsoversikt og
+MatLogg videreføres som Spor Mat. Dette er det samme prosjektet som tidligere er omtalt som MatLogg i søknader og prosjektbeskrivelser.
+
+Repoet beholder navnet `MatLogg`, slik at eksisterende GitHub-lenker fungerer videre. Tekniske navn og filstier beholdes også.
+
+Spor Mat er en norsk iOS-app for rask matlogging, ernæringsoversikt og
 måloppfølging. SwiftUI-klienten er local-first: brukerhandlinger lagres i
 SQLite. Første lansering bruker bare lokale domenedata, uten skybackup eller
 flerenhetssynk. Supabase brukes til valgfri konto (Auth); Edge Functions og
