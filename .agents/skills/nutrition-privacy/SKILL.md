@@ -12,3 +12,5 @@ Bevar råverdi, enhet, porsjonsgrunnlag og kilde så langt datamodellen tillater
 Kalori- og makromål er veiledende produktberegninger, ikke diagnose eller behandling. Vurder urealistiske input, trygge grenser, spiseforstyrrelsessensitivt språk og Safe Mode. Ikke bruk skam, absolutte helseløfter eller manipulerende målbudskap.
 
 Minimer innsamling og logging av person-, helse- og vektdata. Sjekk formål, samtykke, lokal/ekstern lagring, sletting, eksport og tredjepartsdeling. Endringer i faktisk databruk må gjenspeiles i brukergrensesnitt og juridisk tekst før release.
+
+Apple Helse brukes i dagens scope bare til valgfri visning av skritt, vekt og treningsøkter i Utvikling. Målingene holdes midlertidig i minnet, uten vedvarende lagring eller opplasting, og inngår ikke i målberegning, eksport, analyse eller logger. Tilkoblingsvalg lagres lokalt per profil; skill disse innstillingene fra selve Helse-dataene. Kontroller endringer mot `matlogg-legal/privacy.md` og berørte Health-repositories/ViewModels. Utvidet databruk er en scope-endring som krever egen produkt- og personvernvurdering før implementering.

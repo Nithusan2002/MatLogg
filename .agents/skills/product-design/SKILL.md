@@ -5,7 +5,7 @@ description: Utform og vurder MatLoggs visuelle retning, informasjonsarkitektur,
 
 # Produktdesign
 
-Les `docs/specs/02-user-stories-flows.md`, `docs/specs/03-wireframes-screens.md`, `docs/specs/04-microinteractions.md` og eksisterende filer under `MatLogg/DesignSystem/`. Les også berørte views for å skille dokumentert intensjon fra faktisk implementasjon.
+Start med relevante deler av `docs/product-brief.md`, `docs/design-and-user-flow.md` og `docs/design-system.md`. Disse er normative for produkt og design. Bruk relevante deler av `docs/specs/02-user-stories-flows.md`, `docs/specs/03-wireframes-screens.md` og `docs/specs/04-microinteractions.md` som utdyping og historikk. Les berørte filer under `MatLogg/DesignSystem/` og berørte views for å skille dokumentert intensjon fra faktisk implementasjon. Ved konflikt, følg de normative dokumentene og samordne berørt spesifikasjon; kode viser hva som faktisk er implementert.
 
 ## Prinsipper
 

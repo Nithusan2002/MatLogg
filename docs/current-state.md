@@ -53,9 +53,11 @@ SQL-skjema/RLS, Edge Functions, e-postbekreftelse, 15-minutters JWT,
 30-dagers sletting og daglig purge-cron er konfigurert. Debug-konfigurasjonen
 peker lokalt til staging, og simulatorbygg samt autentisert kill-switch-test er
 grønne. `backendSyncEnabled` og serverens synk-kill-switch er fortsatt `false`.
-Apple-secret/provider, eget SMTP-oppsett, backup/restore, fysisk iPhone,
-TestFlight og separat produksjonsprosjekt gjenstår. NestJS/Prisma beholdes fram
-til disse portene og stabil pilot er godkjent.
+Dette er historisk staging-status, ikke en oppdatert liste over gjenstående
+releaseporter. Senere fysisk iPhone- og intern TestFlight-testing er dokumentert
+i [produksjonsberedskap](production-readiness.md), som også beskriver åpne
+porter. NestJS/Prisma beholdes fram til relevante porter og stabil pilot er
+godkjent.
 
 Oppfølging 2026-10-02: staging har vann-, porsjons- og RPC-nødstoppmigrasjonene
 og sync-events v3. Siste relevante iOS-suiter gir 59 grønne tester, lokal DB

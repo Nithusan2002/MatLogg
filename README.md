@@ -10,6 +10,8 @@ NestJS/Prisma-backenden beholdes som legacy under cutover.
 ## Status
 
 Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
+Intern TestFlight-testing er dokumentert; dette er ikke en samlet godkjenning
+av ekstern pilot eller produksjon. Se [produksjonsberedskap](docs/production-readiness.md).
 
 - Matlogging, dagsoversikt, favoritter, historikk, vekt og ernæringsmål lagres
   lokalt.
@@ -22,6 +24,9 @@ Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
   fungerer lokal profil fortsatt, mens kontokall er utilgjengelige.
   Kontokobling åpner ikke opplasting.
 - Vannlogging, lagrede måltider, lokale produktbilder og DEBUG-demomodus finnes.
+- Utvikling viser mat og næring, skritt, vekt og treningsøkter for dag, uke
+  og måned, med lokale valg for synlige kort. Valgfri tilkobling til Apple
+  Helse for skritt, vekt og treningsøkter styres under Profil → Innstillinger.
 - Førstegangsbruk oppretter lokal profil automatisk og åpner første logging
   direkte. Innlogging er valgfri. `--skip-auth` aktiverer en lokal
   utviklingssesjon bare i DEBUG.
@@ -70,15 +75,20 @@ matlogg-legal/           Juridiske tekster
 
 ### iOS
 
-Krav: en kompatibel versjon av Xcode og en installert iOS-simulator.
+Krav: Xcode med støtte for valgt kjøreenhet. Appen krever iOS 17 eller nyere
+og kan kjøres på fysisk iPhone eller en installert iOS-simulator.
 
 1. Åpne `MatLogg.xcodeproj`.
-2. Velg `MatLogg`-scheme og en simulator.
+2. Velg `MatLogg`-scheme og en iPhone eller simulator. Fysisk iPhone krever
+   konfigurert kodesignering i Xcode.
 3. Bygg og kjør appen.
+
+Lokal matlogging krever verken konto eller et kjørende Supabase-miljø.
 
 ### Supabase
 
-Krav: Docker og Node.js. Fra repo-roten:
+Valgfritt for arbeid med kontotjenester og backend. Krav: Docker og Node.js.
+Fra repo-roten:
 
 ```bash
 npm ci

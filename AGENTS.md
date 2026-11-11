@@ -2,7 +2,7 @@
 
 ## Prosjekt
 
-MatLogg er en norsk iOS-app for enkel matlogging, ernæringsoversikt og måloppfølging. Klienten er SwiftUI og local-first; aktiv serverplattform er Supabase Auth, Edge Functions og PostgreSQL/RLS. NestJS/Prisma beholdes som legacy under cutover.
+MatLogg er en norsk iOS-app for enkel matlogging, ernæringsoversikt og måloppfølging. Klienten er SwiftUI og local-first. Første lansering lagrer domenedata bare lokalt, uten skybackup eller flerenhetssynk. Supabase Auth brukes til valgfri konto; Edge Functions og PostgreSQL/RLS er bevart for framtidig synk. NestJS/Prisma beholdes som legacy under cutover.
 
 Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arkitektoniske endringer. Kode og migrasjoner er teknisk sannhetskilde når eldre spesifikasjoner avviker; dokumenter viktige avvik.
 
@@ -18,6 +18,7 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Alle synkhendelser skal ha stabil event-ID, canonical type og eksplisitt schema-versjon. Klient og backend skal følge `docs/sync-contract-v1.md` og endres samlet ved kontraktsendringer.
 - Backend skal validere input, hente identitet fra token, autorisere mot ressursens eier og skrive inbox/domenedata atomisk.
 - Produksjonssynk skal forbli deaktivert til relevante kontrakt-, retry-, idempotens-, eierskaps- og integrasjonstester er grønne.
+- `DomainUploadPolicy.localOnly` sperrer domeneopplasting og retry-timere uavhengig av backendflagget. Kontokobling åpner ikke opplasting. Framtidig skyfunksjon krever eget brukervalg, historikkvalg og serverautorisasjon samt avklart behandlingsgrunnlag; grønne tester alene åpner ikke synk.
 
 ## Grunnregler
 
@@ -49,6 +50,7 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 | `MatLogg/App/` | App-state, domenemodeller, feature flags og personvernkonstanter |
 | `MatLogg/DesignSystem/` | Farger, typografi og gjenbrukbare SwiftUI-komponenter |
 | `MatLogg/Services/` | Lokal lagring, API, auth, synk, matching og enhetsintegrasjoner |
+| `MatLogg/ViewModels/` | Feature-state og brukerhandlinger |
 | `MatLogg/Views/` | Feature-sorterte skjermer og delte views |
 | `MatLoggTests/`, `MatLoggUITests/` | Swift Testing og UI-tester |
 | `supabase/` | Aktiv serverplattform: Auth-integrasjon, Edge Functions, SQL-migrasjoner og RLS |
