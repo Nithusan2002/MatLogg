@@ -6,11 +6,11 @@ export function AppScreenshot({ screen, label, priority = false }: {
   priority?: boolean;
 }) {
   return (
-    <figure className="mx-auto w-full max-w-[300px]">
+    <figure className="mx-auto w-full max-w-[300px] lg:max-w-[350px]">
       <div className="phone-frame">
         <img
           src={`./screenshots/${screen}.png`}
-          alt={`Skjermbilde fra MatLogg: ${label}. Vist med fiktive demodata.`}
+          alt={`Skjermbilde fra Spor Mat: ${label}. Vist med fiktive demodata.`}
           width={1206}
           height={2622}
           loading={priority ? "eager" : "lazy"}

@@ -47,7 +47,7 @@ final class DemoMode: ObservableObject {
                 let products = try await loadCatalog()
                 try Task.checkCancellation()
                 let user = AuthService(defaults: demoDefaults).activateLocalProfile()
-                let url = directory.appendingPathComponent("demo-v3.sqlite")
+                let url = directory.appendingPathComponent("demo-v4.sqlite")
                 let store = try await DemoDataset.prepare(at: url, userId: user.id, products: products, reset: reset)
                 try Task.checkCancellation()
                 if reset {
@@ -159,12 +159,14 @@ nonisolated struct DemoDataset {
             if offset % 13 == 5 { continue }
             let weekday = calendar.component(.weekday, from: day)
             let breakfast = offset % 2 == 0 ? 0 : 1
-            let lunch = offset % 3 == 0 ? 3 : 2
-            let dinner = weekday == 6 ? 6 : offset % 2 == 0 ? 4 : 5
+            let lunch = offset == 0 ? 2 : offset % 3 == 0 ? 3 : 2
+            let dinner = offset == 0 ? 4 : weekday == 6 ? 6 : offset % 2 == 0 ? 4 : 5
             let snack = offset % 2 == 0 ? 7 : 8
             var logs: [FoodLog] = []
             // Today's presentation is a day in progress; historical days stay complete.
-            let menuIndices = offset == 0 ? [breakfast, lunch] : [breakfast, lunch, dinner, snack]
+            let menuIndices = offset == 0 ? [breakfast, lunch, dinner] : [breakfast, lunch, dinner, snack]
+            // Vary portions rather than altering the source nutrition values.
+            let portionScale: Float = offset == 0 ? 1 : [1, 1.1, 0.95, 1.2, 1.05, 1.15, 1][offset % 7]
             for (mealIndex, menuIndex) in menuIndices.enumerated() {
                 let meal = meals[menuIndex]
                 let hour = [8, 12, 17, 20][mealIndex]
@@ -173,12 +175,13 @@ nonisolated struct DemoDataset {
                     // The recorded flow adds the oats once to complete this breakfast.
                     if offset == 0 && item.productId == oatsID { continue }
                     logs.append(FoodLog(userId: userId, productId: item.productId, mealType: meal.type,
-                        amountG: item.amountG, loggedDate: day, loggedTime: time,
-                        calories: item.calories, proteinG: item.proteinG, carbsG: item.carbsG, fatG: item.fatG))
+                        amountG: item.amountG * portionScale, loggedDate: day, loggedTime: time,
+                        calories: item.calories * portionScale, proteinG: item.proteinG * portionScale,
+                        carbsG: item.carbsG * portionScale, fatG: item.fatG * portionScale))
                 }
             }
             try store.saveLogs(logs)
-            for index in 0..<(3 + offset % 5) {
+            for index in 0..<(offset == 0 ? 5 : 3 + offset % 5) {
                 try store.saveWaterGlass(WaterGlass(userId: userId, date: day.addingTimeInterval(Double(9 + index) * 3600)))
             }
             if offset % 3 == 0 {

@@ -355,7 +355,9 @@ HealthKit avslører ikke om lesetilgang er avslått. Et tomt resultat vises som
 «Ingen skrittdata tilgjengelig», med forklaring om manglende registreringer
 eller tilgang og veiledning om å kontrollere tillatelsene i Helse. Et faktisk
 nulltall vises bare når kilden gir en sum på null. Lesefeil gir retry uten gamle
-skrittall. Demomodus leser ikke ekte helsedata. Ingen skrittmål, kalorijustering eller nye helseberegninger.
+skrittall. Demomodus viser fiktive skritt-, vekt- og treningsdata for valgt
+periode når kortene er synlige, med Demodata-merking ved tittelen. Eksempeldata
+holdes bare i minnet; demomodus leser ikke ekte helsedata. Ingen skrittmål, kalorijustering eller nye helseberegninger.
 
 Utvikling er valgfri og skal være nøytral. Den kan vise vektregistrering,
 historikk og graf, men skal ikke bruke gratulasjoner, advarsler eller farge alene
@@ -995,14 +997,19 @@ innlogging. Ved lagringsfeil beholdes input og brukeren kan prøve igjen.
 Landingssiden bruker den varme paletten, store ekte appbilder og korte
 budskap om bruk uten konto, lokal logging og valgfrie mål. Toppseksjonen har
 et telefonbilde og små forklarende kort. Alle appbilder har en diskret mørk
-telefonramme som bevarer hele skjermbildet. En åpen måltidsseksjon bruker
-store yoghurt- og lakseillustrasjoner og viser gjenbruk av lagrede måltider.
+telefonramme som bevarer hele skjermbildet. En samlet måltidsseksjon viser gjenbruk av lagrede måltider med én forklaring,
+kompakte yoghurt- og lakseillustrasjoner og et ekte appbilde.
 Oversiktsseksjonen har en mørk kontrastflate med egne lyse teksttokens;
 lokal logging vises på en varm, lys flate. Måltidsbilder merkes som
 AI-genererte illustrasjoner. Primærhandlingen er «Se demoen» så lenge betapåmelding ikke er
 åpnet. Den lover ikke tilgang eller samler inn kontaktopplysninger.
 
-Bildedemoen viser søk → mengde → logg. Brukeren velger steg manuelt;
+Forsiden prioriterer matlogging uten konto, norske matvarer og lokal lagring.
+To utfyllende funksjonskort erstatter den lengre funksjonslisten. FAQ på forsiden
+begrenser seg til tilgjengelighet, konto og lagring, inkludert manglende skybackup.
+«Se demoen» er den gjennomgående primærhandlingen fram til tilgjengelighet er avklart.
+Navnebyttet forklares kort nær toppen: «MatLogg heter nå Spor Mat. Samme app, nytt navn.»
+Bildedemoen viser søk → mengde → logg og åpner med mengdebildet. Brukeren velger steg manuelt;
 ingen automatisk avspilling eller spillknapp vises. Ved redusert bevegelse
 er CSS-animasjoner slått av. Appbilder beholder original tekst, tall og
 merking som demodata.

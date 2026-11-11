@@ -463,14 +463,20 @@ Næringsverdier per 100 g, kilde og verifiseringsstatus bevares; ingen verdier
 gjettes. Produktbildene fungerer offline; råvarer og måltider bruker eksisterende
 fallback. Yoghurt med havre og bær og laks med poteter har lokale, AI-genererte
 illustrasjonsbilder i demoen. OFF-snapshot og bildeattribusjon finnes i
-`MatLogg/Resources/demo-openfoodfacts*`. Fra 2026-10-08 bruker datasettet `demo-v3.sqlite`, som
+`MatLogg/Resources/demo-openfoodfacts*`. Fra 2026-11-11 bruker datasettet `demo-v4.sqlite`, som
 opprettes ved neste åpning av demo. Tidligere demo og vanlige data overskrives
 ikke. «Tilbakestill demodata» i Profil tilbakestiller det aktive demodatasettet.
-Dagens demo viser frokost og lunsj med tre glass vann; middag og kveldsmat er
-foreløpig tomme. Havregryn i dagens frokost er utelatt slik at opptaksflyten kan
+Dagens demo viser yoghurtfrokost, matpakke med makrell og laksemiddag med fem
+glass vann; kveldsmat er foreløpig tom. Historiske porsjoner varierer forsiktig
+fra dag til dag uten å endre katalogens næringsverdier. Havregryn i dagens frokost er utelatt slik at opptaksflyten kan
 loggføre 60 g én gang. Historiske dager beholder komplette måltider.
 Naturell yoghurt hentes fra Matvaretabellen (`01.011`), siden OFF-produktets
 navn/bilde og næringsverdier ikke samsvarte. Lagrede måltider har kortere navn.
+Fra 2026-11-11 har Helse-kortene syntetiske eksempeldata i demomodus:
+skritt per time/dag, en stabil vektserie og gåturer/styrkeøkter. De genereres
+for valgt periode, merkes som eksempeldata og holdes bare i minnet. Demoen
+ber ikke om Helse-tilgang og endrer ikke tilkoblingsvalgene. Opptaket aktiverer
+alle fire kortene i Tilpass og viser Dag med synlig Demodata-merking.
 Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
 bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
 profilen ikke har registreringer fra før.

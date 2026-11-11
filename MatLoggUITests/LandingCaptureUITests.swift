@@ -8,7 +8,7 @@ final class LandingCaptureUITests: XCTestCase {
                           "Presentation capture must be explicitly enabled on a dedicated simulator.")
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-demoModeActive", "YES", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = ["-demoModeActive", "YES", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"]
         app.launch()
         XCTAssertTrue(app.buttons["Hjem"].firstMatch.waitForExistence(timeout: 30))
         app.buttons["Profil"].firstMatch.tap()
@@ -29,6 +29,21 @@ final class LandingCaptureUITests: XCTestCase {
         app.buttons["Hjem"].firstMatch.tap()
         app.buttons["Utvikling"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Mat og næring"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["progress-hub-customize"].tap()
+        for area in ["steps", "weight", "workouts"] {
+            let toggle = app.switches["progress-hub-toggle-" + area]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+            if toggle.value as? String != "1" {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            }
+            let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+        }
+        app.buttons["progress-hub-save"].tap()
+        app.buttons["progress-period-day"].tap()
+        XCTAssertTrue(app.staticTexts["progress-hub-demo-label"].exists)
+        XCTAssertTrue(app.buttons["progress-hub-steps-open"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["progress-hub-workouts-open"].waitForExistence(timeout: 10))
         capture("overview", app)
 
         app.buttons["Hjem"].firstMatch.tap()

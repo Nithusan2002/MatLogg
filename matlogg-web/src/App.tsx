@@ -32,19 +32,15 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 }
 
 const FAQ = [
-  ["Er Spor Mat det samme som MatLogg?", "Ja. MatLogg videreføres som Spor Mat. Hvis du har sett MatLogg i en søknad, CV eller prosjektbeskrivelse, er dette det samme prosjektet."],
-  ["Er Spor Mat tilgjengelig?", "Spor Mat er under utvikling. Betatilgang og lansering er ikke åpnet ennå."],
-  ["Må jeg ha konto?", "Nei. Du kan starte med å logge mat på iPhonen uten konto. Innlogging er valgfritt og gir foreløpig ikke skybackup."],
-  ["Fungerer det uten nett?", "Ja. Råvarer fra Matvaretabellen følger med appen, og lokal logging, historikk og lagrede matvarer fungerer uten nett. Nye produktoppslag og produktbilder som ikke er mellomlagret, krever internett."],
-  ["Må jeg sette mål?", "Nei. Mål er helt valgfrie. Du kan bruke Spor Mat bare for oversikt."],
-  ["Kan jeg sikkerhetskopiere eller flytte loggen?", "Spor Mat tilbyr ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi fra Profil → Innstillinger, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
-  ["Hvilke enheter støttes?", "Spor Mat støtter iPhone med iOS 17 eller nyere. Appen er fortsatt under utvikling."],
+  ["Er Spor Mat tilgjengelig?", "Spor Mat er under utvikling. Betatilgang og lansering er ikke åpnet ennå. Bildedemoen viser hvordan appen fungerer i dag."],
+  ["Må jeg ha konto?", "Nei. Du kan logge mat på iPhonen uten å opprette konto. Innlogging er valgfritt og gir foreløpig ikke skybackup."],
+  ["Hvor lagres dataene mine?", "Matloggen lagres lokalt på iPhonen din. Spor Mat tilbyr foreløpig ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
 ];
 
 function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 py-24">
+    <section id="faq" className="mx-auto max-w-3xl px-5 py-16 sm:py-20">
       <p className="eyebrow">Spørsmål</p>
       <h2 className="mt-3 text-4xl font-bold tracking-tight">Ofte stilte spørsmål</h2>
       <div className="mt-10 divide-y rounded-3xl border bg-card">
@@ -111,14 +107,13 @@ export default function App() {
             <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />Norsk matlogging · Under utvikling
             </span>
-            <aside className="mt-6 rounded-3xl border bg-card p-5" aria-labelledby="name-change-title">
-              <h2 id="name-change-title" className="font-semibold">MatLogg heter nå Spor Mat</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Dette er den samme matloggingsappen som tidligere het MatLogg. Prosjektet videreføres under nytt navn og blir en del av Spor-familien sammen med Spor Økonomi.</p>
+            <aside className="mt-4 text-sm text-muted-foreground" aria-label="Nytt navn">
+              <p><strong className="font-semibold text-foreground">MatLogg heter nå Spor Mat.</strong> Samme app, nytt navn.</p>
             </aside>
-            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Matlogging som passer <span className="hero-highlight">hverdagen din.</span></h1>
-            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Søk etter mat, skann strekkoder og få oversikt over dagen. Enkelt, rolig og på norsk.</p>
+            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Logg maten.<br /><span className="hero-highlight">Uten å lage konto.</span></h1>
+            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Norske råvarer, strekkodesøk og en matlogg som lagres på iPhonen din. Få oversikt over maten, med eller uten mål.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#slik" className="btn-primary">Se Spor Mat i bruk <span aria-hidden>→</span></a>
+              <a href="#slik" className="btn-primary">Se demoen <span aria-hidden>→</span></a>
               <a href="#funksjoner" className="btn-ghost">Utforsk appen</a>
             </div>
           </div>
@@ -143,8 +138,7 @@ export default function App() {
             <div className="meal-story-heading">
               <p className="eyebrow">Dine gjengangere</p>
               <h2 id="meal-story-title">Favorittfrokosten din.<br /><span>Klar igjen i morgen.</span></h2>
-              <p>Det du spiser ofte, trenger du ikke å legge inn fra bunnen hver gang. Lagre et måltid fra dagboken og loggfør det på nytt på valgt dato. Du kan også bruke «Loggfør igjen» for en tidligere matvare.</p>
-              <a href="#slik" className="btn-ghost mt-6">Se hvordan du logger <span aria-hidden>↗</span></a>
+              <p>Lagre et måltid fra dagboken og loggfør det igjen når det passer. Velg dato og måltid før du lagrer, og angre rett etterpå hvis du vil.</p>
             </div>
             <div className="meal-story-pictures">
               <figure className="meal-photo meal-photo-breakfast">
@@ -157,24 +151,20 @@ export default function App() {
               </figure>
             </div>
             <div className="meal-story-app">
-              <div><p className="eyebrow">Fra favoritt til matlogg</p><h3>Samme måltid.<br />En ny dag.</h3><p>Lagrede måltider ligger klare i appen. Velg måltid og dato før du lagrer en ny registrering. Du kan angre rett etterpå.</p><p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p></div>
               <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
             </div>
+            <p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p>
           </section>
           <Feature flip eyebrow="Utvikling" title="Oversikt på dine premisser" visual={
-            <AppScreenshot screen="overview" label="Utvikling – historikk og næringsoversikt" />
+            <AppScreenshot screen="overview" label="Utvikling – mat, skritt, vekt og treningsøkter" />
           }>
-            <p>Se dagens energi og makronæringsstoffer, og følg oversikten gjennom uken.</p>
-            <p>Mål er valgfrie og settes under Profil → Daglige mål. Du kan også registrere vekt hvis du ønsker det.</p>
+            <p>Samle mat, skritt, vekt og treningsøkter i én oversikt. Velg selv hvilke kort du vil se, og bla mellom dag, uke og måned.</p>
+            <p>Skritt, vekt og treningsøkter fra Apple Helse vises når du velger å koble dem til. Du kan også registrere vekt manuelt. Bildet viser fiktive demodata.</p>
           </Feature>
           <div className="grid gap-6 sm:grid-cols-2">
             {[
-              ["Mengde og porsjoner", "Logg i gram eller milliliter, eller velg antall når matvaren har en dokumentert porsjon. Mengde og næringsgrunnlag følger registreringen."],
-              ["En dagbok du kan endre", "Bla mellom datoer, rediger eller flytt matvarer mellom måltider. Velg flere registreringer for å lagre et måltid eller slette samlet, med mulighet til å angre."],
-              ["Matvarer med kilde", "Søk i råvarer fra Matvaretabellen og merkevarer fra Open Food Facts. Produktkortet viser næringsgrunnlaget og, når data finnes, informasjon om Nutri-Score og prosessering."],
-              ["Dine faste matvarer", "Bruk favoritter, nylige matvarer og tidligere treff i søket. Finner du ikke varen, kan du registrere den manuelt og beholde den lokalt."],
-              ["Vann i hverdagen", "Registrer glass med vann fra Hjem. Appen teller glass uten å anta hvor mange milliliter glasset ditt rommer."],
-              ["Del et måltidskort", "Lag et bildekort fra et lagret måltid. Velg stil, format og hvilke næringsverdier som skal vises. Forhåndsvis kortet, del det eller lagre det i Bilder."],
+              ["En dagbok du kan endre", "Rediger matvarer og mengder, flytt dem mellom måltider eller velg flere registreringer samlet."],
+              ["Norske råvarer og kjente produkter", "Søk i Matvaretabellen og slå opp merkevarer fra Open Food Facts. Matvarene viser kilden og næringsgrunnlaget."],
             ].map(([title, text]) => (
               <article key={title} className="benefit-card rounded-3xl border bg-card p-7">
                 <h3 className="text-xl font-semibold">{title}</h3>
@@ -187,7 +177,6 @@ export default function App() {
           }>
             <p>Loggen og lagrede matvarer ligger på iPhonen din, så logging av det du allerede har fungerer uten nett.</p>
             <p>Oppslag av nye produkter kan kreve internett. Appen tilbyr ikke skybackup eller synk mellom enheter. Data kan gå tapt hvis du sletter appen eller mister telefonen.</p>
-            <p className="text-sm">Norske råvarer fra Matvaretabellen og produktoppslag fra Open Food Facts.</p>
           </Feature>
         </section>
 
@@ -195,8 +184,8 @@ export default function App() {
 
         <section className="mx-auto max-w-6xl px-5 pb-24">
           <div className="rounded-[2.5rem] border border-primary/20 bg-primary-soft px-6 py-16 text-center">
-            <h2 className="text-4xl font-bold tracking-tight">Litt mindre styr. Litt mer oversikt.</h2>
-            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Spor Mat er under utvikling. Utforsk hvordan appen fungerer mens vi gjør den klar for lansering.</p>
+            <h2 className="text-4xl font-bold tracking-tight">Se matloggingen i praksis.</h2>
+            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Bla gjennom søk, mengde og logg i bildedemoen. Spor Mat er fortsatt under utvikling.</p>
             <a href="#slik" className="btn-primary mt-8">Se demoen <span aria-hidden>→</span></a>
           </div>
         </section>

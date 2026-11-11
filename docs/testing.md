@@ -615,7 +615,9 @@ VoiceOver må vurderes separat; UI-testen modellerer prosessavbrudd.
 Bruk en dedikert simulator og sett `TEST_RUNNER_MATLOGG_LANDING_CAPTURE=1`
 foran `xcodebuild test` med `-only-testing:MatLoggUITests/LandingCaptureUITests`.
 Testen tilbakestiller bare demoen og lagrer åtte navngitte `landing-*`-bilder
-i xcresult. Den logger 60 g havregryn til dagens frokost én gang. Alle bildene tas uten
+i xcresult. Utvikling-bildet viser Dag med mat, skritt, vekt og treningsøkter aktivert.
+Helse-kortene bruker fiktive demodata i minnet uten systemtilgang. Opptaket bruker
+tekststørrelse Medium for å vise alle fire kortene i telefonrammen. Testen logger 60 g havregryn til dagens frokost én gang. Alle bildene tas uten
 tastatur. Søkebildet bruker et presist produktsøk; et eget dagbokbilde tas
 etter at bekreftelsen har lukket seg automatisk. Opptaket venter på at den
 forsvinner, siden den kan utløpe mens forrige skjermbilde tas. Mengdebildet tas ved å åpne produktet igjen med den huskede

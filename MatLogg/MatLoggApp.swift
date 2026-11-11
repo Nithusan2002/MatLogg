@@ -98,7 +98,7 @@ struct MatLoggContent: View {
         let stepRepository: any HealthReadRepository<StepCountSnapshot>
         let weightRepository: any HealthReadRepository<HealthWeightSnapshot>
         var workoutRepository: any HealthReadRepository<HealthWorkoutSnapshot> =
-            isDemo ? DemoHealthReadRepository<HealthWorkoutSnapshot>() : HealthWorkoutRepository()
+            isDemo ? DemoHealthReadRepository<HealthWorkoutSnapshot>(makeExample: DemoHealthSamples.workouts) : HealthWorkoutRepository()
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--health-workouts-qa") {
             workoutRepository = QAHealthWorkoutRepository()
@@ -106,16 +106,16 @@ struct MatLoggContent: View {
         if ProcessInfo.processInfo.arguments.contains("--steps-qa") {
             stepRepository = QAStepCountRepository(count: ProcessInfo.processInfo.arguments.contains("--steps-qa-no-data") ? nil : 6543)
         } else {
-            stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>() : HealthKitStepCountRepository()
+            stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>(makeExample: DemoHealthSamples.steps) : HealthKitStepCountRepository()
         }
         if ProcessInfo.processInfo.arguments.contains("--health-weight-qa") {
             weightRepository = QAHealthWeightRepository()
         } else {
-            weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>() : HealthWeightRepository()
+            weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>(makeExample: DemoHealthSamples.weight) : HealthWeightRepository()
         }
         #else
-        stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>() : HealthKitStepCountRepository()
-        weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>() : HealthWeightRepository()
+        stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>(makeExample: DemoHealthSamples.steps) : HealthKitStepCountRepository()
+        weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>(makeExample: DemoHealthSamples.weight) : HealthWeightRepository()
         #endif
         _stepCountViewModel = StateObject(wrappedValue: StepCountViewModel(
             repository: stepRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .steps)))

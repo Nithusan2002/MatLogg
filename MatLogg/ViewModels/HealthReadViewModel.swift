@@ -59,7 +59,13 @@ final class HealthReadViewModel<Snapshot: HealthReadSnapshot>: ObservableObject 
         readID = UUID()
         switch availability {
         case .unavailable: state = .unavailable; return
-        case .demo: state = .demo; return
+        case .demo:
+            if let example = repository.example(in: range, through: now()), example.isExampleData, example.hasData {
+                state = .loaded(example)
+            } else {
+                state = .demo
+            }
+            return
         case .available: break
         }
         guard isEnabled else { state = .notConnected; return }

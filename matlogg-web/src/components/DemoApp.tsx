@@ -8,20 +8,20 @@ const STEPS = [
 ] as const;
 
 export function DemoSection() {
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState(1);
   const step = STEPS[selected] ?? STEPS[0];
   return (
-    <section id="slik" className="mx-auto max-w-6xl px-5 py-24">
-      <div className="grid items-center gap-14 lg:grid-cols-2">
+    <section id="slik" className="mx-auto max-w-6xl px-5 py-16 sm:py-20">
+      <div className="grid items-center gap-10 lg:grid-cols-2">
         <div>
           <p className="eyebrow">Slik fungerer det</p>
           <h2 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">Fra matvare til matlogg</h2>
           <p className="mt-4 max-w-md text-muted-foreground">Finn maten. Velg mengden. Ferdig. Velg et steg for å se ekte appbilder med fiktive demodata.</p>
-          <ol className="mt-10 space-y-3">
+          <ol className="mt-6 space-y-2">
             {STEPS.map((item, index) => (
               <li key={item.tab}>
                 <button onClick={() => setSelected(index)} aria-pressed={selected === index} aria-controls="flow-screenshot"
-                  className={`flex w-full gap-4 rounded-2xl border p-5 text-left transition ${selected === index ? "border-primary/40 bg-card shadow-soft" : "border-transparent hover:bg-card/60"}`}>
+                  className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition ${selected === index ? "border-primary/40 bg-card shadow-soft" : "border-transparent hover:bg-card/60"}`}>
                   <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold ${selected === index ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{index + 1}</span>
                   <span><span className="block font-semibold">{item.title}</span><span className="text-sm text-muted-foreground">{item.text}</span></span>
                 </button>

@@ -79,7 +79,15 @@ struct DemoModeTests {
             }
         }
         let today = demo.getSummary(userId: demoOwner, date: Date()).logs
-        #expect(Set(today.map(\.mealType)) == Set(["frokost", "lunsj"]))
+        #expect(Set(today.map(\.mealType)) == Set(["frokost", "lunsj", "middag"]))
+        let todayWater = try demo.getWaterGlasses(userId: demoOwner).filter {
+            Calendar.current.isDateInToday($0.date)
+        }
+        #expect(todayWater.count == 5)
+        for log in demo.getAllLogs(userId: demoOwner) {
+            let product = try #require(catalog.first { $0.id == log.productId })
+            #expect(abs(log.calories - product.caloriesPer100g * log.amountG / 100) < 0.001)
+        }
         let oats = try #require(catalog.first { $0.externalID == "7044416013141" })
         #expect(!today.contains { $0.productId == oats.id })
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
