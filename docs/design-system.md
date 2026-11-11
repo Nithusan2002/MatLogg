@@ -295,7 +295,7 @@ Før et nytt token eller en ny delt komponent innføres:
 
 ### Bunnmeny
 
-Bunnmenyen viser Hjem, Søk, Loggfør, Oversikt og Profil. Loggfør er en
+Bunnmenyen viser Hjem, Søk, Loggfør, Utvikling og Profil. Loggfør er en
 handling som åpner loggingarket og beholder valgt hovedfane. Den korallfargede
 knappen er 56 pt med diskret kant og myk skygge. Valgt hovedfane markeres med
 `action`, kraftigere tekst og fylt ikon der symbolet har en slik variant.

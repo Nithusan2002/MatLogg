@@ -89,7 +89,8 @@ Den sentrale kjerneflyten er:
 
 MVP-en prioriterer:
 
-- valgfri konto med Apple eller e-post/passord; lokal bruk krever ikke konto
+- valgfri konto med Apple; lokal bruk krever ikke konto. E-post/passord er
+  deaktivert med `FeatureFlags.emailAuthenticationEnabled = false`
 - onboarding for både lokal profil og konto
 - dagsoversikt og fire måltider
 - logging via søk, strekkode og manuell registrering

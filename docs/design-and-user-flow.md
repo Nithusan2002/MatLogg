@@ -606,6 +606,12 @@ påkrevd og valgfritt innhold og forklare feil ved feltet.
 Den normative funksjonslisten, konfliktavgrensningen og statusmatrisen finnes i
 [offline-adferd og synkstatus](offline-behavior.md).
 
+Dagens lanseringsscope bruker `DomainUploadPolicy.localOnly`: data og
+synkhendelse lagres atomisk lokalt, og status er «Lagret på denne enheten».
+Nettforbindelse eller kontokobling starter ikke opplasting eller retry-timere.
+
+Følgende flyt gjelder en framtidig, særskilt godkjent synkfunksjon:
+
 ```text
 Bruker lagrer uten nett
   → lagre data og synkhendelse atomisk lokalt
@@ -645,7 +651,8 @@ Bruk kort, konkret norsk og handling først:
 
 - «Loggfør mat»
 - «Logg til: Lunsj»
-- «Lagret på enheten – venter på synk»
+- «Lagret på denne enheten» (dagens lokale lagring)
+- «Lagret på enheten – venter på synk» (framtidig godkjent synkfunksjon)
 - «Vi fant ikke denne strekkoden»
 - «Prøv igjen»
 - «Ingen logget ennå»

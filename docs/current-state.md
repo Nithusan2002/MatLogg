@@ -78,7 +78,7 @@ fungerer fortsatt. NestJS er ikke appens aktive synktransport.
 
 Debug bruker ordinær sesjonsflyt og intro før første logging som standard. Launch-argumentet
 `--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Lokal profil opprettes automatisk ved første åpning; brukeren kan
-velge Apple/e-postkonto som sekundær handling. Demo har eget lager.
+velge Apple-innlogging som sekundær handling. Demo har eget lager.
 
 ## Implementert
 
@@ -110,7 +110,7 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   bevares. Ingen nye mål opprettes automatisk.
 
 - Morgensjekk er tatt ut av Hjem inntil videre (2026-10-03). Vektregistrering
-  og eksisterende historikk beholdes i Oversikt. Innsjekkimplementasjonen og
+  og eksisterende historikk beholdes i Utvikling. Innsjekkimplementasjonen og
   lokal status beholdes uten aktiv inngang eller opprettelse ved app-roten.
 
 - Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
@@ -128,7 +128,7 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   mengder, valgfri kcal per vare, lokal atomisk lagring og angre. Se
   [scope og brukertest](meal-reuse.md).
 
-- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Oversikt og Profil.
+- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Utvikling og Profil.
 - Hjem prioriterer dagsstatus og måltidskort uten en duplisert generisk
   søk-/skannerad. Søk og skanning er fortsatt tilgjengelig fra den vedvarende
   Loggfør-handlingen og Søk-fanen; legg-til fra måltidskort beholder
@@ -288,7 +288,8 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
   hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--skip-auth`.
-- Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
+- Apple-innlogging vises som valgfritt kontoalternativ. E-post/passord er
+  implementert, men skjult med `FeatureFlags.emailAuthenticationEnabled = false`.
   Apple-dialogen ber om navn og e-post. Delt navn beholdes lokalt som et
   valgfritt forslag med «Bruk navn fra Apple» under Personlige detaljer;
   eksisterende visningsnavn overskrives ikke. Forslaget bevares ved
@@ -297,7 +298,7 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
   over innloggingsvalgene og tilbyr gjenåpning av bekreftelse for kontokobling.
   Dialoglukking avbryter ikke koblingen; «Avbryt» er en eksplisitt handling.
   Appspråket er Bokmål, også for Apples standardknapp.
-  Vellykket Apple-/e-postinnlogging avslutter onboarding og åpner Hjem etter
+  Vellykket Apple-innlogging avslutter onboarding og åpner Hjem etter
   eventuell bekreftet kontokobling. Fullføring lagres per konto; mislykket
   eller avbrutt innlogging beholder den lokale introen.
   Google-innlogging er senere scope. Apple krever konfigurert Supabase Apple-provider og aktivert
