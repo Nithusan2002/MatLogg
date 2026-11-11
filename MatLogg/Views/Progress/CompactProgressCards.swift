@@ -198,7 +198,7 @@ struct CompactStepsCard: View {
                     ProgressView().frame(minHeight: 40)
                     Text("Henter skritt …").font(AppTypography.secondary)
                 case .notConnected:
-                    Text("Slå på i MatLoggs innstillinger").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    Text("Slå på i innstillingene i Spor Mat").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
                 case .noData:
                     Text("Ingen data").font(AppTypography.title)
                     Text("Se tilgang og detaljer").font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
@@ -395,7 +395,7 @@ struct NutritionDayTotalsSheet: View {
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(periodLabel).font(AppTypography.sectionTitle).foregroundStyle(AppColors.deepInk)
-                        Text("Registrert i MatLogg")
+                        Text("Registrert i Spor Mat")
                             .font(AppTypography.caption)
                             .foregroundStyle(AppColors.textSecondary)
                     }

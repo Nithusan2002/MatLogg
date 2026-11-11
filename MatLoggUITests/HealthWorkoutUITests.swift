@@ -67,7 +67,7 @@ final class HealthWorkoutUITests: XCTestCase {
         app.openAppleHealthSettings()
         app.setAppleHealthToggle("apple-health-workouts-toggle", enabled: false)
         openHub(app)
-        expectCard(card, contains: "Slå på i MatLoggs innstillinger")
+        expectCard(card, contains: "Slå på i innstillingene i Spor Mat")
         XCTAssertFalse(card.label.contains("Styrke"))
     }
 

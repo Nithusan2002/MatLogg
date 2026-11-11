@@ -1,6 +1,6 @@
 # App Store Connect – databruk
 
-Sist oppdatert: 6. november 2026
+Sist oppdatert: 11. november 2026
 
 Arbeidsgrunnlag, ikke bekreftelse på det innsendte App Privacy-skjemaet.
 Kontroller faktisk releasekonfigurasjon, arkiv og leverandørers datalagring før innsending.
@@ -57,7 +57,7 @@ App Privacy-skjema.
 | --- | --- |
 | Apple/Supabase Auth | Behold Email Address og User ID som knyttet til bruker, App Functionality. Skjult e-postskjerm fjerner ikke Apple-delt e-post. |
 | Supabase tekniske logger | Avklar beholdte felt, bruk og varighet separat fra konto-ID. Eventuelle ytterligere kategorier og kobling til bruker må vurderes ut fra faktisk bruk. Ingen antatt fast frist. |
-| OFF-søk/strekkode | Search History må vurderes dersom søk beholdes utover forespørselen. At MatLogg ikke sender konto-ID beviser ikke at data er uknyttet. |
+| OFF-søk/strekkode | Search History må vurderes dersom søk beholdes utover forespørselen. At Spor Mat ikke sender konto-ID beviser ikke at data er uknyttet. |
 | IP og bildetrafikk | IP er ikke automatisk Device ID eller Location; klassifiser etter faktisk bruk. Produktbilde-URL og tidspunkt kan også avsløre produktvisning. Retensjon hos bildeverter er uavklart. |
 | Lokal mat/vekt/bilder/fødselsdato | Ikke merk ren lokal behandling som innsamling. Fødselsdato er valgfri i undersøkt kode. Vurder SDK-/kandidatadferd før endelig erklæring. |
 | Måltidsdeling, Bilder og JSON | Lokalt generert og brukerinitiert. Kontroller Apples unntak og faktisk delingsflyt; ikke anta at all tredjepartsbehandling omfattes av et unntak. Ingen produkt-tokenlenke er funnet. |
@@ -81,7 +81,7 @@ etter brukerhandling. Skrittsummer per time eller dag, vektmålinger og
 Helse-data inngår verken i opplasting,
 synkkø, logger, analyse eller eksport. Profilens lokale tilkoblingsvalg
 lagres i UserDefaults og følger eksport og sletting av innstillinger.
-Helse på iPhonen er felles for MatLogg-profilene. Skrivetilgang og
+Helse på iPhonen er felles for Spor Mat-profilene. Skrivetilgang og
 bakgrunnslevering er utenfor denne dataflyten.
 
 Dette dokumenterer implementert lokal bruk, ikke godkjenning av App Privacy-

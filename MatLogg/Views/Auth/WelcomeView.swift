@@ -30,7 +30,7 @@ struct WelcomeView: View {
                             Text("EN ROLIGERE MATLOGG")
                                 .font(AppTypography.captionEmphasis)
                                 .foregroundColor(AppColors.actionText)
-                            Text("MatLogg")
+                            Text("Spor Mat")
                                 .font(AppTypography.hero)
                                 .foregroundColor(AppColors.deepInk)
                                 .accessibilityAddTraits(.isHeader)

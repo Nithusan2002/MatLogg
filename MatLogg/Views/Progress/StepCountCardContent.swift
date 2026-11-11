@@ -35,7 +35,7 @@ struct StepCountCardContent: View {
                 if snapshot.isExampleData { Text("QA – eksempeldata").font(AppTypography.caption) }
             case .noData:
                 Text("Ingen skrittdata tilgjengelig").font(AppTypography.bodyEmphasis)
-                Text("Det kan mangle registreringer eller lesetilgang. Kontroller MatLoggs tilgang til skritt i Helse, og prøv igjen.")
+                Text("Det kan mangle registreringer eller lesetilgang. Kontroller tilgangen Spor Mat har til skritt i Helse, og prøv igjen.")
             case .failed:
                 Text("Kunne ikke hente skritt.")
                 Button("Prøv igjen") { Task { await model.refresh() } }

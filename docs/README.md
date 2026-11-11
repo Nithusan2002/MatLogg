@@ -1,4 +1,6 @@
-# MatLogg-dokumentasjon
+# Spor Mat-dokumentasjon
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode og versjonerte migrasjoner er teknisk sannhetskilde. Under Supabase-cutover er `supabase/` sannhetskilde for ny serverplattform, mens `backend/` beholdes midlertidig fram til godkjent pilot.
 

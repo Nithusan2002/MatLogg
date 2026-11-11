@@ -1,4 +1,6 @@
-# MatLogg – design- og brukerflyt
+# Spor Mat – design- og brukerflyt
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er den normative, overordnede UX-retningen for MatLogg. Dokumentet
 beskriver brukerbehov, informasjonsarkitektur, handlingshierarki og tilstander.

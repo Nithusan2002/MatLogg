@@ -1,4 +1,6 @@
-# MatLogg – produktbrief
+# Spor Mat – produktbrief
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 ## Gjeldende lanseringsscope – 3. oktober 2026
 

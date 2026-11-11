@@ -68,7 +68,7 @@ struct MatLoggOnboardingFlowView: View {
                     .accessibilityLabel("Tilbake")
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("MatLogg")
+                    Text("Spor Mat")
                         .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.deepInk)
                     if let progressText = onboardingViewModel.progressText {

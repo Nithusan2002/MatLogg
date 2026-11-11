@@ -26,7 +26,7 @@ struct HealthWeightCardContent: View {
                     }
                 case .noData:
                     Text("Ingen vektdata tilgjengelig").font(AppTypography.bodyEmphasis)
-                    Text("Det kan mangle vektmålinger eller lesetilgang. Du kan sjekke MatLoggs tilgang til vekt i Helse.")
+                    Text("Det kan mangle vektmålinger eller lesetilgang. Du kan sjekke tilgangen Spor Mat har til vekt i Helse.")
                 case .failed:
                     Text("Kunne ikke hente vekt.")
                     Button("Prøv igjen") { Task { await model.refresh() } }

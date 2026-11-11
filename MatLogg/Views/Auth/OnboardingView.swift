@@ -23,7 +23,7 @@ struct OnboardingView: View {
                     )
                 }
             }
-            .navigationTitle("MatLogg")
+            .navigationTitle("Spor Mat")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if flow.step == .logging {

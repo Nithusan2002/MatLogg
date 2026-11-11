@@ -210,7 +210,7 @@ final class MealShareViewModel: ObservableObject {
         } catch {
             guard request == generation, !Task.isCancelled else { return }
             if let error = error as? MealSharePhotoSaveError, case .accessDenied = error {
-                saveNotice = "MatLogg har ikke tillatelse til å lagre bilder. Du kan gi tilgang til å legge til bilder i Innstillinger."
+                saveNotice = "Spor Mat har ikke tillatelse til å lagre bilder. Du kan gi tilgang til å legge til bilder i Innstillinger."
             } else {
                 saveNotice = "Kunne ikke lagre bildet. Prøv igjen."
             }

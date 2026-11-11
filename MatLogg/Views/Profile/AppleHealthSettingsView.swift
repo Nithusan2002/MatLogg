@@ -15,7 +15,7 @@ struct AppleHealthSettingsView: View {
             } header: {
                 Text("Hent fra Apple Helse")
             } footer: {
-                Text("Valgene gjelder denne MatLogg-profilen. MatLogg bruker dataene midlertidig for å vise dem i Utvikling. Du styrer lesetilgangen i Helse.")
+                Text("Valgene gjelder denne Spor Mat-profilen. Spor Mat bruker dataene midlertidig for å vise dem i Utvikling. Du styrer lesetilgangen i Helse.")
             }
             .listRowBackground(AppColors.surface)
         }

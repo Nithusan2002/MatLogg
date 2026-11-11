@@ -77,7 +77,7 @@ final class ManualProductViewModel: ObservableObject {
             return
         }
         guard await cameraAuthorization.requestAccess() else {
-            imageError = "Gi MatLogg kameratilgang i Innstillinger, eller velg et bilde fra bildebiblioteket."
+            imageError = "Gi Spor Mat kameratilgang i Innstillinger, eller velg et bilde fra bildebiblioteket."
             return
         }
         showCamera = true

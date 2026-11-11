@@ -1558,7 +1558,7 @@ struct CameraView: View {
         cameraPermissionMessage(
             icon: "barcode.viewfinder",
             title: "Skann strekkoder med kameraet",
-            message: "MatLogg bruker kameraet bare til å lese strekkoder på matvarer. Ingen bilder lagres.",
+            message: "Spor Mat bruker kameraet bare til å lese strekkoder på matvarer. Ingen bilder lagres.",
             primaryTitle: "Gi kameratilgang",
             primarySystemImage: "camera.fill",
             primaryAction: {
@@ -1571,7 +1571,7 @@ struct CameraView: View {
         cameraPermissionMessage(
             icon: "camera.fill",
             title: "Kameratilgang er slått av",
-            message: "Gi MatLogg kameratilgang i Innstillinger for å skanne strekkoder.",
+            message: "Gi Spor Mat kameratilgang i Innstillinger for å skanne strekkoder.",
             primaryTitle: "Åpne Innstillinger",
             primarySystemImage: "gearshape.fill",
             primaryAction: openAppSettings
@@ -1593,7 +1593,7 @@ struct CameraView: View {
         cameraPermissionMessage(
             icon: "camera.fill",
             title: "Kameraet er ikke tilgjengelig",
-            message: "MatLogg får ikke startet kameraet på denne enheten akkurat nå. Du kan fortsatt registrere produktet manuelt eller velge en annen metode.",
+            message: "Spor Mat får ikke startet kameraet på denne enheten akkurat nå. Du kan fortsatt registrere produktet manuelt eller velge en annen metode.",
             primaryTitle: nil,
             primarySystemImage: nil,
             primaryAction: {}

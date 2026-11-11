@@ -1,21 +1,23 @@
-Personvernerklaering – MatLogg
-Sist oppdatert: 6. november 2026
+Personvernerklaering – Spor Mat
+Sist oppdatert: 11. november 2026
 
-MatLogg er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
+Spor Mat het tidligere MatLogg. Navnebyttet endrer ikke hvordan personopplysninger behandles.
+
+Spor Mat er en norsk iOS-app for enkel mat- og naeringslogging. Vi tar personvern pa alvor og samler inn minst mulig data for at appen skal fungere.
 
 1. Hvem er ansvarlig?
 
-Behandlingsansvarlig: Nithusan Krishnasamymudali (MatLogg)
+Behandlingsansvarlig: Nithusan Krishnasamymudali (Spor Mat)
 Kontakt: nithusank.2002@gmail.com
 
 2. Hvilke data behandler vi?
 
 Konto og innlogging
   - Matlogger, vann, mål, vekt, favoritter, egne produkter, lagrede måltider og bilder lagres foreløpig bare på enheten, også når du har konto. Ingen skybackup eller gjenoppretting fra konto tilbys.
-  - Du kan bruke MatLogg lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
+  - Du kan bruke Spor Mat lokalt uten konto. Da lagres mat-, mål- og vektdata på enheten under en tilfeldig lokal profil-ID.
   - Dagens kontoskjerm tilbyr Apple-innlogging. E-post-/passordinnlogging er utsatt. For eksisterende e-postkontoer håndterer Supabase Auth e-post, bruker-ID, e-postbekreftelse og en sikkert avledet passordhash. Vi lagrer aldri passordet i klartekst og krever ikke navn. Du kan valgfritt lagre et visningsnavn under Personlige detaljer. Det lagres lokalt per profil og synkroniseres ikke.
-  - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en MatLogg-bruker-ID. Vi mottar ikke Apple-passordet ditt.
-  - Apple-dialogen ber også om navn. Hvis du deler navn, beholdes det lokalt sammen med kontoprofilen som et forslag til valgfritt visningsnavn. Navnet sendes ikke til Supabase av MatLogg. Du velger selv om forslaget skal brukes under Personlige detaljer, og kan endre eller fjerne visningsnavnet. Forslaget fjernes sammen med kontoprofilen ved utlogging; Apple deler normalt navn bare ved første godkjenning.
+  - Ved Apple-innlogging handterer Supabase Apple sin stabile kontoidentifikator, e-postadressen Apple deler og en Spor Mat-bruker-ID. Vi mottar ikke Apple-passordet ditt.
+  - Apple-dialogen ber også om navn. Hvis du deler navn, beholdes det lokalt sammen med kontoprofilen som et forslag til valgfritt visningsnavn. Navnet sendes ikke til Supabase av Spor Mat. Du velger selv om forslaget skal brukes under Personlige detaljer, og kan endre eller fjerne visningsnavnet. Forslaget fjernes sammen med kontoprofilen ved utlogging; Apple deler normalt navn bare ved første godkjenning.
   - Hvis Apple og en bekreftet e-postkonto har samme verifiserte e-postadresse, kan Supabase automatisk koble identitetene til samme konto.
 
 Det du logger i appen
@@ -29,22 +31,22 @@ Det du logger i appen
   - Skann-historikk (strekkoder du har skannet) for raskere gjenbruk.
 
 Valgfri visning av skritt, vekt og treningsøkter fra Apple Helse
-  - I Profil → Innstillinger → Apple Helse kan du slå på Skritt, Vekt og Treningsøkter hver for seg. Appen ber om lesetilgang til datatypen du valgte og henter målinger når kortet vises i Utvikling. Helse er knyttet til denne iPhonen. Hver MatLogg-profil velger hvilke datatyper som skal kobles til.
-  - Appen viser skritt for valgt dag, uke eller måned og vektmålinger med dato og kilde. For vekt kan appen vise siste måling før perioden når den mangler nyere data. Manuelle vektregistreringer i MatLogg vises separat. Treningsøkter vises med type, starttid og varighet for valgt periode.
-  - Skritt, vekt og treningsøkter fra Helse holdes midlertidig i appens minne og brukes bare til visning i Utvikling. MatLogg lagrer eller laster ikke opp Helse-data og bruker dem ikke i målberegning, eksport, analyse eller logger. Kildedataene forblir i Helse.
-  - Tilkoblingsvalgene lagres lokalt per profil og inngår i eksport og sletting av profilens innstillinger. Ved skjuling, bakgrunn eller profilbytte tømmes de viste dataene. Du kan stoppe lesing for profilen ved å slå av bryteren i MatLoggs Apple Helse-innstillinger. Systemets lesetillatelse styres i Helse.
-  - Et tomt resultat kan skyldes manglende registreringer eller lesetilgang. Helse-data inngår ikke i MatLoggs JSON-eksport eller i sletting av MatLogg-data.
+  - I Profil → Innstillinger → Apple Helse kan du slå på Skritt, Vekt og Treningsøkter hver for seg. Appen ber om lesetilgang til datatypen du valgte og henter målinger når kortet vises i Utvikling. Helse er knyttet til denne iPhonen. Hver Spor Mat-profil velger hvilke datatyper som skal kobles til.
+  - Appen viser skritt for valgt dag, uke eller måned og vektmålinger med dato og kilde. For vekt kan appen vise siste måling før perioden når den mangler nyere data. Manuelle vektregistreringer i Spor Mat vises separat. Treningsøkter vises med type, starttid og varighet for valgt periode.
+  - Skritt, vekt og treningsøkter fra Helse holdes midlertidig i appens minne og brukes bare til visning i Utvikling. Spor Mat lagrer eller laster ikke opp Helse-data og bruker dem ikke i målberegning, eksport, analyse eller logger. Kildedataene forblir i Helse.
+  - Tilkoblingsvalgene lagres lokalt per profil og inngår i eksport og sletting av profilens innstillinger. Ved skjuling, bakgrunn eller profilbytte tømmes de viste dataene. Du kan stoppe lesing for profilen ved å slå av bryteren i Apple Helse-innstillingene i Spor Mat. Systemets lesetillatelse styres i Helse.
+  - Et tomt resultat kan skyldes manglende registreringer eller lesetilgang. Helse-data inngår ikke i Spor Mats JSON-eksport eller i sletting av Spor Mat-data.
 
 Produktdata
   - Nar du skanner eller aktivt slar opp et inntastet strekkodenummer som ikke finnes lokalt, sendes strekkoden til Open Food Facts for a hente produktinformasjon. For GS1 Data Matrix sendes bare produktnummeret (GTIN); dato, lotnummer og andre sporbarhetsfelt lagres eller sendes ikke.
   - Ravaredelen fra Matvaretabellen folger med appen og sokes lokalt pa enheten. Nar du aktivt sender inn et navnesok etter merkevarer, sendes soketeksten til Open Food Facts. Sok sendes ikke for hvert tastetrykk.
   - Eldre, mellomlagrede strekkodetreff kan oppdateres fra Open Food Facts i bakgrunnen når de brukes. Du kan også be om oppdaterte produktdata selv. Oppdateringen sender produktnummer og teknisk tilkoblingsinformasjon.
-  - Produktbilder fra eksterne kataloger kan hentes fra nettadressen i produktdataene når bildet vises og ikke finnes i lokal cache. Bildeserveren mottar IP-adressen og forespørselen om bildet. MatLogg legger ikke kontoens innloggingstoken ved bildekallet.
+  - Produktbilder fra eksterne kataloger kan hentes fra nettadressen i produktdataene når bildet vises og ikke finnes i lokal cache. Bildeserveren mottar IP-adressen og forespørselen om bildet. Spor Mat legger ikke kontoens innloggingstoken ved bildekallet.
   - Eksterne katalogtreff kan lagres lokalt pa enheten for raskere oppslag. Brukeropprettede produkter lagres lokalt og lastes ikke opp i denne versjonen.
 
 Deling
-  - «Lagre bilde» lagrer måltidskortet direkte i Bilder. MatLogg ber bare om tilgang til å legge til bilder når du velger dette, og leser ikke bildebiblioteket. Kopien ligger utenfor MatLogg og fjernes ikke når appdata slettes. Hvis du bruker iCloud Bilder, kan kopien synkroniseres av Apple etter dine innstillinger.
-  - Når du velger å dele et lagret måltid, lager appen et bilde lokalt med måltidsnavn, valgfritt måltidsbilde og de næringsverdiene du velger å inkludere. Kalorier, protein, karbohydrater og fett kan slås av hver for seg, og valgene huskes lokalt på enheten. Du forhåndsviser innholdet og velger selv mottaker i iOS sitt delingsark. Kortet inneholder ikke profilinformasjon, mål, vekt eller original fotometadata. MatLogg laster ikke kortet opp til en server; videre behandling følger tjenesten du velger å dele til.
+  - «Lagre bilde» lagrer måltidskortet direkte i Bilder. Spor Mat ber bare om tilgang til å legge til bilder når du velger dette, og leser ikke bildebiblioteket. Kopien ligger utenfor Spor Mat og fjernes ikke når appdata slettes. Hvis du bruker iCloud Bilder, kan kopien synkroniseres av Apple etter dine innstillinger.
+  - Når du velger å dele et lagret måltid, lager appen et bilde lokalt med måltidsnavn, valgfritt måltidsbilde og de næringsverdiene du velger å inkludere. Kalorier, protein, karbohydrater og fett kan slås av hver for seg, og valgene huskes lokalt på enheten. Du forhåndsviser innholdet og velger selv mottaker i iOS sitt delingsark. Kortet inneholder ikke profilinformasjon, mål, vekt eller original fotometadata. Spor Mat laster ikke kortet opp til en server; videre behandling følger tjenesten du velger å dele til.
 
 3. Hvorfor behandler vi dataene?
 
@@ -67,7 +69,7 @@ Vi behandler data fordi:
 
 5. Lagring og “offline-first”
 
-MatLogg er “offline-first”. Mat-, mål- og vektdata lagres lokalt på enheten. Skysynk er deaktivert i dagens versjon; disse dataene lastes derfor ikke opp av synkfunksjonen. Konto og autentisering bruker Supabase når du velger å logge inn. Du kan bruke lokal logging uten konto eller nettilgang.
+Spor Mat er “offline-first”. Mat-, mål- og vektdata lagres lokalt på enheten. Skysynk er deaktivert i dagens versjon; disse dataene lastes derfor ikke opp av synkfunksjonen. Konto og autentisering bruker Supabase når du velger å logge inn. Du kan bruke lokal logging uten konto eller nettilgang.
 
 6. Deling med tredjepart
 
@@ -119,7 +121,7 @@ Kontakt oss pa nithusank.2002@gmail.com.
 Du kan ogsa klage til Datatilsynet hvis du mener behandlingen bryter regelverket.
 
 Lokal lagring og eksport
-  - Data kan gå tapt hvis du sletter appen eller mister telefonen. Enhetens eventuelle sikkerhetskopier styres av Apple-/iOS-innstillingene dine; MatLogg har ikke demonstrert gjenoppretting fra dem.
+  - Data kan gå tapt hvis du sletter appen eller mister telefonen. Enhetens eventuelle sikkerhetskopier styres av Apple-/iOS-innstillingene dine; Spor Mat har ikke demonstrert gjenoppretting fra dem.
   - Du kan eksportere data som JSON under Profil. Eksportfilen kan inneholde sensitive opplysninger og bilder. Du velger delingsmottaker. Appen støtter ikke import av filen.
 
 Uferdige registreringer

@@ -1059,3 +1059,7 @@ valgene fungerer likt på tvers av perioder, også når mat, skritt og trening
 deler ett ukekort. Vekt står separat under ukekortet. Tidligere valg om
 synlighet beholdes. V1 og v2 kan leses, og nye valg skrives som v2 med
 standardrekkefølgen.
+
+## 2026-11-11 – Spor Mat som offentlig navn
+
+MatLogg videreføres som Spor Mat, som søsterapp til Spor Økonomi. Portefølje og nettside viser «tidligere MatLogg» gjennom den pågående jobbsøkingsperioden. Gamle nettadresser, bundle-ID-er, Keychain, lokal lagring, interne kodenavn og synkkontrakter beholdes. Dagens ikon og designsystem videreføres. Publisering og TestFlight-distribusjon avklares separat etter QA.

@@ -1,4 +1,6 @@
-# MatLogg – designsystem
+# Spor Mat – designsystem
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 MatLogg bruker et varmt, rolig og kortbasert designsystem som skal gjøre
 matlogging rask og næringsinformasjon forståelig uten å virke dømmende.
@@ -23,10 +25,10 @@ tokens og komponenter.
 ## Farger
 
 Oppstartsvisningen viser logoen med transparent bakgrunn uten kort eller ramme,
-med «MatLogg» i stor, Dynamic Type-skalert tekst under og en liten spinner.
+med «Spor Mat» i stor, Dynamic Type-skalert tekst under og en liten spinner.
 I mørk modus vises logoen som en lys silhuett med `ink` for tydelig kontrast.
 Den bruker `background`, `ink` og `action`, og VoiceOver annonserer
-«Åpner MatLogg». Visningen varer bare mens lokal kontekst klargjøres;
+«Åpner Spor Mat». Visningen varer bare mens lokal kontekst klargjøres;
 ingen kunstig forsinkelse eller ekstra animasjon legges til.
 
 Fargene defineres semantisk i `MatLogg/DesignSystem/Colors.swift`.

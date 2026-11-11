@@ -63,7 +63,7 @@ struct AppStartupLoadingView: View {
                     .foregroundStyle(AppColors.ink)
                     .accessibilityHidden(true)
 
-                Text("MatLogg")
+                Text("Spor Mat")
                     .font(AppTypography.startupTitle(size: titleSize))
                     .foregroundStyle(AppColors.ink)
                     .multilineTextAlignment(.center)
@@ -71,7 +71,7 @@ struct AppStartupLoadingView: View {
 
             ProgressView()
                 .tint(AppColors.action)
-                .accessibilityLabel("Åpner MatLogg")
+                .accessibilityLabel("Åpner Spor Mat")
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

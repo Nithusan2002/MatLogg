@@ -90,7 +90,7 @@ struct MealShareCardView: View {
     }
 
     private var wordmark: some View {
-        Text("MatLogg").font(.system(size: isCompact ? 20 : 22, weight: .bold, design: .rounded))
+        Text("Spor Mat").font(.system(size: isCompact ? 20 : 22, weight: .bold, design: .rounded))
             .foregroundStyle(isLight ? AppColors.brand : foreground)
     }
 

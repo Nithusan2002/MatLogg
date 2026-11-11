@@ -348,7 +348,7 @@ private struct WeightDetailView: View {
                     case .matLogg:
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
-                                ProgressCardHeading(title: "Registrert i MatLogg", symbol: "scalemass", detail: dateRange.label)
+                                ProgressCardHeading(title: "Registrert i Spor Mat", symbol: "scalemass", detail: dateRange.label)
                                 if health.isLoadingWeights && progress.weightOverview.latest == nil {
                                     ProgressView("Henter vekthistorikk …")
                                 } else {

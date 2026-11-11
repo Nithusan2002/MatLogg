@@ -492,7 +492,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertFalse(app.textFields["navn@eksempel.no"].exists)
         XCTAssertFalse(app.secureTextFields["Passord"].exists)
         XCTAssertFalse(app.buttons["Logg inn med e-post"].exists)
-        XCTAssertFalse(app.buttons["Ny i MatLogg? Opprett konto med e-post"].exists)
+        XCTAssertFalse(app.buttons["Ny i Spor Mat? Opprett konto med e-post"].exists)
     }
 
     @MainActor
@@ -736,7 +736,7 @@ final class MatLoggUITests: XCTestCase {
         }
         XCTAssertTrue(status.exists)
         let noBackup = app.staticTexts["Ingen skybackup. Data kan gå tapt hvis du sletter appen eller mister telefonen."]
-        let noImport = app.staticTexts["Eksporten er en kopi for innsyn og deling. Den kan ikke importeres tilbake i MatLogg."]
+        let noImport = app.staticTexts["Eksporten er en kopi for innsyn og deling. Den kan ikke importeres tilbake i Spor Mat."]
         for _ in 0..<8 {
             if noImport.isHittable { break }
             app.swipeUp()
@@ -1008,7 +1008,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(logButton.waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Profil"].exists)
         XCTAssertFalse(app.buttons["Åpne profil"].exists)
-        XCTAssertFalse(app.staticTexts["MatLogg"].exists)
+        XCTAssertFalse(app.staticTexts["Spor Mat"].exists)
         XCTAssertFalse(app.buttons["Søk etter mat"].exists)
         XCTAssertFalse(app.buttons["Skann strekkode"].exists)
 

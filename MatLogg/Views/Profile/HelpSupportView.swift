@@ -12,9 +12,9 @@ struct HelpSupportView: View {
                 answer("Hvordan logger jeg mat?", text: "Trykk på Loggfør i bunnmenyen. Søk etter en matvare, skann en strekkode eller legg inn mat manuelt. Velg mengde, måltid og dato før du lagrer.")
                 answer("Hvordan endrer jeg en registrering?", text: "Åpne måltidet på Hjem og trykk på innslaget du vil endre. Juster registreringen og lagre endringene.")
                 answer("Hva gjør jeg hvis matvaren mangler?", text: "Prøv å søke etter varen. Hvis du ikke finner den, kan du legge den inn manuelt. Bruk næringsverdiene fra emballasjen når du har dem.")
-                answer("Kan jeg bruke MatLogg uten nett?", text: "Du kan logge mat med matvarer som finnes på enheten, og legge inn mat manuelt. Oppslag etter nye strekkoder og eksterne bilder trenger nett.")
+                answer("Kan jeg bruke Spor Mat uten nett?", text: "Du kan logge mat med matvarer som finnes på enheten, og legge inn mat manuelt. Oppslag etter nye strekkoder og eksterne bilder trenger nett.")
                 answer("Hvor lagres dataene mine?", text: "Matloggene dine lagres på denne enheten. Vi tilbyr ikke skybackup eller synkronisering mellom enheter. Data kan gå tapt hvis du sletter appen eller mister telefonen. En konto gir ikke skybackup.")
-                answer("Hvordan eksporterer jeg data?", text: "Gå til Profil → Innstillinger → Data og lagring → Eksporter data. Eksporten er en JSON-kopi for innsyn og deling. Den kan ikke importeres tilbake i MatLogg.")
+                answer("Hvordan eksporterer jeg data?", text: "Gå til Profil → Innstillinger → Data og lagring → Eksporter data. Eksporten er en JSON-kopi for innsyn og deling. Den kan ikke importeres tilbake i Spor Mat.")
             }
             .listRowBackground(AppColors.surface)
 
@@ -24,7 +24,7 @@ struct HelpSupportView: View {
                         showEmailUnavailable = true
                         return
                     }
-                    components.queryItems = [URLQueryItem(name: "subject", value: "MatLogg – hjelp og støtte")]
+                    components.queryItems = [URLQueryItem(name: "subject", value: "Spor Mat – hjelp og støtte")]
                     guard let url = components.url else {
                         showEmailUnavailable = true
                         return
@@ -61,7 +61,9 @@ struct HelpSupportView: View {
             }
             .listRowBackground(AppColors.surface)
 
-            Section("Om MatLogg") {
+            Section("Om Spor Mat") {
+                Text("Tidligere kjent som MatLogg.")
+                    .foregroundStyle(AppColors.textSecondary)
                 DisclosureGroup("Datakilder og lisenser") {
                     Text("Næringsdata kommer fra Matvaretabellen, Open Food Facts eller opplysninger du legger inn selv. Tallene kan inneholde feil eller være utdaterte. Kontroller emballasjen ved behov.")
                         .foregroundStyle(AppColors.textSecondary)

@@ -103,7 +103,7 @@ struct MealShareView: View {
                                     contentToggle("Protein", keyPath: \.protein, id: "protein")
                                     contentToggle("Karbohydrater", keyPath: \.carbs, id: "carbs")
                                     contentToggle("Fett", keyPath: \.fat, id: "fat")
-                                    contentToggle("MatLogg-logo", keyPath: \.logo, id: "logo")
+                                    contentToggle("Spor Mat-logo", keyPath: \.logo, id: "logo")
                                     Text(model.content.hasNutrition
                                          ? "Deler bilde, måltidsnavn og valgte næringsverdier."
                                          : "Deler bilde og måltidsnavn uten næringsverdier.")

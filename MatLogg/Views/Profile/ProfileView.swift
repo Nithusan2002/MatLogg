@@ -125,7 +125,7 @@ struct ProfileView: View {
         if !localName.isEmpty { return localName }
         if authViewModel.isLocalMode { return "På denne iPhonen" }
         let name = authViewModel.currentUser?.fullName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty ? "MatLogg-bruker" : name
+        return name.isEmpty ? "Spor Mat-bruker" : name
     }
 
     private var profileInitials: String {
@@ -315,7 +315,7 @@ private struct ProfileSettingsView: View {
                     } else {
                         Text("Ingen skybackup. Data kan gå tapt hvis du sletter appen eller mister telefonen.")
                     }
-                    Text("Eksporten er en kopi for innsyn og deling. Den kan ikke importeres tilbake i MatLogg.")
+                    Text("Eksporten er en kopi for innsyn og deling. Den kan ikke importeres tilbake i Spor Mat.")
                 }
             }
             .listRowBackground(AppColors.surface)

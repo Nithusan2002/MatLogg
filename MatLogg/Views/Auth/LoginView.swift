@@ -102,7 +102,7 @@ struct LoginView: View {
                     .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
 
                     NavigationLink(destination: SignUpView()) {
-                        Text("Ny i MatLogg? Opprett konto med e-post")
+                        Text("Ny i Spor Mat? Opprett konto med e-post")
                             .font(AppTypography.bodyEmphasis)
                             .foregroundColor(AppColors.actionText)
                             .frame(maxWidth: .infinity, minHeight: 44)

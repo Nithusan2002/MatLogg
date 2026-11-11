@@ -179,7 +179,7 @@ struct MatLoggContent: View {
     private var rootContent: some View {
         if databaseStartupFailed {
             ContentUnavailableView {
-                Label("Kan ikke åpne MatLogg", systemImage: "externaldrive.badge.xmark")
+                Label("Kan ikke åpne Spor Mat", systemImage: "externaldrive.badge.xmark")
             } description: {
                 if let databaseStartupDetail {
                     Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. \(databaseStartupDetail)")

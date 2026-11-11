@@ -92,8 +92,8 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(nutrition.label.contains("Totalt i uken"))
         XCTAssertFalse(activity.label.contains("Hentet"))
         XCTAssertFalse(activity.label.contains("Apple Helse"))
-        XCTAssertFalse(weight.label.contains("MatLogg"))
-        XCTAssertFalse(app.staticTexts["MatLogg"].exists)
+        XCTAssertFalse(weight.label.contains("Spor Mat"))
+        XCTAssertFalse(app.staticTexts["Spor Mat"].exists)
         let workouts = app.buttons["progress-hub-workouts-open"]
         XCTAssertTrue(workouts.waitForExistence(timeout: 5))
         XCTAssertTrue(workouts.label.contains("3 økter"))
@@ -139,7 +139,7 @@ final class ProgressHubUITests: XCTestCase {
             nutrition.tap()
             XCTAssertTrue(app.navigationBars["Dagstall"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.staticTexts[periodLabel].exists)
-            XCTAssertTrue(app.staticTexts["Registrert i MatLogg"].exists)
+            XCTAssertTrue(app.staticTexts["Registrert i Spor Mat"].exists)
             let loggedDays = app.descendants(matching: .any).matching(identifier: "nutrition-day-total")
             XCTAssertTrue(loggedDays.firstMatch.exists)
             XCTAssertTrue(loggedDays.firstMatch.label.contains("kcal"))
@@ -248,7 +248,7 @@ final class ProgressHubUITests: XCTestCase {
         XCTAssertTrue(latest.waitForExistence(timeout: 5))
         XCTAssertEqual(latest.label, "71,2 kg")
         XCTAssertTrue(app.staticTexts["Vekt fra Apple Helse"].exists)
-        XCTAssertTrue(app.staticTexts["Registrert i MatLogg"].exists)
+        XCTAssertTrue(app.staticTexts["Registrert i Spor Mat"].exists)
         XCTAssertTrue(app.buttons["Registrer vekt"].exists)
         capture("Vekt fra Apple Helse og MatLogg", app)
 

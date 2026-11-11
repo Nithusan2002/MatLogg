@@ -95,7 +95,7 @@ enum AccountAuthError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .configurationMissing:
-            "Kontotjenesten er ikke konfigurert. Du kan fortsatt bruke MatLogg lokalt."
+            "Kontotjenesten er ikke konfigurert. Du kan fortsatt bruke Spor Mat lokalt."
         case .credentialPersistenceFailed:
             "Innloggingen kunne ikke lagres sikkert på enheten. Prøv igjen."
         case .pendingLinkAccountMismatch:
