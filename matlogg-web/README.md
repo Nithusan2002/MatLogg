@@ -1,4 +1,6 @@
-# MatLogg landingsside
+# Spor Mat landingsside
+
+Tidligere MatLogg. Navneovergangen er implementert lokalt 11. november 2026. `/MatLogg/`, personvernlenker, ikon og skjermbilder beholdes. Nytt navn innebærer ingen endret databruk. Publisering avklares separat.
 
 Statisk presentasjonsside for dagens MatLogg-app, med utgangspunkt i Lovable-prototypen. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-11-02 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Søk/Mengde/Logg-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
 

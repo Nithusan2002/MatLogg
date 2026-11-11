@@ -7,7 +7,7 @@ function Logo() {
   return (
     <span className="flex items-center gap-2 font-bold">
       <img src="./matlogg-logo.png" alt="" width="40" height="40" className="h-10 w-10 rounded-xl" />
-      MatLogg
+      Spor Mat
     </span>
   );
 }
@@ -32,12 +32,13 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 }
 
 const FAQ = [
-  ["Er MatLogg tilgjengelig?", "MatLogg er under utvikling. Betatilgang og lansering er ikke åpnet ennå."],
+  ["Er Spor Mat det samme som MatLogg?", "Ja. MatLogg videreføres som Spor Mat. Hvis du har sett MatLogg i en søknad, CV eller prosjektbeskrivelse, er dette det samme prosjektet."],
+  ["Er Spor Mat tilgjengelig?", "Spor Mat er under utvikling. Betatilgang og lansering er ikke åpnet ennå."],
   ["Må jeg ha konto?", "Nei. Du kan starte med å logge mat på iPhonen uten konto. Innlogging er valgfritt og gir foreløpig ikke skybackup."],
   ["Fungerer det uten nett?", "Ja. Råvarer fra Matvaretabellen følger med appen, og lokal logging, historikk og lagrede matvarer fungerer uten nett. Nye produktoppslag og produktbilder som ikke er mellomlagret, krever internett."],
-  ["Må jeg sette mål?", "Nei. Mål er helt valgfrie. Du kan bruke MatLogg bare for oversikt."],
-  ["Kan jeg sikkerhetskopiere eller flytte loggen?", "MatLogg tilbyr ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi fra Profil → Innstillinger, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
-  ["Hvilke enheter støttes?", "MatLogg støtter iPhone med iOS 17 eller nyere. Appen er fortsatt under utvikling."],
+  ["Må jeg sette mål?", "Nei. Mål er helt valgfrie. Du kan bruke Spor Mat bare for oversikt."],
+  ["Kan jeg sikkerhetskopiere eller flytte loggen?", "Spor Mat tilbyr ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi fra Profil → Innstillinger, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
+  ["Hvilke enheter støttes?", "Spor Mat støtter iPhone med iOS 17 eller nyere. Appen er fortsatt under utvikling."],
 ];
 
 function Faq() {
@@ -110,10 +111,14 @@ export default function App() {
             <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />Norsk matlogging · Under utvikling
             </span>
+            <aside className="mt-6 rounded-3xl border bg-card p-5" aria-labelledby="name-change-title">
+              <h2 id="name-change-title" className="font-semibold">MatLogg heter nå Spor Mat</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Dette er den samme matloggingsappen som tidligere het MatLogg. Prosjektet videreføres under nytt navn og blir en del av Spor-familien sammen med Spor Økonomi.</p>
+            </aside>
             <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Matlogging som passer <span className="hero-highlight">hverdagen din.</span></h1>
             <p className="mt-6 max-w-lg text-lg text-muted-foreground">Søk etter mat, skann strekkoder og få oversikt over dagen. Enkelt, rolig og på norsk.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href="#slik" className="btn-primary">Se MatLogg i bruk <span aria-hidden>→</span></a>
+              <a href="#slik" className="btn-primary">Se Spor Mat i bruk <span aria-hidden>→</span></a>
               <a href="#funksjoner" className="btn-ghost">Utforsk appen</a>
             </div>
           </div>
@@ -191,7 +196,7 @@ export default function App() {
         <section className="mx-auto max-w-6xl px-5 pb-24">
           <div className="rounded-[2.5rem] border border-primary/20 bg-primary-soft px-6 py-16 text-center">
             <h2 className="text-4xl font-bold tracking-tight">Litt mindre styr. Litt mer oversikt.</h2>
-            <p className="mx-auto mt-4 max-w-md text-muted-foreground">MatLogg er under utvikling. Utforsk hvordan appen fungerer mens vi gjør den klar for lansering.</p>
+            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Spor Mat er under utvikling. Utforsk hvordan appen fungerer mens vi gjør den klar for lansering.</p>
             <a href="#slik" className="btn-primary mt-8">Se demoen <span aria-hidden>→</span></a>
           </div>
         </section>
@@ -209,7 +214,7 @@ export default function App() {
       </footer>
 
       <Modal open={dlg === "contact"} onClose={close} title="Kontakt">
-        <p>MatLogg drives av Nithusan Krishnasamymudali.</p>
+        <p>Spor Mat drives av Nithusan Krishnasamymudali.</p>
         <p><a className="underline" href="mailto:nithusank.2002@gmail.com">nithusank.2002@gmail.com</a></p>
         <p className="text-sm">Unngå å sende matlogger, vekt eller andre helseopplysninger på vanlig e-post.</p>
       </Modal>
