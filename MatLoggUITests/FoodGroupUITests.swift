@@ -26,6 +26,12 @@ final class FoodGroupUITests: XCTestCase {
         let name = "Ikontest " + UUID().uuidString.prefix(6)
         for (label, value) in [("Produktnavn", name), ("Energi", "100"),
                                ("Protein", "2"), ("Karbohydrat", "20"), ("Fett", "1")] {
+            if label == "Energi" {
+                for _ in 0..<2 {
+                    let next = app.buttons["manual-product-next"]
+                    reveal(next, in: app); next.tap()
+                }
+            }
             let field = app.textFields[label]
             reveal(field, in: app)
             field.tap()
@@ -34,7 +40,7 @@ final class FoodGroupUITests: XCTestCase {
             }
             field.typeText(value)
         }
-        let save = app.buttons["Lagre og velg mengde"]
+        let save = app.buttons["Lagre og loggfør"]
         reveal(save, in: app)
         save.tap()
         let log = app.buttons["logging-draft-save"]
@@ -72,7 +78,7 @@ final class FoodGroupUITests: XCTestCase {
         reveal(picker, in: app)
         XCTAssertTrue(picker.isHittable)
         capture(app, "food-group-accessibility")
-        let navigation = app.navigationBars["Opprett produkt"]
+        let navigation = app.navigationBars["Opprett matvare"]
         let close = navigation.buttons["Lukk"].exists ? navigation.buttons["Lukk"] : navigation.buttons["Avbryt"]
         close.tap()
     }

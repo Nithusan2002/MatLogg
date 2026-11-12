@@ -13,6 +13,90 @@ final class LoggingDraftUITests: XCTestCase {
         try runRecovery(abrupt: false, largeText: true)
     }
 
+    @MainActor func testWizardSaveOnlyWithPortion() throws {
+        try runSaveOnly(largeText: false)
+    }
+
+    @MainActor func testWizardSaveOnlyWithLargestText() throws {
+        try runSaveOnly(largeText: true)
+    }
+
+    @MainActor private func runSaveOnly(largeText: Bool) throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 15))
+        app.buttons["tab-log-food"].tap()
+        let manual = app.buttons["quick-log-manual"]
+        XCTAssertTrue(manual.waitForExistence(timeout: 8)); manual.tap()
+        // Discard only this dedicated QA profile's unfinished synthetic registration.
+        if app.navigationBars["Manuell registrering"].waitForExistence(timeout: 2) {
+            let discard = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Forkast", "logging-draft-discard"))
+            try XCTUnwrap(discard.allElementsBoundByIndex.first(where: { $0.isHittable })).tap()
+            let sheetConfirm = app.sheets.buttons["Forkast"]
+            if sheetConfirm.waitForExistence(timeout: 2) { sheetConfirm.tap() }
+            else { try XCTUnwrap(discard.allElementsBoundByIndex.first(where: { $0.isHittable })).tap() }
+        }
+        let scroll = app.scrollViews["manual-product-scroll"]
+        XCTAssertTrue(scroll.waitForExistence(timeout: 8))
+        func reveal(_ element: XCUIElement) {
+            var geometry = ""
+            for _ in 0..<12 {
+                let keyboard = app.keyboards.firstMatch
+                let top = app.navigationBars["Opprett matvare"].frame.maxY + 8
+                // Keyboard accessibility bounds can exclude the predictive-text bar.
+                let bottom = keyboard.exists ? keyboard.frame.minY - 100 : app.frame.maxY - 12
+                geometry = "frame=\(element.frame), viewport=\(top)...\(bottom), hittable=\(element.isHittable)"
+                if element.isHittable && element.frame.minY >= top && element.frame.maxY <= bottom { return }
+                let down = element.frame.minY < top
+                let distance = down ? top - element.frame.minY : element.frame.maxY - bottom
+                let delta = min(max(distance + 16, 40), max(80, (bottom - top) * 0.6))
+                let startY = down ? top + 24 : bottom - 24
+                let endY = down ? startY + delta : startY - delta
+                let origin = app.coordinate(withNormalizedOffset: .zero)
+                let start = origin.withOffset(CGVector(dx: 20, dy: startY))
+                let end = origin.withOffset(CGVector(dx: 20, dy: endY))
+                start.press(forDuration: 0.05, thenDragTo: end)
+            }
+            XCTFail("Kunne ikke vise hele kontrollen: \(element.identifier). \(geometry)")
+        }
+        func enter(_ label: String, _ value: String) {
+            let field = app.textFields[label]
+            XCTAssertTrue(field.waitForExistence(timeout: 5)); reveal(field)
+            field.tap(); field.typeText(value)
+        }
+        func capture(_ name: String) {
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "wizard-\(largeText ? "large" : "normal")-\(name)"
+            shot.lifetime = .keepAlways; add(shot)
+        }
+        let firstNext = app.buttons["manual-product-next"]
+        reveal(firstNext); firstNext.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Produktnavn"].isHittable)
+        // Type without tapping: validation must already have focused the name field.
+        app.textFields["Produktnavn"].typeText("Porsjonsbrød QA " + UUID().uuidString.prefix(6))
+        enter("Merke / produsent", "Testbakeriet")
+        capture("identity")
+        let next = app.buttons["manual-product-next"]
+        reveal(next); next.tap()
+        let portion = app.switches["Legg til en porsjon (valgfritt)"]
+        XCTAssertTrue(portion.waitForExistence(timeout: 5)); reveal(portion); portion.tap()
+        XCTAssertEqual(portion.value as? String, "1")
+        enter("Porsjonsnavn", "Skive"); enter("Porsjonsstørrelse", "40")
+        capture("basis"); reveal(next); next.tap()
+        XCTAssertTrue(app.staticTexts["Næringsinnhold per 100 g"].waitForExistence(timeout: 5))
+        for (label, value) in [("Energi", "250"), ("Fett", "6"), ("Karbohydrat", "40"), ("Protein", "8,5")] { enter(label, value) }
+        capture("nutrition")
+        let save = app.buttons["manual-product-save-only"]
+        reveal(save); save.tap()
+        XCTAssertTrue(app.navigationBars["Opprett matvare"].waitForNonExistence(timeout: 8))
+        XCTAssertTrue(manual.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["logging-draft-save"].exists)
+        XCTAssertFalse(app.buttons["logging-draft-continue"].exists)
+    }
+
     @MainActor private func runRecovery(abrupt: Bool, largeText: Bool) throws {
         continueAfterFailure = false
         var auditFindings: [String] = []
@@ -37,6 +121,11 @@ final class LoggingDraftUITests: XCTestCase {
         name.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         name.typeText("Utkast QA")
+        for _ in 0..<2 {
+            let next = app.buttons["manual-product-next"]
+            for _ in 0..<8 { if next.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(next.isHittable); next.tap()
+        }
         for (label, value) in [("Energi", "100"), ("Protein", "10"), ("Karbohydrat", "10"), ("Fett", "2")] {
             let field = app.textFields[label]
             for _ in 0..<8 {
@@ -86,9 +175,21 @@ final class LoggingDraftUITests: XCTestCase {
             }
         }
         resume.tap()
+        XCTAssertTrue(app.textFields["Energi"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["Energi"].value as? String, "100")
+        for _ in 0..<2 {
+            let back = app.buttons["manual-product-back"]
+            for _ in 0..<8 { if back.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(back.isHittable); back.tap()
+        }
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         XCTAssertEqual(name.value as? String, "Utkast QA")
-        let next = app.buttons["Lagre og velg mengde"]
+        for _ in 0..<2 {
+            let next = app.buttons["manual-product-next"]
+            for _ in 0..<8 { if next.isHittable { break }; app.swipeUp() }
+            XCTAssertTrue(next.isHittable); next.tap()
+        }
+        let next = app.buttons["Lagre og loggfør"]
         for _ in 0..<6 { if next.isHittable { break }; app.swipeUp() }
         next.tap()
         XCTAssertTrue(app.buttons["logging-draft-save"].waitForExistence(timeout: 8))

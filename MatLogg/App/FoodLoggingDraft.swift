@@ -1,5 +1,17 @@
 import Foundation
 
+nonisolated enum ManualProductStep: String, Codable, Sendable, CaseIterable {
+    case identity, basis, nutrition
+
+    var title: String {
+        switch self {
+        case .identity: return "Om matvaren"
+        case .basis: return "Næringsgrunnlag"
+        case .nutrition: return "Næringsverdier"
+        }
+    }
+}
+
 nonisolated struct ManualProductInput: Codable, Sendable {
     var name = ""
     var calories = ""
@@ -12,6 +24,11 @@ nonisolated struct ManualProductInput: Codable, Sendable {
     var servingUnit: AmountUnit = .grams
     var imageData: Data?
     var selectedFoodGroup: String?
+    // Optional additions preserve decoding of drafts written before the wizard.
+    var brand: String?
+    var hasCustomServing: Bool?
+    var wizardStep: ManualProductStep?
+    var barcode: String?
 }
 
 nonisolated struct FoodLoggingDraft: Codable, Identifiable, Sendable {
@@ -27,6 +44,7 @@ nonisolated struct FoodLoggingDraft: Codable, Identifiable, Sendable {
     var barcode: String?
     var input = ManualProductInput()
     var product: Product?
+    var manualProductId: UUID?
     var amountText = "100"
     var selectedServing: ServingOption?
     var mealType: String

@@ -1063,3 +1063,12 @@ standardrekkefølgen.
 ## 2026-11-11 – Spor Mat som offentlig navn
 
 MatLogg videreføres som Spor Mat, som søsterapp til Spor Økonomi. Portefølje og nettside viser «tidligere MatLogg» gjennom den pågående jobbsøkingsperioden. Gamle nettadresser, bundle-ID-er, Keychain, lokal lagring, interne kodenavn og synkkontrakter beholdes. Dagens ikon og designsystem videreføres. Publisering og TestFlight-distribusjon avklares separat etter QA.
+
+## 2026-11-11 – Stegvis oppretting av egne matvarer
+
+Manuell oppretting deles i tre steg, med separat mengdevalg ved logging. Én
+valgfri loggingsporsjon kan defineres også når næring oppgis per 100 g/ml.
+Brukeren kan lagre en matvare uten å loggføre den. Eksisterende modeller,
+repositories og lokal utkastlagring gjenbrukes. Offentlig matvaredatabase
+utsettes til en egen leveranse med avklart publiseringskontrakt, eierskap og
+personvern; denne endringen åpner verken synk eller domeneopplasting.

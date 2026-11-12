@@ -249,3 +249,112 @@ struct LoggingDraftTests {
     }
 
 }
+
+extension LoggingDraftTests {
+    @MainActor @Test func saveOnlyFinishesDraftWithoutCreatingLogAndPreservesWizardAcrossReopen() async throws {
+        let path = url(), owner = UUID()
+        let store = try LocalStore(databaseURL: path)
+        let model = FoodLoggingDraftViewModel(repository: DatabaseService(store: store))
+        await model.load(owner: owner)
+        #expect(await model.start(barcode: nil, mealType: "lunsj", date: Date()))
+        let manual = try #require(model.manualModel)
+        manual.name = "Testbrød"; manual.brand = "Bakeriet"
+        manual.hasCustomServing = true; manual.servingName = "Skive"; manual.servingAmount = "40"
+        manual.step = .nutrition
+        manual.calories = "250"; manual.protein = "8,5"; manual.carbs = "40"; manual.fat = "6"
+        #expect(await model.flush())
+        let restored = FoodLoggingDraftViewModel(repository: DatabaseService(store: try LocalStore(databaseURL: path)))
+        await restored.load(owner: owner)
+        #expect(restored.manualModel?.step == .nutrition)
+        #expect(restored.manualModel?.brand == "Bakeriet")
+        #expect(restored.manualModel?.hasCustomServing == true)
+        let saved = try #require(await restored.manualModel?.save(only: true))
+        #expect(restored.draft == nil)
+        #expect(try store.loadLoggingDraft(owner: owner) == nil)
+        #expect(store.getProduct(saved.id)?.brand == "Bakeriet")
+        #expect(store.getAllLogs(userId: owner).isEmpty)
+        #expect(store.pendingSyncCount() == 1)
+    }
+
+    @Test func saveOnlyRollsBackWhenEventWriteFails() throws {
+        let path = url(), store = try LocalStore(databaseURL: path)
+        let draft = FoodLoggingDraft(userId: UUID(), mealType: "lunsj", date: Date())
+        try store.createLoggingDraft(draft)
+        var db: OpaquePointer?
+        try #require(sqlite3_open(path.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        try #require(sqlite3_exec(db, "CREATE TRIGGER fail_event BEFORE INSERT ON sync_queue BEGIN SELECT RAISE(ABORT, 'test'); END;", nil, nil, nil) == SQLITE_OK)
+        #expect(throws: (any Error).self) { try store.saveProductAndFinishDraft(draft, product: product(draft)) }
+        #expect(try store.loadLoggingDraft(owner: draft.userId) != nil)
+        #expect(store.getProduct(draft.productId) == nil)
+        #expect(store.pendingSyncCount() == 0)
+    }
+
+    @Test func existingProductReuseChecksOwnershipAndNeverWritesProductEvent() throws {
+        let store = try LocalStore(databaseURL: url()), owner = UUID()
+        var draft = FoodLoggingDraft(userId: owner, mealType: "lunsj", date: Date())
+        let foreign = Product(id: UUID(), name: "Annen profil", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+        try store.saveProduct(foreign, ownerUserId: UUID())
+        try store.createLoggingDraft(draft)
+        #expect(throws: (any Error).self) { try store.useExistingProduct(in: draft, product: foreign) }
+        let catalog = Product(id: UUID(), name: "Katalogvare", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+        try store.cacheCatalogProduct(catalog)
+        let count = store.pendingSyncCount()
+        try store.useExistingProduct(in: draft, product: catalog)
+        let restored = try #require(try store.loadLoggingDraft(owner: owner))
+        #expect(restored.step == .amount)
+        #expect(restored.productId == catalog.id)
+        #expect(store.pendingSyncCount() == count)
+        #expect(throws: (any Error).self) { try store.updateLoggingDraft(draft) }
+        draft = restored
+        try store.completeLoggingDraft(draft, log: log(draft))
+        #expect(store.getAllLogs(userId: owner).first?.productId == catalog.id)
+        #expect(store.pendingSyncCount() == count + 1)
+    }
+}
+
+extension LoggingDraftTests {
+    @MainActor @Test func returningFromAmountPreservesManualInputAndStartsPortionAtOne() async throws {
+        let store = try LocalStore(databaseURL: url()), owner = UUID()
+        let model = FoodLoggingDraftViewModel(repository: DatabaseService(store: store))
+        await model.load(owner: owner)
+        #expect(await model.start(barcode: nil, mealType: "lunsj", date: Date()))
+        let manual = try #require(model.manualModel)
+        manual.name = "Porsjonsbrød"; manual.brand = "Bakeriet"; manual.step = .nutrition
+        manual.hasCustomServing = true; manual.servingName = "Skive"; manual.servingAmount = "40"
+        manual.calories = "250"; manual.fat = "6"; manual.carbs = "40"; manual.protein = "8,5"
+        let product = try #require(await manual.save())
+        #expect(model.amountModel?.amount == 40)
+        model.amountModel?.text = "2"
+        #expect(model.amountModel?.amount == 80)
+        await model.backToProduct()
+        #expect(model.manualModel?.step == .nutrition)
+        #expect(model.manualModel?.brand == "Bakeriet")
+        #expect(model.manualModel?.productID == product.id)
+        #expect(model.manualModel?.hasCustomServing == true)
+        #expect(store.getProduct(product.id) != nil)
+        #expect(await model.manualModel?.save() != nil)
+        #expect(model.amountModel?.amount == 40)
+        #expect(await model.complete() != nil)
+        #expect(store.getAllLogs(userId: owner).first?.calories == 100)
+    }
+
+    @MainActor @Test func returningFromExistingProductRestoresOriginalDraftAndProductIdentity() async throws {
+        let store = try LocalStore(databaseURL: url()), owner = UUID()
+        let model = FoodLoggingDraftViewModel(repository: DatabaseService(store: store))
+        await model.load(owner: owner)
+        #expect(await model.start(barcode: nil, mealType: "lunsj", date: Date()))
+        let original = try #require(model.manualModel?.productID)
+        model.manualModel?.name = "Egen vare"; model.manualModel?.brand = "Eget merke"
+        let catalog = Product(id: UUID(), name: "Katalogvare", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+        try store.cacheCatalogProduct(catalog)
+        #expect(await model.useExistingProduct(catalog))
+        #expect(model.draft?.productId == catalog.id)
+        await model.backToProduct()
+        #expect(model.draft?.productId == original)
+        #expect(model.manualModel?.name == "Egen vare")
+        #expect(model.manualModel?.brand == "Eget merke")
+        #expect(store.getProduct(catalog.id)?.name == "Katalogvare")
+        #expect(store.pendingSyncCount() == 0)
+    }
+}

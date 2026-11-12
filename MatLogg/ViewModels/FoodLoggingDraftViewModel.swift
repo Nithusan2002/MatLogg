@@ -27,6 +27,7 @@ final class FoodLoggingDraftViewModel: ObservableObject {
             generation = UUID()
             acceptingChanges = false
             autosave?.cancel()
+            manualModel?.cancelBarcodeLookup()
             manualModel?.inputChanged = nil
             amountObservation = nil
             self.owner = owner
@@ -76,10 +77,14 @@ final class FoodLoggingDraftViewModel: ObservableObject {
 
     private func configureModels() {
         acceptingChanges = false
+        manualModel?.cancelBarcodeLookup()
         manualModel?.inputChanged = nil
         amountObservation = nil
         guard let draft else { manualModel = nil; amountModel = nil; return }
-        let manual = ManualProductViewModel(barcode: draft.barcode) { [weak self] product in
+        let manual = ManualProductViewModel(barcode: draft.barcode, saveProductOnly: { [weak self] product in
+            guard let self else { throw LoggingDraftError.unavailable }
+            try await self.finishProductOnly(product)
+        }) { [weak self] product in
             guard let self else { throw LoggingDraftError.unavailable }
             try await self.advance(product)
         }
@@ -101,7 +106,10 @@ final class FoodLoggingDraftViewModel: ObservableObject {
 
     private func capture() -> FoodLoggingDraft? {
         guard var snapshot = draft else { return nil }
-        if snapshot.step == .product, let manualModel { snapshot.input = manualModel.input }
+        if snapshot.step == .product, let manualModel {
+            snapshot.input = manualModel.input
+            snapshot.barcode = manualModel.barcode
+        }
         if snapshot.step == .amount, let amountModel {
             snapshot.amountText = amountModel.text
             snapshot.selectedServing = amountModel.selectedServing
@@ -155,10 +163,63 @@ final class FoodLoggingDraftViewModel: ObservableObject {
         _ = await writes?.value
         guard generation == request, var snapshot = capture() else { throw LoggingDraftError.conflict }
         snapshot.step = .amount; snapshot.product = product
+        snapshot.selectedServing = product.servings?.first(where: { $0.isDefaultSuggestion == true })
+        snapshot.amountText = snapshot.selectedServing == nil ? "100" : "1"
         try await repository.advanceLoggingDraft(snapshot, product: product)
         guard generation == request else { throw LoggingDraftError.conflict }
         draft = snapshot
         configureModels()
+    }
+
+    private func finishProductOnly(_ product: Product) async throws {
+        guard !isBusy, draft?.step == .product else { throw LoggingDraftError.conflict }
+        isBusy = true; acceptingChanges = false; autosave?.cancel()
+        let request = generation
+        defer { if generation == request { isBusy = false; acceptingChanges = true } }
+        _ = await writes?.value
+        guard generation == request, let snapshot = capture() else { throw LoggingDraftError.conflict }
+        try await repository.saveProductAndFinishDraft(snapshot, product: product)
+        guard generation == request else { return }
+        draft = nil; configureModels(); errorMessage = nil
+    }
+
+    func useExistingProduct(_ product: Product) async -> Bool {
+        guard !isBusy, draft?.step == .product else { return false }
+        isBusy = true; acceptingChanges = false; autosave?.cancel()
+        let request = generation
+        defer { if generation == request { isBusy = false; acceptingChanges = true } }
+        _ = await writes?.value
+        guard generation == request, var snapshot = capture() else { return false }
+        do {
+            try await repository.useExistingProduct(in: snapshot, product: product)
+            guard generation == request else { return false }
+            snapshot.selectedServing = nil; snapshot.amountText = "100"
+            snapshot.manualProductId = snapshot.productId
+            snapshot.productId = product.id; snapshot.product = product; snapshot.step = .amount
+            draft = snapshot; configureModels(); errorMessage = nil
+            return true
+        } catch {
+            if generation == request { errorMessage = "Kunne ikke åpne varen. Prøv igjen. Utkastet er beholdt." }
+            return false
+        }
+    }
+
+    func backToProduct() async {
+        guard !isBusy, draft?.step == .amount else { return }
+        isBusy = true; acceptingChanges = false; autosave?.cancel()
+        let request = generation
+        defer { if generation == request { isBusy = false; acceptingChanges = true } }
+        _ = await writes?.value
+        guard generation == request, var snapshot = capture() else { return }
+        do {
+            try await repository.returnLoggingDraftToProduct(snapshot)
+            guard generation == request else { return }
+            snapshot.productId = snapshot.manualProductId ?? snapshot.productId
+            snapshot.manualProductId = nil; snapshot.product = nil; snapshot.step = .product
+            draft = snapshot; configureModels(); errorMessage = nil
+        } catch {
+            if generation == request { errorMessage = "Kunne ikke åpne matvaren. Prøv igjen." }
+        }
     }
 
     func setDate(_ date: Date) { guard !isBusy else { return }; draft?.date = date; changed() }

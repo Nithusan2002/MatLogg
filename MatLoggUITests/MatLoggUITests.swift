@@ -847,7 +847,7 @@ final class MatLoggUITests: XCTestCase {
         app.buttons["tab-log-food"].tap()
         XCTAssertTrue(app.buttons["quick-log-manual"].waitForExistence(timeout: 5))
         app.buttons["quick-log-manual"].tap()
-        XCTAssertTrue(app.navigationBars["Opprett produkt"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Opprett matvare"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.navigationBars["Søk"].exists)
         app.buttons["Avbryt"].tap()
         XCTAssertTrue(app.buttons["quick-log-manual"].waitForExistence(timeout: 5))
@@ -890,6 +890,13 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.textFields["Produktnavn"].waitForExistence(timeout: 8))
         for (label, value) in [("Produktnavn", name), ("Energi", "100"),
                                ("Protein", "2"), ("Karbohydrat", "10"), ("Fett", "4")] {
+            if label == "Energi" {
+                for _ in 0..<2 {
+                    let next = app.buttons["manual-product-next"]
+                    for _ in 0..<8 { if next.isHittable { break }; app.swipeUp() }
+                    XCTAssertTrue(next.isHittable); next.tap()
+                }
+            }
             for _ in 0..<5 {
                 if app.textFields[label].isHittable { break }
                 app.swipeUp()
@@ -897,7 +904,7 @@ final class MatLoggUITests: XCTestCase {
             app.textFields[label].tap()
             app.textFields[label].typeText(value)
         }
-        let save = app.buttons["Lagre og velg mengde"]
+        let save = app.buttons["Lagre og loggfør"]
         for _ in 0..<5 {
             if save.isHittable { break }
             app.swipeUp()
@@ -1095,18 +1102,25 @@ final class MatLoggUITests: XCTestCase {
         if app.sheets.buttons["Avbryt"].exists {
             app.sheets.buttons["Avbryt"].tap()
         } else {
-            app.navigationBars["Opprett produkt"].staticTexts["Opprett produkt"].tap()
+            app.navigationBars["Opprett matvare"].staticTexts["Opprett matvare"].tap()
         }
         XCTAssertTrue(app.textFields["Produktnavn"].exists)
         app.swipeDown()
         for (label, value) in [("Produktnavn", "Søktest " + UUID().uuidString.prefix(8)),
                                ("Energi", "100"), ("Protein", "2"), ("Karbohydrat", "10"), ("Fett", "4")] {
+            if label == "Energi" {
+                for _ in 0..<2 {
+                    let next = app.buttons["manual-product-next"]
+                    for _ in 0..<8 { if next.isHittable { break }; app.swipeUp() }
+                    XCTAssertTrue(next.isHittable); next.tap()
+                }
+            }
             if !app.textFields[label].isHittable { app.swipeUp() }
             app.textFields[label].tap()
             app.textFields[label].typeText(value)
         }
         app.swipeUp()
-        let save = app.buttons["Lagre og velg mengde"]
+        let save = app.buttons["Lagre og loggfør"]
         if !save.isHittable { app.swipeUp() }
         XCTAssertTrue(save.isHittable)
         save.tap()

@@ -2283,3 +2283,114 @@ struct ManualProductViewModelTests {
         #expect(viewModel.errorMessage?.contains("ikke overstige 100") == true)
     }
 }
+
+extension ManualProductViewModelTests {
+    @Test func wizardValidatesStepsAndKeepsInputWhenGoingBack() {
+        let model = ManualProductViewModel(barcode: nil) { _ in }
+        model.next()
+        #expect(model.step == .identity)
+        #expect(model.errorMessage != nil)
+        #expect(model.invalidIdentityField == .name)
+        model.name = "Testbrød"
+        #expect(model.invalidIdentityField == nil)
+        #expect(model.errorMessage == nil)
+        model.brand = String(repeating: "x", count: 81)
+        model.next()
+        #expect(model.invalidIdentityField == .brand)
+        model.brand = "Testbakeriet"
+        #expect(model.invalidIdentityField == nil)
+        model.next()
+        #expect(model.step == .basis)
+        model.hasCustomServing = true
+        model.next()
+        #expect(model.step == .basis)
+        model.servingName = "Skive"; model.servingAmount = "40"
+        model.next()
+        #expect(model.step == .nutrition)
+        model.calories = "250"
+        model.back(); model.back()
+        #expect(model.name == "Testbrød")
+        #expect(model.calories == "250")
+        #expect(model.input.wizardStep == .identity)
+    }
+
+    @Test func optionalPortionsDoNotChangePer100NutritionAndSaveOnlyUsesSeparateAction() async throws {
+        var logged = false, stored = false
+        let model = ManualProductViewModel(barcode: nil, saveProductOnly: { _ in stored = true }) { _ in logged = true }
+        model.name = "Testbrød"; model.brand = " Testbakeriet "
+        model.hasCustomServing = true; model.servingName = "Skive"; model.servingAmount = "40"
+        model.calories = "250"; model.fat = "6"; model.carbs = "40"; model.protein = "8,5"
+        let product = try #require(await model.save(only: true))
+        #expect(stored && !logged)
+        #expect(product.brand == "Testbakeriet")
+        #expect(product.manualNutritionInput?.amount == 100)
+        #expect(product.caloriesPer100g == 250)
+        let amount = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [])
+        amount.select(try #require(product.servings?.first)); amount.text = "2"
+        #expect(amount.amount == 80)
+        #expect(product.calculateNutrition(forAmount: Float(amount.amount ?? 0)).calories == 200)
+        model.basis = .per100ml; model.servingName = "Flaske"; model.servingAmount = "330"
+        model.calories = "42"; model.carbs = "10"; model.fat = "0"; model.protein = "0"
+        let drink = try #require(await model.save())
+        #expect(drink.servings?.first?.amountUnit == .milliliters)
+        #expect(abs(drink.calculateNutrition(forAmount: 330).calories - 138.6) < 0.001)
+    }
+
+    @Test func oldDraftInputDecodesAndNewWizardFieldsRoundTrip() throws {
+        let data = Data(#"{"name":"Gammel","calories":"100","protein":"2","carbs":"10","fat":"4","basis":"per100g","servingName":"","servingAmount":"","servingUnit":"g"}"#.utf8)
+        let old = try JSONDecoder().decode(ManualProductInput.self, from: data)
+        let model = ManualProductViewModel(barcode: "123") { _ in }
+        model.restoreInput(old, productID: UUID())
+        #expect(model.step == .identity)
+        #expect(!model.hasCustomServing)
+        #expect(model.barcode == "123")
+        model.brand = "Merke"; model.hasCustomServing = true; model.step = .nutrition
+        let restored = try JSONDecoder().decode(ManualProductInput.self, from: JSONEncoder().encode(model.input))
+        #expect(restored.brand == "Merke")
+        #expect(restored.hasCustomServing == true)
+        #expect(restored.wizardStep == .nutrition)
+    }
+
+    @Test func barcodeDistinguishesFoundUnknownNetworkErrorAndIgnoresCancelledResults() async throws {
+        let model = ManualProductViewModel(barcode: nil) { _ in }
+        let repository = WizardBarcodeStub()
+        let code = ScannedBarcode(rawValue: "7038010054821", symbology: .ean13)
+        repository.failure = .unavailable
+        await model.scan(code, using: repository, owner: UUID())
+        #expect(model.barcodeFailure == .unavailable)
+        model.acceptUnknownBarcode()
+        #expect(model.barcode == nil)
+        repository.failure = .notFound
+        await model.scan(code, using: repository, owner: UUID())
+        model.acceptUnknownBarcode()
+        #expect(model.barcode == code.rawValue)
+        model.removeBarcode()
+        repository.failure = nil
+        await model.scan(code, using: repository, owner: UUID())
+        #expect(model.barcodeProduct?.name == "Funnet vare")
+        #expect(model.barcode == nil)
+        repository.delay = true; repository.didStart = false
+        let pending = Task { await model.scan(code, using: repository, owner: UUID()) }
+        for _ in 0..<100 { if repository.didStart { break }; await Task.yield() }
+        #expect(repository.didStart)
+        model.cancelBarcodeLookup()
+        await pending.value
+        #expect(model.barcodeProduct == nil)
+        #expect(!model.isLookingUpBarcode)
+    }
+}
+
+@MainActor
+private final class WizardBarcodeStub: BarcodeLookupRepository {
+    var failure: BarcodeLookupFailure?
+    var delay = false
+    var didStart = false
+    func cached(barcode: String, owner: UUID?) async -> Product? { nil }
+    func fetch(barcode: String) async throws -> Product {
+        didStart = true
+        if delay { try await Task.sleep(for: .milliseconds(100)) }
+        if let failure { throw failure }
+        return Product(id: UUID(), name: "Funnet vare", caloriesPer100g: 100, proteinGPer100g: 2, carbsGPer100g: 10, fatGPer100g: 4)
+    }
+    func refresh(_ product: Product, manually: Bool) async throws -> Product? { nil }
+}

@@ -1038,3 +1038,36 @@ Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
 og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
 lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
 replay, inbox og eierskap og ruller testdata tilbake.
+
+## Stegvis manuell matvareregistrering (2026-11-12)
+
+Målrettet `xcodebuild test`, scheme MatLogg, iOS 26.5 / MatLogg Draft QA,
+`-parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO`:
+
+- Alle 28 tester i `ManualProductViewModelTests` og `LoggingDraftTests` bestod.
+  Dekker eldre utkast, delsteg/merke/porsjon etter gjenåpning, 100 g/ml og
+  porsjonsberegning, atomisk lagring uten logging og rollback, eierkontroll ved
+  gjenbruk, tilbakegang til eget utkast og forkasting av sene strekkodesvar.
+- Tre UI-scenarioer bestod i separate kjøringer: terminering/gjenoppretting,
+  lagring uten logging med porsjon ved vanlig tekst og største tilgjengelighetstekst.
+  Testene krever aktivert porsjonsvalg og at lagring avslutter utkast uten mengdeskjerm.
+- UI-testenes rulling ble rettet til den aktive registreringsskjermen, med korte
+  drag over tastaturets forslagslinje og eksplisitt håndtering av gamle QA-utkast.
+  Skjermbilder ved normal og største tekststørrelse er visuelt kontrollert.
+- `git diff --check` bestod. Ingen full testpakke eller backendtester er kjørt:
+  synkkontrakt, serverplattform og opplastingspolicy er uendret. Arkitekturgjennomgang
+  bekrefter feature-state i ViewModel, IO bak repository og atomiske lokale skriver.
+
+Fysisk strekkodeskanning/kameratilgang og manuell VoiceOver-opplesning gjenstår
+før release. Offentlig matvaredeling inngår ikke i denne leveransen.
+
+### Visuell oppstramming av registreringsstegene (2026-11-12)
+
+Gjennomført etter verifiseringen ovenfor: samlet bilde/skanning, synlige
+næringsgrunnlag, mindre gjentatt hjelpetekst og feltbundet validering/fokus.
+Regresjonstestene er utvidet med feltvalg, tømming av feil ved retting og
+UI-kontroll av fokus etter Neste uten produktnavn. `build-for-testing` for generisk
+iOS Simulator og `git diff --check` består. Testene er kompilert, men ikke kjørt
+på nytt: simulator-runtime er fjernet. Ny visuell kontroll på iPhone/simulator
+og kjøring av de berørte testene gjenstår for denne oppstrammingen. Tidligere
+beståtte kjøringer gjelder versjonen før disse siste UI-endringene.

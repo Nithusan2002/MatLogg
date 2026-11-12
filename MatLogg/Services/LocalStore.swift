@@ -226,6 +226,47 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
 
+    func saveProductAndFinishDraft(_ draft: FoodLoggingDraft, product: Product) throws {
+        try performTransaction {
+            try requireLoggingDraftLocked(draft)
+            guard draft.step == .product, product.id == draft.productId else { throw LoggingDraftError.invalidData }
+            try requireDraftEntityOwnerLocked(table: "products", id: product.id, ownerColumn: "ownerUserId", owner: draft.userId)
+            try saveProductLocked(product, data: encoder.encode(product), ownerUserId: draft.userId, storageKind: "user")
+            try enqueueSyncEventLocked(ownerUserId: draft.userId, type: .productUpsert, entityId: product.id.uuidString, payload: syncEncoder.encode(ProductSyncPayload(product: product)))
+            try deleteLoggingDraftLocked(id: draft.id, owner: draft.userId)
+        }
+    }
+
+    func useExistingProduct(in draft: FoodLoggingDraft, product: Product) throws {
+        try performTransaction {
+            try requireLoggingDraftLocked(draft)
+            guard draft.step == .product else { throw LoggingDraftError.conflict }
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "SELECT id FROM products WHERE id = ? AND (storageKind = 'catalog' OR ownerUserId = ?)", -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, product.id.uuidString, -1, SQLITE_TRANSIENT)
+            sqlite3_bind_text(stmt, 2, draft.userId.uuidString, -1, SQLITE_TRANSIENT)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { throw LoggingDraftError.conflict }
+            var next = draft
+            next.selectedServing = nil; next.amountText = "100"
+            next.manualProductId = draft.productId
+            next.productId = product.id; next.product = product; next.step = .amount
+            // Reuse keeps the existing owner/source; no product write or upload event.
+            try writeLoggingDraftLocked(next, create: false)
+        }
+    }
+
+    func returnLoggingDraftToProduct(_ draft: FoodLoggingDraft) throws {
+        try performTransaction {
+            try requireLoggingDraftLocked(draft)
+            guard draft.step == .amount else { throw LoggingDraftError.conflict }
+            var next = draft
+            next.productId = draft.manualProductId ?? draft.productId
+            next.manualProductId = nil; next.product = nil; next.step = .product
+            try writeLoggingDraftLocked(next, create: false)
+        }
+    }
+
     func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) throws {
         try performTransaction {
             guard log.userId == draft.userId, log.id == draft.logId, log.productId == draft.productId,

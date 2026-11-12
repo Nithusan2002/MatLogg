@@ -21,6 +21,10 @@ struct ManualProductView: View {
 struct ManualProductForm: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: ManualProductViewModel
+    @EnvironmentObject private var products: ProductViewModel
+    @EnvironmentObject private var auth: AuthViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @FocusState private var focusedField: String?
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showPhotoOptions = false
     @State private var showPhotoLibrary = false
@@ -28,58 +32,123 @@ struct ManualProductForm: View {
     let onSaved: (Product) -> Void
     var keepsFlowOpen = false
     var onClose: (() async -> Bool)? = nil
+    var onUseExisting: ((Product) async -> Bool)? = nil
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    productFields.disabled(viewModel.isSaving)
-                    photoControls.disabled(viewModel.isSaving || viewModel.isLoadingImage)
-                    nutritionFields.disabled(viewModel.isSaving)
-
-                    if let errorMessage = viewModel.errorMessage {
-                        ErrorMessageView(errorMessage)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Steg \(viewModel.stepNumber) av 3 · \(viewModel.step.title)")
                             .font(AppTypography.captionEmphasis)
-                            .accessibilityLabel("Feil: \(errorMessage)")
-                    }
-
-                    PrimaryButton(
-                        title: viewModel.isSaving ? "Lagrer …" : "Lagre og velg mengde",
-                        systemImage: "arrow.right"
-                    ) {
-                        Task {
-                            if let product = await viewModel.save() {
-                                onSaved(product)
-                                if !keepsFlowOpen { dismiss() }
+                            .foregroundStyle(AppColors.textSecondary)
+                            .accessibilityIdentifier("manual-product-step")
+                        ProgressView(value: Double(viewModel.stepNumber), total: 3)
+                            .accessibilityHidden(true)
+                        Group {
+                            switch viewModel.step {
+                            case .identity:
+                                productFields
+                                CardContainer {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Valgfritt").font(AppTypography.captionEmphasis)
+                                            .foregroundStyle(AppColors.textSecondary)
+                                        photoControls
+                                        Divider()
+                                        barcodeControls
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            case .basis: basisFields
+                            case .nutrition: nutritionFields
                             }
                         }
-                    }
-                    .disabled(viewModel.isSaving || viewModel.isLoadingImage)
-                    .opacity(viewModel.isSaving ? 0.6 : 1)
+                        .disabled(viewModel.isSaving)
 
-                    if keepsFlowOpen {
-                        Text("Utkastet lagres automatisk på denne iPhonen.")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.textSecondary)
+                        if let errorMessage = viewModel.errorMessage,
+                           viewModel.invalidIdentityField == nil || viewModel.step != .identity {
+                            ErrorMessageView(errorMessage)
+                                .font(AppTypography.captionEmphasis)
+                                .accessibilityLabel("Feil: \(errorMessage)")
+                        }
+                        VStack(spacing: 4) {
+                            if viewModel.step == .nutrition {
+                                PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre og loggfør", systemImage: "arrow.right") {
+                                    save(only: false)
+                                }
+                                .disabled(viewModel.isSaving || viewModel.isLoadingImage || viewModel.isLookingUpBarcode)
+                                Button("Lagre matvare") { save(only: true) }
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .disabled(viewModel.isSaving || viewModel.isLoadingImage || viewModel.isLookingUpBarcode)
+                                    .accessibilityIdentifier("manual-product-save-only")
+                            } else {
+                                PrimaryButton(title: "Neste", systemImage: "arrow.right") {
+                                    viewModel.next()
+                                    if let field = viewModel.invalidIdentityField {
+                                        proxy.scrollTo(field.rawValue, anchor: .center)
+                                        focusedField = field == .name ? "Produktnavn" : "Merke / produsent"
+                                    }
+                                }
+                                .disabled(viewModel.isSaving || viewModel.isLoadingImage || viewModel.isLookingUpBarcode)
+                                .accessibilityIdentifier("manual-product-next")
+                            }
+                            if viewModel.step != .identity {
+                                Button("Tilbake") { viewModel.back() }
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .disabled(viewModel.isSaving)
+                                    .accessibilityIdentifier("manual-product-back")
+                            }
+                        }
+                        if keepsFlowOpen && viewModel.step == .identity {
+                            Text("Utkastet lagres automatisk på denne iPhonen.")
+                                .font(AppTypography.caption)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
                     }
-                    Text("Merket som brukerregistrert.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
+                    .padding(16)
+                    .id("manual-product-top")
                 }
-                .padding(16)
+                .accessibilityIdentifier("manual-product-scroll")
+                .onChange(of: viewModel.step) { _, _ in
+                    focusedField = nil
+                    proxy.scrollTo("manual-product-top", anchor: .top)
+                }
             }
             .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("Opprett produkt")
+            .navigationTitle("Opprett matvare")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(keepsFlowOpen ? "Lukk" : "Avbryt") {
                         Task {
+                            viewModel.cancelBarcodeLookup()
                             if let onClose { if await onClose() { dismiss() } }
                             else { dismiss() }
                         }
                     }
                     .disabled(viewModel.isSaving)
+                }
+            }
+            .fullScreenCover(isPresented: $viewModel.showBarcodeScanner) {
+                NavigationStack {
+                    ZStack(alignment: .bottom) {
+                        BarcodeScannerView(
+                            onBarcodeDetected: { code in
+                                Task { await viewModel.scan(code, using: products.barcodeRepository, owner: auth.currentUser?.id) }
+                            },
+                            onError: viewModel.scannerFailed,
+                            onCameraUnavailable: { viewModel.scannerFailed("Kamera er ikke tilgjengelig. Du kan fortsette uten strekkode.") },
+                            onTorchAvailabilityChanged: { _ in }, torchOn: .constant(false))
+                        Text("Hold strekkoden på emballasjen foran kameraet.")
+                            .font(AppTypography.bodyEmphasis)
+                            .padding().background(AppColors.background)
+                    }
+                    .navigationTitle("Skann strekkode")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Avbryt") { viewModel.showBarcodeScanner = false }
+                        }
+                    }
                 }
             }
             .fullScreenCover(isPresented: $viewModel.showCamera) {
@@ -107,18 +176,31 @@ struct ManualProductForm: View {
     private var productFields: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Om produktet")
+                Text("Om matvaren")
                     .font(AppTypography.sectionTitle)
                     .foregroundColor(AppColors.deepInk)
                     .accessibilityAddTraits(.isHeader)
-                if let barcode, !barcode.isEmpty {
+                if let barcode = viewModel.barcode, !barcode.isEmpty {
                     Text("Strekkode: \(barcode)")
                         .font(.system(.caption, design: .monospaced).weight(.semibold))
                         .foregroundColor(AppColors.textSecondary)
                         .accessibilityLabel("Strekkode \(barcode)")
                 }
+                VStack(alignment: .leading, spacing: 6) {
+                    field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
+                    if viewModel.invalidIdentityField == .name, let error = viewModel.errorMessage {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
+                }
+                .id(ManualProductViewModel.IdentityField.name.rawValue)
+                VStack(alignment: .leading, spacing: 6) {
+                    field("Merke / produsent", text: $viewModel.brand, prompt: "For eksempel bakeriets navn", keyboard: .default, required: false)
+                    if viewModel.invalidIdentityField == .brand, let error = viewModel.errorMessage {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
+                }
+                .id(ManualProductViewModel.IdentityField.brand.rawValue)
                 FoodGroupPicker(selection: $viewModel.selectedFoodGroup)
-                field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
                 if viewModel.name.count >= ManualProductViewModel.maximumNameLength - 10 {
                     Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
                         .font(AppTypography.caption)
@@ -126,44 +208,34 @@ struct ManualProductForm: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
                 }
-                if viewModel.name.count > ManualProductViewModel.maximumNameLength {
-                    ErrorMessageView("Produktnavnet er for langt")
-                        .font(AppTypography.caption)
-                }
             }
         }
     }
 
     private var photoControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CardContainer {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let image = viewModel.productImage {
-                        ProductHeroImageView(image: image, height: 160)
-                    }
-                    Button {
-                        showPhotoOptions = true
-                    } label: {
-                        Label(viewModel.productImage == nil ? "Legg til bilde (valgfritt)" : "Bytt bilde", systemImage: "photo")
-                            .frame(minHeight: 44)
-                    }
-                    .accessibilityIdentifier("manual-product-photo-options")
-                    if viewModel.productImage != nil {
-                        Button("Fjern bilde") {
-                            selectedPhoto = nil
-                            Task { await viewModel.selectImage(nil) }
-                        }
-                        .frame(minHeight: 44)
-                    }
-                    if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
-                    if let error = viewModel.imageError {
-                        ErrorMessageView(error).font(AppTypography.caption)
-                    }
-                }
+            if let image = viewModel.productImage {
+                ProductHeroImageView(image: image, height: 160)
             }
-            Text("Bildet lagres bare på denne iPhonen.")
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColors.textSecondary)
+            Button {
+                showPhotoOptions = true
+            } label: {
+                Label(viewModel.productImage == nil ? "Legg til bilde" : "Bytt bilde", systemImage: "photo")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .accessibilityIdentifier("manual-product-photo-options")
+            .accessibilityHint("Valgfritt. Bildet lagres bare på denne iPhonen.")
+            if viewModel.productImage != nil {
+                Button("Fjern bilde") {
+                    selectedPhoto = nil
+                    Task { await viewModel.selectImage(nil) }
+                }
+                .frame(minHeight: 44)
+            }
+            if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
+            if let error = viewModel.imageError {
+                ErrorMessageView(error).font(AppTypography.caption)
+            }
         }
         .foregroundStyle(AppColors.actionText)
         .confirmationDialog("Velg produktbilde", isPresented: $showPhotoOptions, titleVisibility: .visible) {
@@ -177,40 +249,131 @@ struct ManualProductForm: View {
         .photosPicker(isPresented: $showPhotoLibrary, selection: $selectedPhoto, matching: .images)
     }
 
+    private func save(only: Bool) {
+        Task {
+            if let product = await viewModel.save(only: only) {
+                if !only { onSaved(product) }
+                if only || !keepsFlowOpen { dismiss() }
+            }
+        }
+    }
+
+    private var barcodeControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { viewModel.beginBarcodeScan() } label: {
+                Label("Skann strekkode", systemImage: "barcode.viewfinder")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .disabled(viewModel.isLookingUpBarcode)
+            .accessibilityIdentifier("manual-product-scan")
+            .accessibilityHint("Valgfritt. Skann strekkoden fra emballasjen.")
+            if viewModel.barcode != nil {
+                Button("Fjern strekkode", action: viewModel.removeBarcode).frame(minHeight: 44)
+            }
+            if viewModel.isLookingUpBarcode {
+                ProgressView("Slår opp strekkoden …")
+                Button("Fortsett uten oppslaget", action: viewModel.cancelBarcodeLookup).frame(minHeight: 44)
+            }
+            if let product = viewModel.barcodeProduct {
+                Text("Vi fant varen").font(AppTypography.sectionTitle)
+                Text(product.name).font(AppTypography.bodyEmphasis)
+                if let brand = product.brand { Text(brand).font(AppTypography.body) }
+                Text("Kilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt") · per 100 \(product.amountUnit.rawValue)")
+                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                Text("Bruk treffet for å slippe å fylle inn næringsverdiene på nytt.")
+                    .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                Button("Bruk denne varen") {
+                    Task {
+                        if let onUseExisting { _ = await onUseExisting(product) }
+                        else { onSaved(product); dismiss() }
+                    }
+                }
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("manual-product-use-existing")
+                Button("Fortsett med egen vare", action: viewModel.cancelBarcodeLookup).frame(minHeight: 44)
+            }
+            if let failure = viewModel.barcodeFailure {
+                Text(failure.title).font(AppTypography.bodyEmphasis)
+                Text(failure.message).font(AppTypography.caption)
+                if failure == .notFound || failure == .incomplete || failure == .unclearPreparation {
+                    Button("Legg strekkoden til varen", action: viewModel.acceptUnknownBarcode).frame(minHeight: 44)
+                }
+                Button("Prøv å skanne igjen", action: viewModel.beginBarcodeScan).frame(minHeight: 44)
+                Button("Fortsett uten oppslaget", action: viewModel.cancelBarcodeLookup).frame(minHeight: 44)
+            }
+            if let message = viewModel.barcodeMessage {
+                ErrorMessageView(message)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var basisFields: some View {
+        CardContainer {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Hva gjelder verdiene for?")
+                    .font(AppTypography.sectionTitle).accessibilityAddTraits(.isHeader)
+                Text("Velg samme næringsgrunnlag som på emballasjen.")
+                    .font(AppTypography.body).foregroundStyle(AppColors.textSecondary)
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+                layout {
+                    ForEach(ManualNutritionBasis.allCases, id: \.self) { basis in
+                        Button { viewModel.requestBasis(basis) } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: viewModel.basis == basis ? "checkmark.circle.fill" : "circle")
+                                    .accessibilityHidden(true)
+                                Text(basis == .serving ? "Porsjon" : basis.title)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .padding(.horizontal, 8)
+                            .matLoggFieldSurface(fill: viewModel.basis == basis ? AppColors.chipFillSelected : AppColors.surface)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(viewModel.basis == basis ? AppColors.actionText : AppColors.deepInk)
+                        .accessibilityAddTraits(viewModel.basis == basis ? .isSelected : [])
+                        .accessibilityIdentifier("manual-basis-\(basis.rawValue)")
+                    }
+                }
+                if viewModel.basis != .serving {
+                    Toggle("Legg til en porsjon (valgfritt)", isOn: $viewModel.hasCustomServing)
+                }
+                if viewModel.hasServing {
+                    Text(viewModel.basis == .serving
+                         ? "Oppgi størrelsen som næringsverdiene gjelder for."
+                         : "Porsjonen er en snarvei til logging. Næringsverdiene skal fortsatt oppgis per \(viewModel.basis.title).")
+                        .font(AppTypography.caption).foregroundStyle(AppColors.textSecondary)
+                    field("Porsjonsnavn", text: $viewModel.servingName, prompt: "For eksempel Skive", keyboard: .default)
+                    field("Porsjonsstørrelse", text: $viewModel.servingAmount, prompt: "For eksempel 40", keyboard: .decimalPad, nutritionValue: false)
+                    if viewModel.basis == .serving {
+                        Picker("Enhet for porsjonsstørrelse", selection: Binding(get: { viewModel.servingUnit }, set: { viewModel.requestServingUnit($0) })) {
+                            Text("g").tag(AmountUnit.grams)
+                            Text("ml").tag(AmountUnit.milliliters)
+                        }
+                        .pickerStyle(.segmented)
+                    } else {
+                        Text("Porsjonsstørrelse i \(viewModel.portionUnit.rawValue)")
+                            .font(AppTypography.caption)
+                    }
+                }
+            }
+        }
+    }
+
     private var nutritionFields: some View {
         CardContainer {
             VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Næringsinnhold")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundColor(AppColors.deepInk)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Velg samme næringsgrunnlag som på emballasjen og fyll inn verdiene derfra.")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                Picker("Næringsinnhold per", selection: Binding(
-                    get: { viewModel.basis }, set: { viewModel.requestBasis($0) }
-                )) {
-                    ForEach(ManualNutritionBasis.allCases, id: \.self) { basis in
-                        Text(basis.title).tag(basis)
-                    }
-                }
-                .pickerStyle(.menu)
-                .disabled(viewModel.isSaving)
-                if viewModel.basis == .serving {
-                    field("Porsjonsnavn", text: $viewModel.servingName, prompt: "For eksempel Skive", keyboard: .default)
-                    field("Porsjonsstørrelse", text: $viewModel.servingAmount, prompt: "For eksempel 40", keyboard: .decimalPad, nutritionValue: false)
-                    Picker("Enhet for porsjonsstørrelse", selection: Binding(get: { viewModel.servingUnit }, set: { viewModel.requestServingUnit($0) })) {
-                        Text("g").tag(AmountUnit.grams)
-                        Text("ml").tag(AmountUnit.milliliters)
-                    }
-                    .pickerStyle(.segmented)
-                }
-                field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .numberPad)
-                field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)
-                field("Karbohydrat (g)", text: $viewModel.carbs, prompt: "For eksempel 40", keyboard: .decimalPad)
+                Text("Næringsinnhold \(viewModel.nutritionContext)")
+                    .font(AppTypography.sectionTitle).accessibilityAddTraits(.isHeader)
+                Text("Fyll inn alle fire verdiene fra emballasjen.")
+                    .font(AppTypography.body).foregroundStyle(AppColors.textSecondary)
+                field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .decimalPad)
                 field("Fett (g)", text: $viewModel.fat, prompt: "For eksempel 6", keyboard: .decimalPad)
+                field("Karbohydrat (g)", text: $viewModel.carbs, prompt: "For eksempel 40", keyboard: .decimalPad)
+                field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)
             }
         }
     }
@@ -220,21 +383,20 @@ struct ManualProductForm: View {
         text: Binding<String>,
         prompt: String,
         keyboard: UIKeyboardType,
-        nutritionValue: Bool = true
+        nutritionValue: Bool = true,
+        required: Bool = true
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title)
+            Text(required ? title : "\(title) (valgfritt)")
                 .font(AppTypography.bodyEmphasis)
                 .foregroundColor(AppColors.deepInk)
-            Text("Obligatorisk")
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
             TextField(prompt, text: text)
+                .focused($focusedField, equals: title)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(keyboard == .default ? .sentences : .never)
                 .autocorrectionDisabled(keyboard != .default)
                 .matLoggInputStyle()
-                .accessibilityLabel("\(title), obligatorisk")
+                .accessibilityLabel("\(title), \(required ? "obligatorisk" : "valgfritt")")
                 .accessibilityIdentifier(title.components(separatedBy: " (").first ?? title)
                 .accessibilityHint(keyboard == .default || !nutritionValue ? prompt : "Verdi \(viewModel.nutritionContext). \(prompt)")
         }

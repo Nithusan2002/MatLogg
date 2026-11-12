@@ -106,6 +106,15 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
     func advanceLoggingDraft(_ draft: FoodLoggingDraft, product: Product) async throws {
         try await perform { try $0.advanceLoggingDraft(draft, product: product) }
     }
+    func saveProductAndFinishDraft(_ draft: FoodLoggingDraft, product: Product) async throws {
+        try await perform { try $0.saveProductAndFinishDraft(draft, product: product) }
+    }
+    func useExistingProduct(in draft: FoodLoggingDraft, product: Product) async throws {
+        try await perform { try $0.useExistingProduct(in: draft, product: product) }
+    }
+    func returnLoggingDraftToProduct(_ draft: FoodLoggingDraft) async throws {
+        try await perform { try $0.returnLoggingDraftToProduct(draft) }
+    }
     func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) async throws {
         try await perform { try $0.completeLoggingDraft(draft, log: log) }
     }

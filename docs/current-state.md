@@ -532,6 +532,17 @@ verifisert fysisk, og gamle eksporttempfiler ryddes best-effort etter 24 timer.
 kjøp eller produksjonsutrulling. Restore, aktive konto-/personvernporter og
 visuell runtime-advarsel gjenstår; se [QA-resultater](production-readiness.md).
 
+### Stegvis oppretting av egne matvarer (2026-11-11)
+
+Oppretting har tre steg med navn/valgfritt merke, næringsgrunnlag og
+næringsverdier. En valgfri loggingsporsjon kan legges til ved 100 g/ml uten
+omregning av inntastingsgrunnlaget. Brukeren kan lagre uten logging eller gå
+videre til mengdevalg, og gå tilbake uten å miste produktinput. Nye utkastfelt
+bevarer aktivt delsteg og er bakoverkompatible med eldre lokale utkast.
+Skanning tilbyr gjenbruk av kjent vare, skiller ukjent kode fra oppslagsfeil,
+og bevarer eksisterende produkt ved tilbakegang. Produkt/hendelse/utkast
+lagres atomisk. Offentlig deling og opplasting inngår ikke i leveransen.
+
 ### Gjenoppretting av manuell logging (2026-10-07)
 
 Manuell produktregistrering og påfølgende mengdevalg har ett lokalt

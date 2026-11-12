@@ -839,3 +839,16 @@ makroer komme fra `*_prepared_100g` og `nutrition_data_prepared_per` eksplisitt
 være `100g`/`100ml`. Manglende data eller grunnlag avvises. Tilberedte produkter
 får ingen automatisk porsjon fra tørr pakkevekt eller tvetydig `serving_size`.
 Ingen automatisk omregning mellom tørr og tilberedt vekt inngår.
+
+### Lokalt utkast for stegvis matvareregistrering (2026-11-11)
+
+`ManualProductInput` har valgfrie tillegg for `brand`, `hasCustomServing`,
+`wizardStep` og skannet `barcode`. Eldre utkast uten feltene åpnes på første
+produktsteg. Delsteget lagres i utkastets eksisterende JSON; ingen SQL- eller
+synkkontraktsendring er nødvendig. `Product.brand` og `Product.servings` gjenbrukes.
+En valgfri loggingsporsjon endrer ikke `manualNutritionInput` sitt 100 g/ml-grunnlag.
+`FoodLoggingDraft.manualProductId` bevarer opprinnelig produkt-ID mens et kjent
+treff brukes, slik at tilbakegang gjenoppretter eget utkast uten å redigere treffet.
+Lagre uten logging skriver produkt/hendelse og sletter utkast i samme transaksjon.
+Gjenbruk av eksisterende vare sjekker lokal eier/katalogtilgang og skriver bare
+utkastets overgang, uten å endre produkt eller opprette en produkthendelse.

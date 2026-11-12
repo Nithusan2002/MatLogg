@@ -225,17 +225,37 @@ ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søk
 Skanning og fungerende manuell produktregistrering er tilgjengelige alternativer.
 Manuell registrering lagrer et brukeroppgitt produkt før mengdevalg og logging.
 Et valgfritt produktbilde kan tas med kamera eller velges fra bildebiblioteket
-etter produktnavnet. «Legg til bilde (valgfritt)» åpner valg mellom kamera og
+etter produktnavnet. «Legg til bilde» i en felles seksjon for valgfrie tillegg åpner valg mellom kamera og
 bildebibliotek. Et valgt bilde viser forhåndsvisning, bytte og fjerning før lagring. Bildet
 lagres kun lokalt; registrering fungerer uten bilde og ved avvist kameratilgang.
-Skjemaet grupperer feltene i «Om produktet» og «Næringsinnhold». Alle dagens
-næringsfelt er obligatoriske. «Næringsinnhold per» tilbyr 100 g, 100 ml eller
+Oppretting deles i tre steg: «Om matvaren», «Næringsgrunnlag» og
+«Næringsverdier». Første steg har navn, valgfritt merke/produsent, matvaregruppe,
+bilde og strekkodeskanning. Neste validerer gjeldende steg; Tilbake beholder input.
+Alle dagens næringsfelt er obligatoriske. «Næringsinnhold per» tilbyr 100 g, 100 ml eller
 porsjon/stykk. Porsjon krever navn og størrelse i g/ml; verdier oppgis for én
 porsjon og normaliseres til per 100 g/ml ved lagring. Originalverdier og
 inntastingsgrunnlag bevares lokalt. Bytte av grunnlag etter inntasting krever
 bekreftelse og tømmer næringsfeltene. Kcal eller g er synlig i feltetiketten
-også etter inntasting. «Lagre og velg mengde» lagrer
-produktet lokalt før mengdevalget åpnes.
+også etter inntasting. Ved 100 g/ml kan én valgfri loggingsporsjon angis,
+for eksempel «Skive · 40 g», uten at næringsgrunnlaget endres. Næringsfeltene
+følger rekkefølgen energi, fett, karbohydrat og protein.
+«Lagre matvare» lagrer produkt og hendelse og avslutter utkastet atomisk uten
+matlogg. «Lagre og loggfør» lagrer produktet lokalt før mengdevalg, der en
+opprettet porsjon foreslås med antall én. Mengdevalget tilbyr tilbakegang til
+produktet uten å slette allerede lagret produkt.
+Kjent strekkode tilbyr et eksisterende treff før mengdevalg uten ny produktkopi.
+Ukjent eller ufullstendig katalogtreff kan knyttes til den nye varen; nettfeil
+vises separat og knyttes ikke automatisk til varen. Avbrutt oppslag kan ikke
+overskrive nyere valg. Dagens leveranse lagrer bare lokalt; offentlig deling er
+utsatt og har ingen aktiv bryter i appen.
+
+Registreringsskjemaet viser bare valgfrihet ved de valgfrie feltene; kravet om
+alle fire næringsverdier forklares samlet. Bilde og strekkodeskanning ligger i
+samme kort med like brede handlingsrader. Næringsgrunnlaget velges med tre
+synlige valg; ved tilgjengelighetstekst stables valgene vertikalt. Navne- og
+merkefeil vises ved riktig felt, og Neste ruller og fokuserer feltet. Handlingene
+samles med korte mellomrom og minst 44 pt trykkflate. Automatisk utkastlagring
+forklares på første steg.
 
 ### Loggfør
 

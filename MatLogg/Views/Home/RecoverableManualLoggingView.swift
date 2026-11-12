@@ -139,12 +139,15 @@ struct RecoverableManualLoggingView: View {
                         Button("Prøv igjen") { Task { await model.flush() } }.frame(minHeight: 44)
                     }
                     ManualProductForm(viewModel: manual, barcode: model.draft?.barcode,
-                                      onSaved: { _ in }, keepsFlowOpen: true, onClose: { await model.flush() })
+                                      onSaved: { _ in }, keepsFlowOpen: true, onClose: { await model.flush() }, onUseExisting: model.useExistingProduct)
                 }
             } else if ready, model.draft?.step == .amount, let amount = model.amountModel {
                 NavigationStack {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
+                            Button("Tilbake til matvaren") { Task { await model.backToProduct() } }
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("logging-draft-back")
                             Text(model.draft?.product?.name ?? "Mengde").font(AppTypography.title)
                             Text("Registreringen gjelder \(model.draft?.date.formatted(date: .abbreviated, time: .omitted) ?? "")")
                                 .font(AppTypography.body)

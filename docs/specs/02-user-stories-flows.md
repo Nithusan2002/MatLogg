@@ -479,6 +479,17 @@ flertrinnsbeskrivelsen er erstattet av denne flyten. Se også
 - Direkte gram/ml fungerer for varer uten egnet porsjonsgrunnlag.
 - Egne nye porsjoner er utenfor dette leveransescope-et.
 
+### Manuell registrering: stegvis oppretting (2026-11-11)
+
+- Tre steg: Om matvaren → Næringsgrunnlag → Næringsverdier. Neste validerer
+  gjeldende steg; Tilbake og gjenåpning beholder verdier og riktig delsteg.
+- Valgfritt merke/produsent og skannet strekkode følger produktet.
+- Per 100 g/ml kan én valgfri loggingsporsjon legges til uten å endre grunnlaget.
+- «Lagre matvare» avslutter utkastet atomisk uten logg. «Lagre og loggfør» åpner
+  mengdevalg; begge fungerer offline. Mengdevalg kan gå tilbake til matvaren.
+- Kjent skannet vare kan gjenbrukes uten produktkopi. Ukjent kode og nettfeil
+  skilles. Offentlig produktdeling er en separat, utsatt leveranse.
+
 ### Manuell registrering: næringsgrunnlag (2026-10-03)
 
 - Velg 100 g, 100 ml eller porsjon/stykk før næringsverdier fylles inn.
