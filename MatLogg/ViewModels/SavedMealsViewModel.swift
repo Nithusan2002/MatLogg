@@ -201,7 +201,7 @@ final class SavedMealsViewModel: ObservableObject {
                 proteinG: log.proteinG,
                 carbsG: log.carbsG,
                 fatG: log.fatG,
-                nutritionSource: product.nutritionSource,
+                nutritionSource: log.nutritionSource ?? product.nutritionSource,
                 sortIndex: index
             ))
         }
@@ -332,7 +332,7 @@ final class SavedMealsViewModel: ObservableObject {
                 amountG: amount,
                 amountUnit: item.resolvedAmountUnit,
                 portionSelection: item.portionSelection?.scaled(to: amount),
-                nutritionPreparation: item.nutritionPreparation, loggedDate: targetDate,
+                nutritionPreparation: item.nutritionPreparation, nutritionSource: item.nutritionSource, loggedDate: targetDate,
                 loggedTime: timestamp,
                 calories: nutrition.calories,
                 proteinG: nutrition.protein,

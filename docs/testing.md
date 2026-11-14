@@ -1038,3 +1038,87 @@ Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
 og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
 lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
 replay, inbox og eierskap og ruller testdata tilbake.
+
+### Apple Helse-eksport – 2026-11-14
+
+På branchen `codex/apple-health-integration` bestod 38 målrettede tester på
+«Spor Mat Health Export QA» (iPhone 16, iOS 18.6 Simulator, Xcode 27.2):
+`HealthExportTests`, `HealthExportMigrationTests`, `PortionLoggingTests`,
+`LoggingDraftTests` og `HealthExportUITests`. Kjørt med `xcodebuild test`,
+scheme MatLogg, egen DerivedData `/tmp/spor-health-export-build`,
+`-parallel-testing-enabled NO` og `CODE_SIGNING_ALLOWED=NO`.
+Resultat: `/tmp/health-export-verified.xcresult` (lokalt, ikke i Git).
+Etter siste trådisoleringsretting bestod alle 12 eksport-/migrasjonstester
+på nytt; `/tmp/health-export-actor-check.xcresult`.
+
+Testene bruker disponible SQLite-filer og en injisert HealthKit-testklient.
+De dekker opt-in uten historikk, avslått eksportflagg, revisjon/ACK etter nyere
+redigering, persistent retry, sletting/angre, atomisk rollback, stabil vekt-ID,
+delvis avslått tilgang, frakobling/opprydding, profilbytte under native skriving,
+kontokobling med flere eksportnavnerom, ViewModel-state og oppgradering 8→9.
+UI-testen kontrollerer separat eksportskjerm med største tekststørrelse og at
+demoøkten ikke kan aktivere ekte skriving. Skjermbildet er visuelt gjennomgått.
+Den genererte appens NSHealthUpdateUsageDescription er kontrollert.
+
+Arkitekturkontroll: View → ViewModel → repository → injisert HealthKit-klient /
+egen lagringsactor; domenedata, synkhendelse og eksportjobb er atomiske.
+Ingen opplasting eller aktivering av produksjonssynk. Ingen arkitekturavvik.
+Native tillatelsesdialog, faktisk HealthKit-deduplisering, oppdatering/sletting,
+låst telefon, tilbaketrukket tilgang og VoiceOver krever fysisk QA før Release.
+Utviklingsversjonen aktiveres med `--enable-healthkit-export`.
+
+
+### Fysisk Apple Helse-QA – brukerrapport 2026-11-14
+
+Brukeren testet QA-appen på fysisk iPhone. Skjermbilder bekrefter native
+skrivetilgangsdialog og en energipost i Helse med Spor Mat som kilde og samme
+energiverdi som matloggen. Brukeren bekreftet deretter at redigering uten
+duplikat, sletting og angre fungerte for energiposten.
+
+Etter en samlet kontrolliste bekreftet brukeren også at makroverdier,
+registrering/redigering av manuell vekt uten duplikat, lokal logging ved
+avslått skrivetillatelse med mulighet for nytt forsøk, og stopp av nye
+overføringer ved stopp av deling fungerte. Dette er brukerbekreftet manuell
+QA; det foreligger ikke separate målelogger/skjermbilder for hvert av disse
+punktene, og eksakt enhetsmodell/iOS-versjon ble ikke registrert.
+
+Fysisk kontroll med låst telefon, VoiceOver og separat sletting av alle
+profilens delte data fra Helse er fortsatt ikke bekreftet. Release-arkiv og
+release-go/no-go gjenstår; Debug-gaten er beholdt. Ingen produksjonsutrulling.
+
+Etter fysisk QA er skjermteksten kortet ned, stoppforklaringen flyttet til
+seksjonsfotnoten og gamle MatLogg-referanser i eksportstatus rettet. Ingen
+logikkendring. `swiftc -frontend -parse` på de tre berørte Swift-filene og
+`git diff --check` bestod; automatiske runtime-tester ble ikke gjentatt for
+rene tekstendringer. Prosjektets design-/personvern-skills brukt; ingen
+endring av avhengighetsretning, local-first, transaksjoner eller eierskap.
+
+### PR #7 – review-regresjoner og CI, 2026-11-14
+
+Nye tester for tidligere loggdag og bevart næringskilde ble kjørt før retting:
+begge feilet (tre assertions totalt). Etter retting bestod 114 målrettede
+tester i ni suiter på samme dedikerte simulator/DerivedData som ovenfor:
+HealthExportTests, HealthExportMigrationTests, MatLoggTests, DemoModeTests,
+PortionLoggingTests, LoggingDraftTests, RepeatFoodTests, MealReuseTests og
+SavedMealsTests. Resultat: `/tmp/pr7-fixed-targeted.xcresult`.
+
+Migrasjonsfixturene fjerner nå skjema-9-tabellene før databasen merkes med en
+eldre versjon. Demotesten kontrollerer stabil eksisterende vekt-ID og at den
+nye verdien faktisk er bevart etter gjenåpning/avvist reset. Kravene til
+produktbevaring, atomiske writes og isolasjon mellom demo/vanlig data beholdes.
+Kilde-/datotestene dekker også manglende historisk kilde, uendret synkformat,
+JSON-gjenåpning og native metadatakonvertering samt dato ved sommertidsskifte.
+Fysisk kontroll av eksport på en tidligere loggdag gjenstår etter rettingen.
+
+Backend CI feiler i npm audit, med én kritisk proxy-addr-sårbarhet ved ny
+`npm audit --package-lock-only --omit=dev --audit-level=critical`.
+backend/package-lock.json og backend-CI-workflow er byte-identiske med main;
+dette er en eksisterende avhengighetsblokkering, ikke en ny backendendring i
+PR #7. Avhengigheter og CI-porter er ikke endret eller omgått her. Separat
+backendoppfølging kreves før samlet CI kan bli grønn.
+
+En ekstra test kontrollerer at kilde og historiske næringsverdier overlever
+katalogendring, redigering, kopiering til tidligere dag, sletting og angre.
+Alle 16 HealthExportTests bestod etterpå; `/tmp/pr7-source-lifecycle.xcresult`.
+Arkitekturkontroll: eksisterende lagdeling og atomiske transaksjoner beholdes;
+ingen domeneopplasting, authendring eller produksjonsaktivering. Ingen avvik.

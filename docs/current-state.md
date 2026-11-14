@@ -551,3 +551,16 @@ Utkastverifisering 2026-10-07: ni målrettede iOS-enhetstester og én UI-test
 med terminering/omstart er grønne. Åtte direkte macOS-lagringstester, inkludert
 migrasjon, er grønne. Ingen full testpakke er kjørt. Fysisk iPhone var offline;
 fysisk systemterminering, bildeimport og manuell tilgjengelighetskontroll gjenstår.
+
+
+### Apple Helse-eksport under utvikling – 2026-11-14
+
+Branchen `codex/apple-health-integration` har eksport av kalorier/makroer og
+manuelt registrert vekt bak Debug-argumentet `--enable-healthkit-export`.
+Innstillingene finnes under Apple Helse → Del til Apple Helse. Ingen automatisk
+historikkeksport. Lokal SQLite-outbox (schema 9) følger domenetransaksjoner;
+retry, redigering, sletting og angre bruker stabile identiteter/revisjoner.
+Dagens Helse-lesing og onboarding beholdes. Ingen server-/synkaktivering.
+Native skriving, tillatelser, tilbaketrekking og sletting må verifiseres fysisk
+før Release åpnes. Slett egne overføringer før lokal profil slettes dersom
+kopier i Helse også skal fjernes.

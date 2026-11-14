@@ -433,7 +433,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Spor Mat";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Spor Mat leser skritt, vekt og treningsøkter du velger å dele fra Apple Helse for å vise dem i Utvikling. Dataene lastes ikke opp.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Spor Mat bruker Apple Helse til å vise skritt, vekt og treningsøkter i Utvikling. Appen skriver ingen data til Helse.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Hvis du slår på deling, skriver Spor Mat kalorier, makroer og vekt du registrerer til Apple Helse. Du velger selv hvilke data som deles.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til Spor Mat-backend på lokalnettet.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Spor Mat trenger tilgang til å legge til bilder når du velger å lagre et måltidskort i Bilder.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -476,7 +476,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Spor Mat";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Kameraet brukes til å skanne strekkoder og ta valgfrie produktbilder. Produktbilder lagres lokalt på enheten.";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Spor Mat leser skritt, vekt og treningsøkter du velger å dele fra Apple Helse for å vise dem i Utvikling. Dataene lastes ikke opp.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Spor Mat bruker Apple Helse til å vise skritt, vekt og treningsøkter i Utvikling. Appen skriver ingen data til Helse.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "Hvis du slår på deling, skriver Spor Mat kalorier, makroer og vekt du registrerer til Apple Helse. Du velger selv hvilke data som deles.";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Brukes under utvikling for å koble til Spor Mat-backend på lokalnettet.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Spor Mat trenger tilgang til å legge til bilder når du velger å lagre et måltidskort i Bilder.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

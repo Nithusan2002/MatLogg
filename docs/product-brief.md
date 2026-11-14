@@ -117,7 +117,7 @@ Følgende skal ikke innføres uten en ny produktbeslutning:
 - sosial feed, venner, konkurranser eller gamification utover den diskrete loggerekkefunksjonen på Hjem
 - medisinske anbefalinger eller automatiske behandlingsråd
 - automatisk utfylling av manglende næringsverdier
-- skrivetilgang til Apple Helse, treningsklokker eller helseintegrasjoner utover valgfri visning av skritt, vekt og treningsøkter
+- produksjonsaktivering av skrivetilgang til Apple Helse, treningsklokker eller andre helseintegrasjoner; lokal utvikling av frivillig Helse-eksport er godkjent separat
 - annonser, abonnement eller andre inntektsflater
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og
