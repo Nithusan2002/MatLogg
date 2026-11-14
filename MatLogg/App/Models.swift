@@ -518,6 +518,8 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
     let amountUnit: AmountUnit?
     let portionSelection: PortionSelection?
     let nutritionPreparation: NutritionPreparation?
+    /// Snapshot of the source used for these stored values; nil for legacy logs.
+    let nutritionSource: NutritionSource?
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp
     
@@ -539,6 +541,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         amountUnit: AmountUnit = .grams,
         portionSelection: PortionSelection? = nil,
         nutritionPreparation: NutritionPreparation? = nil,
+        nutritionSource: NutritionSource? = nil,
         loggedDate: Date,
         loggedTime: Date = Date(),
         calories: Float,
@@ -556,6 +559,7 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         self.amountUnit = amountUnit
         self.portionSelection = portionSelection
         self.nutritionPreparation = nutritionPreparation
+        self.nutritionSource = nutritionSource
         self.loggedDate = loggedDate
         self.loggedTime = loggedTime
         self.calories = calories
@@ -564,6 +568,16 @@ nonisolated struct FoodLog: Codable, Identifiable, Sendable {
         self.fatG = fatG
         self.createdAt = createdAt
         self.isSynced = isSynced
+    }
+
+    /// The diary day owns the sample date; loggedTime supplies the clock time.
+    /// Preserve the original instant when it already belongs to that day (including DST repeats).
+    func healthExportTimestamp(calendar: Calendar = .current) -> Date {
+        if calendar.isDate(loggedDate, inSameDayAs: loggedTime) { return loggedTime }
+        let time = calendar.dateComponents([.hour, .minute, .second], from: loggedTime)
+        return calendar.date(bySettingHour: time.hour ?? 0, minute: time.minute ?? 0,
+                             second: time.second ?? 0, of: loggedDate)
+            ?? calendar.startOfDay(for: loggedDate)
     }
 
     nonisolated var resolvedAmountUnit: AmountUnit { amountUnit ?? .grams }

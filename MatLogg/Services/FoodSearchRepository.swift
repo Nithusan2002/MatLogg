@@ -239,7 +239,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         let log = FoodLog(userId: owner, productId: candidate.id, mealType: mealType,
                           amountG: candidate.log.amountG, amountUnit: candidate.log.resolvedAmountUnit,
                           portionSelection: candidate.log.portionSelection,
-                          nutritionPreparation: candidate.product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
+                          nutritionPreparation: candidate.product.nutritionPreparation, nutritionSource: candidate.product.nutritionSource, loggedDate: Calendar.current.startOfDay(for: date), loggedTime: Date(),
                           calories: nutrition.calories, proteinG: nutrition.protein,
                           carbsG: nutrition.carbs, fatG: nutrition.fat)
         try await recentFoods.saveLog(log)

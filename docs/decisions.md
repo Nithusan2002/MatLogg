@@ -1078,3 +1078,14 @@ historikkeksport. Atomisk lokal outbox, stabile HealthKit-identiteter og
 revisjoner håndterer endring, sletting, angre og retry. Ny SQLite-versjon er 9;
 versjon 8 tilhører loggingutkast på main. Ingen serverkontrakt endres.
 Fysisk enhet, native tilgang og release-go/no-go gjenstår før produksjon.
+
+## 2026-11-14 – Kildesnapshot og dato i Helse-eksport (PR #7)
+
+FoodLog lagrer valgfri nutritionSource som snapshot av næringsgrunnlaget ved
+logging. Redigering, kopiering og angre bevarer snapshotet; ny logging med
+oppdaterte produktverdier tar produktets kilde. Eldre logger dekodes med nil,
+uten tilbakefylling fra dagens katalog. Feltet er lokal JSON-metadata og
+inngår ikke i LogSyncPayload; canonical synkkontrakt v1 og backend er uendret.
+Helse-eksport kombinerer valgt loggdag med loggedTime sitt klokkeslett. En
+allerede samsvarende tidsverdi beholdes, inkludert ved gjentatt time under
+sommertidsskifte. Datojusteringen endrer ikke lagrede historiske loggverdier.

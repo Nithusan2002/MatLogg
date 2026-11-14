@@ -2421,8 +2421,8 @@ extension LocalStore {
     private nonisolated func enqueueHealthLogLocked(_ log: FoodLog) throws {
         let values: [(HealthDataKind, Float)] = [(.energy, log.calories), (.protein, log.proteinG), (.carbohydrates, log.carbsG), (.fat, log.fatG)]
         for (kind, value) in values {
-            try enqueueHealthValueLocked(owner: log.userId, entity: log.id, kind: kind, value: Double(value), date: log.loggedTime,
-                                         source: nil, amount: log.amountG, unit: log.resolvedAmountUnit.rawValue)
+            try enqueueHealthValueLocked(owner: log.userId, entity: log.id, kind: kind, value: Double(value), date: log.healthExportTimestamp(),
+                                         source: log.nutritionSource, amount: log.amountG, unit: log.resolvedAmountUnit.rawValue)
         }
     }
 

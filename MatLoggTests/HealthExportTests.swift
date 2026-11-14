@@ -25,6 +25,87 @@ struct HealthExportTests {
         FoodLog(id: id, userId: owner, productId: UUID(), mealType: "frokost", amountG: 75,
                 loggedDate: Date(), calories: calories, proteinG: 4.5, carbsG: 12.25, fatG: 3)
     }
+    @Test func pastDiaryDateControlsExportDayInsteadOfCreationDay() async throws {
+        try await withStore { store, _ in
+            let owner = UUID()
+            let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
+            let entry = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 100,
+                loggedDate: Calendar.current.startOfDay(for: yesterday), loggedTime: Date(),
+                calories: 100, proteinG: 10, carbsG: 5, fatG: 2)
+            try store.setHealthSettings(settings(), owner: owner)
+            try store.saveLogs([entry])
+            let records = try store.healthExports(owner: owner)
+            #expect(records.count == 4)
+            #expect(records.allSatisfy { $0.timestamp.map { Calendar.current.isDate($0, inSameDayAs: yesterday) } == true })
+        }
+    }
+    @Test func knownSourceSurvivesLocalJSONReopenRetryAndNativeConversion() async throws {
+        try await withStore { store, url in
+            let owner = UUID()
+            var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(log(owner: owner))) as? [String: Any])
+            json["nutritionSource"] = "matvaretabellen"
+            let entry = try JSONDecoder().decode(FoodLog.self, from: JSONSerialization.data(withJSONObject: json))
+            try store.setHealthSettings(settings(), owner: owner)
+            try store.saveLogs([entry])
+            let reopened = try LocalStore(databaseURL: url)
+            let record = try #require(reopened.healthExports(owner: owner).first)
+            #expect(record.nutritionSource == .matvaretabellen)
+            let sample = try AppleHealthKitClient.makeSample(record)
+            #expect(sample.metadata?["MatLoggNutritionSource"] as? String == "matvaretabellen")
+        }
+    }
+    @Test func legacySourceStaysUnknownAndDoesNotChangeSyncContract() async throws {
+        try await withStore { store, _ in
+            let owner = UUID(), original = log(owner: UUID())
+            var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
+            json.removeValue(forKey: "nutritionSource")
+            let legacy = try JSONDecoder().decode(FoodLog.self, from: JSONSerialization.data(withJSONObject: json))
+            #expect(legacy.nutritionSource == nil)
+            try store.setHealthSettings(settings(), owner: legacy.userId)
+            try store.saveLogs([legacy])
+            #expect(try store.healthExports(owner: legacy.userId).allSatisfy { $0.nutritionSource == nil })
+            let known = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 100,
+                nutritionSource: .user, loggedDate: Date(), calories: 100, proteinG: 1, carbsG: 2, fatG: 3)
+            try store.saveLogs([known])
+            let event = try #require(store.fetchPendingEvents(ownerUserId: owner, limit: 10).first)
+            let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])
+            #expect(payload["nutritionSource"] == nil && event.schemaVersion == 1)
+        }
+    }
+    @Test func exportDateHandlesDSTAndPreservesAnExistingInstant() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "Europe/Oslo"))
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 3, day: 29)))
+        let clock = try #require(calendar.date(from: DateComponents(year: 2026, month: 4, day: 2, hour: 2, minute: 30)))
+        let entry = FoodLog(userId: UUID(), productId: UUID(), mealType: "lunsj", amountG: 100,
+            loggedDate: day, loggedTime: clock, calories: 100, proteinG: 1, carbsG: 2, fatG: 3)
+        #expect(calendar.isDate(entry.healthExportTimestamp(calendar: calendar), inSameDayAs: day))
+        let actual = log(owner: UUID())
+        #expect(actual.healthExportTimestamp(calendar: calendar) == actual.loggedTime)
+    }
+    @Test func sourceSnapshotSurvivesCatalogChangeEditCopyDeleteAndUndo() async throws {
+        try await withStore { store, _ in
+            let owner = UUID(), id = UUID(), today = Date()
+            let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: today))
+            let product = Product(id: id, name: "Kildetest", caloriesPer100g: 100,
+                proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3, nutritionSource: .openFoodFacts)
+            try store.cacheCatalogProduct(product)
+            try store.setHealthSettings(settings(), owner: owner)
+            let model = LogViewModel(repository: DatabaseService(store: store))
+            #expect(await model.logFood(product: product, amountG: 100, mealType: "lunsj", userId: owner, date: today))
+            let original = try #require(store.getAllLogs(userId: owner).first)
+            try store.cacheCatalogProduct(Product(id: id, name: "Oppdatert katalog", caloriesPer100g: 900,
+                proteinGPer100g: 9, carbsGPer100g: 9, fatGPer100g: 9, nutritionSource: .user))
+            #expect(await model.updateLog(original, amountG: 50, mealType: "lunsj", userId: owner))
+            #expect(await model.copyLogs(from: today, to: yesterday, userId: owner))
+            let copy = try #require(store.getAllLogs(userId: owner).first { Calendar.current.isDate($0.loggedDate, inSameDayAs: yesterday) })
+            #expect(copy.nutritionSource == .openFoodFacts && copy.calories == 50)
+            #expect(await model.deleteWithUndo(copy, userId: owner))
+            #expect(await model.undoDeletion(userId: owner))
+            #expect(store.getAllLogs(userId: owner).allSatisfy { $0.nutritionSource == .openFoodFacts })
+            #expect(try store.healthExports(owner: owner).filter { !$0.isDeletion }.allSatisfy { $0.nutritionSource == .openFoodFacts })
+        }
+    }
     @Test func optInDoesNotExportHistoryOrOtherOwners() async throws {
         try await withStore { store, url in
             let owner = UUID()

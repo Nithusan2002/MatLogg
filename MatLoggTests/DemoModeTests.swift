@@ -100,22 +100,24 @@ struct DemoModeTests {
             #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
         }
         let weight = WeightEntry(userId: demoOwner, date: Date(), weightKg: 99)
+        let previousWeight = demo.getWeightEntries(userId: demoOwner).first { Calendar.current.isDate($0.date, inSameDayAs: weight.date) }
         try demo.saveWeightEntry(weight)
+        let savedWeightID = previousWeight?.id ?? weight.id
         let reopened = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [])
         #expect(reopened.getAllLogs(userId: demoOwner).count == initialCount)
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         await #expect(throws: (any Error).self) {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [], reset: true)
         }
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         await #expect(throws: (any Error).self) {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner,
                 products: catalog.filter { $0.externalID != "04.342" }, reset: true)
         }
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load(), reset: true)
         #expect(reset.getAllLogs(userId: demoOwner).count == initialCount)
-        #expect(!reset.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        #expect(!reset.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         #expect(normal.getWeightEntries(userId: owner).first?.weightKg == 81)
     }
 
