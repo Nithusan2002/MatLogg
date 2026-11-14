@@ -150,7 +150,7 @@ final class DefaultHealthIntegrationRepository: HealthIntegrationRepository {
             } catch HealthIntegrationError.staleContext { return }
             catch {
                 try await check(owner: owner, context: context, connection: connection)
-                messages[record.kind] = "Registreringen er lagret i MatLogg. Overføring til Helse venter. Kontroller tilgangen i Helse."
+                messages[record.kind] = "Lagret i Spor Mat. Overføring venter. Sjekk tilgangen i Helse."
             }
         }
     }

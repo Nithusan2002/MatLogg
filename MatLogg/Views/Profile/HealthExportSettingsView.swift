@@ -11,32 +11,36 @@ struct HealthExportSettingsView: View {
                     .accessibilityIdentifier("health-share-nutrition")
                 Toggle("Vekt registrert i Spor Mat", isOn: $model.choices.shareWeight)
                     .accessibilityIdentifier("health-share-weight")
-                Button("Lagre valg og be om tilgang") { Task { await model.connect() } }
+                Button("Lagre valg") { Task { await model.connect() } }
                     .disabled(!(model.choices.shareNutrition || model.choices.shareWeight))
                     .accessibilityIdentifier("health-connect")
             } footer: {
-                Text("Bare nye eller endrede registreringer deles. Tidligere historikk overføres ikke automatisk. Tilgang styres i Helse; disse valgene bekrefter ikke at tilgang er gitt. Data i Helse kan være tilgjengelig for andre apper du har gitt tilgang.")
+                Text("Nye og endrede registreringer deles. Eldre historikk deles ikke automatisk. Du styrer tilgang i Helse, også for andre apper som kan lese dataene.")
             }
             .disabled(model.isBusy || !model.isAvailable)
             .listRowBackground(AppColors.surface)
 
-            Section("Overføring") {
+            Section {
                 Text(model.exportStatus(kinds: HealthDataKind.allCases))
                 if model.settings.isConnected {
-                    Button("Prøv overføring nå") { Task { await model.refresh() } }
-                    Button("Stopp all deling", role: .destructive) { Task { await model.disconnect() } }
+                    Button("Prøv igjen") { Task { await model.refresh() } }
+                    Button("Stopp deling", role: .destructive) { Task { await model.disconnect() } }
                         .accessibilityIdentifier("health-disconnect")
-                    Text("Stopp beholder data som allerede er delt med Helse.")
-                        .font(AppTypography.caption)
                 }
                 if !model.records.isEmpty {
-                    Button("Slett denne profilens delte data fra Helse", role: .destructive) { confirmCleanup = true }
+                    Button("Slett delte data fra Helse", role: .destructive) { confirmCleanup = true }
                         .accessibilityIdentifier("health-delete-exports")
                 }
                 if model.isBusy { ProgressView("Oppdaterer Apple Helse …") }
                 if let error = model.errorMessage { Text(error).accessibilityIdentifier("health-error") }
                 if let message = model.completionMessage { Text(message) }
                 if !model.isAvailable { Text("Eksport er ikke tilgjengelig i denne økten eller på denne enheten.") }
+            }
+            header: { Text("Overføring") }
+            footer: {
+                if model.settings.isConnected {
+                    Text("Stopp deling beholder data som allerede ligger i Helse.")
+                }
             }
             .disabled(model.isBusy || !model.isAvailable)
             .listRowBackground(AppColors.surface)

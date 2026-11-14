@@ -65,7 +65,7 @@ final class HealthIntegrationViewModel: ObservableObject {
         guard let owner, !isBusy else { return }
         await perform(resetChoices: true) {
             try await self.repository.deleteExports(owner: owner)
-            self.completionMessage = "Data MatLogg har delt med Helse er slettet."
+            self.completionMessage = "Delte data er slettet fra Helse."
         }
     }
     private func perform(resetChoices: Bool = false, _ operation: () async throws -> Void) async {
@@ -93,7 +93,7 @@ final class HealthIntegrationViewModel: ObservableObject {
         let selected = records.filter { kinds.contains($0.kind) }
         if let message = kinds.compactMap({ messages[$0] }).first { return message }
         if selected.contains(where: { $0.pending }) { return "Overføring til Helse venter." }
-        guard let last = selected.compactMap(\.lastSuccess).max() else { return "Ingen registreringer overført ennå." }
+        guard let last = selected.compactMap(\.lastSuccess).max() else { return "Ingen overføringer ennå." }
         return "Sist overført: \(last.formatted(date: .abbreviated, time: .shortened))"
     }
 }

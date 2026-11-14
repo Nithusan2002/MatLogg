@@ -1066,3 +1066,29 @@ Ingen opplasting eller aktivering av produksjonssynk. Ingen arkitekturavvik.
 Native tillatelsesdialog, faktisk HealthKit-deduplisering, oppdatering/sletting,
 låst telefon, tilbaketrukket tilgang og VoiceOver krever fysisk QA før Release.
 Utviklingsversjonen aktiveres med `--enable-healthkit-export`.
+
+
+### Fysisk Apple Helse-QA – brukerrapport 2026-11-14
+
+Brukeren testet QA-appen på fysisk iPhone. Skjermbilder bekrefter native
+skrivetilgangsdialog og en energipost i Helse med Spor Mat som kilde og samme
+energiverdi som matloggen. Brukeren bekreftet deretter at redigering uten
+duplikat, sletting og angre fungerte for energiposten.
+
+Etter en samlet kontrolliste bekreftet brukeren også at makroverdier,
+registrering/redigering av manuell vekt uten duplikat, lokal logging ved
+avslått skrivetillatelse med mulighet for nytt forsøk, og stopp av nye
+overføringer ved stopp av deling fungerte. Dette er brukerbekreftet manuell
+QA; det foreligger ikke separate målelogger/skjermbilder for hvert av disse
+punktene, og eksakt enhetsmodell/iOS-versjon ble ikke registrert.
+
+Fysisk kontroll med låst telefon, VoiceOver og separat sletting av alle
+profilens delte data fra Helse er fortsatt ikke bekreftet. Release-arkiv og
+release-go/no-go gjenstår; Debug-gaten er beholdt. Ingen produksjonsutrulling.
+
+Etter fysisk QA er skjermteksten kortet ned, stoppforklaringen flyttet til
+seksjonsfotnoten og gamle MatLogg-referanser i eksportstatus rettet. Ingen
+logikkendring. `swiftc -frontend -parse` på de tre berørte Swift-filene og
+`git diff --check` bestod; automatiske runtime-tester ble ikke gjentatt for
+rene tekstendringer. Prosjektets design-/personvern-skills brukt; ingen
+endring av avhengighetsretning, local-first, transaksjoner eller eierskap.
