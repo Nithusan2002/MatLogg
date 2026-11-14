@@ -1,15 +1,27 @@
 import Foundation
 import Combine
 
+struct SelectedDayPresentation {
+    let summary: DailySummary?
+    let productNames: [UUID: String]
+    static let empty = SelectedDayPresentation(summary: nil, productNames: [:])
+}
+
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
-    @Published private(set) var isSummaryLoading = false
+    @Published private(set) var isSummaryLoading = true
+    @Published private(set) var selectedDay = SelectedDayPresentation.empty
     @Published private(set) var selectedSummary: DailySummary?
     @Published private(set) var yesterdaySummary: DailySummary?
     @Published private(set) var selectedProductNames: [UUID: String] = [:]
     @Published private(set) var errorMessage: String?
     @Published private(set) var mutationRevision = 0
+
+    /// Repositories used by other logging features have already committed the write.
+    func didPersistExternalLog() {
+        mutationRevision += 1
+    }
 
     @Published private(set) var deletionReceiptID: UUID?
     @Published private(set) var deletedLogCount = 0
@@ -40,6 +52,28 @@ final class LogViewModel: ObservableObject {
         return true
     }
 
+    /// A multi-selection is one receipt, independent of earlier single deletions.
+    @discardableResult
+    func deleteBatchWithUndo(_ logs: [FoodLog], userId: UUID) async -> Bool {
+        guard !isDeletingOrRestoring, !logs.isEmpty else { return false }
+        guard logs.allSatisfy({ $0.userId == userId }), Set(logs.map(\.id)).count == logs.count else {
+            errorMessage = "Kunne ikke slette registreringene: Ugyldig utvalg."
+            return false
+        }
+        let contextRevision = deletionContextRevision
+        isDeletingOrRestoring = true
+        defer { isDeletingOrRestoring = false }
+        let success = await persist(errorPrefix: "Kunne ikke slette registreringene") {
+            try await repository.deleteLogs(logs.map(\.id))
+        }
+        guard success else { return false }
+        guard contextRevision == deletionContextRevision else { return true }
+        deletedLogs = logs
+        deletedLogCount = logs.count
+        deletionReceiptID = UUID()
+        return true
+    }
+
     @discardableResult
     func undoDeletion(userId: UUID) async -> Bool {
         guard !isDeletingOrRestoring, !deletedLogs.isEmpty else { return false }
@@ -52,10 +86,10 @@ final class LogViewModel: ObservableObject {
         // Fresh IDs prevent a delayed delete retry from deleting restored entries.
         let restored = deletedLogs.map { log in
             FoodLog(userId: log.userId, productId: log.productId, mealType: log.mealType,
-                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit,
-                    loggedDate: log.loggedDate, loggedTime: log.loggedTime,
+                    amountG: log.amountG, amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
+                    nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate, loggedTime: log.loggedTime,
                     calories: log.calories, proteinG: log.proteinG,
-                    carbsG: log.carbsG, fatG: log.fatG, nutritionSource: log.nutritionSource, createdAt: log.createdAt)
+                    carbsG: log.carbsG, fatG: log.fatG, createdAt: log.createdAt)
         }
         let success = await persist(errorPrefix: "Kunne ikke angre sletting") {
             try await repository.saveLogs(restored)
@@ -70,31 +104,60 @@ final class LogViewModel: ObservableObject {
 
     private let repository: any FoodLogRepository
     private var activeSummaryRequestID = UUID()
+    private var summaryUserID: UUID?
+    private var summaryDate: Date?
+
+    func resetSelectedSummary() {
+        activeSummaryRequestID = UUID()
+        summaryUserID = nil
+        summaryDate = nil
+        selectedDay = .empty
+        selectedSummary = nil
+        yesterdaySummary = nil
+        selectedProductNames = [:]
+        mealProductBrands = [:]
+        mealProductImageURLs = [:]
+        mealProductImageData = [:]
+        mealProductFoodGroups = [:]
+        isSummaryLoading = true
+    }
 
     init(repository: any FoodLogRepository) {
         self.repository = repository
     }
 
+    private var todayRequestID = UUID()
+
     func loadTodaysSummary(userId: UUID) async {
-        todaysSummary = await repository.getTodaysSummary(userId: userId)
+        let requestID = UUID()
+        todayRequestID = requestID
+        let summary = await repository.getTodaysSummary(userId: userId)
+        guard todayRequestID == requestID, !Task.isCancelled else { return }
+        todaysSummary = summary
     }
 
     func fetchSummary(userId: UUID, date: Date) async -> DailySummary {
         await repository.getSummary(userId: userId, date: date)
     }
 
+    @Published private(set) var mealProductBrands: [UUID: String] = [:]
     @Published private(set) var mealProductImageURLs: [UUID: URL] = [:]
     @Published private(set) var mealProductImageData: [UUID: Data] = [:]
+    @Published private(set) var mealProductFoodGroups: [UUID: FoodGroup] = [:]
     private var imageProductsRequestID = UUID()
 
     func loadMealProductImages(for logs: [FoodLog]) async {
         let requestID = UUID()
         imageProductsRequestID = requestID
+        mealProductBrands = [:]
         mealProductImageURLs = [:]
         mealProductImageData = [:]
+        mealProductFoodGroups = [:]
         let products = await repository.getProducts(Set(logs.map(\.productId)))
         guard imageProductsRequestID == requestID else { return }
+        mealProductBrands = products.compactMapValues(\.brand)
         mealProductImageData = products.compactMapValues(\.localImageData)
+        mealProductFoodGroups = products.mapValues(\.foodGroup)
         mealProductImageURLs = products.compactMapValues { product in
             product.imageUrl.flatMap(URL.init(string:))
         }
@@ -106,6 +169,10 @@ final class LogViewModel: ObservableObject {
     }
 
     func loadSelectedSummary(userId: UUID?, date: Date, calendar: Calendar = .current) async {
+        let day = calendar.startOfDay(for: date)
+        if summaryUserID != userId || summaryDate != day { resetSelectedSummary() }
+        summaryUserID = userId
+        summaryDate = day
         let requestID = UUID()
         activeSummaryRequestID = requestID
         isSummaryLoading = true
@@ -114,11 +181,14 @@ final class LogViewModel: ObservableObject {
         }
 
         guard let userId else {
+            selectedDay = .empty
             selectedSummary = nil
             yesterdaySummary = nil
             selectedProductNames = [:]
+            mealProductBrands = [:]
             mealProductImageURLs = [:]
             mealProductImageData = [:]
+            mealProductFoodGroups = [:]
             return
         }
 
@@ -132,12 +202,15 @@ final class LogViewModel: ObservableObject {
             yesterday = nil
         }
 
-        guard activeSummaryRequestID == requestID else { return }
+        guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
         selectedSummary = selected
         yesterdaySummary = yesterday
         selectedProductNames = products.mapValues(\.name)
+        mealProductBrands = products.compactMapValues(\.brand)
         mealProductImageData = products.compactMapValues(\.localImageData)
+        mealProductFoodGroups = products.mapValues(\.foodGroup)
         mealProductImageURLs = products.compactMapValues { $0.imageUrl.flatMap(URL.init(string:)) }
+        selectedDay = SelectedDayPresentation(summary: selected, productNames: selectedProductNames)
     }
 
     func logs(for mealType: String?) -> [FoodLog] {
@@ -156,8 +229,15 @@ final class LogViewModel: ObservableObject {
         amountG: Float,
         mealType: String,
         userId: UUID,
-        date: Date = Date()
+        date: Date = Date(),
+        portionSelection: PortionSelection? = nil
     ) async -> Bool {
+        let timing = PerformanceSignposts.begin("Log.Food")
+        defer { PerformanceSignposts.end(timing) }
+        guard portionSelection == nil || portionSelection?.matches(amount: Double(amountG), unit: product.amountUnit) == true else {
+            errorMessage = "Porsjonen samsvarer ikke med mengden."
+            return false
+        }
         guard let nutrition = NutritionCalculator.validatedCalculation(
             per100: NutritionBreakdown(
                 calories: product.caloriesPer100g,
@@ -176,13 +256,13 @@ final class LogViewModel: ObservableObject {
             mealType: mealType,
             amountG: amountG,
             amountUnit: product.amountUnit,
-            loggedDate: Calendar.current.startOfDay(for: date),
+            portionSelection: portionSelection,
+            nutritionPreparation: product.nutritionPreparation, loggedDate: Calendar.current.startOfDay(for: date),
             loggedTime: date,
             calories: nutrition.calories,
             proteinG: nutrition.protein,
             carbsG: nutrition.carbs,
-            fatG: nutrition.fat,
-            nutritionSource: product.nutritionSource
+            fatG: nutrition.fat
         )
 
         return await persist(errorPrefix: "Kunne ikke lagre logging") {
@@ -207,13 +287,15 @@ final class LogViewModel: ObservableObject {
         mealType: String,
         amountG: Float,
         userId: UUID,
-        date: Date = Date()
+        date: Date = Date(),
+        logID: UUID? = nil
     ) async -> Bool {
         let logs = await repository.getAllLogs(userId: userId)
         let day = Calendar.current.startOfDay(for: date)
         let latest = logs
             .filter {
-                $0.productId == productId &&
+                (logID == nil || $0.id == logID) &&
+                $0.userId == userId && $0.productId == productId &&
                 $0.mealType == mealType &&
                 $0.amountG == amountG &&
                 Calendar.current.isDate($0.loggedDate, inSameDayAs: day)
@@ -227,9 +309,14 @@ final class LogViewModel: ObservableObject {
     }
 
     @discardableResult
-    func updateLog(_ log: FoodLog, amountG: Float, mealType: String, userId: UUID) async -> Bool {
+    func updateLog(_ log: FoodLog, amountG: Float, mealType: String, userId: UUID, portionSelection: PortionSelection? = nil, clearPortion: Bool = false) async -> Bool {
         guard log.userId == userId else {
             errorMessage = "Kunne ikke oppdatere logging: Loggen tilhører en annen bruker"
+            return false
+        }
+        let portion = clearPortion ? nil : (portionSelection ?? log.portionSelection?.scaled(to: amountG))
+        guard portion == nil || portion?.matches(amount: Double(amountG), unit: log.resolvedAmountUnit) == true else {
+            errorMessage = "Porsjonen samsvarer ikke med mengden."
             return false
         }
         guard let nutrition = NutritionCalculator.scaledSnapshot(
@@ -249,14 +336,13 @@ final class LogViewModel: ObservableObject {
             productId: log.productId,
             mealType: mealType,
             amountG: amountG,
-            amountUnit: log.resolvedAmountUnit,
-            loggedDate: log.loggedDate,
+            amountUnit: log.resolvedAmountUnit, portionSelection: portion,
+            nutritionPreparation: log.nutritionPreparation, loggedDate: log.loggedDate,
             loggedTime: log.loggedTime,
             calories: nutrition.calories,
             proteinG: nutrition.protein,
             carbsG: nutrition.carbs,
             fatG: nutrition.fat,
-            nutritionSource: log.nutritionSource,
             createdAt: log.createdAt,
             isSynced: log.isSynced
         )
@@ -269,11 +355,7 @@ final class LogViewModel: ObservableObject {
     @discardableResult
     func copyLogs(from sourceDate: Date, to targetDate: Date, userId: UUID) async -> Bool {
         let sourceSummary = await repository.getSummary(userId: userId, date: sourceDate)
-        let calendar = Calendar.current
-        let targetDay = calendar.startOfDay(for: targetDate)
-        let clock = calendar.dateComponents([.hour, .minute, .second], from: Date())
-        let timestamp = calendar.date(bySettingHour: clock.hour ?? 0, minute: clock.minute ?? 0,
-                                      second: clock.second ?? 0, of: targetDay) ?? targetDay
+        let targetDay = Calendar.current.startOfDay(for: targetDate)
 
         return await persist(errorPrefix: "Kunne ikke kopiere logging") {
             for log in sourceSummary.logs {
@@ -282,14 +364,13 @@ final class LogViewModel: ObservableObject {
                     productId: log.productId,
                     mealType: log.mealType,
                     amountG: log.amountG,
-                    amountUnit: log.resolvedAmountUnit,
-                    loggedDate: targetDay,
-                    loggedTime: timestamp,
+                    amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
+                    nutritionPreparation: log.nutritionPreparation, loggedDate: targetDay,
+                    loggedTime: Date(),
                     calories: log.calories,
                     proteinG: log.proteinG,
                     carbsG: log.carbsG,
-                    fatG: log.fatG,
-                    nutritionSource: log.nutritionSource
+                    fatG: log.fatG
                 )
                 try await repository.saveLog(copy)
             }
@@ -300,19 +381,21 @@ final class LogViewModel: ObservableObject {
         errorPrefix: String,
         operation: () async throws -> Void
     ) async -> Bool {
+        let timing = PerformanceSignposts.begin("Log.Persist")
+        defer { PerformanceSignposts.end(timing) }
         errorMessage = nil
         do {
             try await operation()
             mutationRevision += 1
             return true
         } catch {
-            errorMessage = "\(errorPrefix): \(error.localizedDescription)"
+            errorMessage = "\(errorPrefix). Prøv igjen."
             return false
         }
     }
 }
 
-private extension DailySummary {
+extension DailySummary {
     static func empty(for date: Date) -> DailySummary {
         DailySummary(
             date: date,

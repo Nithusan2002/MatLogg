@@ -88,5 +88,13 @@ final class ProfileUITests: XCTestCase {
         privacy.tap()
         XCTAssertTrue(app.navigationBars["Personvern og valg"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.navigationBars.buttons["Innstillinger"].exists)
+        XCTAssertFalse(app.switches["Del anonym bruksstatistikk"].exists)
+        XCTAssertFalse(app.switches["Del anonyme krasjrapporter"].exists)
+        let status = app.descendants(matching: .any)["privacy-telemetry-status"]
+        for _ in 0..<8 {
+            if status.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(status.exists)
     }
 }

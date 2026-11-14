@@ -9,22 +9,28 @@ struct ProductDetailView: View {
     var body: some View {
         ProductDetailContent(product: product, appState: appState,
                              repository: productViewModel.barcodeRepository,
+                             favorites: productViewModel.favoriteRepository,
+                             metadataRepository: productViewModel.metadataRepository,
                              onLogComplete: onLogComplete)
             .id(product.id)
     }
 }
 
 private struct ProductDetailContent: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showNutriScoreInfo = false
+    @State private var showProcessingInfo = false
     @StateObject private var detailModel: ProductDetailViewModel
     private var product: Product { detailModel.product }
 
     init(product: Product, appState: AppState, repository: any BarcodeLookupRepository,
+         favorites: any ProductFavoriteRepository, metadataRepository: any ProductRepository,
          onLogComplete: ((ReceiptPayload) -> Void)?) {
         self.appState = appState
         self.onLogComplete = onLogComplete
-        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository))
+        _detailModel = StateObject(wrappedValue: ProductDetailViewModel(product: product, repository: repository, favorites: favorites, metadataRepository: metadataRepository))
     }
-    
+
     @ObservedObject var appState: AppState
     @EnvironmentObject var logViewModel: LogViewModel
     @EnvironmentObject var productViewModel: ProductViewModel
@@ -32,28 +38,24 @@ private struct ProductDetailContent: View {
     @EnvironmentObject var preferencesViewModel: PreferencesViewModel
     let onLogComplete: ((ReceiptPayload) -> Void)?
     @Environment(\.dismiss) var dismiss
-    
-    @State private var amountText: String = "100"
-    @State private var isFavorite = false
+
+    private var amountModel: AmountSelectionViewModel { detailModel.amountModel }
+    private var isFavorite: Bool { detailModel.isFavorite }
     @State private var selectedMealType = "lunsj"
     @State private var showImagePreview = false
-    @State private var showSourceInfo = false
     @State private var showNutritionImproving = true
     @State private var showPer100g = false
-    @State private var isLogging = false
-    @State private var logError: String?
-    
-    let mealTypes = ["Frokost", "Lunsj", "Middag", "Snacks"]
-    let mealTypeKeys = ["frokost", "lunsj", "middag", "snacks"]
-    
-    var body: some View {
-        let amount = parsedAmount ?? 0
-        let nutrition = product.calculateNutrition(forAmount: Float(amount))
-        let servings = compatibleServings
+    @State private var showSourceDetails = false
+    @State private var showManualValues = false
+    private var isLogging: Bool { detailModel.isLogging }
+    private var logError: String? { detailModel.logError }
+    @State private var hasConfiguredAmount = false
 
+
+    var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Header
                 HStack {
@@ -63,22 +65,12 @@ private struct ProductDetailContent: View {
                             Text("Tilbake")
                         }
                         .font(AppTypography.body)
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                     }
+                    .accessibilityIdentifier("product-detail-close")
                     Spacer()
-                    
-                    if preferencesViewModel.showNutritionSource
-                        || product.nutritionSource == .openFoodFacts
-                        || product.imageSource == .openFoodFacts {
-                        Button(action: { showSourceInfo = true }) {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 18))
-                                .foregroundColor(AppColors.textSecondary)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
-                    
+
                     Button(action: toggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 18))
@@ -86,9 +78,10 @@ private struct ProductDetailContent: View {
                             .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
+                    .disabled(detailModel.isChangingFavorite)
                 }
                 .padding()
-                
+
                 ScrollView {
                     VStack(spacing: 12) {
                         // Product Hero
@@ -99,201 +92,249 @@ private struct ProductDetailContent: View {
                                 }
                             }
                             .padding(.horizontal)
-                        
+
                         Text(product.name)
                             .font(AppTypography.title)
                             .foregroundColor(AppColors.ink)
                             .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.8)
                             .padding(.horizontal, 24)
-
-                        if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
-                           let sourceURL = URL(string: "https://world.openfoodfacts.org") {
-                            Link(destination: sourceURL) {
-                                Label("Data fra Open Food Facts", systemImage: "link")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.action)
-                            }
-                            .accessibilityHint("Åpner kilden i nettleseren")
-                        }
-                        
-                        if detailModel.canRefresh {
-                            if let fetchedAt = product.fetchedAt {
-                                Text("Sist hentet: \(fetchedAt.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                            Button {
-                                Task { await detailModel.refresh(manually: true) }
-                            } label: {
-                                Label(detailModel.isRefreshing ? "Henter produktdata …" : "Hent oppdaterte produktdata",
-                                      systemImage: "arrow.clockwise")
-                                    .font(AppTypography.body)
-                                    .frame(minHeight: 44)
-                            }
-                            .foregroundColor(AppColors.action)
-                            .disabled(detailModel.isRefreshing || isLogging)
-                            if let message = detailModel.refreshMessage {
-                                Text(message)
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                                    .accessibilityIdentifier("productRefreshMessage")
-                            }
+                        if let brand = product.brand, !brand.isEmpty {
+                            Text(brand)
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
 
-                        if showNutritionImproving, product.nutritionSource == .openFoodFacts, product.verificationStatus == .unverified {
-                            EmptyView()
+
+                        if product.source == "user" {
+                            CardContainer {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    FoodGroupPicker(selection: Binding(
+                                        get: { product.selectedFoodGroup.flatMap(FoodGroup.init(rawValue:)) },
+                                        set: { group in
+                                            Task { await detailModel.updateFoodGroup(group, owner: authViewModel.currentUser?.id) }
+                                        }
+                                    ))
+                                    .disabled(detailModel.isSavingFoodGroup || isLogging)
+                                    if let error = detailModel.foodGroupError {
+                                        ErrorMessageView(error)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
                         }
-                        
-                        // Per documented 100-unit basis (collapsible)
+
+                        ProductLoggingSection(amountModel: amountModel, product: product, isLogging: isLogging,
+                            selectedMealType: $selectedMealType, logDateLabel: logDateLabel,
+                            nutritionForAmount: detailModel.nutrition)
+                            .padding(.horizontal)
+
+                        if product.nutritionPreparation == .prepared {
+                            Button("Registrer verdier fra pakken") { showManualValues = true }
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.actionText)
+                                .frame(minHeight: 44)
+                                .disabled(isLogging)
+                                .accessibilityIdentifier("prepared-register-manual-values")
+                        }
+
                         CardContainer {
-                            DisclosureGroup(isExpanded: $showPer100g) {
-                                VStack(spacing: 8) {
-                                    NutritionRowView(
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Produktinformasjon")
+                                .font(AppTypography.sectionTitle)
+                                .foregroundColor(AppColors.ink)
+                                DisclosureGroup(isExpanded: $showPer100g) {
+                                    VStack(spacing: 8) {
+                                        NutritionRowView(
                                         label: "Energi",
                                         value: "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal"
-                                    )
-                                    NutritionRowView(
-                                        label: "Protein",
-                                        value: "\(String(format: "%.1f", product.proteinGPer100g)) g"
-                                    )
-                                    NutritionRowView(
-                                        label: "Karbohydrat",
-                                        value: "\(String(format: "%.1f", product.carbsGPer100g)) g"
-                                    )
-                                    NutritionRowView(
-                                        label: "Fett",
-                                        value: "\(String(format: "%.1f", product.fatGPer100g)) g"
-                                    )
-                                }
-                                .padding(.top, 8)
-                            } label: {
-                                Text("Vis per 100 \(product.amountUnit.rawValue)")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .foregroundColor(AppColors.ink)
-                            }
-                        }
-                        .padding(.horizontal)
-                        
-                        Divider()
-                            .padding(.horizontal)
-                        
-                        CardContainer {
-                            VStack(spacing: 12) {
-                                Text("Måltid")
-                                    .font(AppTypography.bodyEmphasis)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .foregroundColor(AppColors.ink)
-
-                                Label(logDateLabel, systemImage: "calendar")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                LazyVGrid(columns: mealColumns, spacing: 8) {
-                                    ForEach(0..<mealTypes.count, id: \.self) { index in
-                                        MealChip(
-                                            title: mealTypes[index],
-                                            isSelected: selectedMealType == mealTypeKeys[index],
-                                            action: { selectedMealType = mealTypeKeys[index] }
                                         )
-                                        .frame(maxWidth: .infinity)
+                                        NutritionRowView(
+                                        label: "Protein",
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.proteinGPer100g)) g"
+                                        )
+                                        NutritionRowView(
+                                        label: "Karbohydrat",
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.carbsGPer100g)) g"
+                                        )
+                                        NutritionRowView(
+                                        label: "Fett",
+                                        value: "\(String(format: "%.1f", locale: Locale(identifier: "nb_NO"), product.fatGPer100g)) g"
+                                        )
                                     }
+                                    .padding(.top, 8)
+                                } label: {
+                                    Text("Næringsinnhold per 100 \(product.amountUnit.rawValue)\(product.nutritionPreparation == .prepared ? " tilberedt mat" : "")")
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundColor(AppColors.ink)
+                                    .frame(minHeight: 44, alignment: .leading)
                                 }
-                            }
-                        }
-                        .padding(.horizontal)
-                        
-                        Divider()
-                            .padding(.horizontal)
-                        
-                        // Amount Input Section
-                        CardContainer {
-                            VStack(spacing: 12) {
-                                AmountInputRow(
-                                    gramsText: amountTextBinding,
-                                    unit: product.amountUnit.rawValue,
-                                    placeholder: "0"
-                                )
-                                
-                                if !servings.isEmpty {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack(spacing: 8) {
-                                            ForEach(servings) { option in
-                                                Button(action: {
-                                                    setAmount(option.grams)
-                                                }) {
-                                                    Text(option.label)
-                                                        .font(AppTypography.body)
-                                                        .foregroundColor(AppColors.ink)
-                                                        .lineLimit(1)
-                                                        .padding(.horizontal, 12)
-                                                        .padding(.vertical, 8)
-                                                        .background(AppColors.surface)
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 16)
-                                                                .stroke(AppColors.controlBorder, lineWidth: 1)
-                                                        )
-                                                        .cornerRadius(16)
+                                if preferencesViewModel.showNutritionSource || product.nutritionSource == .openFoodFacts {
+                                    Text("Kilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                        .font(AppTypography.caption)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                if detailModel.processingInfo != nil {
+                                    Divider()
+                                    Button { showNutriScoreInfo = true } label: {
+                                        let layout = dynamicTypeSize.isAccessibilitySize
+                                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                                            : AnyLayout(HStackLayout(spacing: 12))
+                                        layout {
+                                            Text("Nutri-Score").font(AppTypography.bodyEmphasis)
+                                            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
+                                            HStack(spacing: 12) {
+                                                if let info = detailModel.nutriScoreInfo {
+                                                    NutriScoreLogo(info: info, width: dynamicTypeSize.isAccessibilitySize ? 88 : 80)
+                                                } else {
+                                                    Text("Ikke tilgjengelig").font(AppTypography.secondary)
+                                                        .foregroundColor(AppColors.textSecondary)
                                                 }
+                                                Image(systemName: "chevron.right")
+                                                .foregroundColor(AppColors.textSecondary)
                                             }
                                         }
-                                        .padding(.vertical, 2)
+                                        .foregroundColor(AppColors.ink)
+                                        .frame(maxWidth: .infinity, minHeight: 56)
+                                        .contentShape(Rectangle())
                                     }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("productNutriScoreInfo")
+                                    .accessibilityHint("Åpner forklaring og kilde")
+                                    Divider()
+                                    Button { showProcessingInfo = true } label: {
+                                        HStack(spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text("Bearbeidingsgrad")
+                                                    .font(AppTypography.bodyEmphasis)
+                                                if let presentation = detailModel.processingPresentation,
+                                                   let isUltraProcessed = presentation.isUltraProcessed,
+                                                   let info = detailModel.processingInfo {
+                                                    Text(info.groupTitle)
+                                                        .font(AppTypography.secondaryEmphasis)
+                                                        .foregroundColor(AppColors.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(
+                                                            isUltraProcessed
+                                                                ? AppColors.processingUltraSurface
+                                                                : AppColors.processingNonUltraSurface,
+                                                            in: RoundedRectangle(cornerRadius: 12)
+                                                        )
+                                                } else {
+                                                    Text("Ikke tilgjengelig")
+                                                        .font(AppTypography.secondaryEmphasis)
+                                                        .foregroundColor(AppColors.ink)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                        .padding(.horizontal, 12)
+                                                        .padding(.vertical, 8)
+                                                        .background(
+                                                            AppColors.processingUnknownSurface,
+                                                            in: RoundedRectangle(cornerRadius: 12)
+                                                        )
+                                                }
+                                                Text("Kilde: Open Food Facts")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.textSecondary)
+                                            }
+                                            Spacer(minLength: 8)
+                                            Image(systemName: "chevron.right")
+                                            .foregroundColor(AppColors.textSecondary)
+                                        }
+                                        .foregroundColor(AppColors.ink)
+                                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("productProcessingInfo")
+                                    .accessibilityHint("Åpner forklaring, ingredienser og kilde")
                                 }
-                                
-                                Text("Din mengde")
-                                    .font(AppTypography.caption)
-                                    .foregroundColor(AppColors.textSecondary)
+                                Divider()
+                                DisclosureGroup(isExpanded: $showSourceDetails) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts,
+                                           let sourceURL = detailModel.processingSourceURL ?? URL(string: "https://world.openfoodfacts.org") {
+                                            Link(destination: sourceURL) {
+                                                Label("Data fra Open Food Facts", systemImage: "link")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.actionText)
+                                                    .frame(minHeight: 44, alignment: .leading)
+                                            }
+                                            .accessibilityHint("Åpner kilden i nettleseren")
+                                        }
+
+                                        Group {
+                                            Text("Næringskilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                                .font(AppTypography.caption)
+                                                .foregroundStyle(AppColors.textSecondary)
+                                            if product.imageSource != .none,
+                                               !(product.imageSource == .openFoodFacts && product.nutritionSource == .openFoodFacts),
+                                               !(product.imageSource == .user && product.nutritionSource == .user) {
+                                                Text("Bildekilde: \(product.imageSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundStyle(AppColors.textSecondary)
+                                            }
+                                            if let updatedAt = product.sourceUpdatedAt {
+                                                Text("Oppdatert hos kilden: \(updatedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundStyle(AppColors.textSecondary)
+                                            }
+                                        }
+
+                                        if detailModel.canRefresh {
+                                            if let fetchedAt = product.fetchedAt {
+                                                Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.textSecondary)
+                                            }
+                                            Button {
+                                                Task { await detailModel.refresh(manually: true) }
+                                            } label: {
+                                                Label(detailModel.isRefreshing ? "Henter produktdata …" : "Oppdater",
+                                                      systemImage: "arrow.clockwise")
+                                                    .font(AppTypography.secondaryEmphasis)
+                                                    .frame(minWidth: 44, minHeight: 44)
+                                            }
+                                            .foregroundColor(AppColors.actionText)
+                                            .accessibilityLabel(detailModel.isRefreshing ? "Henter produktdata" : "Hent oppdaterte produktdata")
+                                            .disabled(detailModel.isRefreshing || isLogging)
+                                            if let message = detailModel.refreshMessage {
+                                                Text(message)
+                                                    .font(AppTypography.caption)
+                                                    .foregroundColor(AppColors.textSecondary)
+                                                    .multilineTextAlignment(.leading)
+                                                    .accessibilityIdentifier("productRefreshMessage")
+                                            }
+                                        }
+                                    }
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                LazyVGrid(columns: summaryColumns, spacing: 8) {
-                                    SummaryPill(
-                                        label: "Energi",
-                                        value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
-                                        tintColor: AppColors.brand
-                                    )
-                                    SummaryPill(
-                                        label: "Proteiner",
-                                        value: String(format: "%.1f g", nutrition.protein),
-                                        tintColor: AppColors.macroProteinTint
-                                    )
-                                    SummaryPill(
-                                        label: "Karbohydrater",
-                                        value: String(format: "%.1f g", nutrition.carbs),
-                                        tintColor: AppColors.macroCarbTint
-                                    )
-                                    SummaryPill(
-                                        label: "Fett",
-                                        value: String(format: "%.1f g", nutrition.fat),
-                                        tintColor: AppColors.macroFatTint
-                                    )
+                                    .padding(.top, 8)
+                                } label: {
+                                    Text("Kilde og oppdatering")
+                                        .font(AppTypography.bodyEmphasis)
+                                        .foregroundStyle(AppColors.ink)
+                                        .frame(minHeight: 44)
                                 }
-                                
-                                if amount <= 0.0001 {
-                                    Text("Skriv inn mengde i \(product.amountUnit.spokenName)")
+                                .accessibilityIdentifier("product-source-details")
+                                if !showSourceDetails, let message = detailModel.refreshMessage {
+                                    Text(message)
                                         .font(AppTypography.caption)
-                                        .foregroundColor(AppColors.textSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                        .accessibilityIdentifier("productRefreshMessage")
                                 }
-                                
-                                
                             }
                         }
                         .padding(.horizontal)
-                        
-                        Divider()
-                            .padding(.horizontal)
-                        
+
                     }
                     .padding(.vertical)
                     .padding(.bottom, 24)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                
+                .accessibilityIdentifier("product-detail-scroll")
+
                 // Add Button
                 if let logError {
                     HStack(alignment: .top, spacing: 8) {
@@ -305,40 +346,44 @@ private struct ProductDetailContent: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .font(AppTypography.caption)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .padding(.horizontal)
                     .accessibilityElement(children: .combine)
                 }
 
-                PrimaryButton(
-                    title: isLogging ? "Lagrer …" : "Legg til \(selectedMealType)",
-                    systemImage: "plus.circle.fill",
-                    action: logProduct
-                )
-                .padding()
-                .disabled(amount <= 0.0001 || isLogging)
-                .opacity(amount > 0.0001 && !isLogging ? 1.0 : 0.5)
+                ProductLogButton(amountModel: amountModel, selectedMealType: selectedMealType,
+                    unit: product.amountUnit, isLogging: isLogging, onLog: logProduct)
+
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Ferdig") { hideKeyboard() }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
             }
         }
         .task { await detailModel.refresh(manually: false) }
+        .onChange(of: detailModel.product.selectedFoodGroup) { _, _ in
+            productViewModel.metadataDidChange()
+        }
+        .task(id: authViewModel.currentUser?.id) {
+            await detailModel.loadFavorite(owner: authViewModel.currentUser?.id)
+        }
+        .onChange(of: detailModel.product.servings) { _, servings in
+            amountModel.updateServings(servings ?? [])
+        }
         .onAppear {
-            if let userId = authViewModel.currentUser?.id {
-                isFavorite = productViewModel.isFavorite(product, userId: userId)
-            }
-            if let userId = authViewModel.currentUser?.id,
+            guard !hasConfiguredAmount else { return }
+            hasConfiguredAmount = true
+            if product.nutritionPreparation != .prepared,
+               let userId = authViewModel.currentUser?.id,
                let lastUsed = preferencesViewModel.lastUsedAmount(for: product.id, userId: userId) {
-                setAmount(lastUsed)
-            } else if let suggested = compatibleServings.first(where: \.isDefaultSuggestion) {
-                setAmount(suggested.grams)
+                amountModel.restore(amount: lastUsed, portion: preferencesViewModel.lastUsedPortion(for: product.id, userId: userId))
+            } else if let suggested = amountModel.servings.first(where: \.isDefaultSuggestion) {
+                amountModel.select(suggested)
             } else {
-                setAmount(100)
+                amountModel.restore(amount: 100, portion: nil)
             }
             selectedMealType = appState.selectedMealType
             showNutritionImproving = true
@@ -346,72 +391,54 @@ private struct ProductDetailContent: View {
                 showNutritionImproving = false
             }
         }
+        .fullScreenCover(isPresented: $showManualValues) {
+            RecoverableManualLoggingView(barcode: product.barcodeEan) { receipt in
+                showManualValues = false
+                onLogComplete?(receipt)
+                dismiss()
+            }
+        }
         .sheet(isPresented: $showImagePreview) {
             ImagePreviewView(imageUrl: product.imageUrl, localData: product.localImageData)
         }
-        .sheet(isPresented: $showSourceInfo) {
-            ProductSourceInfoView(product: product)
+        .sheet(isPresented: $showNutriScoreInfo) {
+            ProductNutriScoreSheet(productName: product.name, info: detailModel.nutriScoreInfo,
+                                  sourceURL: detailModel.processingSourceURL, fetchedAt: product.fetchedAt,
+                                  excludedProteinValue: detailModel.excludedProteinValue)
+        }
+        .sheet(isPresented: $showProcessingInfo) {
+            if let info = detailModel.processingInfo, let presentation = detailModel.processingPresentation {
+                ProductProcessingInfoSheet(productName: product.name, info: info,
+                                           sourceURL: detailModel.processingSourceURL,
+                                           presentation: presentation, fetchedAt: product.fetchedAt)
+            }
         }
     }
 
-    private let amountRange: ClosedRange<Double> = 0...5000
-    private let summaryColumns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
-    ]
-    private let mealColumns = [
-        GridItem(.flexible(), spacing: 8),
-        GridItem(.flexible(), spacing: 8)
-    ]
-
-    private var compatibleServings: [ServingOption] {
-        product.servings?.filter { $0.amountUnit == product.amountUnit } ?? []
-    }
-
     private func logProduct() {
-        guard !isLogging, let amount = parsedAmount, amount > 0 else { return }
-        let product = detailModel.product
-        isLogging = true
-        logError = nil
+        let mealType = selectedMealType
+        let loggedDate = appState.logSelectedDate
         Task {
-            guard let userId = authViewModel.currentUser?.id else {
-                logError = "Du må være logget inn for å lagre."
-                isLogging = false
-                return
+            let success = await detailModel.log(amount: amountModel) { product, amount, portion in
+                guard let userId = authViewModel.currentUser?.id else { return false }
+                guard await logViewModel.logFood(product: product, amountG: Float(amount),
+                    mealType: mealType, userId: userId, date: loggedDate, portionSelection: portion) else { return false }
+                if product.nutritionPreparation != .prepared {
+                    preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
+                    preferencesViewModel.setLastUsedPortion(portion, for: product.id, userId: userId)
+                }
+                HapticFeedbackService.shared.trigger(.loggingSuccess, isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
+                SoundFeedbackService.shared.play(.loggingSuccess, isEnabled: preferencesViewModel.soundFeedbackEnabled)
+                onLogComplete?(ReceiptPayload(product: product, amountG: amount,
+                    amountUnit: product.amountUnit, mealType: mealType, loggedDate: loggedDate, portionSelection: portion))
+                return true
             }
-            guard await logViewModel.logFood(
-                product: product,
-                amountG: Float(amount),
-                mealType: selectedMealType,
-                userId: userId,
-                date: appState.logSelectedDate
-            ) else {
-                logError = logViewModel.errorMessage ?? "Kunne ikke lagre på enheten. Prøv igjen."
-                isLogging = false
-                return
-            }
-            await logViewModel.loadTodaysSummary(userId: userId)
-            await appState.refreshSyncStatus()
-            preferencesViewModel.setLastUsedAmount(amount, for: product.id, userId: userId)
-            HapticFeedbackService.shared.trigger(
-                .loggingSuccess,
-                isEnabled: preferencesViewModel.hapticsFeedbackEnabled
-            )
-            SoundFeedbackService.shared.play(
-                .loggingSuccess,
-                isEnabled: preferencesViewModel.soundFeedbackEnabled
-            )
-            onLogComplete?(
-                ReceiptPayload(
-                    product: product,
-                    amountG: amount,
-                    amountUnit: product.amountUnit,
-                    mealType: selectedMealType,
-                    loggedDate: appState.logSelectedDate
-                )
-            )
-            isLogging = false
+            guard success else { return }
             dismiss()
+            if let userId = authViewModel.currentUser?.id {
+                await logViewModel.loadTodaysSummary(userId: userId)
+                await appState.refreshSyncStatus()
+            }
         }
     }
 
@@ -425,68 +452,28 @@ private struct ProductDetailContent: View {
         )
         return "Logges \(formattedDate)"
     }
-    
-    private func setAmount(_ amount: Double) {
-        let clamped = min(max(amount, amountRange.lowerBound), amountRange.upperBound)
-        amountText = clamped > 0 ? formatAmountText(clamped) : ""
-    }
-
-    private var amountTextBinding: Binding<String> {
-        Binding(
-            get: { amountText },
-            set: { amountText = sanitizedAmountText($0) }
-        )
-    }
-
-    private var parsedAmount: Double? {
-        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(normalized), value.isFinite else { return nil }
-        return min(max(value, amountRange.lowerBound), amountRange.upperBound)
-    }
-
-    private func sanitizedAmountText(_ text: String) -> String {
-        let normalized = text.replacingOccurrences(of: ",", with: ".")
-        let allowed = normalized.filter { $0.isNumber || $0 == "." }
-        let parts = allowed.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-        let sanitized = parts.count > 1 ? "\(parts[0]).\(parts[1])" : String(allowed)
-        guard !sanitized.isEmpty, let value = Double(sanitized), value.isFinite else { return sanitized }
-        let clamped = min(max(value, amountRange.lowerBound), amountRange.upperBound)
-        return clamped == value ? sanitized : formatAmountText(clamped)
-    }
-
-    private func formatAmountText(_ value: Double) -> String {
-        if value.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(Int(value))
-        }
-        return String(format: "%.1f", value)
-    }
 
     @ViewBuilder private var heroView: some View {
-        if let data = product.localImageData, let image = UIImage(data: data) {
-            ProductHeroImageView(image: image, height: 220, cornerRadius: 18)
-        } else {
-            ProductHeroImageView(url: imageUrl, height: 220, cornerRadius: 18)
-        }
+        ProductHeroImageView(localData: product.localImageData, url: imageUrl, height: 160, cornerRadius: 18, hidesPlaceholder: true)
     }
-    
+
     private var imageUrl: URL? {
         guard let urlString = product.imageUrl else { return nil }
         return URL(string: urlString)
     }
-    
-    
+
+
     private func toggleFavorite() {
         Task {
             guard let userId = authViewModel.currentUser?.id else { return }
-            if await productViewModel.toggleFavorite(product, userId: userId) {
-                isFavorite.toggle()
+            if await detailModel.toggleFavorite(owner: userId) {
                 HapticFeedbackService.shared.trigger(
                     .favoriteToggle,
                     isEnabled: preferencesViewModel.hapticsFeedbackEnabled
                 )
                 await appState.refreshSyncStatus()
             } else {
-                appState.errorMessage = productViewModel.errorMessage
+                appState.errorMessage = detailModel.favoriteError
             }
         }
     }
@@ -498,188 +485,147 @@ struct ImagePreviewView: View {
     @Environment(\.dismiss) var dismiss
     @State private var scale: CGFloat = 1.0
     @State private var lastScale: CGFloat = 1.0
-    
+
     var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
-            
+
             VStack(spacing: 12) {
                 HStack {
                     Spacer()
                     Button("Lukk") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                
+
                 Spacer()
-                
-                if let localData, let image = UIImage(data: localData) {
-                    Image(uiImage: image).resizable().scaledToFit().padding(16)
-                } else if let imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .padding(16)
-                                .scaleEffect(scale)
-                                .gesture(
-                                    MagnificationGesture()
-                                        .onChanged { value in
-                                            let delta = value / lastScale
-                                            lastScale = value
-                                            scale = min(max(scale * delta, 1.0), 3.0)
-                                        }
-                                        .onEnded { _ in
-                                            lastScale = 1.0
-                                        }
-                                )
-                        case .failure:
-                            Text("Bilde ikke tilgjengelig")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                } else {
-                    Text("Bilde ikke tilgjengelig")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
+
+                ProductPhotoView(localData: localData, url: imageUrl.flatMap(URL.init(string:)))
+                    .padding(16)
+
                 Spacer()
             }
         }
     }
 }
-
-struct ProductSourceInfoView: View {
-    let product: Product
-    @Environment(\.dismiss) var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    infoRow(title: "Næringskilde", value: sourceLabel(product.nutritionSource))
-                    infoRow(title: "Bildekilde", value: sourceLabel(product.imageSource))
-                    infoRow(title: "Kontroll av næringstall", value: verificationLabel(product.verificationStatus))
-                    if let confidenceScore = product.confidenceScore {
-                        infoRow(title: "Likhet med matvaren", value: String(format: "%.2f", confidenceScore))
-                    }
-                    if let sourceUpdatedAt = product.sourceUpdatedAt {
-                        infoRow(
-                            title: "Sist oppdatert hos kilden",
-                            value: sourceUpdatedAt.formatted(date: .abbreviated, time: .omitted)
-                        )
-                    }
-
-                    if let fetchedAt = product.fetchedAt {
-                        infoRow(title: "Sist hentet til enheten",
-                                value: fetchedAt.formatted(date: .abbreviated, time: .omitted))
-                    }
-
-                    Text("Her ser du hvor opplysningene kommer fra. Næringstallene kan inneholde feil eller være utdaterte.")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.textSecondary)
-                        .padding(.top, 8)
-
-                    if product.nutritionSource == .openFoodFacts || product.imageSource == .openFoodFacts {
-                        if let sourceURL = URL(string: "https://world.openfoodfacts.org") {
-                            Link("Åpne Open Food Facts", destination: sourceURL)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                        if let licenseURL = URL(string: "https://opendatacommons.org/licenses/odbl/1-0/") {
-                            Link("Database: Open Database License", destination: licenseURL)
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                        if product.imageSource == .openFoodFacts,
-                           let imageLicenseURL = URL(string: "https://creativecommons.org/licenses/by-sa/3.0/") {
-                            Link("Bilder: CC BY-SA 3.0", destination: imageLicenseURL)
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44, alignment: .leading)
-                        }
-                    }
-                }
-            }
-            .padding(16)
-            .background(AppColors.background.ignoresSafeArea())
-            .navigationTitle("Kilder")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
-                }
-            }
-        }
-    }
-    
-    private func infoRow(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(AppTypography.caption)
-                .foregroundColor(AppColors.textSecondary)
-            Text(value)
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.ink)
-        }
-        .padding(12)
-        .background(AppColors.surface)
-        .cornerRadius(12)
-    }
-    
-    private func sourceLabel(_ source: NutritionSource) -> String {
-        switch source {
-        case .matvaretabellen:
-            return "Matvaretabellen"
-        case .openFoodFacts:
-            return "Open Food Facts"
-        case .user:
-            return "Bruker"
-        }
-    }
-    
-    private func sourceLabel(_ source: ImageSource) -> String {
-        switch source {
-        case .openFoodFacts:
-            return "Open Food Facts"
-        case .user:
-            return "Bruker"
-        case .none:
-            return "Ingen"
-        }
-    }
-    
-    private func verificationLabel(_ status: VerificationStatus) -> String {
-        switch status {
-        case .verified:
-            return "Kontrollert"
-        case .unverified:
-            return "Ikke kontrollert"
-        case .suggestedMatch:
-            return "Foreslått treff"
-        }
-    }
-}
-
 
 // MARK: - Supporting Views
+
+private struct ProductLoggingSection: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ObservedObject var amountModel: AmountSelectionViewModel
+    let product: Product
+    let isLogging: Bool
+    @Binding var selectedMealType: String
+    let logDateLabel: String
+    let nutritionForAmount: (Double?) -> NutritionBreakdown
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2)
+    }
+
+    var body: some View {
+        let selectedAmount = amountModel.amount
+        let amount = selectedAmount ?? 0
+        let nutrition = nutritionForAmount(selectedAmount)
+        CardContainer {
+            VStack(spacing: 12) {
+                PortionAmountInput(model: amountModel)
+                    .disabled(isLogging)
+
+                Text("Næringsinnhold for din mengde")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                LazyVGrid(columns: columns, spacing: 8) {
+                    SummaryPill(
+                        label: "Energi",
+                        value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal",
+                        tintColor: AppColors.energyTint
+                    )
+                    SummaryPill(
+                        label: "Proteiner",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.protein),
+                        tintColor: AppColors.macroProteinTint
+                    )
+                    SummaryPill(
+                        label: "Karbohydrater",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.carbs),
+                        tintColor: AppColors.macroCarbTint
+                    )
+                    SummaryPill(
+                        label: "Fett",
+                        value: String(format: "%.1f g", locale: Locale(identifier: "nb_NO"), nutrition.fat),
+                        tintColor: AppColors.macroFatTint
+                    )
+                }
+
+                if amount <= 0.0001 {
+                    Text("Skriv inn mengde i \(product.amountUnit.spokenName)")
+                        .font(AppTypography.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                Text("Måltid")
+                    .font(AppTypography.bodyEmphasis)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .foregroundColor(AppColors.ink)
+
+                Label(logDateLabel, systemImage: "calendar")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(MealPresentation.all) { meal in
+                        MealChip(
+                            title: meal.title,
+                            isSelected: selectedMealType == meal.key,
+                            fillsWidth: true,
+                            action: { selectedMealType = meal.key }
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+private struct ProductLogButton: View {
+    @ObservedObject var amountModel: AmountSelectionViewModel
+    let selectedMealType: String
+    let unit: AmountUnit
+    let isLogging: Bool
+    let onLog: () -> Void
+    var body: some View {
+        let amount = amountModel.amount ?? 0
+        let isEnabled = amountModel.isValid && !isLogging
+        PrimaryButton(
+            title: isLogging ? "Lagrer …" : "Legg til \(selectedMealType) · \(PortionDisplay.number(Double(amount))) \(unit.rawValue)",
+            systemImage: "plus.circle.fill",
+            action: onLog
+        )
+        .padding()
+        .accessibilityIdentifier("product-log-save")
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1.0 : 0.5)
+    }
+}
+
 
 struct NutritionRowView: View {
     let label: String
     let value: String
-    
+
     var body: some View {
         HStack {
             Text(label)
@@ -720,12 +666,335 @@ struct NutritionRowView: View {
         isVerified: false,
         createdAt: Date()
     )
-    
+
     let appState = AppState()
-    
+
     ProductDetailView(product: mockProduct, appState: appState, onLogComplete: nil)
         .environmentObject(LogViewModel(repository: DatabaseService()))
         .environmentObject(ProductViewModel(repository: DatabaseService()))
         .environmentObject(AuthViewModel())
         .environmentObject(PreferencesViewModel())
+}
+
+/// Presentation only: opening this sheet performs no catalog lookup.
+private struct ProductProcessingInfoSheet: View {
+    let productName: String
+    let info: ProductProcessingInfo
+    let sourceURL: URL?
+    let presentation: ProductProcessingPresentation
+    let fetchedAt: Date?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(productName)
+                        .font(AppTypography.title)
+                        .accessibilityAddTraits(.isHeader)
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(presentation.status).font(AppTypography.sectionTitle)
+                            Text(presentation.explanation)
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Hva bygger vurderingen på?")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(presentation.basis)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Ingredienser")
+                            .font(AppTypography.sectionTitle)
+                            .accessibilityAddTraits(.isHeader)
+                        Text(info.ingredients ?? "Ingrediensliste ikke tilgjengelig.")
+                        Text("Kontroller emballasjen hvis opplysningene avviker.")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    VStack(alignment: .leading, spacing: 12) {
+                        DisclosureGroup("Hva betyr NOVA?") {
+                            Text("NOVA deler matvarer i fire grupper etter bearbeiding. Klassifiseringen bygger på registrerte produktopplysninger og kan være ufullstendig. NOVA beskriver ikke produktets samlede næringskvalitet.")
+                        }
+                        Text("Kilde: Open Food Facts")
+                            .font(AppTypography.secondary)
+                        if let fetchedAt {
+                            Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                                .font(AppTypography.caption)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        if let sourceURL {
+                            Link("Se produktet hos Open Food Facts", destination: sourceURL)
+                                .foregroundColor(AppColors.actionText)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                    }
+                }
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.ink)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(AppColors.background)
+            .navigationTitle("Bearbeidingsgrad")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lukk") { dismiss() }
+                        .foregroundColor(AppColors.actionText)
+                        .accessibilityIdentifier("processing-info-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct ProductNutriScoreSheet: View {
+    let productName: String
+    let info: ProductNutriScoreInfo?
+    let sourceURL: URL?
+    let fetchedAt: Date?
+    let excludedProteinValue: String?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text(productName)
+                        .font(AppTypography.title)
+                        .accessibilityAddTraits(.isHeader)
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let info {
+                                NutriScoreLogo(info: info, width: 180)
+                            } else {
+                                Text("Nutri-Score ikke tilgjengelig")
+                                    .font(AppTypography.sectionTitle)
+                            }
+                            Text(info == nil
+                                 ? "Open Food Facts har ingen tilgjengelig karakter for dette produktet."
+                                 : "Oppgitt av Open Food Facts.")
+                                .font(AppTypography.secondary)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if let calculation = info?.calculation {
+                        NutriScoreCalculationView(calculation: calculation, excludedProteinValue: excludedProteinValue)
+                    } else if info != nil {
+                        Text("Detaljert beregningsgrunnlag ikke tilgjengelig.")
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    DisclosureGroup("Om Nutri-Score") {
+                    Text("Nutri-Score oppsummerer produktets næringsprofil fra A til E og kan brukes til å sammenligne lignende produkter. Den beskriver ikke bearbeidingsgrad eller hele kostholdet.")
+                    }
+                    if let info {
+                        Text(info.version.map { "Beregningsversjon: \($0)" } ?? "Beregningsversjon ikke oppgitt.")
+                            .font(AppTypography.secondary)
+                    }
+                    Text("Registrerte opplysninger kan være ufullstendige. Karakteren kan avvike fra emballasjen dersom beregningsversjonen er forskjellig.")
+                        .foregroundColor(AppColors.textSecondary)
+                    if let fetchedAt {
+                        Text("Sist hentet: \(fetchedAt.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO"))))")
+                            .font(AppTypography.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    if let sourceURL {
+                        Link("Se produktet hos Open Food Facts", destination: sourceURL)
+                            .foregroundColor(AppColors.actionText)
+                            .frame(minHeight: 44, alignment: .leading)
+                    }
+                }
+                .font(AppTypography.body)
+                .foregroundColor(AppColors.ink)
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(AppColors.background)
+            .navigationTitle("Nutri-Score")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Lukk") { dismiss() }
+                        .foregroundColor(AppColors.actionText)
+                        .accessibilityIdentifier("nutriscore-info-close")
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+/// Official vector artwork bundled for offline use; original colors are preserved.
+private struct NutriScoreLogo: View {
+    let info: ProductNutriScoreInfo
+    let width: CGFloat
+
+    var body: some View {
+        if let assetName = info.imageAssetName {
+            Image(assetName)
+                .renderingMode(.original)
+                .resizable()
+                .scaledToFit()
+                .frame(width: width)
+                .accessibilityLabel("Nutri-Score \(info.grade)")
+                .accessibilityIdentifier("nutriscore-logo")
+        } else {
+            Text("Nutri-Score \(info.grade)")
+                .font(AppTypography.bodyEmphasis)
+        }
+    }
+}
+
+private struct NutriScoreCalculationView: View {
+    let calculation: NutriScoreCalculation
+    let excludedProteinValue: String?
+    @State private var showProteinExplanation = false
+    private var presentation: NutriScoreCalculationPresentation {
+        NutriScoreCalculationPresentation(calculation: calculation)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text(calculation.nutritionBasis.map { "Grunnlag per 100 \($0.amountUnit.rawValue)" } ?? "Beregningsgrunnlag")
+                .font(AppTypography.sectionTitle)
+            if calculation.preparation == "as_sold" {
+                Text("For varen som solgt").font(AppTypography.secondary)
+            } else if calculation.preparation == "prepared" {
+                Text("For tilberedt vare").font(AppTypography.secondary)
+            }
+            if calculation.estimated {
+                Text("Beregningen inneholder estimerte opplysninger.")
+                    .foregroundColor(AppColors.textSecondary)
+                    .accessibilityIdentifier("nutriscore-estimated")
+            }
+            Text("Boksene viser bidrag til Nutri-Score, ikke en daglig anbefaling.")
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
+            componentGroup("Plusspoeng", components: calculation.positive,
+                           points: calculation.positivePoints, maximum: calculation.positiveMaximum, tint: AppColors.nutritionPositiveContribution)
+            componentGroup("Minuspoeng", components: calculation.negative,
+                           points: calculation.negativePoints, maximum: calculation.negativeMaximum, tint: AppColors.nutritionNegativeContribution)
+            if presentation.incomplete {
+                Text("Ikke hele beregningsgrunnlaget kan vises.")
+                    .foregroundColor(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private func componentGroup(_ title: String, components: [NutriScoreComponent], points: Int?, maximum: Int?, tint: Color) -> some View {
+        let rows = presentation.rows(components)
+        return CardContainer {
+            VStack(alignment: .leading, spacing: 12) {
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text(title).font(AppTypography.sectionTitle).fixedSize()
+                        Spacer(minLength: 12)
+                        if let total = NutriScoreCalculationPresentation.points(points, maximum: maximum) {
+                            Text(total).font(AppTypography.secondary).fixedSize()
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title).font(AppTypography.sectionTitle)
+                        if let total = NutriScoreCalculationPresentation.points(points, maximum: maximum) {
+                            Text(total).font(AppTypography.secondary)
+                        }
+                    }
+                }
+                .accessibilityAddTraits(.isHeader)
+                ForEach(rows) { row in
+                    Divider()
+                    NutriScoreComponentRow(row: row, tint: tint)
+                }
+                if title == "Plusspoeng", let explanation = presentation.proteinExplanation {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 4) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack {
+                                Text("Protein").font(AppTypography.bodyEmphasis)
+                                Spacer(minLength: 12)
+                                if let excludedProteinValue { Text(excludedProteinValue).font(AppTypography.secondary) }
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Protein").font(AppTypography.bodyEmphasis)
+                                if let excludedProteinValue { Text(excludedProteinValue).font(AppTypography.secondary) }
+                            }
+                        }
+                        Button { showProteinExplanation = true } label: {
+                            HStack(spacing: 8) {
+                                Text("Teller ikke med i Nutri-Score")
+                                    .font(AppTypography.caption)
+                                Image(systemName: "info.circle")
+                            }
+                            .foregroundColor(AppColors.textSecondary)
+                            .frame(minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("nutriscore-protein-explanation")
+                        .accessibilityHint("Forklarer hvorfor protein ikke er medregnet")
+                        .alert("Protein i Nutri-Score", isPresented: $showProteinExplanation) {
+                            Button("Lukk", role: .cancel) { }
+                        } message: { Text(explanation) }
+                    }
+                }
+                if rows.isEmpty, title != "Plusspoeng" || presentation.proteinExplanation == nil {
+                    Text("Komponentdetaljer ikke tilgjengelig.")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct NutriScoreComponentRow: View {
+    let row: NutriScoreCalculationPresentation.Row
+    let tint: Color
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(row.title).font(AppTypography.bodyEmphasis)
+                    Text(row.value).font(AppTypography.secondary)
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(row.title).font(AppTypography.bodyEmphasis).fixedSize()
+                        Spacer(minLength: 0)
+                        Text(row.value).font(AppTypography.secondary).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(row.title).font(AppTypography.bodyEmphasis)
+                        Text(row.value).font(AppTypography.secondary)
+                    }
+                }
+            }
+            if let segments = row.segments {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 8, maximum: 12), spacing: 3)], alignment: .leading, spacing: 3) {
+                    ForEach(0..<segments.count, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(index < segments.filled ? tint : AppColors.separator)
+                            .frame(height: 7)
+                    }
+                }
+                .accessibilityHidden(true)
+            }
+            if let points = row.points {
+                Text("\(points) poeng")
+                    .font(AppTypography.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+        }
+    }
 }

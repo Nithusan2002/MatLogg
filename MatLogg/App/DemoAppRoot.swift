@@ -2,7 +2,16 @@ import SwiftUI
 
 @main
 struct MatLoggApp: App {
-    var body: some Scene { WindowGroup { DemoAppRoot() } }
+    var body: some Scene {
+        WindowGroup {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
+            else { DemoAppRoot() }
+            #else
+            DemoAppRoot()
+            #endif
+        }
+    }
 }
 
 struct DemoAppRoot: View {
@@ -13,13 +22,90 @@ struct DemoAppRoot: View {
         _mode = StateObject(wrappedValue: DemoMode(demoDefaults: defaults, directory: directory))
     }
     var body: some View {
-        MatLoggContent(databaseService: mode.database, defaults: mode.defaults, isDemo: mode.isDemo)
+        let timing = PerformanceSignposts.begin("UI.AppRootBody")
+        defer { PerformanceSignposts.end(timing) }
+        return Group {
+            if mode.isReady {
+                MatLoggContent(databaseService: mode.database, defaults: mode.defaults, isDemo: mode.isDemo)
+            } else {
+                AppStartupLoadingView()
+            }
+        }
             .id(mode.revision) // Explicitly resets all feature state when the storage context changes.
             .environmentObject(mode)
             .disabled(mode.isLoading)
-            .task { await mode.restore() }
+            .task {
+                let timing = PerformanceSignposts.begin("Startup.RestoreContext")
+                defer { PerformanceSignposts.end(timing) }
+                await mode.restore()
+            }
+            .onChange(of: mode.isReady) { _, _ in
+                PerformanceSignposts.event("Startup.ContextReadyChanged")
+            }
             .alert("Demomodus", isPresented: Binding(get: { mode.errorMessage != nil }, set: { if !$0 { mode.errorMessage = nil } })) {
                 Button("OK") { mode.errorMessage = nil }
             } message: { Text(mode.errorMessage ?? "") }
     }
 }
+
+struct AppStartupLoadingView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .largeTitle) private var titleSize = 48
+
+    var body: some View {
+        VStack(spacing: 32) {
+            VStack(spacing: 8) {
+                Image("MatLoggStartupLogo")
+                    .renderingMode(colorScheme == .dark ? .template : .original)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 160, height: 160)
+                    .foregroundStyle(AppColors.ink)
+                    .accessibilityHidden(true)
+
+                Text("Spor Mat")
+                    .font(AppTypography.startupTitle(size: titleSize))
+                    .foregroundStyle(AppColors.ink)
+                    .multilineTextAlignment(.center)
+            }
+
+            ProgressView()
+                .tint(AppColors.action)
+                .accessibilityLabel("Åpner Spor Mat")
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppColors.background.ignoresSafeArea())
+    }
+}
+
+#Preview("Oppstart · lys") {
+    AppStartupLoadingView()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Oppstart · mørk") {
+    AppStartupLoadingView()
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Oppstart · stor tekst") {
+    AppStartupLoadingView()
+        .environment(\.dynamicTypeSize, .accessibility3)
+}
+
+#if DEBUG
+private struct LocalDataLinkQARoot: View {
+    @StateObject private var fixture = LocalDataLinkQAFixture()
+    var body: some View {
+        Group {
+            if let context = fixture.context {
+                MatLoggContent(databaseService: context.database, defaults: context.defaults, accountRepository: context.repository)
+                    .environmentObject(context.mode)
+            } else if let error = fixture.errorMessage { Text(error) }
+            else { AppStartupLoadingView() }
+        }
+        .task { fixture.load() }
+    }
+}
+#endif

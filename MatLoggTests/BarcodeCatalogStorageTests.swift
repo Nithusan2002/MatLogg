@@ -4,6 +4,27 @@ import Testing
 
 @MainActor
 struct BarcodeCatalogStorageTests {
+    @Test func processingInformationSurvivesDatabaseReopening() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("NOVA-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("test.sqlite")
+        let info = ProductProcessingInfo(novaGroup: 3, markers: ["3": [["ingredients", "en:salt"]]], ingredients: "Tomat, salt")
+        let item = Product(name: "Tomatketchup", source: "openfoodfacts", caloriesPer100g: 95,
+                           proteinGPer100g: 1.7, carbsGPer100g: 21, fatGPer100g: 0, nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023", calculation:
+                               NutriScoreCalculation(positive: [], negative: [], positivePoints: 5, positiveMaximum: 10,
+                                   negativePoints: 13, negativeMaximum: 55, estimated: true, preparation: "as_sold",
+                                   proteinExclusionReason: nil)), processingInfo: info)
+        do {
+            let store = try LocalStore(databaseURL: url)
+            try store.cacheCatalogProduct(item)
+            #expect(store.fetchPendingEvents(limit: 20).isEmpty)
+        }
+        let reopened = try LocalStore(databaseURL: url)
+        #expect(reopened.getProduct(item.id)?.processingInfo == info)
+        #expect(reopened.getProduct(item.id)?.nutriScoreInfo == item.nutriScoreInfo)
+    }
+
     @Test func catalogRefreshKeepsHistoricNutritionAndDoesNotQueueProductEvents() throws {
         try withStore { store in
             let owner = UUID()

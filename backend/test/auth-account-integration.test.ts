@@ -130,11 +130,11 @@ async function run() {
     const repeatedWithRevokedToken = await request(baseUrl, '/v1/user', 'DELETE', undefined, token);
     assert.equal(repeatedWithRevokedToken.status, 401);
     const deletedLogin = await request(baseUrl, '/v1/auth/login', 'POST', { email, password: 'correct-horse-battery' });
-    assert.equal(deletedLogin.status, 410);
+    assert.equal(deletedLogin.status, 401);
 
-    await prisma.user.update({ where: { id: stored.id }, data: { deletedAt: new Date(0) } });
+    assert.equal(await prisma.user.count({ where: { id: stored.id } }), 0);
     const purged = await app.get(AuthService).purgeDeletedUsers(new Date());
-    assert.equal(purged, 1);
+    assert.equal(purged, 0);
     assert.equal(await prisma.user.count({ where: { id: stored.id } }), 0);
 
     console.log('Auth and account deletion integration tests passed');

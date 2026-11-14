@@ -1,0 +1,10 @@
+begin;
+select plan(6);
+select is((select prosecdef from pg_proc where oid = 'public.apply_sync_event_v1(uuid,uuid,text,timestamptz,uuid,integer,jsonb)'::regprocedure), false, 'exposed sync entrypoint has no elevated privileges');
+select is(to_regprocedure('public.is_account_active_v1()'), null::regprocedure, 'account status is not an exposed RPC');
+select is(has_schema_privilege('anon', 'matlogg_internal', 'usage'), false, 'anonymous callers cannot use internal schema');
+select is(has_function_privilege('anon', 'public.apply_sync_event_v1(uuid,uuid,text,timestamptz,uuid,integer,jsonb)', 'execute'), false, 'anonymous callers cannot invoke sync wrapper');
+select is(has_function_privilege('authenticated', 'matlogg_internal.apply_sync_event_v1(uuid,uuid,text,timestamptz,uuid,integer,jsonb)', 'execute'), true, 'authenticated wrapper can invoke internal implementation');
+select is((select count(*)::integer from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and has_function_privilege('authenticated',p.oid,'execute')), 0, 'no privileged public functions executable by authenticated callers');
+select * from finish();
+rollback;

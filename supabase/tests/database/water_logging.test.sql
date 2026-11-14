@@ -1,4 +1,5 @@
 begin;
+update public.app_config set value = 'true'::jsonb where key = 'sync_enabled';
 select plan(7);
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at) values('00000000-0000-0000-0000-000000000000','10000000-0000-4000-8000-000000000001','authenticated','authenticated','water0@example.test','',now(),now(),now());
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at) values('00000000-0000-0000-0000-000000000000','20000000-0000-4000-8000-000000000002','authenticated','authenticated','water1@example.test','',now(),now(),now());

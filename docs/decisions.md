@@ -638,12 +638,428 @@ prioriteres foran per-vare-kalorier. Totaler viser hele valgt måltid, uavhengig
 av søk. Eksisterende redigering, sletting/angre, måltidsmaler og dagkopiering
 beholdes. Ingen endringer i lagring eller synkkontrakt.
 
-## 2026-10-02 – Avgrenset Apple Helse-integrasjon
+## 2026-10-02 – Første logging før oppsett
 
-Brukeren har godkjent implementasjon av valgfri mat ut og vekt inn/ut. Importert
-vekt ligger i separat beskyttet cache, ikke i domenets vekt-/Supabase-kø. Manuell
-vekt prioriteres per dag. Domenedata og HealthKit-outbox skrives atomisk lokalt;
-eksport beholder stabil identitet og monotont økende revisjon. Frakobling fjerner
-import og beholder egne tidligere eksporter til separat opprydding. Ingen
-backend-/synkkontraktsendring. Release forblir deaktivert til fysisk enhetstest og
-eksplisitt go/no-go. Detaljer: [Apple Helse](health-integration.md).
+Førstegangsbruk starter direkte i søk med automatisk lokal profil etter
+sesjonsgjenoppretting. Konto forblir valgfri. Introduksjon, personvernside,
+måloppsett og oppsummering fjernes fra inngangsveien; eksisterende daglige
+mål under Profil gjenbrukes. Første bekreftede lagring eller eksplisitt
+«Gå til Hjem» avslutter onboarding. Eksisterende fullføringsstatus bevares.
+Lagring, eierskap og synkkontrakt endres ikke.
+
+## 2026-10-02 – Respons ved lokal logging og innlasting
+
+Asynkrone DatabaseService-kall kjører det synkrone LocalStore-arbeidet på en
+seriell IO-kø uten å blokkere MainActor. SQLite-transaksjonene og synkkontrakten
+beholdes. Rene domeneverdier er eksplisitt nonisolated/Sendable; LocalStore
+serialiserer SQLite-tilgang og bruker codecs per kall. Synkrone cacheoppslag
+beholdes for eksisterende API-er og er fortsatt mulige korte UI-blokkeringer.
+
+Logging bekreftes etter lokal commit, før oppsummering og synkstatus lastes
+på nytt. Søk publiserer lagrede varer før den medfølgende Matvaretabellen
+lastes og dekodes på egen kø. Skanning tilbyr søk/manuell registrering under
+oppslag og forkaster gamle svar når brukeren går videre. Ingen ny datainnsamling,
+endring av kilde/enhet eller aktivering av produksjonssynk.
+
+## 2026-10-02 – Direkte dagslogg og felles loggeinnganger
+
+De fire hovedfanene beholdes. «Loggfør» er en handling; «Se dagslogg» på
+Hjem åpner valgt dag uten filter, mens måltidsnavn beholder filtrerte snarveier.
+Synlige varer åpner eksisterende redigering direkte. Alle Legg til-innganger
+bruker samme ark og fungerende manuell produktregistrering. Lagrede måltider
+har fast inngang og synlige valg, og dagsloggen har tekstmerket Gjenbruk-meny.
+Hjem viser registrert energi uten krav om mål når eksisterende visningsvalg
+er på. Hurtigvalg deles via en root-injisert ViewModel med lokalt repository
+og forkasting av gamle forespørsler. Ingen ny lagring, synkformat eller datainnsamling.
+
+## 2026-10-02 – Antall med historisk porsjonsgrunnlag
+
+Porsjonslogging bruker eksisterende dokumentert grunnlag og bevarer et valgfritt
+snapshot på logg og lagret måltid. Totalmengde og næringssnapshot beholdes, slik
+at katalogoppdateringer ikke endrer historikk. Pakkevekt brukes som hel pakke;
+produktnavn og eldre heuristikk brukes ikke til å fastslå stykkvekt. Ny synk er
+et additivt v1-felt med eksplisitt null ved direkte mengde. Egne porsjoner og
+toveis synk inngår ikke. Serverstøtte må være på plass før ny payload sendes.
+
+## 2026-10-02 – Synknødstopp ved databasegrensen
+
+Direkte authenticated RPC kunne omgå Edge-nødstoppen. Samme eksisterende
+app_config-kontroll håndheves derfor også i apply_sync_event_v1, før
+inbox-/domeneskriving. SYNC_DISABLED er retrybar på klienten. Auth/grants og
+v1-format er uendret. Migrasjonen er testet lokalt og deployet til staging;
+produksjonssynk forblir av til resterende releaseporter er verifisert.
+
+## 2026-10-03 – lokale domenedata ved første lansering
+
+Brukeren velger lokal lagring fram til senere skalering. SwiftUI/SQLite og
+Supabase Auth beholdes; ingen Flutter/Node/Mongo-migrasjon eller betalt backup.
+App-roten og alle SyncEngine-defaults bruker localOnly, uavhengig av backendflagget.
+Releasebygg har ingen opplastingspolicy som kan aktiveres med flagg. Synkkøen
+beholdes atomisk og hvilende. Framtidig historikkopplasting krever separat
+brukervalg og servergrense; kontokobling autoriserer ikke opplasting.
+JSON-eksport er ingen apprestore. Hosted recovery-krav gjelder framtidig skyport;
+aktive auth-/personvernkrav består. Full enhetsrestore er ikke autorisert.
+
+## 2026-10-03 – Næringsgrunnlag ved manuell registrering
+
+Manuelle produkter kan registreres per 100 g, 100 ml eller navngitt porsjon med
+størrelse i g/ml. Eksisterende per-100-modell og porsjonsvalg gjenbrukes;
+originalinput bevares som valgfri metadata lokalt og i en additiv utvidelse av synkkontrakt v1.
+Porsjoner uten kjent størrelse er utenfor scope. Massegrenser brukes kun for
+gram; ml innebærer ingen antatt tetthet. Null kcal og desimaler tillates.
+
+## 2026-10-03 – Bakgrunnsarbeid ved lasting
+
+SQLite-oppslag går gjennom den serielle IO-køen i DatabaseService, også for
+produkter, favorittstatus og katalogcache. Måltidsforslag bruker avgrenset
+historikk og batchlastede produkter. Søk bruker en actor som gjenbruker
+normaliserte felt; katalogkonvertering gjenbrukes utenfor MainActor.
+Open Food Facts-parsing, bildeklargjøring, eksport og database-/demoklargjøring
+utføres utenfor hovedtråden. UI-state publiseres på MainActor med kontroll av
+request-ID/kontekst. App-roten viser lastestatus fram til databasen er klar.
+Transaksjoner, eierskap, ernæringsgrunnlag og synkkontrakt endres ikke.
+
+## 2026-10-04 – Samlet dagsstatus på Hjem
+
+Vann samles med energi og makroer i én varm flate over måltidene. Vannraden
+beholdes når næring skjules og har uavhengig lasting og feilvisning. Eksisterende
+ViewModels, beregninger, lokal lagring og synkkontrakt beholdes.
+
+## 2026-10-04 – Én detaljflate for lagrede måltider
+
+Visning og redigering av et lagret måltid bruker samme detaljflate med eksplisitt
+redigeringsmodus. Redigeringskladden starter fra lagret mal, adskilt fra mengder
+valgt for én loggføring. Avbryt forkaster kladden etter bekreftelse ved endringer;
+vellykket lagring returnerer til oppdatert visning. Eksisterende repositories,
+local-first-lagring og synkkontrakt beholdes. Nye matvarer i malen er utenfor scope.
+
+## 2026-10-04 – Nye matvarer i lagret måltidskladd
+
+Redigeringsmodus utvides med matsøk og eget mengdevalg som legger matvarer i
+kladden uten logging. Valg av eksisterende produkt oppdaterer mengden på
+samme rad uten summering. Kilde, dokumentert enhet og næringssnapshot bevares;
+hele malen lagres atomisk med eksisterende repository og synkhendelse.
+Skanning, manuell registrering og porsjonsvelger inngår ikke i denne flyten.
+
+
+## 2026-10-04 – Kort intro før første logging
+
+Ny førstegangsbruk viser én kort introduksjon til appens formål, lokal lagring
+og valgfrie mål. «Kom i gang» åpner eksisterende logging med søkefokus.
+«Gå til Hjem» er tilgjengelig på begge steg. Fullført onboarding bevares;
+avbrutt oppstart starter på introen igjen uten ny lagring av mellomsteg.
+Feature-ViewModel eier steget; auth, domenelagring og synkkontrakt beholdes.
+
+
+## 2026-10-05 – To visuelle introsider før første logging
+
+Introen viser enkel logging og valgfri oversikt på to sveipbare sider med
+statiske SwiftUI-illustrasjoner. «Neste» og trykkbare sideindikatorer gir
+alternativer til sveiping. «Hopp over intro» åpner logging fra begge sider;
+«Gå til Hjem» beholdes på logging. Lokal lagring uten skybackup og eksport
+forklares fortsatt ved søket. Feature-ViewModel eier sidevalget, uten ny IO
+eller endringer i fullføring, autentisering og synk.
+
+
+### 2026-10-05 – Diskret loggerekke på Hjem
+
+Brukeren godkjente flamme og dagteller som et avgrenset unntak fra
+gamification-avgrensningen. Rekken avledes lokalt fra aktive profileiers
+matloggdatoer; etterregistrering og sletting påvirker resultatet. Ingen egen
+tellerpersistens, nye synkhendelser, premier eller varsler innføres.
+
+
+## 2026-10-05 – Fotografier og native sveiping i intro
+
+Tekstbaserte eksempelkort erstattes av to faktiske Pexels-fotografier, bundlet
+i asset-katalogen. Kilder og lisens er dokumentert i design-and-user-flow.
+Native TabView med page-stil erstatter gest som bare byttet innhold etter slipp.
+ViewModel beholder sidevalget; hver side ruller vertikalt ved stor tekst.
+
+
+## 2026-10-05 – Typografiretning fra prototype 10
+
+Brukeren valgte prototype 10: det rolige hierarkiet fra 09 med kraftigere,
+avrundede hovedoverskrifter fra 05. Delte tokens bruker avrundede overskrifter
+og vanlig systemfont i brødtekst og metadata. Store næringsverdier skilles fra
+overskrifter med `heroValue`, middels vekt og tabellariske sifre. Native
+tekststiler beholdes for Dynamic Type. Ingen nye fonter eller brukerinnstillinger.
+
+
+## 2026-10-05 – Valgfritt navneforslag fra Apple
+
+Apple-dialogen ber om navn og e-post. Delt navn beholdes kun i den lokale
+kontoprofilen og tilbys med «Bruk navn fra Apple» under Personlige detaljer.
+Eksisterende visningsnavn overskrives ikke; forslaget brukes først ved et
+eksplisitt valg og kan redigeres eller fjernes før lagring. Navneforslaget
+bevares ved sesjonsgjenoppretting for samme konto og fjernes med kontoprofilen
+ved utlogging. Apple deler normalt navn bare ved første godkjenning, så
+manglende navn er en vanlig tilstand og hindrer aldri innlogging.
+
+
+## 2026-10-05 – Innlogging avslutter valgfri onboarding
+
+Vellykket Apple- eller e-postinnlogging fra intro/første logging åpner Hjem
+og lagrer onboarding som fullført for kontoen. Har den lokale profilen data,
+fullføres overgangen først etter eksplisitt bekreftet kontokobling. Feil eller
+avbrudd beholder lokal profil og onboarding. E-postregistrering beholder sin
+eksisterende førstegangs- og bekreftelsesflyt.
+
+## 2026-10-07 – Sletting av egne serverprodukter og gjenopptakbar lokal opprydding
+
+Brukeren godkjente at egne serverprodukter slettes ved permanent kontosletting.
+Dette erstatter tidligere beslutning om å beholde dem med fjernet eier-ID,
+siden fritekst ikke er dokumentert anonymisert. Supabase får versjonert
+purge-migrasjon; legacy-purge følger samme regel. Opprinnelig 30-dagersfrist
+beholdes og forlenges ikke ved retry.
+
+Klienten lagrer fremdrift per profileier før serverforespørselen og bekreftelse
+før lokal sletting. Bekreftet opprydding gjenopptas ved oppstart; ubekreftede
+forespørsler sletter ikke automatisk lokale data. Lokal sletting uten konto
+bruker samme repository og eksisterende eieravgrensede transaksjon.
+Produksjonsutrulling og faktisk backup-/loggretensjon krever separat kontroll.
+
+### 2026-10-07 — Lokal gjenoppretting av manuell logging
+
+Brukerautorisasjon: implementer utkastplanen. Ett registreringsutkast per profil
+lagres i egen SQLite v8-tabell, med rå input og stabile produkt-/logg-ID-er.
+Kompatibilitetstabellen product_drafts beholdes. Fortsett/Forkast gjenoppretter
+manuell produktregistrering og mengdevalg; Lukk beholder utkastet. Produktets
+lagring/stegovergang og loggens lagring/utkastfjerning er atomiske med eksisterende
+synkhendelser. Utkast har ingen synkhendelser eller automatisk utløp.
+Revisjonskontroll og update-only autosave hindrer eldre skriving og gjenoppståtte
+utkast. Eksport er en additiv kategori i eksisterende v2. Ingen backend- eller
+authkontrakt endres. Måltidsmalbygging og andre redigeringsflyter er senere scope.
+
+Tillegg samme dag: Brukeren godkjente umiddelbar sperring av lesetilgang etter
+sletteforespørsel. En lokal HTTP-test viste at gammelt JWT fortsatt kunne lese
+produkter før purge. RLS krever nå både riktig eier og en aktiv profil, via
+en parameterløs, security-definer-funksjon med fast search_path. Alle
+brukereide lesepolicyer er oppdatert; service-role-purge påvirkes ikke.
+
+## 2026-10-07 – Kontosletting uten fast ventetid
+
+Brukeren godkjente å fjerne den faste 30-dagersfristen. Nye forespørsler er
+umiddelbart kvalifisert for purge: domenedata slettes atomisk, deretter Auth.
+Feil beholder slettemarkør og RLS-sperre og prøves igjen hvert femte minutt.
+Soft-delete-feil opphever ikke lenger en allerede registrert sletteforespørsel.
+Eksisterende forespørsler fremskyndes ikke av migrasjonen. API-responskoden
+beholdes; tilleggsfeltet `deletionCompleted` beskriver faktisk første forsøk.
+E-postmottaker er nithusank.2002@gmail.com. Resend-adapter er klargjort, men
+ingen tjeneste, avtale, avsender eller secret er opprettet. Aktivering krever
+dette og en verifisert leveransetest. Ingen brukerdata inngår i varsler.
+
+## 2026-10-08 – Pilot med lokal bruk og Apple-konto
+
+Brukeren godkjente å utsette e-postkontoer fordi eget SMTP ikke er aktivert.
+`FeatureFlags.emailAuthenticationEnabled` er av; kontoskjermen viser Apple
+uten e-post-/passordfelt eller registreringslenke. E-postimplementasjonen
+beholdes for senere reaktivering etter leverandøravklaring og leveringstest.
+Ingen Supabase-provider eller eksisterende konto endres. Dette er en
+klientavgrensning, ikke en serverbasert sperre for e-postauth. Lokal bruk,
+kontokobling og local-only-policy beholdes. Øvrige pilotporter gjelder fortsatt.
+
+## 2026-10-08 – Privilegerte RPC-implementasjoner i internt skjema
+
+Security Advisor varslet authenticated SECURITY DEFINER EXECUTE for
+synk og kontostatus. Implementasjonene flyttes til `matlogg_internal`,
+som ikke eksponeres via PostgREST. RLS-avhengigheter bevares med ALTER
+FUNCTION SET SCHEMA. Offentlig synk-RPC beholder signaturen som SECURITY
+INVOKER-wrapper; JWT-identitet, eierskap og transaksjonsgrenser er uendret.
+Kontostatus har ikke lenger et offentlig RPC-endepunkt. Ingen arkitekturavvik.
+Direkte synk-RPC omgår fortsatt Edge-kvoten; dette er fortsatt en blocker
+før aktivering. Leaked-password protection krever planoppgradering og
+endres ikke. Migrasjonen er bare verifisert i en isolert lokal database.
+
+### 2026-10-09 – Historikktreff først i matsøk
+
+Aktivt matsøk viser maksimalt tre relevante tidligere loggede produkter i
+«Tidligere logget», sortert etter siste `loggedTime` med produkt-ID som stabil
+tiebreaker. Vanlig søkeordmatching gjelder fortsatt. Et lokalt, profileieravgrenset
+oppslag av produkt-ID og siste loggføring dekker hele tilgjengelige historikken
+uten å laste loggobjekter eller gjøre databasekall per tastetrykk. Øvrige treff
+beholder relevanssortering og dedupliseres på tvers av seksjonene. Tomt søk
+beholder seks nylige varer. Hyppighetsvekting og synk-/backendendringer inngår ikke.
+
+## 2026-10-12 – Felles databasekvote for synkhendelser
+
+Edge beholder 30 batcher/minutt. Databasen begrenser alle apply-forsøk til
+1500/minutt per JWT-eier (30 × 50), med samme teller for Edge og direkte RPC.
+Replay og kjente avvisninger bruker kreditt; raterestriksjon skriver ikke domene
+eller inbox. Telleren bruker eksisterende private ratevinduer og eksisterende
+kontosletting/utløpsrydding. Atomisk upsert serialiserer konkurrerende forsøk.
+Den opprinnelige transaksjonsfunksjonen blir intern og kan bare kalles av den
+beskyttede wrapperen. Nødstopp og aktiv kontoeier kontrolleres før kvoten.
+RATE_LIMITED i et delvis batch-svar beholdes lokalt for retry etter 60 sekunder,
+med eksisterende maksimalt antall automatiske forsøk. Schema-versjon er fortsatt 1.
+Utrulling skjer bak avslått serverflagg; oppdatert klient må være på plass før
+opplasting åpnes. Hosted staging krever egen godkjenning av tilgangsendringen.
+
+### 2026-10-12 — Tilberedte Open Food Facts-produkter
+
+Tilberedningsstatus lagres separat fra gram/ml-grunnlag og bevares i logger
+og måltidsmaler. Fallback bruker kun komplette tilberedte næringsverdier med
+eksplisitt per-100-enhet. Første versjon tilbyr gram/ml ferdig tilberedt mat,
+ingen automatisk tørrvekt-, pakke- eller porsjonsomregning. Dette gjør
+produkter med bare tilberedt næring tilgjengelige uten å gjette vekten.
+
+### 2026-10-18 – Lokale måltidskort med tre stiler
+
+Lagrede måltider kan deles som bilde i Lys, Mørk eller Foto gjennom iOS sitt
+delingsark. Kortet bygges fra et øyeblikksbilde av gjeldende mengder og lagret
+næringsgrunnlag, med valgfritt lokalt måltidsbilde og kildeoversikt. Eksporten
+er 1080 × 1920 piksler og holdes i minnet; ingen opplasting, URL, ny synkhendelse
+eller endring av måltidsmalen. Stilpreferansen lagres lokalt. App-roten injiserer
+rendering og preferanser; deling har egen ViewModel og legges ikke i AppState.
+
+
+## 2026-10-19 – Operativ kontakt for personvern og sikkerhet
+
+Brukeren bekreftet Nithusan Krishnasamymudali som operativ kontakt for både
+personvernspørsmål og sikkerhetshendelser på eksisterende kontaktadresse
+nithusank.2002@gmail.com. Rollene samler mottak, oppfølging og dokumentasjon
+av rettighetskrav og hendelser. Dette er ikke en utnevnelse som formelt
+personvernombud eller en generell autorisasjon til produksjonsendringer.
+Rutine, stedfortreder og sakslogg følges opp i `privacy-data-inventory.md`.
+
+## 2026-11-06 – Utvikling som tilpassbar lokal kortoversikt
+
+Utvikling samler eksisterende mat-/næringsdata og vekt i to områder med
+brukerstyrt synlighet og rekkefølge. Standard er mat først; vekt vises når
+profilen har historikk eller selv velger kortet. Tilpass bruker et utkast med
+Lagre/Avbryt. Lokale, profilbundne visningspreferanser lagres separat fra
+domenedata og følger eksisterende overføring, eksport og sletting.
+
+Dette gir en avgrenset første hub uten nye helseintegrasjoner, synkhendelser,
+SQL-migrasjoner eller endrede kalorimål. Eksisterende repositories og
+ViewModels beholder ansvar for fagdata; ny tilpasningsstate eies av en liten
+feature-ViewModel med injisert repository ved app-roten. Apple Helse, aktivitet
+og trening vurderes som en separat senere leveranse.
+
+## 2026-11-06 – Valgfri lesing av dagens skritt fra Apple Helse
+
+Brukerens nye scope inkluderer dagens skritt i Utvikling. Kortet velges i
+Tilpass, og lesing aktiveres deretter med en egen brukerhandling. HealthKit
+forespør bare `.stepCount` som lesetype, med tom mengde skrivetyper. Systemets
+kumulative statistikk fra lokal midnatt til hentetid brukes, uten manuell
+summering av råprøver, historikkimport eller nye målberegninger.
+
+Skrittsummen lagres bare i feature-state og sendes ikke til server, eksport,
+synkkø, analyse eller logger. Profilens lokale tilkoblingsvalg er en separat
+preferanse som følger eksisterende eksport, overføring og sletting. Apples
+lesetillatelse er app-/enhetsbundet; et lokalt valg må ikke presenteres som
+bekreftet HealthKit-tilgang. Tomt resultat kan bety manglende data eller tilgang
+og vises derfor aldri automatisk som null eller «avslått».
+
+ViewModel og repository injiseres ved app-roten. Demomodus kobler ikke til ekte
+Helse-data. Skjuling, frakobling, bakgrunn og profilbytte tømmer visningen og
+avviser sene svar. Ingen bakgrunnslevering, HealthKit-skriving, opplasting eller
+automatisk kalorijustering inngår. Fysisk verifisering av native tilgang og
+signering er en releaseport.
+
+Kilder for HealthKit-adferd:
+[Apple – Authorizing access to health data](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data),
+[HKStatisticsQueryDescriptor](https://developer.apple.com/documentation/healthkit/hkstatisticsquerydescriptor).
+
+## 2026-11-06 – Korriger Utvikling mot den valgte visuelle prototypen
+
+Etter brukerens visuelle tilbakemelding prioriteres prototypens faktiske
+hierarki og korttetthet: merkevarelinje, tittel, periode/datonavigasjon,
+kompakt næringskort og Aktivitet/Vekt på én rad. Detaljer og handlinger flyttes
+inn bak kortene. Kalenderdag/-uke/-måned leser eksisterende lokale dagsdata;
+ingen nye datakilder, databaseendringer eller helsepermissioner innføres.
+
+Periodens hovedtall/makroer er snitt av loggede dager. Dekning vises eksplisitt,
+og uloggede/fremtidige dager konstrueres ikke som null. Endringen gjelder
+presentasjon; matlogger og kalorimål endres ikke. Vektlinjen er nøytral, viser
+bare reelle punkter i perioden, og kilde er MatLogg. Aktivitet er fortsatt
+uttrykkelig dagens skritt; treningsøkter og ekstra helseimport er ikke bygget.
+
+Visningspreferanse v2 leser v1 og normaliserer bare den tidligere
+standardrekkefølgen til mat/aktivitet/vekt. Synlighet og tilkobling bevares;
+eksisterende egendefinerte rekkefølger og nye v2-valg normaliseres ikke bort.
+Dette er ingen endring i SQL- eller synkskjema. Feature-ViewModel eier
+periode, avledede tall og vektsammendrag; profilbytte nullstiller navigasjonen.
+## 2026-11-06 – Profilisolasjon, gjenopptakbar kontokobling og synkrekkefølge
+
+Eldre globale personopplysninger uten sikker eierbinding tildeles ikke ved
+lesing. De beholdes separat til brukeren uttrykkelig velger gjenoppretting
+under Personlige detaljer. Eksisterende lagrede verdier prioriteres, og en
+varig eiermarkør hindrer at avbrutt gjenoppretting flytter dem til en annen
+profil. Ingen historisk eier gjettes fra sist innloggede konto.
+
+Kontokobling lagrer lokal eier, kontoeier, onboardingvalg og fase lokalt.
+Omstart gjenopptar bekreftelse eller en allerede bekreftet, idempotent flytting.
+Avbryt venter på utlogging og bevarer avbruddsstatus ved feil. En annen konto
+kan ikke overta den ventende flyttingen. Dette endrer ikke serverautentisering
+eller åpner opplasting.
+
+Synkkøen slipper bare gjennom første uavklarte hendelse per logisk ressurs.
+Dead letter blokkerer etterfølgere inntil manuelt retry lykkes; den forkastes
+ikke automatisk. Uavhengige ressurser fortsetter. Køvalg bruker lokal
+innsettingsrekkefølge, ikke klientklokken. Dette bevarer opplastingskontrakt v1
+og serverens event-ID-baserte deduplisering. Produksjonssynk forblir av.
+
+### 2026-11-06 – Kategoriikoner for matvarer uten bilde
+
+Bruk 15 lokale vektorikoner som visuell reserve, valgt via eksplisitt
+kildespesifikk kategorikobling eller brukerens valg på egne produkter.
+Råkategori bevares separat; ingen navnegjetting eller næringsutledning.
+Egne produkter får et valgfritt, tømmbart valg med lokal utkastlagring og
+additiv synkkontrakt (fravær bevarer, null tømmer). Produksjonssynk forblir av.
+
+## 2026-11-07 – Skritt følger perioden i Utvikling
+
+Aktivitet følger samme dag, uke eller måned som mat og vekt, også for tidligere
+perioder. En avgrenset HealthKit-spørring henter dagssummer for valgt periode.
+Kortet viser summen, og uke- og månedsdetaljene viser registrerte dager og
+datadekning. En dag uten lesbare skrittdata har ingen søyle.
+
+Tilgangen gjelder fortsatt lesing av skritt etter eksplisitt tilkobling.
+Dagssummene holdes i minnet og forkastes ved periodeskifte, skjuling,
+frakobling eller profilbytte. Dataflyten går fra visning via ViewModel og
+repository til HealthKit.
+
+
+## 2026-11-07 – Apple Helse som valgfri vektkilde i Utvikling
+
+Vekt bruker separat lesetilgang til kroppsmåltypen `.bodyMass`. Kortet viser
+nyeste måling før slutten av perioden, med kilde og punkter fra samme kilde.
+MatLogg prioriteres ved likt tidspunkt. Detaljene holder målinger fra Helse
+adskilt fra redigerbar MatLogg-historikk. Helse-målinger ligger bare i minnet
+og inngår ikke i lagring, eksport, synk eller målberegning. Bare
+tilkoblingsvalget lagres per profil. Skritt og vekt deler livssyklus for
+tilkobling og avvisning av utdaterte svar.
+
+
+## 2026-11-07 – Samle Apple Helse-tilkobling i Innstillinger
+
+Profil → Innstillinger → Apple Helse samler separate valg for Skritt og Vekt.
+Detaljene i Utvikling lenker til samme side før tilkobling. Tilpass styrer
+kortvalg. Tilkoblingsvalgene bruker eksisterende profilnøkler. Det er mulig
+å be om tilgang med skjulte kort. Selve lesingen krever et synlig kort i
+Utvikling. Tillatelsesforespørsel og dataforespørsel har separate identiteter,
+slik at skjuling stopper publisering av målinger og profilbytte forkaster
+sene svar fra begge forespørsler.
+
+
+## 2026-11-08 – Treningsøkter som valgfritt kort i Utvikling
+
+Kortet bruker full bredde og legges sist i eksisterende kortoppsett uten å
+endre synligheten. Brukeren aktiverer lesing separat i Apple Helse-
+innstillingene. Perioden avgjøres av øktens starttid. Oversikten viser antall
+og de to nyeste, med hele listen i detaljene. Bare økttype, starttid og
+varighet brukes til visning, med en midlertidig rad-ID. Øktdata følger samme
+livssyklus som skritt og vekt. Tilkoblingsvalget lagres lokalt per profil.
+
+## 2026-11-09 – Fast rekkefølge i Utvikling
+
+Tilpass styrer synlighet med én bryter per område. Fast rekkefølge gjør at
+valgene fungerer likt på tvers av perioder, også når mat, skritt og trening
+deler ett ukekort. Vekt står separat under ukekortet. Tidligere valg om
+synlighet beholdes. V1 og v2 kan leses, og nye valg skrives som v2 med
+standardrekkefølgen.
+
+## 2026-11-11 – Spor Mat som offentlig navn
+
+MatLogg videreføres som Spor Mat, som søsterapp til Spor Økonomi. Portefølje og nettside viser «tidligere MatLogg» gjennom den pågående jobbsøkingsperioden. Gamle nettadresser, bundle-ID-er, Keychain, lokal lagring, interne kodenavn og synkkontrakter beholdes. Dagens ikon og designsystem videreføres. Publisering og TestFlight-distribusjon avklares separat etter QA.

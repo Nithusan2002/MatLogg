@@ -6,7 +6,7 @@ create extension if not exists pg_net with schema extensions;
 
 select cron.schedule(
   'matlogg-purge-deleted-accounts',
-  '15 2 * * *',
+  '*/5 * * * *',
   $$
   select net.http_post(
     url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/purge-accounts',

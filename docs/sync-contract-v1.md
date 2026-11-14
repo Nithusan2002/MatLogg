@@ -37,6 +37,21 @@ når inbox-raden eies av samme innloggede bruker; kryssbruker-kollisjon avvises.
 Oppdatering av logger, vekt og brukeropprettede produkter krever at eksisterende
 rad eies av innlogget bruker.
 
+Ved delvis batch-svar bekreftes bare event-ID-er fra den sendte batchen.
+Avvisning med `SERVER_ERROR` eller `SYNC_DISABLED` er midlertidig og følger vanlig retry/backoff;
+`RATE_LIMITED` i et event-svar er midlertidig og prøves igjen etter 60 sekunder med samme event-ID;
+øvrige eksplisitte avvisninger går til `deadLetter`. Manglende ACK prøves igjen
+med samme event-ID. Klienten sender bare første uavklarte hendelse per logisk
+ressurs i hver batch, i lokal innsettingsrekkefølge (uavhengig av klokkeavvik).
+`pending` med backoff, `inFlight`, `deadLetter` og karantene blokkerer senere
+hendelser for samme ressurs. Andre ressurser kan fortsatt sendes. Mål er én
+ressurs per eier; favoritter grupperes per produkt, også når lokal favoritt-ID
+endres. Permanent avvisning løser ikke rekkefølgen: manuelt retry må få ACK
+før etterfølgere kan sendes. Ingen hendelser slettes eller komprimeres.
+Dette gjelder køvalg på én enhet, ikke konfliktløsning mellom flere enheter.
+Wire-format og schema-versjon er uendret. Etter fem automatiske forsøk beholdes hendelsen for
+manuelt nytt forsøk. Dupliserte avvisninger skal ikke krasje klienten.
+
 Hver lokal køhendelse har i tillegg `ownerUserId`, som brukes til å velge bare
 hendelser for den aktive autentiserte brukeren. Feltet er lokal rutingmetadata
 og inngår ikke i wire-formatet; backend fortsetter å hente identitet fra tokenet.
@@ -86,3 +101,105 @@ inneholder `id`. Eier hentes fra tokenet, og inbox og glass skrives atomisk.
 Servermigrasjon og Edge Function må oppdateres før klienten sender vannevents.
 Eldre servere avviser den nye typen; aktiver derfor ikke synk før utrulling og
 kontrakt-/integrasjonstester er godkjent. Opplasting gir ingen toveis synk.
+
+## Porsjonsmetadata (additiv v1-utvidelse, 2026-10-02)
+
+`log.upsert` og elementer i `saved_meal.upsert` kan ha `portionSelection`:
+`{servingId, label, count, amountPerServing, unit, source, kind}`. Antall og
+porsjonsmengde er positive, endelige desimaltall; enheten er `g` eller `ml`.
+Kilde er `openFoodFacts`, `heuristic` eller `user`; type er `portion`, `piece`
+eller `package`. Label er 1–200 tegn. Beregnet total er ≤10 000 og må samsvare
+med mengdefeltet innen `max(0.0001, abs(amount) * 0.000001)` for Float-grensen.
+Metadata er et historisk snapshot, ikke et oppslag mot gjeldende katalog.
+
+Ny klient sender eksplisitt null ved direkte mengde. Null fjerner snapshot;
+manglende felt fra eldre klient bevarer det bare når mengde/enhet er uendret
+(og produktreferansen er uendret). Endret total fra
+en eldre klient fjerner foreldet snapshot. Inbox og snapshot lagres atomisk.
+Migrasjon `20261002120000_portion_logging.sql` og oppdatert `sync-events` må
+være på plass før klientens nye payloads tas i bruk. Produksjonssynk forblir av.
+Toveis synk er fortsatt ikke implementert.
+
+Serverens nødstopp gjelder både Edge-mottak og direkte apply_sync_event_v1.
+RPC returnerer status=rejected og code=SYNC_DISABLED før domenedata/inbox
+endres. Backendmigrasjonen må deployes før dette regnes som operativt vern.
+
+## Produktets næringsgrunnlag (2026-10-03)
+
+`product.upsert` har additive valgfrie `nutritionBasis` (per100g/per100ml),
+`servings` og `manualNutritionInput` (basis, amount, unit, label og rå kcal/makroer).
+Historisk `nutrientsPer100g` inneholder per-100-verdier i eksplisitt grunnlag;
+fravær av grunnlag betyr per100g for eldre klienter. Serveren lagrer metadata
+atomisk med produkt og inbox. Migrasjonen 20261003090000 og Edge-valideringen
+må rulles ut før klienten; schemaVersion forblir 1. Produksjonssynk forblir av
+inntil database- og integrasjonstester er verifisert.
+
+## Databasekvote (2026-10-12, verifisert på staging)
+
+Migrasjon `20261012120000_sync_event_quota.sql` gir 1500 apply-forsøk per JWT-eier
+per kalender-minutt, felles for direkte RPC og Edge. Eksisterende Edge-kvote
+på 30 batcher/minutt beholdes. Replay og kjente avvisninger bruker eventkreditt.
+Ved overskridelse returnerer RPC `status=rejected, code=RATE_LIMITED` uten
+inbox-/domeneskriving; Edge viderefører avvisningen i vanlig delvis 201-svar.
+Dette er en additiv feilkode i v1, ikke en payloadendring. Oppdatert klient skal
+være distribuert før synkflagget åpnes, ellers behandler eldre klienter denne
+event-avvisningen som manuelt feilspor. Produksjonssynk er fortsatt av.
+
+## Tilberedningsstatus (2026-10-12)
+
+`product.upsert`, logg-oppretting/-oppdatering og `saved_meal.upsert.items`
+har additivt valgfritt `nutritionPreparation`: `as_sold` eller `prepared`.
+Nye klienter sender eksplisitt status, også `as_sold`, slik at grunnlag kan
+endres uten at gammel status henger igjen. Fravær bevarer eksisterende status
+ved oppdatering av samme produktreferanse; nye rader bruker `as_sold`.
+Migrasjonen `20261012140000_nutrition_preparation.sql` lagrer metadata atomisk
+med domenedata og inbox, og bevarer eksisterende quota-/eierskapskontroller.
+Servermigrasjon og Edge-validering må være på plass før klienten synkroniserer
+de nye feltene. Schema-versjon er fortsatt 1. Toveis synk er ikke implementert;
+før dette innføres må eldre klienter hindres fra å motta tilberedte produkter
+som mister status ved dekoding. Produksjonssynk forblir deaktivert.
+
+
+## Produktets næringsobjekt (2026-10-13)
+
+`product.upsert.nutrientsPer100g` er et JSON-objekt der hver oppgitt verdi skal
+være et endelig, ikke-negativt tall. Numeriske strenger, null, boolske verdier,
+nestede objekter/lister og tall som overflyter JavaScript Number avvises med
+`VALIDATION_ERROR`. Tomme/delvise objekter og ukjente nøkler med gyldige tall
+beholdes. Ingen obligatoriske makroer, ernæringsspesifikke maksimum eller
+utfylling/avrunding av manglende verdier innføres. Kilde, per-100-enhet og
+opprinnelig næringsgrunnlag er uendret.
+
+Edge og migrasjon `20261013120000_product_nutrients_validation.sql` håndhever
+regelen ved hver sin grense. Avviste nye databasehendelser skriver verken inbox
+eller domene; avvisningen skjer innen eksisterende kvotevern. Allerede bekreftede
+inbox-events fra samme eier beholder database-ACK ved replay, uten ny skriving.
+Edge validerer fortsatt hver payload før RPC; eldre ugyldige payloads kan derfor
+havne i klientens manuelle feilspor, også om databasen tidligere bekreftet dem.
+Lokal feil-/hendelseslagring beholdes. Ingen automatisk omskriving eller sletting
+av gamle payloads innføres. En produktrettelse med endret payload er en ny
+hendelse; allerede bekreftede hendelser skal ikke brukes til å omskrive historikk.
+
+Dette retter en tidligere for permissiv typevalidering i v1; gyldige nåværende
+iOS-payloads er numeriske og uendret. Deploy Edge-validering og migrasjon samlet
+bak avslått synkflagg før aktivering. Hosted staging ble oppgradert med begge
+migrasjonene og `sync-events` versjon 5 den 14. oktober 2026. Readback og
+rollback-kontroller bestod; globalt `sync_enabled=false` og produksjonssynk
+forblir av. Se [staging-resultatet](production-readiness.md#næringsmetadata-og-validering-på-staging--2026-10-14).
+
+## Visuell matgruppe (2026-11-06)
+
+`product.upsert.selectedFoodGroup` er additivt, valgfritt og nullable. Tillatte
+stabile ID-er er `rice_pasta`, `bread`, `grain`, `meat`, `poultry`, `fish`, `egg`,
+`dairy`, `cheese`, `oil_fat`, `fruit`, `vegetables`, `nuts`, `drinks`, `other`.
+Fravær i eldre payloads bevarer eksisterende serververdi; eksplisitt JSON-null
+tømmer valget. Nye rader uten felt får null. Klienten sender valgt ID eller
+null ved produktlagring. Kategoritekst/-tagger fra katalogene bevares lokalt
+og utledes ved visning; de erstattes ikke av dette feltet.
+
+Edge og database validerer samme ID-er. Feltet lagres i `selected_food_group`
+atomisk med produkt og inbox, med eksisterende eierskap og deduplisering.
+Migrasjonen `20261106120000_product_food_group.sql` og Edge-valideringen må
+være på plass før nye payloads tas i bruk. `schemaVersion` forblir 1.
+Produksjonsopplasting forblir deaktivert; dette innfører ikke toveis synk eller
+skybackup. Klienten tåler ukjente lokale gruppe-ID-er ved visning.

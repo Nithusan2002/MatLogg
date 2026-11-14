@@ -2,205 +2,224 @@ import SwiftUI
 import UIKit
 
 struct LoggView: View {
-    @EnvironmentObject var appState: AppState
-    @EnvironmentObject var logViewModel: LogViewModel
-    @EnvironmentObject var authViewModel: AuthViewModel
-    @EnvironmentObject var savedMealsViewModel: SavedMealsViewModel
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var logViewModel: LogViewModel
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
+    var initialDate = Date()
+    var initialMeal: String?
+
+    var body: some View {
+        LoggContent(appState: appState, logViewModel: logViewModel, authViewModel: authViewModel,
+                    savedMealsViewModel: savedMealsViewModel, initialDate: initialDate, initialMeal: initialMeal)
+    }
+}
+
+private struct LoggContent: View {
+    @EnvironmentObject private var productViewModel: ProductViewModel
+    @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
+    let appState: AppState
+    let logViewModel: LogViewModel
+    let authViewModel: AuthViewModel
+    let savedMealsViewModel: SavedMealsViewModel
     @Environment(\.matLoggTabBarScrollMargin) private var tabBarScrollMargin
     @State private var selectedDate: Date = Date()
-    @State private var searchText = ""
-    @State private var showSearch = false
-    @FocusState private var searchFocused: Bool
-    @State private var mealFilter: String?
+    @StateObject private var screen: LogScreenViewModel
+    @State private var isPullRefreshing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pendingMealScroll: String?
     @State private var showAddActions = false
-    @State private var showScanCamera = false
-    @State private var activeSheet: AddSheet?
     @State private var editingLog: FoodLog?
     @State private var receiptPayload: ReceiptPayload?
     @State private var isUndoingReceipt = false
     @State private var savedMealSource: SavedMealCreationSource?
+    @State private var showBatchDeletion = false
 
-    init(initialDate: Date = Date(), initialMeal: String? = "frokost") {
+    init(appState: AppState, logViewModel: LogViewModel, authViewModel: AuthViewModel,
+         savedMealsViewModel: SavedMealsViewModel, initialDate: Date, initialMeal: String?) {
+        self.appState = appState
+        self.logViewModel = logViewModel
+        self.authViewModel = authViewModel
+        self.savedMealsViewModel = savedMealsViewModel
         _selectedDate = State(initialValue: initialDate)
-        _mealFilter = State(initialValue: initialMeal)
+        _pendingMealScroll = State(initialValue: initialMeal)
+        _screen = StateObject(wrappedValue: LogScreenViewModel(logs: logViewModel, appState: appState,
+            auth: authViewModel, savedMeals: savedMealsViewModel, includesEmptyMeals: true))
     }
-    
-    enum AddSheet: Identifiable {
-        case raw
-        case manual
-        case savedMeals
-        
-        var id: String {
-            switch self {
-            case .raw: return "raw"
-            case .manual: return "manual"
-            case .savedMeals: return "savedMeals"
-            }
-        }
-    }
-    
+
     var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
 
             logList
         }
-            .overlay(alignment: .bottom) {
-                if let id = logViewModel.deletionReceiptID {
-                    LogToastView(
-                        id: id,
-                        title: logViewModel.deletedLogCount == 1 ? "Varen er slettet" : "\(logViewModel.deletedLogCount) varer er slettet",
-                        isUndoing: logViewModel.isDeletingOrRestoring,
-                        onUndo: { performDeletionUndo() },
-                        onDismiss: { logViewModel.dismissDeletionReceipt() }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, tabBarScrollMargin)
-                } else if let payload = receiptPayload {
-                    LogToastView(
-                        payload: payload,
-                        isUndoing: isUndoingReceipt,
-                        onUndo: { undoLogging(payload) },
-                        onDismiss: { dismissReceipt() }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, tabBarScrollMargin)
-                    .transition(.logToast)
-                }
+        .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: screen.isSelecting)
+        .preference(key: MatLoggDiarySelectionKey.self, value: screen.isSelecting
+            ? MatLoggDiarySelectionPresentation(contextID: ObjectIdentifier(screen),
+                count: screen.selectedLogIDs.count, canSave: screen.canSaveSelection,
+                isBusy: screen.isDeletingOrRestoring, onSave: saveSelection,
+                onDelete: { showBatchDeletion = true })
+            : nil)
+        .overlay(alignment: .bottom) { if !screen.isSelecting { receiptOverlay } }
+        .confirmationDialog("Slette \(screen.selectedLogIDs.count) registreringer?", isPresented: $showBatchDeletion, titleVisibility: .visible) {
+            Button("Slett", role: .destructive) { deleteSelection() }
+            Button("Avbryt", role: .cancel) {}
+        }
+        .navigationTitle("Måltider")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { navigationToolbar }
+        .sheet(isPresented: $showAddActions) { loggingSheet }
+        .sheet(item: $editingLog) { log in logEditor(for: log) }
+        .sheet(item: $savedMealSource) { source in
+            SaveMealFromLogsView(source: source) { screen.endSelection() }
+        }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
+            logViewModel.dismissDeletionReceipt()
+            screen.endSelection()
+            savedMealSource = nil
+            showBatchDeletion = false
+        }
+        .onDisappear {
+            logViewModel.dismissDeletionReceipt()
+            screen.endSelection()
+        }
+        .onChange(of: selectedDate) { _, _ in
+            screen.endSelection()
+            showBatchDeletion = false
+        }
+        .onChange(of: screen.isSelecting) { _, isSelecting in
+            if isSelecting { dismissReceipt() }
+        }
+        .task(id: "\(authViewModel.currentUser?.id.uuidString ?? "local")-\(selectedDate.timeIntervalSince1970)") {
+            appState.logSelectedDate = selectedDate
+            await loadSelectedSummary()
+        }
+        .onChange(of: appState.logSelectedDate) { _, newValue in
+            if !Calendar.current.isDate(selectedDate, inSameDayAs: newValue) {
+                selectedDate = newValue
             }
-            .navigationTitle("Måltider")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showSearch.toggle()
-                        searchFocused = showSearch
-                        if !showSearch { searchText = "" }
-                    } label: {
-                        Image(systemName: showSearch ? "xmark" : "magnifyingglass")
-                            .frame(minWidth: 44, minHeight: 44)
-                    }
-                    .tint(AppColors.ink)
-                    .accessibilityLabel(showSearch ? "Lukk søk" : mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet")
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(mealFilter == nil ? "Velg frokost" : "Se hele dagen", systemImage: "list.bullet") {
-                            mealFilter = mealFilter == nil ? "frokost" : nil
-                        }
-                        if let mealFilter, !logViewModel.logs(for: mealFilter).isEmpty {
-                            Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                                savedMealSource = SavedMealCreationSource(mealType: mealFilter, logs: logViewModel.logs(for: mealFilter))
+        }
+        .onChange(of: productViewModel.metadataRevision) { _, _ in
+            Task { await loadSelectedSummary() }
+        }
+        .onChange(of: logViewModel.mutationRevision) { _, _ in
+            Task { await loadSelectedSummary() }
+        }
+        .onChange(of: savedMealsViewModel.mutationRevision) { _, _ in
+            Task { await loadSelectedSummary() }
+        }
+    }
+
+    private var receiptOverlay: some View {
+        LogReceiptOverlay(logs: logViewModel, payload: receiptPayload, isUndoing: isUndoingReceipt,
+            onDeletionUndo: performDeletionUndo, onLoggingUndo: { if let receiptPayload { undoLogging(receiptPayload) } },
+            onLoggingDismiss: dismissReceipt)
+            .padding(.horizontal, 16)
+            .padding(.bottom, tabBarScrollMargin)
+    }
+
+    @ToolbarContentBuilder private var navigationToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(screen.isSelecting ? "Avbryt" : "Velg") {
+                if screen.isSelecting { screen.endSelection() }
+                else { screen.beginSelection() }
+            }
+            .disabled(screen.isDeletingOrRestoring || (!screen.isSelecting && (screen.isLoading || !hasLogs)))
+            .accessibilityIdentifier("meal-room-select")
+        }
+        ToolbarItem(placement: .navigationBarTrailing) {
+            if !screen.isSelecting {
+                Menu {
+                    Menu("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                        ForEach(MealPresentation.all) { meal in
+                            Button(meal.title) {
+                                savedMealSource = SavedMealCreationSource(mealType: meal.key, logs: logViewModel.logs(for: meal.key))
                             }
+                            .disabled(logViewModel.logs(for: meal.key).isEmpty)
                         }
-                        Button("Gå til i dag", systemImage: "calendar") {
-                            selectedDate = Date()
-                        }
-                        if canCopyFromYesterday {
-                            Section {
-                                Button("Kopier hele dagen fra i går", systemImage: "doc.on.doc") {
-                                    Task {
-                                        await copyLogsFromYesterday()
-                                        await loadSelectedSummary()
-                                    }
+                    }
+                    Button("Gå til i dag", systemImage: "calendar") {
+                        selectedDate = Date()
+                    }
+                    if canCopyFromYesterday {
+                        Section {
+                            Button("Kopier hele dagen fra i går", systemImage: "doc.on.doc") {
+                                Task {
+                                    await copyLogsFromYesterday()
+                                    await loadSelectedSummary()
                                 }
                             }
                         }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(AppTypography.bodyEmphasis)
-                            .frame(minWidth: 44, minHeight: 44)
                     }
-                    .tint(AppColors.ink)
-                    .accessibilityLabel("Flere valg for måltider")
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(minWidth: 44, minHeight: 44)
                 }
+                .tint(AppColors.ink)
+                .accessibilityLabel("Flere valg for dagsloggen")
+                .accessibilityIdentifier("meal-room-reuse")
             }
-            .confirmationDialog("Legg til", isPresented: $showAddActions) {
-                Button("Lagrede måltider") { activeSheet = .savedMeals }
-                Button("Skann") { showScanCamera = true }
-                Button("Søk / Råvarer") { activeSheet = .raw }
-                Button("Legg til manuelt") { activeSheet = .manual }
-                if canCopyFromYesterday {
-                    Button("Kopier hele dagen fra i går") {
-                        Task {
-                            await copyLogsFromYesterday()
-                            await loadSelectedSummary()
-                        }
-                    }
-                }
+        }
+    }
+
+    private func saveSelection() {
+        savedMealSource = SavedMealCreationSource(mealType: screen.selectionMealType,
+            logs: screen.selectedLogs, allowsMealTypeChoice: screen.selectionSpansMeals)
+    }
+
+    private func deleteSelection() {
+        let logs = screen.selectedLogs
+        guard let userId = authViewModel.currentUser?.id else { return }
+        Task {
+            if await logViewModel.deleteBatchWithUndo(logs, userId: userId) {
+                screen.endSelection()
+                dismissReceipt()
+                await appState.refreshSyncStatus()
+            } else {
+                appState.errorMessage = logViewModel.errorMessage
             }
-            .sheet(item: $activeSheet) { sheet in
-                switch sheet {
-                case .savedMeals:
-                    SavedMealsListView {
-                        activeSheet = nil
-                        if mealFilter != nil { mealFilter = appState.selectedMealType }
-                        Task { await loadSelectedSummary() }
-                    }
-                case .raw:
-                    RawMaterialsSearchView { payload in
-                        receiptPayload = payload
-                        Task { await loadSelectedSummary() }
-                    }
-                        .environmentObject(appState)
-                case .manual:
-                    ManualAddView(onOpenRawMaterials: {
-                        activeSheet = nil
-                        activeSheet = .raw
-                    })
-                    .environmentObject(appState)
-                }
-            }
-            .fullScreenCover(isPresented: $showScanCamera) {
-                CameraView(
-                    onLogComplete: { _ in
-                        Task { await loadSelectedSummary() }
-                    },
-                    onSearch: { activeSheet = .raw }
-                )
-            }
-            .sheet(item: $editingLog) { log in
-                EditLogView(
-                    log: log,
-                    productName: logViewModel.selectedProductNames[log.productId] ?? "Rediger logging",
-                    onSave: { amountG, mealType in
-                    Task {
-                        guard let userId = authViewModel.currentUser?.id else { return }
-                        if await logViewModel.updateLog(log, amountG: amountG, mealType: mealType, userId: userId) {
-                            await appState.refreshSyncStatus()
-                        } else {
-                            appState.errorMessage = logViewModel.errorMessage
-                        }
-                        await loadSelectedSummary()
-                    }
-                })
-                .environmentObject(appState)
-            }
-            .sheet(item: $savedMealSource) { source in
-                SaveMealFromLogsView(source: source)
-            }
-            .onChange(of: authViewModel.currentUser?.id) { _, _ in
-                logViewModel.dismissDeletionReceipt()
-            }
-            .onDisappear { logViewModel.dismissDeletionReceipt() }
-            .task(id: "\(authViewModel.currentUser?.id.uuidString ?? "local")-\(selectedDate.timeIntervalSince1970)") {
-                appState.logSelectedDate = selectedDate
-                await loadSelectedSummary()
-            }
-            .onChange(of: mealFilter) { _, newValue in
-                if let newValue { appState.selectedMealType = newValue }
-            }
-            .onChange(of: appState.logSelectedDate) { _, newValue in
-                if !Calendar.current.isDate(selectedDate, inSameDayAs: newValue) {
-                    selectedDate = newValue
-                }
-            }
-            .onChange(of: logViewModel.mutationRevision) { _, _ in
+            await loadSelectedSummary()
+        }
+    }
+
+    private var loggingSheet: some View {
+        LoggingFlowView(
+            onLogComplete: { payload in
+                receiptPayload = payload
+                Task { await loadSelectedSummary() }
+            },
+            onSavedMealLogComplete: {
                 Task { await loadSelectedSummary() }
             }
-            .onChange(of: savedMealsViewModel.mutationRevision) { _, _ in
-                Task { await loadSelectedSummary() }
+        )
+        .presentationDetents([.fraction(0.66), .large])
+        .presentationDragIndicator(.hidden)
+        .presentationCornerRadius(36)
+    }
+
+    private func logEditor(for log: FoodLog) -> some View {
+        EditLogView(
+            log: log,
+            productName: screen.names[log.productId] ?? "Ukjent matvare",
+            brand: screen.brands[log.productId],
+            imageURL: screen.imageURLs[log.productId],
+            imageData: screen.imageData[log.productId],
+            foodGroup: screen.foodGroups[log.productId] ?? .other,
+            favorites: screen.names[log.productId] == nil ? nil : productViewModel.favoriteRepository,
+            onSave: { request in
+                    guard let userId = authViewModel.currentUser?.id else { return false }
+                    let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
+                    if success {
+                        await appState.refreshSyncStatus()
+                    } else {
+                        appState.errorMessage = logViewModel.errorMessage
+                    }
+                    await loadSelectedSummary()
+                    return success
             }
+        )
+        .environmentObject(appState)
     }
 
     private func dismissReceipt() {
@@ -212,7 +231,8 @@ struct LoggView: View {
     }
 
     private func undoLogging(_ payload: ReceiptPayload) {
-        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id else { return }
+        guard !isUndoingReceipt, let userId = authViewModel.currentUser?.id,
+              payload.ownerID == nil || payload.ownerID == userId else { return }
         isUndoingReceipt = true
         Task {
             let succeeded = await logViewModel.undoLatestLog(
@@ -220,7 +240,8 @@ struct LoggView: View {
                 mealType: payload.mealType,
                 amountG: Float(payload.amountG),
                 userId: userId,
-                date: payload.loggedDate
+                date: payload.loggedDate,
+                logID: payload.logID
             )
             if succeeded {
                 dismissReceipt()
@@ -233,150 +254,182 @@ struct LoggView: View {
         }
     }
     
-    private var mealTitle: String {
-        guard let mealFilter else { return "Hele dagen" }
-        return LogSummaryService.title(for: mealFilter)
-    }
-
     private var logList: some View {
         let groups = groupedLogs
-        let logs = logViewModel.logs(for: mealFilter)
-        let totals = logViewModel.nutrition(for: mealFilter)
-        let loading = logViewModel.isSummaryLoading || logViewModel.selectedSummary.map { !Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } != false
-        return List {
-            Section {
-                DayNavigationBar(selection: $selectedDate)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(MealPresentation.all) { meal in
-                            MealChip(title: meal.title, isSelected: mealFilter == meal.key) {
-                                mealFilter = meal.key
+        let logs = screen.presentation.mealLogs
+        let hasCurrentSummary = screen.summary.map { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } == true
+        let loading = screen.isLoading || !hasCurrentSummary
+        return ScrollViewReader { proxy in
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        DayNavigationBar(selection: $selectedDate)
+                            .disabled(screen.isDeletingOrRestoring)
+                        if screen.isSelecting {
+                            HStack {
+                                Button(screen.isGroupSelected() ? "Fjern alle valg" : "Velg alle") {
+                                    screen.toggleGroup()
+                                }
+                                .buttonStyle(.borderless)
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("meal-room-select-all")
+                                Spacer()
                             }
-                            .accessibilityIdentifier("meal-room-select-\(meal.key)")
+                            .disabled(screen.isDeletingOrRestoring)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Hele dagen")
+                                .font(AppTypography.title)
+                                .foregroundStyle(AppColors.deepInk)
+                                .accessibilityAddTraits(.isHeader)
+                            if hasCurrentSummary {
+                                Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        if hasCurrentSummary, let summary = screen.summary {
+                            DailyStatusCard(
+                                userId: authViewModel.currentUser?.id,
+                                date: selectedDate,
+                                showsEnergy: preferencesViewModel.showGoalStatusOnHome
+                            ) {
+                                StatusSummaryContent(summary: summary, goal: healthProfileViewModel.currentGoal)
+                                    .accessibilityIdentifier("meal-room-totals")
+                            }
+                            .disabled(screen.isDeletingOrRestoring)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
                 }
-                Button(mealFilter == nil ? "Velg frokost" : "Se hele dagen") {
-                    mealFilter = mealFilter == nil ? "frokost" : nil
-                }
-                .font(AppTypography.secondaryEmphasis)
-                .foregroundStyle(AppColors.action)
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("meal-room-all")
-                if showSearch {
-                    TextField(mealFilter == nil ? "Søk i denne dagen" : "Søk i dette måltidet", text: $searchText)
-                        .focused($searchFocused)
-                        .submitLabel(.search)
-                        .padding(12)
-                        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
-                        .accessibilityIdentifier("meal-room-search")
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(mealTitle)
-                        .font(AppTypography.hero)
-                        .foregroundStyle(AppColors.deepInk)
-                    if !loading {
-                        Text("\(logs.count) \(logs.count == 1 ? "matvare" : "matvarer") registrert")
-                            .font(AppTypography.secondary)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-                .padding(.vertical, 8)
-                if !loading {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(mealFilter == nil ? "Hele dagen" : "Dette måltidet")
-                            .font(AppTypography.captionEmphasis)
-                        Text("\(NutritionDisplay.wholeCalories(totals.calories)) kcal")
-                            .font(AppTypography.title)
-                        Text("Protein \(NutritionDisplay.wholeGrams(totals.protein)) g · Karbohydrat \(NutritionDisplay.wholeGrams(totals.carbs)) g · Fett \(NutritionDisplay.wholeGrams(totals.fat)) g")
-                            .font(AppTypography.secondary)
-                            .foregroundStyle(AppColors.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 18))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("meal-room-totals")
-                }
-            }
-            .listRowBackground(AppColors.background)
-            .listRowSeparator(.hidden)
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
 
-            if loading {
-                ProgressView("Henter måltider …")
-                    .frame(maxWidth: .infinity, minHeight: 96)
-                    .listRowBackground(AppColors.background)
-            } else {
-                ForEach(groups, id: \.mealType) { group in
-                    Section {
-                        ForEach(group.logs) { log in
-                            LogRowView(
-                                log: log,
-                                productName: logViewModel.selectedProductNames[log.productId] ?? "Ukjent produkt",
-                                compact: true,
-                                mealRoom: true,
-                                imageURL: logViewModel.mealProductImageURLs[log.productId],
-                                imageData: logViewModel.mealProductImageData[log.productId],
-                                onEdit: { editingLog = log },
-                                onMove: { editingLog = log },
-                                onDelete: { deleteLog(log) }
-                            )
-                            .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
-                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                            .listRowBackground(AppColors.surface)
-                            .listRowSeparatorTint(AppColors.separator)
-                        }
-                    } header: {
-                        if mealFilter == nil {
+                if loading && (!isPullRefreshing || !hasCurrentSummary) {
+                    ProgressView("Henter måltider …")
+                        .frame(maxWidth: .infinity, minHeight: 96)
+                        .listRowBackground(AppColors.background)
+                }
+                if hasCurrentSummary {
+                    ForEach(groups, id: \.mealType) { group in
+                        Section {
                             HStack {
                                 Text(LogSummaryService.title(for: group.mealType))
+                                    .font(AppTypography.sectionTitle)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .accessibilityAddTraits(.isHeader)
+                                    .accessibilityIdentifier("meal-room-heading-\(group.mealType)")
                                 Spacer()
-                                Button("Legg til") { beginAdding(to: group.mealType) }
-                                    .frame(minHeight: 44)
-                                    .tint(AppColors.action)
-                                Menu {
-                                    Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
-                                        savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: logViewModel.logs(for: group.mealType))
+                                if screen.isSelecting {
+                                    Button(screen.isGroupSelected(group.mealType) ? "Fjern valg" : "Velg alle") {
+                                        screen.toggleGroup(group.mealType)
                                     }
-                                } label: {
-                                    Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                                    .frame(minHeight: 44)
+                                    .disabled(group.logs.isEmpty || screen.isDeletingOrRestoring)
+                                    .accessibilityLabel("Velg eller fjern valg for \(LogSummaryService.title(for: group.mealType))")
+                                } else {
+                                    Button("Legg til") { beginAdding(to: group.mealType) }
+                                        .accessibilityIdentifier("meal-room-add-\(group.mealType)")
+                                        .frame(minHeight: 44)
+                                        .tint(AppColors.action)
+                                    Menu {
+                                        Button("Lagre som måltid", systemImage: "square.stack.3d.up") {
+                                            savedMealSource = SavedMealCreationSource(mealType: group.mealType, logs: logViewModel.logs(for: group.mealType))
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+                                    }
+                                    .disabled(group.logs.isEmpty)
+                                    .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                                 }
-                                .accessibilityLabel("Flere valg for \(LogSummaryService.title(for: group.mealType))")
                             }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32))
+                            .listRowBackground(LogMealCardBackground(top: true))
+                            .listRowSeparator(.hidden)
+                            if group.logs.isEmpty {
+                                Text("Ingen mat registrert")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .padding(.bottom, 16)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 32, bottom: 0, trailing: 32))
+                                    .listRowBackground(LogMealCardBackground(bottom: true))
+                                    .listRowSeparator(.hidden)
+                            }
+                            ForEach(group.logs) { log in
+                                LogRowView(
+                                    log: log,
+                                    productName: screen.names[log.productId] ?? "Ukjent produkt",
+                                    compact: true,
+                                    mealRoom: true,
+                                    imageURL: screen.imageURLs[log.productId],
+                                    imageData: screen.imageData[log.productId],
+                                    foodGroup: screen.foodGroups[log.productId] ?? .other,
+                                    isSelected: screen.selectedLogIDs.contains(log.id),
+                                    onSelect: screen.isSelecting ? { screen.toggleSelection(log.id) } : nil,
+                                    onEdit: screen.isSelecting ? nil : { editingLog = log },
+                                    onMove: screen.isSelecting ? nil : { editingLog = log },
+                                    onDelete: screen.isSelecting ? nil : { deleteLog(log) }
+                                )
+                                .disabled(screen.isDeletingOrRestoring)
+                                .accessibilityIdentifier("meal-room-row-\(log.id.uuidString)")
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                .padding(.bottom, log.id == group.logs.last?.id ? 6 : 0)
+                                .overlay(alignment: .bottom) {
+                                    if log.id != group.logs.last?.id {
+                                        Rectangle()
+                                            .fill(AppColors.separator)
+                                            .frame(height: 0.5)
+                                            .padding(.horizontal, 16)
+                                    }
+                                }
+                                .listRowBackground(LogMealCardBackground(bottom: log.id == group.logs.last?.id))
+                                .listRowSeparator(.hidden)
+                            }
+                            Color.clear
+                                .frame(height: 16)
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(AppColors.background)
+                                .listRowSeparator(.hidden)
                         }
+                        .listSectionSeparator(.hidden)
+                        .id(group.mealType)
+                    }
+                    if groups.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Ingen mat registrert ennå")
+                                .font(AppTypography.title)
+                            Text("Legg til mat for valgt dato.")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                        .listRowBackground(AppColors.background)
+                        .listRowSeparator(.hidden)
                     }
                 }
-                if groups.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(searchText.isEmpty ? "Ingen mat registrert ennå" : "Ingen treff")
-                            .font(AppTypography.title)
-                        Text(searchText.isEmpty ? "Legg til mat for valgt måltid og dato." : "Prøv et annet søk. Måltidets totaler inkluderer fortsatt alle varene.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
-                        if !searchText.isEmpty {
-                            Button("Nullstill søket") { searchText = "" }.frame(minHeight: 44)
-                        }
-                    }
-                    .listRowBackground(AppColors.background)
-                    .listRowSeparator(.hidden)
-                }
             }
-            Section {
-                PrimaryButton(title: "Legg til mat", systemImage: "plus") {
-                    beginAdding(to: mealFilter ?? appState.selectedMealType)
-                }
-                .accessibilityIdentifier("meal-room-add")
-
+            .refreshable {
+                isPullRefreshing = true
+                defer { isPullRefreshing = false }
+                await logViewModel.loadSelectedSummary(userId: authViewModel.currentUser?.id, date: selectedDate)
             }
-            .listRowBackground(AppColors.background)
-            .listRowSeparator(.hidden)
+            .listStyle(.plain)
+            .environment(\.defaultMinListRowHeight, 0)
+            .scrollContentBackground(.hidden)
+            .matLoggTabBarScrollClearance()
+            .task(id: "\(hasCurrentSummary)-\(pendingMealScroll ?? "")") {
+                guard hasCurrentSummary, let meal = pendingMealScroll,
+                      groups.contains(where: { $0.mealType == meal }) else { return }
+                appState.selectedMealType = meal
+                if reduceMotion {
+                    proxy.scrollTo(meal, anchor: .top)
+                } else {
+                    withAnimation { proxy.scrollTo(meal, anchor: .top) }
+                }
+                pendingMealScroll = nil
+            }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .matLoggTabBarScrollClearance()
     }
+
 
     private func beginAdding(to meal: String) {
         appState.selectedMealType = meal
@@ -409,18 +462,10 @@ struct LoggView: View {
         }
     }
 
-    private var groupedLogs: [(mealType: String, logs: [FoodLog])] {
-        let logs = logViewModel.selectedSummary?.logs ?? []
-        return LogSummaryService.groupedLogs(
-            logs: logs,
-            searchText: searchText,
-            mealFilter: mealFilter,
-            productNameLookup: { logViewModel.selectedProductNames[$0] ?? "" }
-        )
-    }
-    
+    private var groupedLogs: [(mealType: String, logs: [FoodLog])] { screen.presentation.groups }
+
     private var hasLogs: Bool {
-        !(logViewModel.selectedSummary?.logs.isEmpty ?? true)
+        !(screen.summary?.logs.isEmpty ?? true)
     }
     
     private var canCopyFromYesterday: Bool {
@@ -436,7 +481,6 @@ struct LoggView: View {
     }
     
     private func loadSelectedSummary() async {
-        if let mealFilter { appState.selectedMealType = mealFilter }
         await logViewModel.loadSelectedSummary(
             userId: authViewModel.currentUser?.id,
             date: selectedDate
@@ -501,7 +545,7 @@ struct LoggFilterSheet: View {
                     Button("Nullstill") {
                         selected = nil
                     }
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -510,33 +554,79 @@ struct LoggFilterSheet: View {
 
 struct EditLogView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
+    @EnvironmentObject private var quickLogViewModel: QuickLogViewModel
     let log: FoodLog
     let productName: String
-    let onSave: (Float, String) -> Void
+    let brand: String?
+    let imageURL: URL?
+    let imageData: Data?
+    let foodGroup: FoodGroup
+    let onSave: LogEditOperation
+    private let showsFavorite: Bool
     
-    @State private var amountText: String = ""
-    @State private var selectedMealType: String = "lunsj"
+    @StateObject private var model: EditLogViewModel
+
+    init(log: FoodLog, productName: String, brand: String? = nil, imageURL: URL? = nil, imageData: Data? = nil, foodGroup: FoodGroup = .other,
+         favorites: (any ProductFavoriteRepository)?, onSave: @escaping LogEditOperation) {
+        self.log = log
+        self.productName = productName
+        self.brand = brand
+        self.imageURL = imageURL
+        self.imageData = imageData
+        self.foodGroup = foodGroup
+        self.onSave = onSave
+        showsFavorite = favorites != nil
+        _model = StateObject(wrappedValue: EditLogViewModel(log: log, favorites: favorites))
+    }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                MatLoggSheetHeader(title: productName) { dismiss() }
+                MatLoggSheetHeader(title: "Rediger logging", isCloseDisabled: model.isSaving) { dismiss() }
+                    .overlay(alignment: .trailing) {
+                        if showsFavorite, authViewModel.currentUser?.id == log.userId {
+                            favoriteButton
+                        }
+                    }
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
+                if let error = model.favoriteError {
+                    ErrorMessageView(error)
+                        .font(AppTypography.caption)
+                        .padding(.horizontal, 16)
+                }
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Endre mengden eller flytt varen til et annet måltid.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
-
+                        HStack(alignment: .top, spacing: 12) {
+                            ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, imagePadding: 2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(productName)
+                                    .font(AppTypography.bodyEmphasis)
+                                    .foregroundStyle(AppColors.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let brand, !brand.isEmpty {
+                                    Text(brand)
+                                        .font(AppTypography.secondary)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Text("Logget \(log.loggedDate.formatted(date: .abbreviated, time: .omitted))")
+                                    .font(AppTypography.secondary)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
-                                AmountInputRow(
-                                    gramsText: $amountText,
-                                    unit: log.resolvedAmountUnit.rawValue
-                                )
+                                PortionAmountInput(model: model.amount)
+                                    .disabled(model.isSaving)
+
+                                nutritionSummary
 
                                 Divider().overlay(AppColors.separator)
 
@@ -548,23 +638,21 @@ struct EditLogView: View {
                             }
                         }
 
-                        if !amountText.isEmpty, parsedAmount == nil {
-                            Text("Mengden må være større enn 0 og høyst 10 000 \(log.resolvedAmountUnit.rawValue).")
-                                .font(AppTypography.caption)
-                                .foregroundStyle(AppColors.action)
-                                .accessibilityLabel("Feil: Mengden må være større enn 0 og høyst 10 000 \(log.resolvedAmountUnit.spokenName).")
-                        }
                     }
                     .padding(16)
                 }
+                .accessibilityIdentifier("log-editor-scroll")
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                PrimaryButton(title: "Lagre endringer") {
-                    guard let amount = parsedAmount else { return }
-                    onSave(amount, selectedMealType)
-                    dismiss()
+                VStack(spacing: 8) {
+                    if let error = model.error {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
+                    PrimaryButton(title: model.isSaving ? "Lagrer …" : "Lagre endringer") {
+                        Task { if await model.save(onSave) { dismiss() } }
+                    }
+                    .disabled(!model.canSave)
                 }
-                .disabled(parsedAmount == nil)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(AppColors.background)
@@ -575,29 +663,75 @@ struct EditLogView: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Ferdig") { hideKeyboard() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
-            .onAppear {
-                amountText = formatAmount(log.amountG)
-                selectedMealType = log.mealType
-            }
+
         }
-        .presentationDetents([.medium, .large])
+        .task(id: authViewModel.currentUser?.id) {
+            await model.loadFavorite(owner: authViewModel.currentUser?.id)
+        }
+        .interactiveDismissDisabled(model.isSaving)
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.fraction(0.75), .large])
         .presentationDragIndicator(.visible)
     }
 
-    @ViewBuilder private var mealButtons: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                ForEach(MealPresentation.all) { option in
-                    mealButton(option)
+    private var favoriteButton: some View {
+        let isFavorite = model.isFavorite == true
+        return Button {
+            Task {
+                if await model.toggleFavorite(owner: authViewModel.currentUser?.id) {
+                    HapticFeedbackService.shared.trigger(.favoriteToggle,
+                        isEnabled: preferencesViewModel.hapticsFeedbackEnabled)
+                    if authViewModel.currentUser?.id == log.userId {
+                        await quickLogViewModel.load(userId: log.userId)
+                    }
+                    await appState.refreshSyncStatus()
                 }
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(MealPresentation.all) { option in
-                    mealButton(option)
+        } label: {
+            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(isFavorite ? AppColors.action : AppColors.deepInk)
+                .frame(width: 44, height: 44)
+                .background(AppColors.mutedSurface, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isFavorite == nil || model.isChangingFavorite || model.isSaving)
+        .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
+        .accessibilityIdentifier("log-editor-favorite")
+    }
+
+    @ViewBuilder private var nutritionSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Næring for valgt mengde")
+                .font(AppTypography.secondary)
+                .foregroundStyle(AppColors.textSecondary)
+            if let nutrition = model.nutrition {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 240 : 130))], spacing: 8) {
+                    SummaryPill(label: "Energi", value: "\(NutritionDisplay.wholeCalories(nutrition.calories)) kcal", tintColor: AppColors.energyTint)
+                    SummaryPill(label: "Proteiner", value: "\(nutrition.protein.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroProteinTint)
+                    SummaryPill(label: "Karbohydrater", value: "\(nutrition.carbs.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroCarbTint)
+                    SummaryPill(label: "Fett", value: "\(nutrition.fat.formatted(.number.precision(.fractionLength(1)))) g", tintColor: AppColors.macroFatTint)
                 }
+                Text("Beregnet fra næringsverdiene i loggingen.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Text("Næring kan ikke beregnes. Kontroller mengden og loggingens næringsgrunnlag.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var mealButtons: some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: dynamicTypeSize.isAccessibilitySize ? 1 : 2),
+            spacing: 8
+        ) {
+            ForEach(MealPresentation.all) { option in
+                mealButton(option)
             }
         }
     }
@@ -605,20 +739,47 @@ struct EditLogView: View {
     private func mealButton(_ option: MealPresentation) -> some View {
         MealChip(
             title: option.title,
-            isSelected: selectedMealType == option.key,
-            action: { selectedMealType = option.key }
+            isSelected: model.mealType == option.key,
+            fillsWidth: true,
+            action: { model.mealType = option.key }
         )
         .frame(maxWidth: .infinity)
+        .disabled(model.isSaving)
         .accessibilityLabel("Flytt til \(option.title)")
     }
 
-    private var parsedAmount: Float? {
-        let normalized = amountText.replacingOccurrences(of: ",", with: ".")
-        guard let value = Float(normalized), value.isFinite, value > 0, value <= 10_000 else { return nil }
-        return value
+}
+
+struct LogReceiptOverlay: View {
+    @StateObject private var viewModel: LogDeletionReceiptViewModel
+    let logs: LogViewModel
+    let payload: ReceiptPayload?
+    let isUndoing: Bool
+    let onDeletionUndo: () -> Void
+    let onLoggingUndo: () -> Void
+    let onLoggingDismiss: () -> Void
+
+    init(logs: LogViewModel, payload: ReceiptPayload?, isUndoing: Bool,
+         onDeletionUndo: @escaping () -> Void, onLoggingUndo: @escaping () -> Void,
+         onLoggingDismiss: @escaping () -> Void) {
+        self.logs = logs
+        self.payload = payload
+        self.isUndoing = isUndoing
+        self.onDeletionUndo = onDeletionUndo
+        self.onLoggingUndo = onLoggingUndo
+        self.onLoggingDismiss = onLoggingDismiss
+        _viewModel = StateObject(wrappedValue: LogDeletionReceiptViewModel(logs: logs))
     }
 
-    private func formatAmount(_ amount: Float) -> String {
-        amount.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "nb_NO")))
+    var body: some View {
+        if let id = viewModel.receipt.id {
+            LogToastView(id: id,
+                title: viewModel.receipt.count == 1 ? "Varen er slettet" : "\(viewModel.receipt.count) varer er slettet",
+                isUndoing: viewModel.receipt.isBusy, onUndo: onDeletionUndo,
+                onDismiss: { logs.dismissDeletionReceipt() })
+        } else if let payload {
+            LogToastView(payload: payload, isUndoing: isUndoing, onUndo: onLoggingUndo, onDismiss: onLoggingDismiss)
+                .transition(.logToast)
+        }
     }
 }

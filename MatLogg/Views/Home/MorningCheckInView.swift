@@ -15,7 +15,9 @@ struct MorningCheckInView: View {
             if userId != nil, Calendar.current.isDateInToday(date), viewModel.status != "skipped" {
                 Button { viewModel.begin() } label: {
                     Group {
-                        if dynamicTypeSize.isAccessibilitySize {
+                        if viewModel.isLoading {
+                            ProgressView("Henter innsjekk …")
+                        } else if dynamicTypeSize.isAccessibilitySize {
                             Text(completed ? "✓ \(title)" : title)
                         } else {
                             Label(title, systemImage: completed ? "checkmark.circle.fill" : "checkmark.circle")
@@ -25,11 +27,11 @@ struct MorningCheckInView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
                 }
                 .disabled(viewModel.isLoading || viewModel.isSaving)
-                .accessibilityLabel(title)
+                .accessibilityLabel(viewModel.isLoading ? "Henter innsjekk" : title)
                 .accessibilityHint(viewModel.status == "completed" ? "Åpner dagens innsjekk for redigering" : "Åpner valgfri vektregistrering")
                 .accessibilityIdentifier("morning-check-in-open")
             }
@@ -48,7 +50,7 @@ struct MorningCheckInView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Dagens vekt er valgfri. Du kan sjekke inn uten å veie deg.")
                             .foregroundStyle(AppColors.textSecondary)
-                        Text("Vekt (kg)").font(AppTypography.bodyEmphasis)
+                        Text("Registrer vekt (kg)").font(AppTypography.bodyEmphasis)
                         Button { showWeightPicker = true } label: {
                             HStack(spacing: 12) {
                                 Text(viewModel.weightText.isEmpty ? "Velg vekt (valgfritt)" : viewModel.weightText + " kg")
@@ -61,9 +63,7 @@ struct MorningCheckInView: View {
                             }
                             .padding(12)
                             .frame(minHeight: 48)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(AppColors.controlBorder, lineWidth: 1))
+                            .matLoggFieldSurface()
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -71,11 +71,11 @@ struct MorningCheckInView: View {
                         .accessibilityValue(viewModel.weightText.isEmpty ? "Ikke oppgitt" : viewModel.weightText)
                         .accessibilityHint("Åpner tallskala og direkte inntasting.")
                         .accessibilityIdentifier("morning-check-in-weight")
-                        Text("Vekten lagres i vekthistorikken under Oversikt. Målene dine endres ikke. Et tomt felt sletter ikke en tidligere registrering.")
+                        Text("Vekten lagres i vekthistorikken under Utvikling. Målene dine endres ikke. Et tomt felt sletter ikke en tidligere registrering.")
                             .font(AppTypography.caption)
                             .foregroundStyle(AppColors.textSecondary)
                         if let error = viewModel.errorMessage {
-                            Text(error).foregroundStyle(AppColors.textSecondary)
+                            ErrorMessageView(error)
                                 .accessibilityIdentifier("morning-check-in-error")
                         }
                         PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Ferdig", systemImage: "checkmark") {

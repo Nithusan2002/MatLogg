@@ -1,4 +1,6 @@
-import { z } from "zod";
+// Keep Edge bundles self-contained; versions match the root deno.json import map.
+// deno-lint-ignore no-import-prefix
+import { z } from "npm:zod@3.23.8";
 
 export const MAX_SYNC_EVENTS = 50;
 export const MAX_SYNC_PAYLOAD_BYTES = 64 * 1024;
@@ -24,6 +26,22 @@ export const syncRequestSchema = z.object({
   events: z.array(z.unknown()),
 });
 
+const portionSelection = z.object({
+  servingId: uuid,
+  label: z.string().trim().min(1).max(200),
+  count: positive,
+  amountPerServing: positive.max(10_000),
+  unit: z.enum(["g", "ml"]),
+  source: z.enum(["openFoodFacts", "heuristic", "user"]),
+  kind: z.enum(["portion", "piece", "package"]),
+});
+function portionMatches(portion: z.infer<typeof portionSelection> | null | undefined, amount: number, unit: string): boolean {
+  if (!portion) return true;
+  const total = portion.count * portion.amountPerServing;
+  return portion.unit === unit && Number.isFinite(total) && total > 0 && total <= 10_000
+    && Math.abs(total - amount) <= Math.max(0.0001, Math.abs(amount) * 0.000001);
+}
+
 const idPayload = z.object({ id: uuid });
 const logPayload = z.object({
   id: uuid,
@@ -36,7 +54,9 @@ const logPayload = z.object({
   carbs: nonNegative,
   fat: nonNegative,
   productRef: uuid.nullable().optional(),
-});
+  nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
+  portionSelection: portionSelection.nullable().optional(),
+}).refine((p) => portionMatches(p.portionSelection, p.grams, p.unit), "Porsjon samsvarer ikke med mengden");
 const goalPayload = z.object({
   kcalTarget: positive,
   proteinTarget: nonNegative,
@@ -45,12 +65,34 @@ const goalPayload = z.object({
 });
 const favoritePayload = z.object({ productId: uuid });
 const weightPayload = z.object({ id: uuid, date: isoDate, weightKg: positive });
+const manualNutritionInput = z.object({
+  basis: z.enum(["per100g", "per100ml", "serving"]),
+  amount: positive.max(10000),
+  unit: z.enum(["g", "ml"]),
+  label: z.string().trim().min(1).max(80).nullable().optional(),
+  calories: nonNegative, protein: nonNegative, carbs: nonNegative, fat: nonNegative,
+}).refine((v) => v.basis !== "serving" || !!v.label, "Serving requires a label")
+  .refine((v) => v.basis === "serving" || (v.amount === 100 && v.unit === (v.basis === "per100ml" ? "ml" : "g")), "Input basis and unit must match");
+const productServing = z.object({
+  id: uuid, label: z.string().trim().min(1).max(200), grams: positive.max(10000),
+  unit: z.enum(["g", "ml"]).nullable().optional(),
+  source: z.enum(["openFoodFacts", "user", "heuristic"]),
+  isDefaultSuggestion: z.boolean(),
+  kind: z.enum(["portion", "piece", "package", "baseAmount"]).nullable().optional(),
+  shortLabel: z.string().max(80).nullable().optional(),
+});
 const productPayload = z.object({
   id: uuid,
   name: z.string().trim().min(1),
   brand: z.string().nullable().optional(),
   barcode: z.string().nullable().optional(),
-  nutrientsPer100g: z.record(z.unknown()),
+  nutrientsPer100g: z.record(nonNegative),
+  nutritionBasis: z.enum(["per100g", "per100ml"]).optional(),
+  nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
+  servings: z.array(productServing).max(100).nullable().optional(),
+  manualNutritionInput: manualNutritionInput.nullable().optional(),
+  selectedFoodGroup: z.enum(["rice_pasta", "bread", "grain", "meat", "poultry", "fish", "egg", "dairy", "cheese",
+    "oil_fat", "fruit", "vegetables", "nuts", "drinks", "other"]).nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   source: z.string().trim().min(1),
 });
@@ -70,8 +112,10 @@ const savedMealPayload = z.object({
     carbs: nonNegative,
     fat: nonNegative,
     nutritionSource: z.enum(["matvaretabellen", "openFoodFacts", "user"]),
+    nutritionPreparation: z.enum(["as_sold", "prepared"]).optional(),
     sortIndex: z.number().int().nonnegative(),
-  })).min(1).max(50),
+    portionSelection: portionSelection.nullable().optional(),
+  }).refine((p) => portionMatches(p.portionSelection, p.amountG, p.amountUnit), "Porsjon samsvarer ikke med mengden")).min(1).max(50),
 });
 
 const payloadSchemas: Record<string, z.ZodType> = {

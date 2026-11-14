@@ -41,9 +41,8 @@ struct MeasurementPickerSheet: View {
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                     if let error = viewModel.error {
-                        Text(error)
+                        ErrorMessageView(error)
                             .font(AppTypography.secondary)
-                            .foregroundStyle(AppColors.ink)
                             .accessibilityIdentifier("measurement-picker-error")
                     }
                 }

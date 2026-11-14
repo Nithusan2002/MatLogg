@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { AppleTokenVerifier } from './apple-token-verifier';
 
 const scrypt = promisify(nodeScrypt);
-const deletionRetentionMs = 30 * 24 * 60 * 60 * 1000;
+const deletionRetentionMs = 0;
 const refreshTokenLifetimeMs = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()
@@ -22,7 +22,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     await this.runMaintenance();
-    this.purgeTimer = setInterval(() => void this.runMaintenance(), 24 * 60 * 60 * 1000);
+    this.purgeTimer = setInterval(() => void this.runMaintenance(), 5 * 60 * 1000);
     this.purgeTimer.unref();
   }
 
@@ -170,6 +170,11 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         this.prisma.refreshSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: deletedAt } }),
       ]);
     }
+    try {
+      await this.purgeDeletedUsers(new Date(), userId);
+    } catch {
+      this.logger.error('Immediate account purge failed; scheduled retry required');
+    }
     return {
       code: 'ACCOUNT_PENDING_DELETION',
       message: 'Kontoen er markert for sletting',
@@ -177,9 +182,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async purgeDeletedUsers(now = new Date()) {
+  async purgeDeletedUsers(now = new Date(), ownerId?: string) {
     const cutoff = new Date(now.getTime() - deletionRetentionMs);
-    const users = await this.prisma.user.findMany({ where: { deletedAt: { lte: cutoff } }, select: { id: true } });
+    const users = await this.prisma.user.findMany({ where: { deletedAt: { lte: cutoff }, ...(ownerId ? { id: ownerId } : {}) }, select: { id: true } });
     for (const { id } of users) {
       await this.prisma.$transaction(async (tx) => {
         await tx.eventInbox.deleteMany({ where: { userId: id } });
@@ -187,7 +192,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
         await tx.goal.deleteMany({ where: { userId: id } });
         await tx.favorite.deleteMany({ where: { userId: id } });
         await tx.weight.deleteMany({ where: { userId: id } });
-        await tx.product.updateMany({ where: { userId: id }, data: { userId: null } });
+        await tx.product.deleteMany({ where: { userId: id } });
         await tx.user.delete({ where: { id } });
       });
     }

@@ -14,8 +14,8 @@ struct CardContainer<Content: View>: View {
     }
 }
 
-private struct MatLoggCardSurface: ViewModifier {
-    let fill: Color
+private struct MatLoggCardSurface<Fill: ShapeStyle>: ViewModifier {
+    let fill: Fill
     let cornerRadius: CGFloat
     let shadowEnabled: Bool
     let borderEnabled: Bool
@@ -40,13 +40,33 @@ private struct MatLoggCardSurface: ViewModifier {
 }
 
 extension View {
-    func matLoggCardSurface(
-        fill: Color = AppColors.surface,
+    func matLoggCardSurface<Fill: ShapeStyle>(
+        fill: Fill = AppColors.surface,
         cornerRadius: CGFloat = 18,
         shadowEnabled: Bool = true,
         borderEnabled: Bool = true
     ) -> some View {
         modifier(MatLoggCardSurface(fill: fill, cornerRadius: cornerRadius,
                                    shadowEnabled: shadowEnabled, borderEnabled: borderEnabled))
+    }
+}
+
+// Shared field surface for text entry and controls that open an input picker.
+extension View {
+    func matLoggFieldSurface(fill: Color = AppColors.surface) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        return self
+            .background(fill, in: shape)
+            .overlay(shape.stroke(AppColors.controlBorder, lineWidth: 1).allowsHitTesting(false))
+    }
+
+    func matLoggInputStyle() -> some View {
+        self
+            .textFieldStyle(.plain)
+            .font(AppTypography.body)
+            .foregroundStyle(AppColors.ink)
+            .padding(12)
+            .frame(minHeight: 48)
+            .matLoggFieldSurface()
     }
 }

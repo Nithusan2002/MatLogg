@@ -20,15 +20,16 @@ enum LogSummaryService {
         mealFilter: String? = nil,
         productNameLookup: (UUID) -> String
     ) -> [(mealType: String, logs: [FoodLog])] {
+        let query = searchText.lowercased()
         let filtered = logs.filter { log in
             if let mealFilter, log.mealType != mealFilter {
                 return false
             }
-            if searchText.isEmpty {
+            if query.isEmpty {
                 return true
             }
             let name = productNameLookup(log.productId).lowercased()
-            return name.contains(searchText.lowercased())
+            return name.contains(query)
         }
         
         let grouped = Dictionary(grouping: filtered, by: { $0.mealType })

@@ -5,7 +5,12 @@ description: Implementer og vurder MatLoggs Supabase-plattform, Edge Functions, 
 
 # Backend og API
 
-Les `supabase/README.md`, `docs/specs/06-api-endpoints.md`, `docs/sync-contract-v1.md`, berørte Edge Functions/SQL-migrasjoner og klientkallet i `SupabaseService.swift`. Ved legacy-arbeid, les også `backend/README.md`, berørte NestJS-moduler og Prisma-skjemaet. `APIService.swift` håndterer blant annet eksterne produktkall og er ikke appens aktive synktransport.
+Les bare kildene som gjelder endringen:
+
+- Supabase-oppsett og database: `supabase/README.md` og berørte SQL-migrasjoner.
+- API: relevant del av `docs/specs/06-api-endpoints.md`, berørt Edge Function og klientkall.
+- Synk: `docs/sync-contract-v1.md`, `sync-events` og berørt kall i `SupabaseService.swift`. `APIService.swift` håndterer blant annet eksterne produktkall og er ikke aktiv synktransport.
+- Legacy: `backend/README.md`, berørte NestJS-moduler og Prisma-skjema ved skjemaendring.
 
 - Valider all ekstern input ved grensen og returner stabile, maskinlesbare feil.
 - Autoriser mot ressursens eier; stol aldri på `userId` fra payload når identiteten finnes i tokenet.
@@ -14,4 +19,13 @@ Les `supabase/README.md`, `docs/specs/06-api-endpoints.md`, `docs/sync-contract-
 - Hold API-endringer bakoverkompatible eller dokumenter eksplisitt versjonering og utrullekkefølge.
 - Ikke rediger eller commit generert output som løsning på kildekodeendringer.
 
-Ved kodeendring, kjør relevante Supabase-/Deno-kontroller fra `docs/testing.md`. Ved databaseendring, valider migrasjonen og berørte RLS-/RPC-regler i en ikke-produksjonsdatabase. For legacy-kode, kjør backend build og relevante tester; generer Prisma-klient ved skjemaendring. Rene dokumentasjonsendringer trenger ikke build.
+Ved kodeendring, kjør relevante Supabase-/Deno-kontroller fra `docs/testing.md`. Ved databaseendring, valider migrasjonen og berørte RLS-/RPC-regler i en ikke-produksjonsdatabase. For legacy-kode, kjør relevante tester og build når endringen påvirker kompilering; generer Prisma-klient ved skjemaendring. Rene dokumentasjonsendringer trenger ikke build.
+
+Målrettede kontroller fra repo-roten med Deno tilgjengelig:
+
+```bash
+deno check 'supabase/functions/<funksjon>/index.ts'
+deno test --allow-env 'supabase/functions/tests/<testfil>.ts'
+```
+
+Velg eksisterende funksjon/testfil for berørt adferd. Ved database-/RLS-endring: `npm run supabase:lint` og `npm run supabase:test` mot lokal Supabase. Reset er ikke en standardkontroll; bruk bare en bekreftet disponibel lokal database. Legacy-kommandoer fra `backend/`: `npm test`, eventuelt `npm run build`; integrasjonstester krever bekreftet testdatabase, se `docs/testing.md`.

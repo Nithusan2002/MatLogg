@@ -1,9 +1,160 @@
 import Foundation
 import Testing
+import SwiftUI
 @testable import MatLogg
 
 @MainActor
 struct ProfileTests {
+    @Test func unownedLegacyDetailsAreNotAssignedOnRead() throws {
+        let suite = "LegacyDetails.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let legacy = try JSONEncoder().encode(PersonalDetails(displayName: "Synthetic legacy", weightKg: 81))
+        defaults.set(legacy, forKey: "personalDetails")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        for owner in [UUID(), UUID()] {
+            #expect(store.load(userId: owner).displayName == nil)
+            #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == nil)
+        }
+        #expect(defaults.data(forKey: "personalDetails") == legacy)
+    }
+
+    @Test func confirmedLegacyOwnershipFollowsLinkAndOwnerDeletion() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = "LegacyLifecycle.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let local = UUID(), account = UUID()
+        let data = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(data, forKey: "personalDetails")
+        defaults.set(local.uuidString, forKey: "personalDetails.legacyOwnerId")
+        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("lifecycle.sqlite")), defaults: defaults)
+        try await database.claimLocalData(from: local, to: account)
+        #expect(defaults.string(forKey: "personalDetails.legacyOwnerId") == account.uuidString)
+        try await database.deleteLocalData(ownerId: local)
+        #expect(defaults.data(forKey: "personalDetails") == data)
+        try await database.deleteLocalData(ownerId: account)
+        #expect(defaults.data(forKey: "personalDetails") == nil)
+        #expect(defaults.string(forKey: "personalDetails.legacyOwnerId") == nil)
+    }
+
+    @Test func legacyRecoveryPreservesUndecodableScopedDataAndUnrelatedProfiles() throws {
+        let suite = "LegacyCorrupt.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let owner = UUID()
+        let corrupt = Data("not-json".utf8)
+        let legacy = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(legacy, forKey: "personalDetails")
+        defaults.set(corrupt, forKey: "personalDetails.\(owner.uuidString)")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(throws: (any Error).self) { try store.recoverLegacyDetails(userId: owner) }
+        #expect(defaults.data(forKey: "personalDetails") == legacy)
+        #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == corrupt)
+        #expect(store.load(userId: UUID()).weightKg == nil)
+    }
+
+    @Test func explicitLegacyRecoveryBindsOnceAndPreservesCurrentDetails() throws {
+        let suite = "LegacyRecovery.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let legacy = PersonalDetails(displayName: "Legacy", weightKg: 81, heightCm: 178)
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "personalDetails")
+        let owner = UUID()
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        try store.save(PersonalDetails(displayName: "Current", weightKg: 79), userId: owner)
+        #expect(store.hasUnassignedLegacyDetails)
+        let recovered = try #require(try store.recoverLegacyDetails(userId: owner))
+        #expect(recovered.displayName == "Current" && recovered.weightKg == 79 && recovered.heightCm == 178)
+        let restarted = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(!restarted.hasUnassignedLegacyDetails)
+        #expect(restarted.load(userId: owner).heightCm == 178)
+        #expect(try restarted.recoverLegacyDetails(userId: UUID()) == nil)
+        #expect(restarted.load(userId: UUID()).heightCm == nil)
+    }
+
+    @Test func interruptedLegacyRecoveryResumesOnlyForConfirmedOwner() throws {
+        let suite = "LegacyInterrupted.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let owner = UUID()
+        let data = try JSONEncoder().encode(PersonalDetails(weightKg: 81))
+        defaults.set(data, forKey: "personalDetails")
+        defaults.set(owner.uuidString, forKey: "personalDetails.legacyOwnerId")
+        let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
+        #expect(store.load(userId: UUID()).weightKg == nil)
+        #expect(defaults.data(forKey: "personalDetails") == data)
+        #expect(store.load(userId: owner).weightKg == 81)
+        #expect(defaults.data(forKey: "personalDetails") == nil)
+    }
+
+    @Test func deletingOwnedExportsPreservesOtherProfilesAndUnrelatedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let owner = UUID()
+        let owned = directory.appendingPathComponent("matlogg-export-\(owner.uuidString)-one.json")
+        let other = directory.appendingPathComponent("matlogg-export-\(UUID().uuidString)-two.json")
+        let unrelated = directory.appendingPathComponent("notes.json")
+        let legacy = directory.appendingPathComponent("matlogg-export-legacy.json")
+        try JSONSerialization.data(withJSONObject: ["user_id": owner.uuidString]).write(to: legacy)
+        for url in [owned, other, unrelated] { try Data("{}".utf8).write(to: url) }
+        try UserDataExportService.removeOwnedExports(ownerId: owner, in: directory)
+        #expect(!FileManager.default.fileExists(atPath: owned.path))
+        #expect(!FileManager.default.fileExists(atPath: legacy.path))
+        #expect(FileManager.default.fileExists(atPath: other.path))
+        #expect(FileManager.default.fileExists(atPath: unrelated.path))
+        try UserDataExportService.removeOwnedExports(ownerId: owner, in: directory)
+    }
+
+    @Test func appearanceDefaultsToSystemAndPersistsAllChoices() throws {
+        let suite = "AppearanceTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let vm = PreferencesViewModel(defaults: defaults)
+        #expect(vm.appearance == .system)
+        #expect(vm.appearance.colorScheme == nil)
+        for appearance in AppAppearance.allCases {
+            vm.appearance = appearance
+            #expect(PreferencesViewModel(defaults: defaults).appearance == appearance)
+        }
+        #expect(AppAppearance.light.colorScheme == .light)
+        #expect(AppAppearance.dark.colorScheme == .dark)
+        defaults.set("unknown", forKey: "appAppearance")
+        #expect(PreferencesViewModel(defaults: defaults).appearance == .system)
+    }
+
+    @Test func appleNameSuggestionRequiresExplicitUseAndPreservesEditedName() {
+        let vm = PersonalDetailsViewModel(store: ProfileDetailsStoreStub())
+        vm.begin(details: .empty, userId: UUID())
+        #expect(vm.displayName.isEmpty)
+        #expect(vm.useSuggestedName("  Test Navn  "))
+        #expect(vm.displayName == "Test Navn")
+        vm.displayName = "Mitt navn"
+        #expect(!vm.useSuggestedName("Apple Navn"))
+        #expect(vm.displayName == "Mitt navn")
+        vm.displayName = ""
+        #expect(!vm.useSuggestedName("  "))
+    }
+
+    @Test func appleNameSuggestionSurvivesMissingNameAndNeverCrossesOwners() throws {
+        let account = User(id: UUID(), email: "test@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+        let shared = account.preservingAppleNameSuggestion(sharedName: "  Test Navn  ", previous: nil)
+        #expect(shared.appleDisplayNameSuggestion == "Test Navn")
+        let restored = account.preservingAppleNameSuggestion(previous: shared)
+        #expect(restored.appleDisplayNameSuggestion == "Test Navn")
+        #expect(account.preservingAppleNameSuggestion(sharedName: "Nytt navn", previous: shared).appleDisplayNameSuggestion == "Test Navn")
+        let other = User(id: UUID(), email: "other@example.invalid", firstName: "", lastName: "", authProvider: "apple", createdAt: Date())
+        #expect(other.preservingAppleNameSuggestion(previous: shared).appleDisplayNameSuggestion == nil)
+        #expect(User.local(id: account.id).preservingAppleNameSuggestion(previous: shared).appleDisplayNameSuggestion == nil)
+        let encoded = try JSONEncoder().encode(shared)
+        #expect(try JSONDecoder().decode(User.self, from: encoded).appleDisplayNameSuggestion == "Test Navn")
+        let oldData = try JSONEncoder().encode(account)
+        #expect(try JSONDecoder().decode(User.self, from: oldData).appleDisplayNameSuggestion == nil)
+    }
+
     @Test func optionalNameSurvivesReopeningAndIsScopedToItsOwner() throws {
         let suite = "ProfileNameTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -12,11 +163,11 @@ struct ProfileTests {
         let owner = UUID()
         let vm = PersonalDetailsViewModel(store: store)
         vm.begin(details: .empty, userId: owner)
-        vm.birthDate = Date(timeIntervalSince1970: 1)
         vm.displayName = "  Test Navn  "
         #expect(vm.save())
         vm.begin(details: store.load(userId: owner), userId: owner)
         #expect(vm.displayName == "Test Navn")
+        #expect(vm.birthDate == nil)
         #expect(store.load(userId: UUID()).displayName == nil)
         vm.displayName = "  "
         #expect(vm.save())
@@ -28,17 +179,22 @@ struct ProfileTests {
         #expect(details.displayName == nil)
     }
 
-    @Test func birthDateIsRequiredAndOtherDetailsStayOptional() {
+    @Test func nameCanBeSavedWithoutBirthDateAndOtherDetailsStayOptional() {
         let store = ProfileDetailsStoreStub()
         let userId = UUID()
         var accepted: PersonalDetails?
         let vm = PersonalDetailsViewModel(store: store) { accepted = $0 }
         vm.begin(details: .empty, userId: userId)
         #expect(vm.birthDate == nil)
-        #expect(!vm.save())
-        #expect(vm.errors["birthDate"] != nil)
-        #expect(store.owner == nil)
-        #expect(accepted == nil)
+        vm.displayName = "Test Navn"
+        #expect(vm.save())
+        #expect(vm.errors.isEmpty)
+        #expect(store.owner == userId)
+        #expect(accepted?.displayName == "Test Navn")
+        #expect(store.details.birthDate == nil)
+        vm.begin(details: store.details, userId: userId)
+        #expect(vm.displayName == "Test Navn")
+        #expect(vm.birthDate == nil)
         let birthDate = Date(timeIntervalSince1970: 1)
         vm.birthDate = birthDate
         #expect(vm.save())
@@ -118,6 +274,24 @@ struct ProfileTests {
         #expect(store.details.heightCm == details.heightCm)
     }
 
+    @Test func expiredExportCleanupPreservesFreshAndUnrelatedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let stale = directory.appendingPathComponent("matlogg-export-old.json")
+        let fresh = directory.appendingPathComponent("matlogg-export-new.json")
+        let unrelated = directory.appendingPathComponent("other.json")
+        for file in [stale, fresh, unrelated] { try Data("{}".utf8).write(to: file) }
+        let now = Date()
+        for file in [stale, unrelated] {
+            try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-90_000)], ofItemAtPath: file.path)
+        }
+        UserDataExportService.cleanupExpiredExports(in: directory, now: now)
+        #expect(!FileManager.default.fileExists(atPath: stale.path))
+        #expect(FileManager.default.fileExists(atPath: fresh.path))
+        #expect(FileManager.default.fileExists(atPath: unrelated.path))
+    }
+
     @Test func profileChangeDiscardsAnExportThatFinishesLater() async {
         let exporter = ProfileExporterStub()
         exporter.shouldSuspend = true
@@ -155,7 +329,10 @@ struct ProfileTests {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("profile.sqlite")))
+        let suite = "PrivacyExportTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let database = DatabaseService(store: try LocalStore(databaseURL: directory.appendingPathComponent("profile.sqlite")), defaults: defaults)
         let user = User.local(id: UUID())
         let other = UUID()
         let detailsStore = ProfileDetailsStoreStub()
@@ -167,15 +344,40 @@ struct ProfileTests {
         let product = Product(name: "Testvare", caloriesPer100g: 100, proteinGPer100g: 5,
                               carbsGPer100g: 10, fatGPer100g: 4)
         try await database.saveProduct(product, ownerUserId: user.id)
+        let image = Data([7, 8, 9])
+        let ownProduct = Product(name: "Egen bildevare", caloriesPer100g: 10, proteinGPer100g: 1,
+                                 carbsGPer100g: 1, fatGPer100g: 1, localImageData: image)
+        try await database.saveProduct(ownProduct, ownerUserId: user.id)
+        try await database.saveProduct(Product(name: "Privat annen vare", caloriesPer100g: 20,
+                                                proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1), ownerUserId: other)
+        try await database.saveGoal(Goal(userId: user.id, goalType: "maintain", dailyCalories: 2100,
+                                         proteinTargetG: 110, carbsTargetG: 250, fatTargetG: 70))
+        try await database.saveGoal(Goal(userId: other, goalType: "maintain", dailyCalories: 2500,
+                                         proteinTargetG: 100, carbsTargetG: 250, fatTargetG: 70))
+        try await database.saveScanHistory(userId: user.id, productId: ownProduct.id)
+        try await database.saveScanHistory(userId: other, productId: product.id)
+        let ownPreferenceKey = "lastAmount.\(user.id.uuidString).\(ownProduct.id.uuidString)"
+        defaults.set(100.0, forKey: ownPreferenceKey)
+        defaults.set(200.0, forKey: "lastAmount.\(other.uuidString).\(product.id.uuidString)")
         try await database.toggleFavorite(userId: user.id, productId: product.id)
         let photo = Data([1, 2, 3])
         let meal = SavedMeal(userId: user.id, name: "Testmåltid", items: [], localImageData: photo)
         try await database.saveSavedMeal(meal)
         try await database.saveSavedMeal(SavedMeal(userId: other, name: "Annen profil", items: [], localImageData: Data([9])))
+        let ownWater = WaterGlass(userId: user.id, date: Date())
+        try await database.saveWaterGlass(ownWater)
+        try await database.saveWaterGlass(WaterGlass(userId: other, date: Date()))
         let exporter = UserDataExportService(logRepository: database, savedMealRepository: database,
             waterRepository: database, healthRepository: database, productRepository: database,
-            personalDetailsStore: detailsStore)
+            personalDetailsStore: detailsStore, profileDataRepository: database)
         let url = try #require(await exporter.export(for: user))
+        #if !targetEnvironment(simulator)
+        // Simulator host files do not expose iOS Data Protection attributes.
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        #expect(attributes[.protectionKey] as? FileProtectionType == .complete)
+        let databaseAttributes = try FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("profile.sqlite").path)
+        #expect(databaseAttributes[.protectionKey] as? FileProtectionType == .completeUntilFirstUserAuthentication)
+        #endif
         defer { try? FileManager.default.removeItem(at: url) }
         let json = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
         let exportedMeals = try #require(json["saved_meals"] as? [[String: Any]])
@@ -185,11 +387,50 @@ struct ProfileTests {
         #expect((json["weight_entries"] as? [[String: Any]])?.count == 1)
         #expect((json["personal_details"] as? [String: Any])?["weightKg"] as? Int == 72)
         #expect((json["favorites"] as? [[String: Any]])?.count == 1)
+        let ownedProducts = try #require(json["owned_products"] as? [[String: Any]])
+        #expect(ownedProducts.count == 2)
+        #expect(ownedProducts.contains { ($0["localImageData"] as? String) == image.base64EncodedString() })
+        #expect(!ownedProducts.contains { ($0["name"] as? String) == "Privat annen vare" })
+        #expect((json["goal_history"] as? [[String: Any]])?.count == 2)
+        #expect((json["scan_history"] as? [[String: Any]])?.count == 1)
+        let preferences = try #require(json["profile_preferences"] as? [[String: Any]])
+        #expect(preferences.count == 1)
+        #expect(preferences.first?["key"] as? String == ownPreferenceKey)
+        #expect(json["export_schema_version"] as? Int == 2)
+        let water = try #require(json["water_glasses"] as? [[String: Any]])
+        #expect(water.count == 1)
+        #expect(water.first?["id"] as? String == ownWater.id.uuidString)
+        exporter.removeExport(at: url)
+        #expect(!FileManager.default.fileExists(atPath: url.path))
+        let failingExporter = UserDataExportService(logRepository: database, savedMealRepository: database,
+            waterRepository: database, healthRepository: database, productRepository: database,
+            personalDetailsStore: detailsStore, profileDataRepository: FailingProfileExportRepository())
+        #expect(await failingExporter.export(for: user) == nil)
         let vm = ProfileFavoritesViewModel(repository: database)
         await vm.load(userId: user.id)
         #expect(vm.products.count == 1)
         await vm.load(userId: other)
         #expect(vm.products.isEmpty)
+        try await database.deleteLocalData(ownerId: user.id)
+        let deletedRecords = try await database.exportProfileRecords(ownerId: user.id)
+        #expect(deletedRecords.values.allSatisfy { $0.isEmpty })
+        let preservedRecords = try await database.exportProfileRecords(ownerId: other)
+        #expect(preservedRecords["owned_products"]?.count == 1)
+        #expect(preservedRecords["goal_history"]?.count == 1)
+        #expect(preservedRecords["scan_history"]?.count == 1)
+        #expect(preservedRecords["profile_preferences"]?.count == 1)
+        #expect(await database.getWeightEntries(userId: user.id).isEmpty)
+        #expect(await database.getWeightEntries(userId: other).count == 1)
+        #expect(await database.getSavedMeals(userId: user.id).isEmpty)
+        #expect(await database.getSavedMeals(userId: other).count == 1)
+        #expect(await database.fetchPendingEvents(ownerUserId: user.id, limit: 100).isEmpty)
+        #expect(!(await database.fetchPendingEvents(ownerUserId: other, limit: 100)).isEmpty)
+    }
+}
+
+private struct FailingProfileExportRepository: ProfileDataExportRepository {
+    func exportProfileRecords(ownerId: UUID) async throws -> [String: [Data]] {
+        throw CocoaError(.fileReadCorruptFile)
     }
 }
 

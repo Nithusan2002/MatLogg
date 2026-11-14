@@ -4,11 +4,13 @@ import Security
 import SwiftUI
 
 struct LoginView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var email = ""
     @State private var password = ""
     @State private var showPassword = false
     @State private var appleNonce = ""
+    @State private var showLocalDataLinkAlert = false
 
     var body: some View {
         ScrollView {
@@ -18,15 +20,35 @@ struct LoginView: View {
                         .font(AppTypography.hero)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Konto er valgfritt. Synkronisering mellom enheter er ikke tilgjengelig ennå.")
+                    Text("Konto er valgfritt og brukes til innlogging. Matloggene dine lagres bare på denne enheten, uten skybackup.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
+                }
+
+                if authViewModel.isLoading {
+                    ProgressView("Logger inn …")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let error = authViewModel.errorMessage {
+                    ErrorMessageView(error)
+                        .font(AppTypography.body)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 12))
+                }
+
+                if authViewModel.pendingLocalDataSummary != nil {
+                    Button("Bekreft kontokobling") { showLocalDataLinkAlert = true }
+                        .font(AppTypography.bodyEmphasis)
+                        .frame(minHeight: 44)
+                        .disabled(authViewModel.isLoading)
                 }
 
                 SignInWithAppleButton(.signIn) { request in
                     let nonce = Self.randomNonceString()
                     appleNonce = nonce
-                    request.requestedScopes = [.email]
+                    request.requestedScopes = [.fullName, .email]
                     request.nonce = Self.sha256(nonce)
                 } onCompletion: { result in
                     handleAppleResult(result)
@@ -37,57 +59,54 @@ struct LoginView: View {
                 .disabled(authViewModel.isLoading)
                 .accessibilityLabel("Logg inn med Apple")
 
-                HStack {
-                    Rectangle().fill(AppColors.separator).frame(height: 1)
-                    Text("eller").font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
-                    Rectangle().fill(AppColors.separator).frame(height: 1)
-                }
+                Text("Apple lar deg velge hva du deler. Navn er valgfritt, og du kan skjule e-postadressen din.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary)
 
-                CardContainer {
-                    VStack(alignment: .leading, spacing: 14) {
-                        authLabel("E-post")
-                        TextField("navn@eksempel.no", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .authFieldStyle()
-                        authLabel("Passord")
-                        HStack(spacing: 4) {
-                            Group {
-                                if showPassword { TextField("Passord", text: $password) }
-                                else { SecureField("Passord", text: $password) }
-                            }
-                            .textContentType(.password)
-                            Button { showPassword.toggle() } label: {
-                                Image(systemName: showPassword ? "eye.slash" : "eye").frame(width: 44, height: 44)
-                            }
-                            .foregroundColor(AppColors.textSecondary)
-                            .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
-                        }
-                        .authFieldStyle()
+                if FeatureFlags.emailAuthenticationEnabled {
+                    HStack {
+                        Rectangle().fill(AppColors.separator).frame(height: 1)
+                        Text("eller").font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                        Rectangle().fill(AppColors.separator).frame(height: 1)
                     }
-                }
 
-                if let error = authViewModel.errorMessage {
-                    Label(error, systemImage: "exclamationmark.circle")
-                        .font(AppTypography.body)
-                        .foregroundColor(AppColors.ink)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 12))
-                }
+                    CardContainer {
+                        VStack(alignment: .leading, spacing: 14) {
+                            authLabel("E-post")
+                            TextField("navn@eksempel.no", text: $email)
+                                .textContentType(.emailAddress)
+                                .keyboardType(.emailAddress)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .authFieldStyle()
+                            authLabel("Passord")
+                            HStack(spacing: 4) {
+                                Group {
+                                    if showPassword { TextField("Passord", text: $password) }
+                                    else { SecureField("Passord", text: $password) }
+                                }
+                                .textContentType(.password)
+                                Button { showPassword.toggle() } label: {
+                                    Image(systemName: showPassword ? "eye.slash" : "eye").frame(width: 44, height: 44)
+                                }
+                                .foregroundColor(AppColors.textSecondary)
+                                .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
+                            }
+                            .authFieldStyle()
+                        }
+                    }
 
-                PrimaryButton(title: authViewModel.isLoading ? "Logger inn …" : "Logg inn med e-post") {
-                    Task { await authViewModel.login(email: email, password: password) }
-                }
-                .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
+                    PrimaryButton(title: authViewModel.isLoading ? "Logger inn …" : "Logg inn med e-post") {
+                        Task { await authViewModel.login(email: email, password: password) }
+                    }
+                    .disabled(authViewModel.isLoading || email.isEmpty || password.isEmpty)
 
-                NavigationLink(destination: SignUpView()) {
-                    Text("Ny i MatLogg? Opprett konto med e-post")
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundColor(AppColors.action)
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                    NavigationLink(destination: SignUpView()) {
+                        Text("Ny i Spor Mat? Opprett konto med e-post")
+                            .font(AppTypography.bodyEmphasis)
+                            .foregroundColor(AppColors.actionText)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
                 }
             }
             .padding(20)
@@ -95,24 +114,26 @@ struct LoginView: View {
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("Konto")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Knytt lokale data til kontoen?", isPresented: linkAlertBinding) {
+        .onChange(of: authViewModel.authenticatedUser?.id) { _, userId in
+            if userId != nil { dismiss() }
+        }
+        .onChange(of: authViewModel.pendingLocalDataSummary != nil) { _, hasPendingLink in
+            showLocalDataLinkAlert = hasPendingLink
+        }
+        .onAppear { showLocalDataLinkAlert = authViewModel.pendingLocalDataSummary != nil }
+        .alert("Knytt lokale data til kontoen?", isPresented: $showLocalDataLinkAlert) {
             Button("Knytt til konto") { Task { await authViewModel.confirmLocalDataLink() } }
-            Button("Avbryt", role: .cancel) { authViewModel.cancelLocalDataLink() }
+            if authViewModel.canCancelLocalDataLink {
+                Button("Avbryt", role: .cancel) { Task { await authViewModel.cancelLocalDataLink() } }
+            }
         } message: {
             Text(localDataSummaryText)
         }
     }
 
-    private var linkAlertBinding: Binding<Bool> {
-        Binding(
-            get: { authViewModel.pendingLocalDataSummary != nil },
-            set: { if !$0, authViewModel.pendingLocalDataSummary != nil { authViewModel.cancelLocalDataLink() } }
-        )
-    }
-
     private var localDataSummaryText: String {
         guard let summary = authViewModel.pendingLocalDataSummary else { return "" }
-        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider, \(summary.products) egne produkter og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter."
+        return "Denne iPhonen har \(summary.logs) loggføringer, \(summary.favorites) favoritter, \(summary.savedMeals) lagrede måltider, \(summary.products) egne produkter og \(summary.weights) vektregistreringer. De knyttes til kontoen først når du bekrefter, og blir fortsatt lagret bare på denne enheten. Dette gir ingen skybackup."
     }
 
     private func authLabel(_ title: String) -> some View {
@@ -130,7 +151,8 @@ struct LoginView: View {
             }
             let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
             let nonce = appleNonce
-            Task { await authViewModel.loginWithApple(identityToken: identityToken, authorizationCode: code, nonce: nonce) }
+            let sharedName = credential.fullName.map { PersonNameComponentsFormatter().string(from: $0) }
+            Task { await authViewModel.loginWithApple(identityToken: identityToken, authorizationCode: code, nonce: nonce, sharedName: sharedName) }
         case .failure(let error):
             if (error as? ASAuthorizationError)?.code != .canceled {
                 authViewModel.reportAuthenticationError("Kunne ikke logge inn med Apple. Prøv igjen.")
@@ -161,12 +183,7 @@ struct LoginView: View {
 
 extension View {
     fileprivate func authFieldStyle() -> some View {
-        font(AppTypography.body)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 52)
-            .background(AppColors.mutedSurface)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.controlBorder, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+        matLoggInputStyle()
     }
 }
 

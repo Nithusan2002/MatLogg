@@ -3,13 +3,28 @@ import Foundation
 
 // MARK: - User & Auth
 
-struct User: Codable, Identifiable {
+nonisolated struct User: Codable, Identifiable, Sendable {
     let id: UUID
     let email: String
     let firstName: String
     let lastName: String
     let authProvider: String // "apple", "google", "email"
     let createdAt: Date
+    var appleDisplayNameSuggestion: String? = nil
+
+    func preservingAppleNameSuggestion(sharedName: String? = nil, previous: User?) -> User {
+        var result = self
+        guard authProvider == "apple" else {
+            result.appleDisplayNameSuggestion = nil
+            return result
+        }
+        let shared = sharedName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let saved = previous?.id == id && previous?.authProvider == "apple"
+            ? previous?.appleDisplayNameSuggestion : nil
+        result.appleDisplayNameSuggestion = saved ?? appleDisplayNameSuggestion
+            ?? ((shared?.isEmpty == false) ? shared : nil)
+        return result
+    }
     
     var fullName: String {
         "\(firstName) \(lastName)"
@@ -31,7 +46,7 @@ struct User: Codable, Identifiable {
 
 // MARK: - Goals
 
-struct Goal: Codable, Identifiable {
+nonisolated struct Goal: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let goalType: String // "weight_loss", "maintain", "gain"
@@ -71,7 +86,7 @@ struct Goal: Codable, Identifiable {
     }
 }
 
-enum GoalIntent: String, Codable, CaseIterable {
+nonisolated enum GoalIntent: String, Codable, CaseIterable, Sendable {
     case lose
     case maintain
     case gain
@@ -85,7 +100,7 @@ enum GoalIntent: String, Codable, CaseIterable {
     }
 }
 
-enum GoalPace: String, Codable, CaseIterable {
+nonisolated enum GoalPace: String, Codable, CaseIterable, Sendable {
     case calm
     case standard
     case fast
@@ -108,11 +123,14 @@ enum GoalPace: String, Codable, CaseIterable {
 
 // MARK: - Products
 
-struct Product: Codable, Identifiable {
+nonisolated struct Product: Codable, Identifiable, Sendable {
     let id: UUID
     let name: String
     let brand: String?
     let category: String?
+    let categoryTags: [String]?
+    /// Optional raw ID keeps decoding compatible with future visual groups.
+    var selectedFoodGroup: String?
     let barcodeEan: String?
     let source: String // "matvaretabellen", "openfoodfacts", "user", "shared"
     let kind: ProductKind
@@ -137,11 +155,15 @@ struct Product: Codable, Identifiable {
     let isVerified: Bool
     let createdAt: Date
     let externalID: String?
+    let manualNutritionInput: ManualNutritionInput?
     let nutritionBasis: NutritionBasis?
+    let nutritionPreparation: NutritionPreparation?
     let sourceUpdatedAt: Date?
     let sourceRevision: Int?
     let sourceSchemaVersion: Int?
     let fetchedAt: Date?
+    let nutriScoreInfo: ProductNutriScoreInfo?
+    let processingInfo: ProductProcessingInfo?
     let dataQualityWarnings: [String]?
     
     // Local flags
@@ -152,6 +174,8 @@ struct Product: Codable, Identifiable {
         name: String,
         brand: String? = nil,
         category: String? = nil,
+        categoryTags: [String]? = nil,
+        selectedFoodGroup: String? = nil,
         barcodeEan: String? = nil,
         source: String = "user",
         kind: ProductKind = .packaged,
@@ -173,17 +197,23 @@ struct Product: Codable, Identifiable {
         isVerified: Bool = false,
         createdAt: Date = Date(),
         externalID: String? = nil,
+        manualNutritionInput: ManualNutritionInput? = nil,
         nutritionBasis: NutritionBasis? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         sourceUpdatedAt: Date? = nil,
         sourceRevision: Int? = nil,
         sourceSchemaVersion: Int? = nil,
         fetchedAt: Date? = nil,
+        nutriScoreInfo: ProductNutriScoreInfo? = nil,
+        processingInfo: ProductProcessingInfo? = nil,
         dataQualityWarnings: [String]? = nil
     ) {
         self.id = id
         self.name = name
         self.brand = brand
         self.category = category
+        self.categoryTags = categoryTags
+        self.selectedFoodGroup = selectedFoodGroup
         self.barcodeEan = barcodeEan
         self.source = source
         self.kind = kind
@@ -205,11 +235,15 @@ struct Product: Codable, Identifiable {
         self.isVerified = isVerified
         self.createdAt = createdAt
         self.externalID = externalID
+        self.manualNutritionInput = manualNutritionInput
         self.nutritionBasis = nutritionBasis
+        self.nutritionPreparation = nutritionPreparation
         self.sourceUpdatedAt = sourceUpdatedAt
         self.sourceRevision = sourceRevision
         self.sourceSchemaVersion = sourceSchemaVersion
         self.fetchedAt = fetchedAt
+        self.nutriScoreInfo = nutriScoreInfo
+        self.processingInfo = processingInfo
         self.dataQualityWarnings = dataQualityWarnings
     }
 
@@ -247,7 +281,37 @@ struct Product: Codable, Identifiable {
     }
 }
 
-enum NutritionBasis: String, Codable {
+// Preserve original input alongside normalized values locally and in product sync.
+nonisolated struct ManualNutritionInput: Codable, Sendable {
+    let basis: ManualNutritionBasis
+    let amount: Double
+    let unit: AmountUnit
+    let label: String?
+    let calories: Double
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+}
+
+nonisolated enum ManualNutritionBasis: String, Codable, CaseIterable, Sendable {
+    case per100g, per100ml, serving
+
+    var title: String {
+        switch self {
+        case .per100g: "100 g"
+        case .per100ml: "100 ml"
+        case .serving: "Porsjon/stykk"
+        }
+    }
+}
+
+/// Independent of the per-100 unit. Missing metadata preserves legacy behavior.
+nonisolated enum NutritionPreparation: String, Codable, Sendable {
+    case asSold = "as_sold"
+    case prepared
+}
+
+nonisolated enum NutritionBasis: String, Codable, Sendable {
     case per100g
     case per100ml
 
@@ -259,7 +323,7 @@ enum NutritionBasis: String, Codable {
     }
 }
 
-enum AmountUnit: String, Codable, CaseIterable {
+nonisolated enum AmountUnit: String, Codable, CaseIterable, Sendable {
     case grams = "g"
     case milliliters = "ml"
 
@@ -271,18 +335,20 @@ enum AmountUnit: String, Codable, CaseIterable {
     }
 }
 
-struct StandardPortion: Codable, Hashable {
+nonisolated struct StandardPortion: Codable, Hashable, Sendable {
     let label: String
     let grams: Double
 }
 
-struct ServingOption: Codable, Identifiable, Hashable {
+nonisolated struct ServingOption: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
     let label: String
     let grams: Double
     let unit: AmountUnit?
     let source: ServingSource
     let isDefaultSuggestion: Bool
+    let kind: ServingKind?
+    let shortLabel: String?
     
     init(
         id: UUID = UUID(),
@@ -290,7 +356,9 @@ struct ServingOption: Codable, Identifiable, Hashable {
         grams: Double,
         unit: AmountUnit = .grams,
         source: ServingSource,
-        isDefaultSuggestion: Bool = false
+        isDefaultSuggestion: Bool = false,
+        kind: ServingKind? = nil,
+        shortLabel: String? = nil
     ) {
         self.id = id
         self.label = label
@@ -298,25 +366,27 @@ struct ServingOption: Codable, Identifiable, Hashable {
         self.unit = unit
         self.source = source
         self.isDefaultSuggestion = isDefaultSuggestion
+        self.kind = kind
+        self.shortLabel = shortLabel
     }
 
     nonisolated var amountUnit: AmountUnit { unit ?? .grams }
 }
 
-enum ServingSource: String, Codable {
+nonisolated enum ServingSource: String, Codable, Sendable {
     case openFoodFacts
     case heuristic
     case user
 }
 
-struct NutritionBreakdown: Codable {
+nonisolated struct NutritionBreakdown: Codable, Sendable {
     let calories: Float
     let protein: Float
     let carbs: Float
     let fat: Float
 }
 
-struct ProductMatchMapping: Codable {
+nonisolated struct ProductMatchMapping: Codable, Sendable {
     let barcode: String
     let matvaretabellenId: String
     let matchedName: String
@@ -332,30 +402,30 @@ struct ProductMatchMapping: Codable {
     let category: String?
 }
 
-enum NutritionSource: String, Codable {
+nonisolated enum NutritionSource: String, Codable, Sendable {
     case matvaretabellen
     case openFoodFacts
     case user
 }
 
-enum ImageSource: String, Codable {
+nonisolated enum ImageSource: String, Codable, Sendable {
     case openFoodFacts
     case user
     case none
 }
 
-enum VerificationStatus: String, Codable {
+nonisolated enum VerificationStatus: String, Codable, Sendable {
     case verified
     case unverified
     case suggestedMatch
 }
 
-enum ProductKind: String, Codable {
+nonisolated enum ProductKind: String, Codable, Sendable {
     case packaged
     case genericFood
 }
 
-struct WeightEntry: Codable, Identifiable {
+nonisolated struct WeightEntry: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let date: Date // date-only
@@ -377,7 +447,7 @@ struct WeightEntry: Codable, Identifiable {
     }
 }
 
-struct PersonalDetails: Codable {
+nonisolated struct PersonalDetails: Codable, Sendable {
     var displayName: String?
     var weightKg: Double?
     var heightCm: Double?
@@ -388,7 +458,7 @@ struct PersonalDetails: Codable {
     static let empty = PersonalDetails()
 }
 
-enum GenderOption: String, Codable, CaseIterable {
+nonisolated enum GenderOption: String, Codable, CaseIterable, Sendable {
     case kvinne
     case mann
     case annet
@@ -404,7 +474,7 @@ enum GenderOption: String, Codable, CaseIterable {
     }
 }
 
-enum ActivityLevel: String, Codable, CaseIterable {
+nonisolated enum ActivityLevel: String, Codable, CaseIterable, Sendable {
     case lav
     case moderat
     case hoy
@@ -439,13 +509,15 @@ enum ActivityLevel: String, Codable, CaseIterable {
 
 // MARK: - Logs
 
-struct FoodLog: Codable, Identifiable {
+nonisolated struct FoodLog: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
     let mealType: String // "frokost", "lunsj", "middag", "snacks"
     let amountG: Float // exact, no rounding
     let amountUnit: AmountUnit?
+    let portionSelection: PortionSelection?
+    let nutritionPreparation: NutritionPreparation?
     let loggedDate: Date // date-only
     let loggedTime: Date // full timestamp
     
@@ -456,7 +528,6 @@ struct FoodLog: Codable, Identifiable {
     let fatG: Float
     
     let createdAt: Date
-    let nutritionSource: NutritionSource? // Local provenance; absent in legacy logs.
     let isSynced: Bool
     
     init(
@@ -466,13 +537,14 @@ struct FoodLog: Codable, Identifiable {
         mealType: String,
         amountG: Float,
         amountUnit: AmountUnit = .grams,
+        portionSelection: PortionSelection? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         loggedDate: Date,
         loggedTime: Date = Date(),
         calories: Float,
         proteinG: Float,
         carbsG: Float,
         fatG: Float,
-        nutritionSource: NutritionSource? = nil,
         createdAt: Date = Date(),
         isSynced: Bool = false
     ) {
@@ -482,13 +554,14 @@ struct FoodLog: Codable, Identifiable {
         self.mealType = mealType
         self.amountG = amountG
         self.amountUnit = amountUnit
+        self.portionSelection = portionSelection
+        self.nutritionPreparation = nutritionPreparation
         self.loggedDate = loggedDate
         self.loggedTime = loggedTime
         self.calories = calories
         self.proteinG = proteinG
         self.carbsG = carbsG
         self.fatG = fatG
-        self.nutritionSource = nutritionSource
         self.createdAt = createdAt
         self.isSynced = isSynced
     }
@@ -499,7 +572,7 @@ struct FoodLog: Codable, Identifiable {
 // MARK: - Saved meals
 
 /// A user-owned, reusable meal template. Using it creates independent FoodLog values.
-struct SavedMeal: Codable, Identifiable, Equatable {
+nonisolated struct SavedMeal: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let userId: UUID
     var name: String
@@ -532,12 +605,14 @@ struct SavedMeal: Codable, Identifiable, Equatable {
 }
 
 /// Keeps the exact amount, nutrition basis and source that the user approved.
-struct SavedMealItem: Codable, Identifiable, Equatable {
+nonisolated struct SavedMealItem: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let productId: UUID
     let productName: String
     var amountG: Float
     var amountUnit: AmountUnit?
+    var portionSelection: PortionSelection?
+    var nutritionPreparation: NutritionPreparation?
     var calories: Float
     var proteinG: Float
     var carbsG: Float
@@ -551,6 +626,8 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         productName: String,
         amountG: Float,
         amountUnit: AmountUnit = .grams,
+        portionSelection: PortionSelection? = nil,
+        nutritionPreparation: NutritionPreparation? = nil,
         calories: Float,
         proteinG: Float,
         carbsG: Float,
@@ -563,6 +640,8 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
         self.productName = productName
         self.amountG = amountG
         self.amountUnit = amountUnit
+        self.portionSelection = portionSelection
+        self.nutritionPreparation = nutritionPreparation
         self.calories = calories
         self.proteinG = proteinG
         self.carbsG = carbsG
@@ -576,7 +655,7 @@ struct SavedMealItem: Codable, Identifiable, Equatable {
 
 // MARK: - Favorites
 
-struct Favorite: Codable, Identifiable {
+nonisolated struct Favorite: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
@@ -600,7 +679,7 @@ struct Favorite: Codable, Identifiable {
 
 // MARK: - Scan History
 
-struct ScanHistory: Codable, Identifiable {
+nonisolated struct ScanHistory: Codable, Identifiable, Sendable {
     let id: UUID
     let userId: UUID
     let productId: UUID
@@ -621,7 +700,7 @@ struct ScanHistory: Codable, Identifiable {
 
 // MARK: - Daily Summary
 
-struct DailySummary {
+nonisolated struct DailySummary: Sendable {
     let date: Date
     let totalCalories: Float
     let totalProtein: Float
@@ -634,7 +713,7 @@ struct DailySummary {
     }
 }
 
-enum NutritionCalculator {
+nonisolated enum NutritionCalculator: Sendable {
     static let maximumAmount: Float = 10_000
 
     static func validatedCalculation(
@@ -706,7 +785,7 @@ enum NutritionCalculator {
     }
 }
 
-enum NutritionDisplay {
+nonisolated enum NutritionDisplay: Sendable {
     static func wholeCalories(_ value: Float) -> Int {
         Int(value.rounded())
     }
@@ -718,7 +797,7 @@ enum NutritionDisplay {
 
 // MARK: - Sync
 
-enum SyncEventStatus: String {
+nonisolated enum SyncEventStatus: String, Sendable {
     case pending
     case inFlight
     case acked
@@ -726,7 +805,7 @@ enum SyncEventStatus: String {
     case quarantined
 }
 
-struct SyncEvent {
+nonisolated struct SyncEvent: Sendable {
     let eventId: UUID
     let type: String
     let createdAt: Date
@@ -742,7 +821,7 @@ struct SyncEvent {
     let ownerUserId: UUID?
 }
 
-struct SyncQueueStatus: Equatable {
+nonisolated struct SyncQueueStatus: Equatable, Sendable {
     let pendingCount: Int
     let inFlightCount: Int
     let failedCount: Int
@@ -758,14 +837,14 @@ struct SyncQueueStatus: Equatable {
     var unsyncedCount: Int { pendingCount + inFlightCount + failedCount }
 }
 
-struct SyncFailureSummary: Identifiable, Equatable {
+nonisolated struct SyncFailureSummary: Identifiable, Equatable, Sendable {
     let id: UUID
     let type: String
     let message: String
     let createdAt: Date
 }
 
-enum NetworkAvailability: Equatable {
+nonisolated enum NetworkAvailability: Equatable, Sendable {
     case unknown
     case offline
     case online
@@ -773,7 +852,7 @@ enum NetworkAvailability: Equatable {
 
 // MARK: - Auth State
 
-enum AuthState {
+nonisolated enum AuthState: Sendable {
     case notAuthenticated
     case authenticating
     case local(user: User)
@@ -783,26 +862,113 @@ enum AuthState {
     case error(String)
 }
 
-struct LocalDataSummary: Equatable {
+nonisolated struct LocalDataSummary: Equatable, Sendable {
     let logs: Int
     let goals: Int
     let favorites: Int
     let scans: Int
     let weights: Int
     var waterGlasses: Int = 0
+    var loggingDrafts: Int = 0
     let savedMeals: Int
     let products: Int
 
     static let empty = LocalDataSummary(logs: 0, goals: 0, favorites: 0, scans: 0, weights: 0, savedMeals: 0, products: 0)
 
-    var totalCount: Int { logs + goals + favorites + scans + weights + waterGlasses + savedMeals + products }
+    var totalCount: Int { logs + goals + favorites + scans + weights + waterGlasses + loggingDrafts + savedMeals + products }
     var hasData: Bool { totalCount > 0 }
 }
 
 /// One user-recorded glass; no assumed volume or nutrition values.
-struct WaterGlass: Codable, Equatable, Identifiable {
+nonisolated struct WaterGlass: Codable, Equatable, Identifiable, Sendable {
     var id = UUID()
     var userId: UUID
     var date: Date
     var createdAt = Date()
+}
+
+/// Read-only catalog information; no classification is inferred locally.
+nonisolated struct ProductProcessingInfo: Codable, Sendable, Equatable {
+    let novaGroup: Int?
+    let markers: [String: [[String]]]
+    let ingredients: String?
+
+    var groupTitle: String {
+        switch novaGroup {
+        case 1: return "Minimalt bearbeidet · NOVA 1"
+        case 2: return "Bearbeidet matlagingsingrediens · NOVA 2"
+        case 3: return "Bearbeidet · NOVA 3"
+        case 4: return "Ultraprosessert · NOVA 4"
+        default: return "Bearbeidingsgrad ikke tilgjengelig"
+        }
+    }
+
+    var classificationText: String? {
+        guard let novaGroup, (1...4).contains(novaGroup) else { return nil }
+        return novaGroup == 4
+            ? "Klassifisert som ultraprosessert av Open Food Facts."
+            : "Ikke klassifisert som ultraprosessert av Open Food Facts."
+    }
+
+    private var groupMarkers: [[String]] {
+        guard let novaGroup else { return [] }
+        return markers[String(novaGroup)] ?? []
+    }
+
+    private func markerName(_ marker: [String]) -> String? {
+        guard marker.count == 2, marker[0] == "ingredients" else { return nil }
+        return ["en:salt": "salt", "en:sugar": "sukker"][marker[1]]
+    }
+
+    var hasUntranslatedMarkers: Bool {
+        groupMarkers.contains { markerName($0) == nil }
+    }
+
+    var markerNames: [String] {
+        Set(groupMarkers.compactMap(markerName)).sorted()
+    }
+}
+
+/// Source-provided grade, never calculated from local nutrition values.
+nonisolated struct ProductNutriScoreInfo: Codable, Sendable, Equatable {
+    let grade: String
+    let version: String?
+    let calculation: NutriScoreCalculation?
+
+    /// Only recognized source algorithm versions select a logo variant.
+    var imageAssetName: String? {
+        guard ["A", "B", "C", "D", "E"].contains(grade),
+              let version, ["2021", "2023"].contains(version) else { return nil }
+        return "NutriScore-\(version)-\(grade)"
+    }
+
+    init?(grade: String?, version: String?, calculation: NutriScoreCalculation? = nil) {
+        guard let normalized = grade?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+              ["A", "B", "C", "D", "E"].contains(normalized) else { return nil }
+        self.grade = normalized
+        self.calculation = calculation
+        let trimmedVersion = version?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.version = trimmedVersion?.isEmpty == false ? trimmedVersion : nil
+    }
+}
+
+nonisolated struct NutriScoreCalculation: Codable, Sendable, Equatable {
+    var nutritionBasis: NutritionBasis? = nil
+    let positive: [NutriScoreComponent]
+    let negative: [NutriScoreComponent]
+    let positivePoints: Int?
+    let positiveMaximum: Int?
+    let negativePoints: Int?
+    let negativeMaximum: Int?
+    let estimated: Bool
+    let preparation: String?
+    let proteinExclusionReason: String?
+}
+
+nonisolated struct NutriScoreComponent: Codable, Sendable, Equatable {
+    let id: String
+    let value: Double?
+    let unit: String?
+    let points: Int?
+    let points_max: Int?
 }

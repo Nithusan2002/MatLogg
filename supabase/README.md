@@ -46,6 +46,28 @@ opprettes og roteres i Supabase secret storage, aldri i repoet.
 
 Kjør `ops/configure-purge-cron.sql` etter at cron-secret er lagt i Vault.
 Konfigurer backup/PITR, varsling og en dokumentert restore-øvelse per miljø.
+E-postvarsling er klargjort med Resend-adapter (ingen abonnement er opprettet).
+Sett `DELETION_ALERT_RESEND_KEY`, `DELETION_ALERT_FROM` (verifisert avsender) og
+`DELETION_ALERT_TO=nithusank.2002@gmail.com` i Supabase secret storage.
+Varslene inneholder bare feilkategori og antall, aldri konto-ID eller brukerdata.
+Manglende konfigurasjon eller leveringsfeil logges; dette regnes ikke som
+aktivert varsling. Verifiser en syntetisk feilmelding i mottakerens innboks før
+produksjon. Leverandøravtale og avsenderoppsett må være avklart.
+API-kontrakt: https://resend.com/docs/api-reference/emails/send-email
+Nye kontoslettinger forsøker å slette domenedata og Auth i samme forespørsel,
+uten fast ventetid. Ved feil beholder profilen slettemarkøren, og cron prøver
+igjen hvert femte minutt. Kontoens egne produkter slettes også ved purge.
+Eksisterende sletteforespørsler beholder tidligere frist; migrasjonen flytter
+ikke eksisterende brukerdata til umiddelbar purge. RLS sperrer lesetilgang straks profilen
+markeres for sletting, også for et fortsatt gyldig access-token.
+Tidligere frakoblede produkter omfattes
+ikke automatisk; eier-ID kan ikke rekonstrueres uten separat vurdering.
+
+Kontroller cron og HTTP-resultat separat: vellykket cron betyr at SQL-jobben
+kjørte, ikke at Edge Function fullførte slettingen. Overvåk både uteblitte
+kjøringer, HTTP-feil/timeouts og `failed > 0` i purge-resultatet. Ikke logg
+kontoidentifikatorer eller payload. Dokumenter hvem som mottar varsler og
+hvordan slettinger gjenanvendes før en restore åpnes for trafikk.
 
 ## Kill switch og cutover
 
@@ -61,3 +83,27 @@ where key = 'sync_enabled';
 Ved hendelser settes verdien tilbake til `false`. Edge Function returnerer da
 `503` med `Retry-After`; lokale hendelser beholdes for retry. NestJS/Prisma
 fjernes først etter stabil produksjonspilot.
+
+## Lokal restore-kontroll
+
+`scripts/verify-local-backup-restore.sh` bruker bare den isolerte
+`supabase_db_matlogg-sync-readiness`-containeren med syntetiske QA-data.
+Den dumper `auth`, `public`, `private` og `matlogg_internal`, gjenoppretter til en ny database,
+sammenligner radkontrollsummer og rydder opp i restore-databasen og dumpen.
+Hosted backup/PITR og recovery skal i tillegg verifiseres etter
+`docs/production-readiness.md` før pilot.
+
+## Privilegerte interne funksjoner
+
+`matlogg_internal` skal ikke legges til PostgRESTs eksponerte skjemaer.
+RLS bruker `matlogg_internal.is_account_active_v1()`, og den offentlige
+synk-RPC-en er en SECURITY INVOKER-wrapper rundt den interne SECURITY
+DEFINER-implementasjonen. JWT-identitet, eierskap, nødstopp og atomisk
+inbox-/domeneskriving beholdes. Direkte synk-RPC er fortsatt tilgjengelig
+for innloggede brukere. Migrasjon `20261012120000_sync_event_quota.sql`
+håndhever en felles kvote på 1500 apply-forsøk/minutt per JWT-eier for Edge og
+direkte RPC; den opprinnelige implementasjonen kan ikke kalles direkte av klientroller.
+Edge beholder dessuten 30 batcher/minutt. Replay teller som forsøk. Kvotemigrasjonen
+må være deployet og en klient med midlertidig RATE_LIMITED-håndtering distribuert
+før synk aktiveres. Staging-oppgraderingen prøves lokalt i disponibel CI-database
+med `scripts/rehearse-staging-migrations.sh`. Hosted migrering krever godkjenning.

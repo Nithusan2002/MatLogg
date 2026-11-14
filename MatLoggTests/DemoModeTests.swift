@@ -1,10 +1,54 @@
 import Foundation
+import ImageIO
 import Testing
 @testable import MatLogg
 
 struct DemoModeTests {
-    private func product() -> Product {
-        Product(name: "Testmat", caloriesPer100g: 100, proteinGPer100g: 10, carbsGPer100g: 10, fatGPer100g: 2)
+    @Test func missingBundledCatalogFailsWithoutPublishingProducts() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID()).bundle")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let info = try PropertyListSerialization.data(
+            fromPropertyList: ["CFBundleIdentifier": "app.matlogg.empty-demo-fixture"],
+            format: .xml, options: 0
+        )
+        try info.write(to: directory.appendingPathComponent("Info.plist"))
+        let bundle = try #require(Bundle(url: directory))
+        await #expect(throws: (any Error).self) {
+            _ = try await DemoProductCatalog.load(bundle: bundle)
+        }
+    }
+
+    @Test func bundledCatalogHasStableIdentityNutritionAndDecodableProductImages() async throws {
+        let products = try await DemoProductCatalog.load()
+        let reloaded = try await DemoProductCatalog.load()
+        #expect(products.count == 23)
+        #expect(products.filter { $0.source == "matvaretabellen" }.count == 16)
+        #expect(!products.contains { $0.externalID == "7038010045073" })
+        let yoghurt = try #require(products.first { $0.externalID == "01.011" })
+        #expect(yoghurt.nutritionSource == .matvaretabellen)
+        #expect(yoghurt.fatGPer100g == 3.4)
+        #expect(Set(products.map(\.id)).count == products.count)
+        #expect(products.map(\.id) == reloaded.map(\.id))
+        for product in products {
+            #expect(product.nutritionBasis == .per100g)
+            if product.source == "matvaretabellen" {
+                #expect(product.nutritionSource == .matvaretabellen)
+                #expect(product.isVerified)
+                continue
+            }
+            #expect(product.source == "openfoodfacts")
+            #expect(product.nutritionSource == .openFoodFacts)
+            #expect(product.imageSource == .openFoodFacts)
+            #expect(product.nutritionBasis == .per100g)
+            #expect(!product.isVerified)
+            #expect(product.externalID == product.barcodeEan)
+            #expect(product.caloriesPer100g > 0)
+            let data = try #require(product.localImageData)
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
+        }
     }
 
     @Test func seedingIsPersistentAndResetDoesNotTouchNormalStore() async throws {
@@ -16,13 +60,45 @@ struct DemoModeTests {
         try normal.saveWeightEntry(WeightEntry(userId: owner, date: Date(), weightKg: 81))
         let url = directory.appendingPathComponent("demo.sqlite")
         let demoOwner = UUID()
-        let demo = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [product()])
+        let demo = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load())
         let initialCount = demo.getAllLogs(userId: demoOwner).count
         #expect(initialCount > 400)
         #expect(demo.getAllLogs(userId: owner).isEmpty)
         #expect(!demo.getSummary(userId: demoOwner, date: Date()).logs.isEmpty)
-        #expect(demo.getSavedMeals(userId: demoOwner).count == 4)
+        #expect(demo.getSavedMeals(userId: demoOwner).count == 8)
         #expect(try demo.getWaterGlasses(userId: demoOwner).count > 200)
+        let meals = demo.getSavedMeals(userId: demoOwner)
+        #expect(meals.allSatisfy { $0.items.count >= 3 })
+        #expect(meals.contains { $0.name == "Fredagstaco" && $0.items.count == 6 })
+        let catalog = try await DemoProductCatalog.load()
+        for meal in meals {
+            for item in meal.items {
+                let source = try #require(catalog.first { $0.id == item.productId })
+                #expect(abs(item.calories - source.caloriesPer100g * item.amountG / 100) < 0.001)
+                #expect(item.nutritionSource == source.nutritionSource)
+            }
+        }
+        let today = demo.getSummary(userId: demoOwner, date: Date()).logs
+        #expect(Set(today.map(\.mealType)) == Set(["frokost", "lunsj", "middag"]))
+        let todayWater = try demo.getWaterGlasses(userId: demoOwner).filter {
+            Calendar.current.isDateInToday($0.date)
+        }
+        #expect(todayWater.count == 5)
+        for log in demo.getAllLogs(userId: demoOwner) {
+            let product = try #require(catalog.first { $0.id == log.productId })
+            #expect(abs(log.calories - product.caloriesPer100g * log.amountG / 100) < 0.001)
+        }
+        let oats = try #require(catalog.first { $0.externalID == "7044416013141" })
+        #expect(!today.contains { $0.productId == oats.id })
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
+        #expect(Set(demo.getSummary(userId: demoOwner, date: yesterday).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
+        let pictured = meals.filter { $0.localImageData != nil }
+        #expect(Set(pictured.map(\.name)) == Set(["Yoghurt med havre og bær", "Laks med poteter"]))
+        for meal in pictured {
+            let data = try #require(meal.localImageData)
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
+        }
         let weight = WeightEntry(userId: demoOwner, date: Date(), weightKg: 99)
         try demo.saveWeightEntry(weight)
         let reopened = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [])
@@ -32,7 +108,12 @@ struct DemoModeTests {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [], reset: true)
         }
         #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
-        let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [product()], reset: true)
+        await #expect(throws: (any Error).self) {
+            _ = try await DemoDataset.prepare(at: url, userId: demoOwner,
+                products: catalog.filter { $0.externalID != "04.342" }, reset: true)
+        }
+        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
+        let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load(), reset: true)
         #expect(reset.getAllLogs(userId: demoOwner).count == initialCount)
         #expect(!reset.getWeightEntries(userId: demoOwner).contains { $0.id == weight.id })
         #expect(normal.getWeightEntries(userId: owner).first?.weightKg == 81)
@@ -83,7 +164,8 @@ struct DemoContextTests {
         let before = await mode.database.fetchPendingEvents(ownerUserId: demoUser.id, limit: 1000)
         let result = await engine.syncPendingEvents(ownerUserId: demoUser.id)
         #expect(!result.success)
-        #expect(result.errorMessage == "Backend ikke aktiv")
+        #expect(!engine.isUploadAvailable)
+        #expect(result.errorMessage != nil)
         let after = await mode.database.fetchPendingEvents(ownerUserId: demoUser.id, limit: 1000)
         #expect(before.count == after.count)
         await mode.selectDemo(false)

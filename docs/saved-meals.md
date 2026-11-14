@@ -8,18 +8,17 @@ måltidsplanlegging eller automatiske anbefalinger.
 
 Første versjon omfatter:
 
-- «Lagre som måltid» fra en måltidsgruppe i Logg
+- «Lagre som måltid» fra en måltidsgruppe eller et utvalg på én dato i Logg
 - navn, matvarer, eksakte mengder, næringssnapshot, kilde og rekkefølge
 - ett valgfritt lokalt måltidsbilde fra iOS-bildevelgeren
-- «Lagrede måltider» øverst i Loggfør-arket
+- «Lagrede måltider» i velgeren under dato/måltid i Loggfør-arket
 - «Lagrede måltider» fra «Legg til» i Logg, med valgt dato og måltidskategori
 - forhåndsvisning og mengdejustering før logging
 - logging til valgt dato og måltidskategori, også når måltidet har innhold fra før
-- endring av navn/mengder, fjerning av varer og sletting av malen
+- endring av navn/mengder, tillegg og fjerning av varer og sletting av malen
 - kompakt lokal kvittering og atomisk angre
 
-Det er ikke støtte for å bygge en ny mal fra et tomt lerret, legge til nye varer
-i en eksisterende mal, mapper, deling, porsjonsskalering eller
+Det er ikke støtte for å bygge en ny mal fra et tomt lerret, mapper, deling, porsjonsskalering eller
 oppskriftstekst i denne versjonen.
 
 ## Flyt og design
@@ -37,10 +36,16 @@ bibliotektilgang. Bilder begrenses til 1200 piksler på lengste side og 2 MB JPE
 original fotometadata fjernes. Importer over 30 MB avvises. Et iCloud-bilde
 kan kreve nett før import, men allerede importerte bilder fungerer offline.
 
-Loggfør-arket viser inntil tre lagrede måltider før favoritter og nylig brukte
-matvarer. «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
+Loggfør-arket viser inntil tre lagrede måltider når «Lagrede måltider» er
+valgt i velgeren «Loggfør igjen / Lagrede måltider». «Se alle» åpner administrasjon. Trykk på en mal åpner alltid en
 forhåndsvisning med matvarer, mengder, valgt dato og måltidskategori før den
 loggføres. Ingen mal loggføres automatisk.
+
+Søk-fanen har en fast inngang «Lagrede måltider» med teksten «Dine faste
+måltider» før favoritter og nylig brukt. Inngangen vises også når listen er tom,
+men skjules mens søkefeltet inneholder et søk. Den åpner den eksisterende
+oversikten med forhåndsvisning, logging, redigering og sletting. Loggfør-arket
+beholder sin hurtigtilgang. Endring av malen påvirker ikke tidligere logging.
 
 I Logg åpner «Legg til» → «Lagrede måltider» samme liste og forhåndsvisning.
 Datoen og måltidskategorien fra loggen beholdes. Etter logging lukkes listen
@@ -53,9 +58,21 @@ knapper brukes. Handlinger har minst 44 pt trykkflate og tekst kan brytes ved
 Dynamic Type.
 
 Forhåndsvisningen bruker en kompakt destinasjonsrad som kan utvides ved behov.
-Hver vare viser navn, valgfri kilde og en samlet mengdekontroll med `g`.
-Primærhandlingen ligger fast nederst og angir hvor mange varer som loggføres,
+Varene samles i ett kort med diskrete skillelinjer mellom hver vare.
+Hver vare viser et 52 pt produktbilde fra lokalt lagrede produktdata, med
+2 pt innvendig luft og hele bildet synlig. Manglende bilde bruker et nøytralt
+matikon. Navn og valgfri kilde står ved siden av bildet, med et svakt tonet mengdefelt med varens
+lagrede enhet inne i feltet.
+Primærhandlingen «Loggfør måltidet» ligger fast nederst,
 slik at den forblir tilgjengelig også når måltidet har mange varer.
+
+Hver vare viser energi, protein, karbohydrat og fett for valgt mengde. Verdiene
+og en samlet oversikt «Hele måltidet» oppdateres direkte ved mengdeendring,
+med samme skalering av lagret næringssnapshot som ved logging. Avrunding skjer
+bare ved visning. Ingen målprogresjon eller sammenligning med kalorimål vises.
+Tom eller ugyldig mengde skjuler varens verdier og samlet total, viser en
+forklaring og deaktiverer logging. Gyldige varer beholder sine verdier.
+Beregningen fungerer offline og endrer ikke malen eller eksisterende logger.
 
 ## Data og arkitektur
 
@@ -97,3 +114,119 @@ Produksjonssynk forblir deaktivert.
 - Kontoendring fjerner presentasjonstilstand og kvittering for forrige bruker.
 - Oppretting, redigering, bruk og sletting fungerer uten nett.
 - Eksport og kontosletting omfatter lagrede måltider.
+
+### Samlet detalj og redigering av lagrede måltider
+
+Et lagret måltid åpnes i én detaljflate. «Rediger» bytter samme flate til
+redigeringsmodus; sveipehandlingen «Rediger» åpner denne modusen direkte. Navn, bilde,
+mengder og fjerning av matvarer redigeres i en kladd. Dato og måltidskategori
+skjules under redigering. «Lagre endringer» lagrer lokalt og går tilbake til
+oppdatert visning. Feil beholder kladden. «Avbryt» eller lukk ber om bekreftelse
+før endrede verdier forkastes. Sveip for å lukke er deaktivert under redigering.
+Mengdejustering før logging gjelder bare aktuell loggføring; redigeringskladden
+starter alltid fra den lagrede malen. Tidligere loggføringer påvirkes ikke.
+Nye matvarer kan legges til i redigeringskladden.
+
+Oversikten bruker trykk på raden for å åpne detaljen og sveip til venstre for
+«Rediger» og «Slett». Det finnes ingen separat ⋯-meny eller langt-trykk-meny.
+Fullt sveip utløser ingen handling; «Slett» krever fortsatt bekreftelse.
+
+### Forbedringsplan for oversikten – 8. oktober 2026
+
+- Bruk kompakt navigasjonstittel og «Lukk» for å gi listen mer plass.
+- Samle navigasjonslinje og liste på `background`, med native skillelinjer.
+- Behold lagret bilde; demp standardikonet med `textSecondary` på `mutedSurface`.
+- Prioriter hele måltidsnavnet. Matvareoppsummeringen bruker `secondary` og én
+  linje ved vanlig tekststørrelse, uten linjegrense ved tilgjengelighetsstørrelser.
+  Lagrede produktnavn endres ikke. Hele oppsummeringen er tilgjengelig for VoiceOver.
+- Behold forhåndsvisning, sveipehandlinger, slettebekreftelse og eksisterende
+  laste-, tom- og feiltilstander. Ingen nye søke- eller sorteringsfunksjoner.
+
+Planen er implementert i oversikten og den delte `SavedMealRow`, som også
+brukes i hurtigvalg. Akseptansekriterier: hele navn kan brytes, rad og lukkeknapp
+har minst 44 pt trykkflate, dekorative ikoner skjules for VoiceOver, og stor
+tekst får økt radhøyde uten skriftkrymping.
+
+Detaljflaten beholder måltidsnavnet som tittel i begge moduser. «Rediger»/
+«Avbryt» ligger fast over scrollinnholdet sammen med modusmarkeringen.
+Navnet vises i samme felt, skrivebeskyttet før logging. Eksisterende bilde har
+samme høyde (180 pt) i begge moduser; redigering viser kompakte bildehandlinger.
+Forklaringen står på samme plass før den valgfrie loggdestinasjonen.
+Matvarenes handlingsmeny ligger ved produktnavnet, med reservert plass også
+utenfor redigeringsmodus, slik at radstruktur og navnebryting beholdes.
+
+«Hele måltidet» vises rett etter bildeområdet (etter navnet når bilde mangler)
+i både visning og redigering, før modusforklaring, loggdestinasjon og matvarer.
+Totalen følger fortsatt de valgte mengdene og varene i aktiv modus.
+
+### Legg til matvarer i redigeringskladden
+
+«Legg til matvare» åpner eksisterende søk med favoritter og nylig brukte varer,
+etterfulgt av mengdevalg i produktets dokumenterte enhet. Valget legger varen
+bare i kladden; ingen matlogg opprettes. En eksisterende vare åpner med lagret
+kladdmengde og oppdateres uten automatisk summering eller duplikat.
+Totalen oppdateres umiddelbart. «Lagre endringer» lagrer hele malen atomisk
+med eksisterende savedMeal-upsert-hendelse. Avbryt forkaster også nye varer.
+Velgeren bruker samme valgflate som Loggfør: søk, skanning og manuell
+produktregistrering. Dato, måltidskategori og gjenbruk av måltider skjules.
+Alle tre veier åpner mengdevalg for kladden uten matlogging. Manuell
+registrering lagrer produktet i eget matvarebibliotek før mengdevalg; avbryt
+av måltidskladden sletter ikke den registrerte matvaren.
+
+### Oppretting fra utvalg i dagsloggen (9. oktober 2026)
+
+«Velg» i dagsloggen lar brukeren markere individuelle registreringer, også på
+tvers av måltidsgrupper. «Lagre som måltid» åpner eksisterende opprettingsark
+med bare utvalget. Separate registreringer av samme produkt forblir separate
+varer i malen. Grensen er fortsatt 1–50 varer. Ved blandede grupper kan brukeren
+velge foreslått måltidskategori; første valgte registrerings kategori foreslås.
+Avbryt og lagringsfeil beholder valget. Vellykket lagring avslutter valgmodus.
+Dagbokregistreringene påvirkes ikke.
+
+## Del måltidskort
+
+Forhåndsvisningen har «Del måltid» ved siden av Rediger, utenfor redigeringsmodus.
+Et eget ark tilbyr Lys, Mørk og Foto med sveiping og direkte stilvalg. Sist valgte
+stil huskes på enheten. Kortet viser navn, valgfritt originalbilde,
+energi og makroer uten overskriften «Hele måltidet». Kildeinformasjon vises ikke på delingskortet, uavhengig av
+innstillingen for kildevisning inne i appen.
+
+Formatvelgeren tilbyr 3:4 (1080 × 1440) og 9:16 (1080 × 1920) i alle tre stiler.
+9:16 beholdes som standard til et annet format velges. Valget huskes på enheten
+og brukes i forhåndsvisning, miniatyrer, lagring og deling. 3:4 bruker en kortere
+layout med tilpasset skrift og mellomrom; tekst og næringsgruppe får plass før
+bildeområdet fordeles. Formatvelgeren er deaktivert under lagring og eksport.
+
+«Tilpass innhold» lar brukeren velge kalorier, protein, karbohydrater, fett
+og MatLogg-logo hver for seg. Alle fem er på som standard; valgene huskes lokalt på enheten.
+Eldre næringsvalg bevares, med logo på frem til brukeren velger å skjule den.
+Forhåndsvisning, miniatyrer og eksport bruker samme utvalg. Skjulte verdier fjernes
+helt, og gjenværende verdier fordeler plassen. Når alle næringsverdier er av,
+viser kortet bare bilde, måltidsnavn og eventuelt MatLogg-merket.
+Dette endrer ikke næringsgrunnlaget i appen eller hvilke verdier som er gyldige.
+
+Lys og Mørk fordeler plassen mellom navn, et fleksibelt bildeområde og en samlet
+næringsgruppe nederst. Lange navn gir et lavere bilde uten å skjule verdier.
+Foto bruker en liten mørk bakgrunn bare bak merkevaren øverst og en gradient bak tekstgruppen nederst;
+bildet mellom disse områdene beholder farger og lysstyrke. Beskjæringen er sentrert
+for stående, liggende og kvadratiske bilder. En diskret kant og skygge avgrenser
+forhåndsvisningen, men inngår ikke i eksportbildet. Forhåndsvisningen utnytter ledig
+høyde over stilvalgene og deleknappen. Ved svært stor tekst reduseres
+forhåndsvisningen og stilvalgene vises som vertikale rader med bilde og etikett.
+Rulleinnholdet har ekstra klaring over den faste deleknappen.
+Verdiene bruker de gjeldende justerte mengdene og det lagrede næringsgrunnlaget;
+deling endrer ikke malen, matloggen eller synkkøen. Ugyldig total blokkerer eksport.
+
+Kortet genereres lokalt i valgt format. «Lagre bilde» legger samme kort
+direkte i Bilder, og «Del kortet» åpner iOS sitt delingsark. Knappene vises ved
+siden av hverandre, eller under hverandre ved svært stor tekst. Appen ber kun om
+tilgang til å legge til bilder ved aktiv lagring, og leser ikke bildebiblioteket.
+Bekreftelse vises etter fullført lagring; avvist tilgang og lagringsfeil gir
+forklaring og mulighet til å prøve igjen. Innholdsvalg låses mens kortet behandles.
+Begge byggkonfigurasjoner har begrunnelsen som kreves for bildelagring, også fra
+systemdelingsarket. En lagret kopi i Bilder fjernes ikke når appdata slettes.
+Ingen konto, nettforespørsel, delingslenke eller
+mottakerimport kreves. Sending fra mottakerappen kan kreve nett. Alle stiler har
+reserveutforming uten bilde; et ødelagt bilde gir en eksplisitt forklaring.
+Eksportbildet holdes i minnet og inneholder ikke original fotometadata,
+loggdato, profilinformasjon, mål eller vekt. Profilbytte forkaster delingsøkten.

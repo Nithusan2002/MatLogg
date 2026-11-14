@@ -10,7 +10,7 @@ struct LogToastView: View {
 
     init(payload: ReceiptPayload, isUndoing: Bool, onUndo: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         self.init(id: payload.id,
-                  title: "\(payload.amountG.formatted(.number.precision(.fractionLength(0...1)))) \(payload.amountUnit.rawValue) \(payload.product.name) lagt til \(LogSummaryService.title(for: payload.mealType))",
+                  title: "\(PortionDisplay.amount(payload.amountG, unit: payload.amountUnit, portion: payload.portionSelection, preparation: payload.product.nutritionPreparation)) \(payload.product.name) lagt til \(LogSummaryService.title(for: payload.mealType))",
                   isUndoing: isUndoing, onUndo: onUndo, onDismiss: onDismiss)
     }
 
@@ -47,11 +47,24 @@ struct LogToastView: View {
             Button(action: onUndo) {
                 Text(isUndoing ? "Angrer …" : "Angre")
                     .font(AppTypography.bodyEmphasis)
-                    .foregroundColor(AppColors.action)
+                    .foregroundColor(AppColors.actionText)
                     .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(isUndoing)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(AppTypography.body)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isUndoing)
+            .accessibilityLabel("Lukk bekreftelse")
+            .accessibilityIdentifier("log-receipt-close")
         }
         .padding(14)
         .matLoggCardSurface(cornerRadius: 16)
@@ -60,6 +73,7 @@ struct LogToastView: View {
         .opacity(1 - min(dragOffset / 180, 0.55))
         .simultaneousGesture(dismissGesture)
         .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("log-receipt")
         .accessibilityAction(named: "Lukk bekreftelse") {
             onDismiss()
         }

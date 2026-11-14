@@ -9,13 +9,20 @@ import SwiftUI
 
 struct MatLoggContent: View {
     @StateObject private var appState: AppState
+    @StateObject private var progressViewModel: ProgressViewModel
+    @StateObject private var progressHubViewModel: ProgressHubViewModel
+    @StateObject private var stepCountViewModel: StepCountViewModel
+    @StateObject private var healthWeightViewModel: HealthWeightViewModel
+    @StateObject private var healthWorkoutViewModel: HealthWorkoutViewModel
+    @StateObject private var scanHistoryViewModel: ScanHistoryViewModel
     @StateObject private var logViewModel: LogViewModel
     @StateObject private var mealReuseViewModel: MealReuseViewModel
     @StateObject private var waterViewModel: WaterViewModel
+    @StateObject private var mealShareViewModel: MealShareViewModel
     @StateObject private var savedMealsViewModel: SavedMealsViewModel
+    @StateObject private var loggingDraftViewModel: FoodLoggingDraftViewModel
+    @StateObject private var quickLogViewModel: QuickLogViewModel
     @StateObject private var productViewModel: ProductViewModel
-    @StateObject private var morningCheckInViewModel: MorningCheckInViewModel
-    @StateObject private var healthIntegrationViewModel: HealthIntegrationViewModel
     @StateObject private var healthProfileViewModel: HealthProfileViewModel
     @StateObject private var profileFavoritesViewModel: ProfileFavoritesViewModel
     @StateObject private var personalDetailsViewModel: PersonalDetailsViewModel
@@ -26,21 +33,40 @@ struct MatLoggContent: View {
     @StateObject private var profileExportViewModel: ProfileExportViewModel
     @StateObject private var networkMonitor: NetworkMonitor
     @Environment(\.scenePhase) private var scenePhase
+    private let foodLogRepository: any FoodLogRepository
     private let foodSearchRepository: any FoodSearchRepository
     private let databaseStartupFailed: Bool
     private let databaseStartupDetail: String?
 
+    #if DEBUG
+    private let portionQARepository: any ProductRepository
+    #endif
     private let isDemo: Bool
 
-    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false) {
+    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false, accountRepository: (any AccountAuthRepository)? = nil) {
+        let timing = PerformanceSignposts.begin("Startup.Compose")
+        defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
-        foodSearchRepository = DefaultFoodSearchRepository(
-            products: databaseService, catalog: MatvaretabellenService(), remote: APIService()
+        _mealShareViewModel = StateObject(wrappedValue: MealShareViewModel(
+            renderer: MealShareRenderingService(), preferences: LocalMealSharePreferences(defaults: defaults),
+            photoSaver: MealSharePhotoLibraryService()))
+        _loggingDraftViewModel = StateObject(wrappedValue: FoodLoggingDraftViewModel(repository: databaseService))
+        foodLogRepository = databaseService
+        #if DEBUG
+        portionQARepository = databaseService
+        #endif
+        let searchRepository = DefaultFoodSearchRepository(
+            products: databaseService, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: databaseService
         )
+        foodSearchRepository = searchRepository
+        _quickLogViewModel = StateObject(wrappedValue: QuickLogViewModel(repository: searchRepository))
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
-        if !isDemo, let configuration = try? SupabaseConfiguration.load() {
+        if let accountRepository {
+            authRepository = accountRepository
+            syncAPIClient = UnavailableSyncAPIClient()
+        } else if !isDemo, let configuration = try? SupabaseConfiguration.load() {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
@@ -51,7 +77,8 @@ struct MatLoggContent: View {
         let syncEngine = SyncEngine(
             databaseService: databaseService,
             apiService: syncAPIClient,
-            syncEnabled: { !isDemo && FeatureFlags.backendSyncEnabled }
+            syncEnabled: { !isDemo && FeatureFlags.backendSyncEnabled },
+            uploadPolicy: .localOnly
         )
         databaseStartupFailed = !databaseService.isAvailable
         if let error = databaseService.startupError,
@@ -65,6 +92,38 @@ struct MatLoggContent: View {
             syncEngine: syncEngine
         ))
         _waterViewModel = StateObject(wrappedValue: WaterViewModel(repository: databaseService))
+        _progressViewModel = StateObject(wrappedValue: ProgressViewModel(repository: databaseService))
+        _progressHubViewModel = StateObject(wrappedValue: ProgressHubViewModel(
+            repository: UserDefaultsProgressHubRepository(defaults: defaults)))
+        let stepRepository: any HealthReadRepository<StepCountSnapshot>
+        let weightRepository: any HealthReadRepository<HealthWeightSnapshot>
+        var workoutRepository: any HealthReadRepository<HealthWorkoutSnapshot> =
+            isDemo ? DemoHealthReadRepository<HealthWorkoutSnapshot>(makeExample: DemoHealthSamples.workouts) : HealthWorkoutRepository()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--health-workouts-qa") {
+            workoutRepository = QAHealthWorkoutRepository()
+        }
+        if ProcessInfo.processInfo.arguments.contains("--steps-qa") {
+            stepRepository = QAStepCountRepository(count: ProcessInfo.processInfo.arguments.contains("--steps-qa-no-data") ? nil : 6543)
+        } else {
+            stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>(makeExample: DemoHealthSamples.steps) : HealthKitStepCountRepository()
+        }
+        if ProcessInfo.processInfo.arguments.contains("--health-weight-qa") {
+            weightRepository = QAHealthWeightRepository()
+        } else {
+            weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>(makeExample: DemoHealthSamples.weight) : HealthWeightRepository()
+        }
+        #else
+        stepRepository = isDemo ? DemoHealthReadRepository<StepCountSnapshot>(makeExample: DemoHealthSamples.steps) : HealthKitStepCountRepository()
+        weightRepository = isDemo ? DemoHealthReadRepository<HealthWeightSnapshot>(makeExample: DemoHealthSamples.weight) : HealthWeightRepository()
+        #endif
+        _stepCountViewModel = StateObject(wrappedValue: StepCountViewModel(
+            repository: stepRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .steps)))
+        _healthWeightViewModel = StateObject(wrappedValue: HealthWeightViewModel(
+            repository: weightRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .weight)))
+        _healthWorkoutViewModel = StateObject(wrappedValue: HealthWorkoutViewModel(
+            repository: workoutRepository, connections: UserDefaultsHealthConnectionRepository(defaults: defaults, kind: .workouts)))
+        _scanHistoryViewModel = StateObject(wrappedValue: ScanHistoryViewModel(repository: databaseService))
         _logViewModel = StateObject(wrappedValue: LogViewModel(repository: databaseService))
         _mealReuseViewModel = StateObject(wrappedValue: MealReuseViewModel(repository: databaseService))
         _savedMealsViewModel = StateObject(wrappedValue: SavedMealsViewModel(
@@ -80,29 +139,8 @@ struct MatLoggContent: View {
             barcodeRepository: barcodeRepository
         ))
         _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
-        let healthStore = databaseService.healthIntegrationStore
-        let healthCache = HealthWeightCacheStore(directory: healthStore?.healthCacheDirectory
-            ?? URL.applicationSupportDirectory.appendingPathComponent("UnavailableHealthCache"))
-        let healthClient: any HealthKitClient
-        // Developer/UI-test sessions and demo never open the real HealthKit store.
-        #if DEBUG
-        let useFakeHealth = isDemo || ProcessInfo.processInfo.arguments.contains("--skip-auth")
-            || ProcessInfo.processInfo.arguments.contains("--healthkit-fake")
-            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        #else
-        let useFakeHealth = isDemo
-        #endif
-        if useFakeHealth { healthClient = FakeHealthKitClient() }
-        else { healthClient = AppleHealthKitClient() }
-        let healthIntegration = DefaultHealthIntegrationRepository(store: healthStore, cache: healthCache, client: healthClient)
-        _healthIntegrationViewModel = StateObject(wrappedValue: HealthIntegrationViewModel(repository: healthIntegration))
-        let weightHistory = DefaultWeightHistoryRepository(manual: databaseService, health: healthIntegration)
-        let healthProfile = HealthProfileViewModel(repository: databaseService,
-            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults), weightHistoryRepository: weightHistory)
+        let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
-        _morningCheckInViewModel = StateObject(wrappedValue: MorningCheckInViewModel(
-            repository: databaseService, store: UserDefaultsMorningCheckInStore(defaults: defaults)
-        ))
         _personalDetailsViewModel = StateObject(wrappedValue: PersonalDetailsViewModel(
             store: UserDefaultsPersonalDetailsStore(defaults: defaults), onSaved: healthProfile.acceptSavedPersonalDetails
         ))
@@ -124,18 +162,24 @@ struct MatLoggContent: View {
             waterRepository: databaseService,
             healthRepository: databaseService,
             productRepository: databaseService,
-            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults)
+            personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults),
+            profileDataRepository: databaseService
         )))
         _networkMonitor = StateObject(wrappedValue: NetworkMonitor())
     }
     
-    var body: some View { rootContent }
+    var body: some View {
+        let timing = PerformanceSignposts.begin("UI.RootBody")
+        defer { PerformanceSignposts.end(timing) }
+        return rootContent
+            .preferredColorScheme(preferencesViewModel.appearance.colorScheme)
+    }
 
     @ViewBuilder
     private var rootContent: some View {
         if databaseStartupFailed {
             ContentUnavailableView {
-                Label("Kan ikke åpne MatLogg", systemImage: "externaldrive.badge.xmark")
+                Label("Kan ikke åpne Spor Mat", systemImage: "externaldrive.badge.xmark")
             } description: {
                 if let databaseStartupDetail {
                     Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. \(databaseStartupDetail)")
@@ -153,38 +197,28 @@ struct MatLoggContent: View {
             .onChange(of: waterViewModel.mutationRevision) { _, _ in
                 Task { await appState.refreshSyncStatus() }
             }
-            .onDisappear {
-                healthIntegrationViewModel.selectOwner(nil)
-                appState.updateAuthenticatedUser(nil)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .healthDomainDidChange)) { _ in
-                Task {
-                    await healthIntegrationViewModel.refresh()
-                    if let owner = authViewModel.currentUser?.id { await healthProfileViewModel.loadWeightEntries(userId: owner) }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .healthIntegrationDidRefresh)) { notification in
-                guard let owner = notification.object as? UUID, owner == authViewModel.currentUser?.id else { return }
-                Task {
-                    guard authViewModel.currentUser?.id == owner else { return }
-                    await healthProfileViewModel.loadWeightEntries(userId: owner)
-                }
-            }
+            .onDisappear { appState.updateAuthenticatedUser(nil) }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
-                healthIntegrationViewModel.selectOwner(userId)
+                logViewModel.resetSelectedSummary()
+                progressViewModel.reset()
+                progressHubViewModel.reset()
                 healthProfileViewModel.resetUserState()
+                scanHistoryViewModel.reset()
+                quickLogViewModel.reset()
                 profileExportViewModel.reset()
+                mealShareViewModel.reset()
                 personalDetailsViewModel.begin(details: .empty, userId: nil)
                 appState.updateAuthenticatedUser(authViewModel.authenticatedUser?.id)
                 mealReuseViewModel.reset()
                 savedMealsViewModel.reset()
-                if let userId {
-                    Task {
-                        guard authViewModel.currentUser?.id == userId else { return }
-                        await mealReuseViewModel.load(userId: userId)
-                        await savedMealsViewModel.load(userId: userId)
-                    }
-                }
+            }
+            .onChange(of: authViewModel.currentUser?.id, initial: true) { _, owner in
+                stepCountViewModel.activate(owner: owner)
+                healthWeightViewModel.activate(owner: owner)
+                healthWorkoutViewModel.activate(owner: owner)
+            }
+            .onChange(of: appState.selectedTab) { _, tab in
+                if tab != .progress { suspendHealthReads() }
             }
             .alert(item: $appState.activeError) { error in
                 Alert(
@@ -193,7 +227,14 @@ struct MatLoggContent: View {
                     dismissButton: .default(Text("OK")) { appState.activeError = nil }
                 )
             }
+            .onChange(of: authViewModel.currentUser?.id) { _, _ in
+                PerformanceSignposts.event("Startup.UserChanged")
+            }
+            .onChange(of: authViewModel.isRestoringSession) { _, _ in
+                PerformanceSignposts.event("Startup.SessionStateChanged")
+            }
             .onAppear {
+                PerformanceSignposts.event("Startup.ContentAppeared")
                 if isDemo {
                     authViewModel.continueLocally()
                 } else if skipAuthForDev {
@@ -204,15 +245,25 @@ struct MatLoggContent: View {
                 Task { await appState.triggerSync(reason: .appLaunch) }
             }
             .task {
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--prepared-nutrition-qa") {
+                    do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.preparedProduct) }
+                    catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }
+                }
+                if ProcessInfo.processInfo.arguments.contains("--portion-qa") {
+                    do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.product) }
+                    catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }
+                }
+                #endif
                 guard !isDemo && !skipAuthForDev else { return }
+                let timing = PerformanceSignposts.begin("Startup.RestoreSession")
+                defer { PerformanceSignposts.end(timing) }
                 await authViewModel.restoreSession()
             }
             .onChange(of: scenePhase) { _, phase in
+                if phase == .background { suspendHealthReads() }
                 if phase == .active {
-                    Task {
-                        await appState.triggerSync(reason: .foreground)
-                        await healthIntegrationViewModel.refresh()
-                    }
+                    Task { await appState.triggerSync(reason: .foreground) }
                 }
             }
             .onChange(of: networkMonitor.restorationCount) { oldValue, newValue in
@@ -229,20 +280,25 @@ struct MatLoggContent: View {
                 Task { await authViewModel.handleAuthCallback(url) }
             }
             .task(id: authViewModel.currentUser?.id) { await loadHealthProfile() }
+            .task(id: authViewModel.currentUser?.id) { await loggingDraftViewModel.load(owner: authViewModel.currentUser?.id) }
+    }
+
+    private func suspendHealthReads() {
+        stepCountViewModel.suspend()
+        healthWeightViewModel.suspend()
+        healthWorkoutViewModel.suspend()
     }
 
     private func loadHealthProfile() async {
-        healthIntegrationViewModel.selectOwner(authViewModel.currentUser?.id)
+        let timing = PerformanceSignposts.begin("Startup.LoadHealthProfile")
+        defer { PerformanceSignposts.end(timing) }
         if let userId = authViewModel.currentUser?.id {
             await healthProfileViewModel.loadGoal(userId: userId)
-            guard authViewModel.currentUser?.id == userId else { return }
             #if DEBUG
             if authViewModel.currentUser?.authProvider == "debug" {
                 healthProfileViewModel.useDevelopmentGoalIfMissing(userId: userId)
             }
             #endif
-            // Local profile/goal state is ready before potentially slow HealthKit work.
-            await healthIntegrationViewModel.refresh()
         } else {
             healthProfileViewModel.resetUserState()
         }
@@ -255,28 +311,34 @@ struct MatLoggContent: View {
             if isDemo || skipAuthForDev {
                 HomeView()
             } else if authViewModel.isRestoringSession {
-                ProgressView("Åpner MatLogg …")
+                AppStartupLoadingView()
+            } else if authViewModel.pendingLocalDataSummary != nil {
+                NavigationStack { LoginView() }
             } else if authViewModel.currentUser != nil {
-                if authViewModel.isOnboarding {
-                    OnboardingView()
-                } else {
-                    HomeView()
-                }
+                HomeView()
             } else {
                 WelcomeView()
             }
         }
         .environmentObject(appState)
+        .environmentObject(progressViewModel)
+        .environmentObject(progressHubViewModel)
+        .environmentObject(stepCountViewModel)
+        .environmentObject(healthWeightViewModel)
+        .environmentObject(healthWorkoutViewModel)
+        .environmentObject(scanHistoryViewModel)
         .environmentObject(logViewModel)
         .environmentObject(mealReuseViewModel)
         .environmentObject(savedMealsViewModel)
+        .environmentObject(mealShareViewModel)
         .environmentObject(waterViewModel)
         .environmentObject(productViewModel)
+        .environmentObject(quickLogViewModel)
+        .environmentObject(loggingDraftViewModel)
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
-        .environmentObject(healthIntegrationViewModel)
+        .environment(\.foodLogRepository, foodLogRepository)
         .environmentObject(healthProfileViewModel)
-        .environmentObject(morningCheckInViewModel)
         .environmentObject(dailyGoalsViewModel)
         .environmentObject(personalDetailsViewModel)
         .environmentObject(profileFavoritesViewModel)

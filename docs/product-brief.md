@@ -1,4 +1,24 @@
-# MatLogg – produktbrief
+# Spor Mat – produktbrief
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
+
+## Gjeldende lanseringsscope – 3. oktober 2026
+
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
 
 Dette dokumentet beskriver produktets hensikt og avgrensning. Det er normativt
 for produktretning, men ikke en oversikt over hva som allerede er implementert.
@@ -53,7 +73,7 @@ MatLogg har fem hovedinnganger:
 1. **Hjem** – dagens status og måltider.
 2. **Søk** – råvarer, produkter, favoritter og nylig brukt.
 3. **Loggfør** – sentral handling for søk, skanning og manuell registrering.
-4. **Oversikt** – valgfri vektregistrering og historikk.
+4. **Utvikling** – personlig kortoversikt for mat og næring samt valgfri vektregistrering og historikk.
 5. **Profil** – personlige detaljer, mål, trygghet, personvern, konto og synk.
 
 Den sentrale kjerneflyten er:
@@ -71,7 +91,8 @@ Den sentrale kjerneflyten er:
 
 MVP-en prioriterer:
 
-- valgfri konto med Apple eller e-post/passord; lokal bruk krever ikke konto
+- valgfri konto med Apple; lokal bruk krever ikke konto. E-post/passord er
+  deaktivert med `FeatureFlags.emailAuthenticationEnabled = false`
 - onboarding for både lokal profil og konto
 - dagsoversikt og fire måltider
 - logging via søk, strekkode og manuell registrering
@@ -81,6 +102,7 @@ MVP-en prioriterer:
 - navngitte lagrede måltider for rask, eksplisitt gjenbruk
 - lokal lagring og versjonert synkkø
 - mål og valgfri vektregistrering
+- valgfri lesing av skritt, vekt og treningsøkter for valgt dag, uke eller måned fra Apple Helse, uten opplasting eller endring av kalorimål
 - synlig datakilde når brukeren ønsker det
 - eksport og sletting av brukerdata
 
@@ -92,11 +114,10 @@ status gjelder [current-state.md](current-state.md) og kodebasen.
 
 Følgende skal ikke innføres uten en ny produktbeslutning:
 
-- sosial feed, venner, konkurranser eller gamification
+- sosial feed, venner, konkurranser eller gamification utover den diskrete loggerekkefunksjonen på Hjem
 - medisinske anbefalinger eller automatiske behandlingsråd
 - automatisk utfylling av manglende næringsverdier
-- treningsklokker og helseintegrasjoner utover den godkjente, avgrensede
-  [Apple Helse-utvidelsen](health-integration.md); denne er av i produksjon
+- skrivetilgang til Apple Helse, treningsklokker eller helseintegrasjoner utover valgfri visning av skritt, vekt og treningsøkter
 - annonser, abonnement eller andre inntektsflater
 - omfattende oppskrifts- og måltidsplanlegging
 - produksjonssynk før kontrakt-, retry-, idempotens-, eierskaps- og

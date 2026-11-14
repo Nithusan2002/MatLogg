@@ -1,12 +1,17 @@
 import SwiftUI
 
 struct LogRowView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let log: FoodLog
     let productName: String
     var compact: Bool = false
     var mealRoom: Bool = false
+    var showsMealNutrition = true
     var imageURL: URL? = nil
     var imageData: Data? = nil
+    var foodGroup: FoodGroup = .other
+    var isSelected: Bool = false
+    var onSelect: (() -> Void)? = nil
     let onEdit: (() -> Void)?
     let onMove: (() -> Void)?
     let onDelete: (() -> Void)?
@@ -19,16 +24,20 @@ struct LogRowView: View {
                 CardContainer { rowContent }
             }
         }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: isSelected)
         .contentShape(Rectangle())
-        .onTapGesture { onEdit?() }
+        .onTapGesture { if let onSelect { onSelect() } else { onEdit?() } }
+        .accessibilityValue(onSelect != nil ? (isSelected ? "Valgt" : "Ikke valgt") : "")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityActions {
+            if let onSelect { Button(isSelected ? "Fjern markering" : "Velg", action: onSelect) }
             if let onEdit {
                 Button("Rediger", action: onEdit)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(mealRoom && onEdit != nil ? .isButton : [])
-        .accessibilityHint(mealRoom && onEdit != nil ? "Trykk for å redigere mengde eller flytte varen" : "")
+        .accessibilityAddTraits(mealRoom && (onEdit != nil || onSelect != nil) ? .isButton : [])
+        .accessibilityHint(onSelect != nil ? "Trykk for å endre markering" : (mealRoom && onEdit != nil ? "Trykk for å redigere mengde eller flytte varen" : ""))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if let onDelete {
                 Button(role: .destructive) {
@@ -59,14 +68,23 @@ struct LogRowView: View {
     private var rowContent: some View {
         if mealRoom {
             HStack(alignment: .top, spacing: 12) {
-                ProductThumbnailView(url: imageURL, localData: imageData, size: 44)
+                if onSelect != nil {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? AppColors.action : AppColors.textSecondary)
+                        .frame(width: 28, height: 52)
+                        .accessibilityHidden(true)
+                        .transition(.opacity.combined(with: .scale(scale: 0.85)))
+                }
+                ProductThumbnailView(url: imageURL, localData: imageData, foodGroup: foodGroup, size: 52, imagePadding: 2)
                 VStack(alignment: .leading, spacing: 4) {
                     productDescription
-                    Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityLabel("\(NutritionDisplay.wholeCalories(log.calories)) kilokalorier, protein \(NutritionDisplay.wholeGrams(log.proteinG)) gram, karbohydrat \(NutritionDisplay.wholeGrams(log.carbsG)) gram, fett \(NutritionDisplay.wholeGrams(log.fatG)) gram")
+                    if showsMealNutrition {
+                        Text("\(NutritionDisplay.wholeCalories(log.calories)) kcal · P \(NutritionDisplay.wholeGrams(log.proteinG)) g · K \(NutritionDisplay.wholeGrams(log.carbsG)) g · F \(NutritionDisplay.wholeGrams(log.fatG)) g")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel("\(NutritionDisplay.wholeCalories(log.calories)) kilokalorier, protein \(NutritionDisplay.wholeGrams(log.proteinG)) gram, karbohydrat \(NutritionDisplay.wholeGrams(log.carbsG)) gram, fett \(NutritionDisplay.wholeGrams(log.fatG)) gram")
+                    }
 
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -93,7 +111,7 @@ struct LogRowView: View {
                 .font(AppTypography.bodyEmphasis)
                 .foregroundStyle(AppColors.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("\(Int(log.amountG)) \(log.resolvedAmountUnit.rawValue)")
+            Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
                 .font(AppTypography.caption)
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -132,7 +150,7 @@ struct CompactLogListView: View {
                                 onSeeAll(group.mealType)
                             }
                             .font(AppTypography.caption)
-                            .foregroundColor(AppColors.brand)
+                            .foregroundColor(AppColors.actionText)
                         }
                     }
                     
@@ -152,9 +170,27 @@ struct CompactLogListView: View {
                 onSeeAll(nil)
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.brand)
+            .foregroundColor(AppColors.actionText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 4)
         }
+    }
+}
+
+struct LogMealCardBackground: View {
+    var top = false
+    var bottom = false
+
+    var body: some View {
+        UnevenRoundedRectangle(
+            topLeadingRadius: top ? 24 : 0,
+            bottomLeadingRadius: bottom ? 24 : 0,
+            bottomTrailingRadius: bottom ? 24 : 0,
+            topTrailingRadius: top ? 24 : 0,
+            style: .continuous
+        )
+        .fill(AppColors.surface)
+        .padding(.horizontal, 16)
+        .background(AppColors.background)
     }
 }

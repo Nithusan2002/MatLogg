@@ -18,42 +18,43 @@ beskrevet i [lagrede måltider](../saved-meals.md).
 #### US-1.1: Bruker velger lokal profil eller konto
 ```
 SOM: ny bruker
-ØNSKER: å kunne starte lokalt uten konto, eller logge inn med Apple/e-post
+ØNSKER: å kunne starte lokalt uten konto, eller logge inn med Apple i piloten
 SÅ AT: jeg kan prøve kjerneverdien uten å dele unødvendige persondata
 
 Acceptance Criteria:
-□ «Fortsett på denne iPhonen» er primær handling; lokal bruk er tidsubegrenset
-□ Apple Sign in og e-post/passord er tilgjengelig; Google er senere scope
+□ Ny installasjon oppretter lokal profil automatisk etter sesjonsgjenoppretting; lokal bruk er tidsubegrenset
+□ Pilot 8. oktober 2026: Apple Sign in er tilgjengelig; e-post/passord skjules til eget SMTP og e-postflytene er verifisert. Google er senere scope
 □ E-postregistrering krever bare e-post og passord; navn er ikke påkrevd
+□ Apple-innlogging ber om navn og e-post i Apples dialog. Delt navn beholdes som et lokalt forslag per konto og brukes bare når brukeren velger «Bruk navn fra Apple» i Personlige detaljer. Eksisterende visningsnavn overskrives ikke. Innloggingsskjermen forklarer «Skjul e-post», og kontoinnstillingene forklarer den private videresendingsadressen. Ernæringsprofil fylles ut separat.
 □ Validering: e-post format, passord >8 tegn
-□ Ny lokal profil og ny konto sendes til onboarding
+□ Ny lokal profil åpner to korte, sveipbare introsider før første logging; konto er en sekundær inngang
 □ Eksisterende lokale data knyttes aldri til konto uten eksplisitt bekreftelse
+□ Etter fullført innlogging lukkes innloggingsskjermen. Automatisk lukking av bekreftelsesdialogen avbryter ikke kontokoblingen; bare «Avbryt» gjør det. Ventestatus og feil vises over innloggingsvalgene.
+□ Vellykket Apple-/e-postinnlogging avslutter intro/første logging og åpner Hjem, etter eventuell bekreftelse av kontokobling. Dette lagres per konto og gjelder også etter omstart. Avbrutt eller mislykket innlogging beholder onboarding.
 □ Sessionstoken lagres sikkert i Keychain (iOS)
 □ Ingen cookies; kun JWT-bearer-token i Authorization-header
 ```
 
-#### US-1.2: Bruker setter opp mål
+#### US-1.2: Første logging og valgfrie mål
 ```
 SOM: ny bruker
 ØNSKER: raskt kunne velge loggføring med eller uten mål
 SÅ AT: jeg kan begynne på en måte som passer meg
 
 Acceptance Criteria:
-□ Velkomstens budskap og handlinger er synlige uten scrolling på standard iPhone og standard tekststørrelse
+□ «Logg din første matvare» eller «Hopp over intro» åpner søk med fokus, skann/manuell som alternativer og kort personverntekst
 □ Små skjermer, liggende retning og store tekststørrelser kan scrolle som tilgjengelighetsfallback
-□ Brukeren velger kun loggføring eller et valgfritt mål
-□ «Start uten mål» og «Kun loggføring» oppretter ikke et skjult mål
+□ Første logging krever ikke mål; mål settes senere under Profil → Daglige mål
+□ Automatisk lokal oppstart oppretter ikke et skjult mål
 □ Kalorier og tilgjengelige makroverdier vises også uten mål
 □ Måltype: rolig nedgang / stabil vekt / rolig oppgang (bestemmer beregningsretning)
 □ Kalorimål: 1200–4500 kcal/dag, i tråd med GoalCalculator (produktgrenser, ikke medisinsk anbefaling)
-□ Makromål: balansert standard vises med kaloriforslaget; annen profil eller egendefinerte gram åpnes via Tilpass målene
-□ Retning → beregningsgrunnlag (inkludert aktivitet) → forslag; tempo vises bare ved oppgang/nedgang
-□ Ugyldig beregningsgrunnlag vises ved feltene uten å sende brukeren til en tom resultatskjerm
+□ Makromål: generell profil eller egendefinerte gram for protein/karbohydrat/fett
 □ Vekt, høyde, alder, kjønn/formelvariant og aktivitet er valgfrie personopplysninger
 □ Automatisk estimat krever alder 18+, gyldig vekt/høyde og eksplisitt valg av kvinne- eller mannvarianten i voksenformelen
 □ Manglende eller annet formelgrunnlag gir ikke et gjettet standardestimat; brukeren angir eget mål eller supplerer opplysningene
 □ Makroprofilene følger NNR 2023-intervallene for voksne og omtales som generelle fordelinger, ikke individuelle råd
-□ Oppsummering vises før eksplisitt lokal lagring; eksisterende local-first synkhendelse brukes når et mål lagres
+□ Målskjermen viser utkast før eksplisitt lokal lagring; eksisterende local-first synkhendelse brukes når et mål lagres
 □ Input beholdes ved lagringsfeil, og brukeren kan prøve igjen
 ```
 
@@ -149,7 +150,7 @@ Acceptance Criteria:
 □ Ukjent strekkode og ufullstendig kcal-/makrogrunnlag vises som separate tilstander, begge med manuell registrering (se US-3.3)
 □ Nettverksfeil tilbyr «Prøv igjen» og «Registrer manuelt»; ratebegrensning viser ventetid
 □ Eksisterende OFF-produkter kan oppdateres manuelt fra produktkortet; lagrede data beholdes ved feil
-□ Maksimal latency: 3 sekunder (nett), fra skann til produktkort
+□ Lagrede treff åpnes direkte. Nye oppslag viser ventestatus, og etter 3 sekunder vises en forklaring. Søk og manuell registrering er tilgjengelig under oppslaget; gamle svar forkastes når brukeren går videre.
 □ Scannings-historikk lagres lokalt (evt. uten nett)
 ```
 
@@ -437,20 +438,143 @@ Acceptance Criteria:
 
 ---
 
-## 2.5 Oppbygning av Onboarding (4 skjermbilder)
+## 2.5 Første logging – kontrollert mot kode 2026-10-04
 
-| Skjermbilder | Innhold |
-|--------------|---------|
-| **1. Velkommen** | "Hei, {navn}! Sett mål for i dag" + illustrasjon |
-| **2. Måltype** | [Weight loss] [Maintain] [Gain] |
-| **3. Kalorier** | Slider: 1200–3500 kcal/dag |
-| **4. Makroer** | Protein %: slider, Carbs %: slider, Fat %: slider (sum=100%) |
-| (Valgfri) **5. Vekt** | "Valgfri: Hva veier du i dag?" + [Hopp over] [Lagre] |
-| **6. Klar** | "Du er klar til å starte! Trykk [Start]" |
+| Steg | Innhold og handling |
+|------|---------------------|
+| **1. Intro (to sider)** | Visuelle eksempler på logging og dagsoversikt. «Neste» viser side 2; «Logg din første matvare» og «Hopp over intro» åpner logging. |
+| **2. Første matvare** | Søk med fokus, Skann og Manuelt. Kort informasjon om lokal lagring, valgfri konto og mål, samt personvernlenke. «Logg inn» er sekundær; «Gå til Hjem» hopper over logging. |
+| **3. Produktkort** | Kontroller mengde, enhet, kilde og måltid før eksplisitt lokal logging. |
+| **4. Hjem** | Bekreftelse og Angre etter vellykket lagring. Mål kan settes senere under Profil → Daglige mål. |
 
-## Apple Helse – godkjent utvidelse
+Akseptansekriterier i tillegg til US-1.2:
 
-Som bruker kan jeg under Profil → Apple Helse velge mat ut, vekt inn og/eller
-manuell vekt ut uten konto. Tilgangsdialog vises bare ved eksplisitt tilkobling.
-Oversikt viser kilde og prioriterer manuell vekt. Oppdater nå, frakobling og
-bekreftet opprydding av egne Helse-data følger [integrasjonsflyten](../health-integration.md).
+- Bekreftet lokal lagring eller «Gå til Hjem» fullfører førstegangsvisningen.
+- Avbrutt flyt starter på introen ved neste åpning; Angre starter ikke onboarding på nytt.
+- Tidligere fullført onboarding bevares.
+- Lagringsfeil beholder input og fullfører ikke førstegangsvisningen.
+- Stor tekst gir vertikale søkehandlinger og rullbart innhold; kamera etterspørres først ved valgt skanning.
+
+Den tidligere målveiviseren er bevart i kode uten aktiv inngang. Den gamle
+flertrinnsbeskrivelsen er erstattet av denne flyten. Se også
+[gjeldende førstegangsbruk](../design-and-user-flow.md#førstegangsbruk--kontrollert-mot-kode-2026-10-04).
+
+## Navigasjonsforenkling (2026-10-02)
+
+- Hjem → Se dagslogg åpner hele valgt dag med ett trykk. Måltidsnavn åpner valgt måltid.
+- Synlige varer på Hjem åpner redigering direkte; mengdefelt og lagring gir tre trykk utenom skriving.
+- Hjem, bunnmeny og dagslogg bruker samme Loggfør-ark og beholder dato/måltid.
+- Registrer manuelt er alltid tilgjengelig og leder til lokal produktlagring og mengdevalg.
+- Lagrede måltider har fast inngang også ved tom liste, og maler har synlig handlingsmeny.
+- Gjenbruk i dagsloggen samler maloppretting og kopiering fra i går.
+- Energi på Hjem krever ikke mål; eksisterende skjulvalg beholdes. Ingen ny datainnsamling.
+
+### US-3.2 tillegg: antall porsjoner (2026-10-02)
+
+- Velg en dokumentert porsjon eller hel pakke og angi antall med felt eller −/+.
+- Eksempel: 2 × 37,5 g vises som 75 g og lagres med antall og historisk grunnlag.
+- Mengdevalget viser en samlet oppsummering, for eksempel «1 beger · 150 g»
+  eller «2 Polarbrød · 75 g», før logging. Direkte mengde viser g/ml.
+- Antall, kilde/enhet og næring bevares etter omstart og ved redigering.
+- Direkte gram/ml fungerer for varer uten egnet porsjonsgrunnlag.
+- Egne nye porsjoner er utenfor dette leveransescope-et.
+
+### Manuell registrering: næringsgrunnlag (2026-10-03)
+
+- Velg 100 g, 100 ml eller porsjon/stykk før næringsverdier fylles inn.
+- Porsjon/stykk krever navn og størrelse i g/ml og kan brukes som antall i produktkortet.
+- Bytte av grunnlag med utfylte næringsfelt krever bekreftelse og ny inntasting.
+- Registreringen fungerer offline og beholder brukerkilde og originalinput lokalt og i synkpayload.
+
+Dette utvider tidligere avgrensning om ingen egne nye porsjoner for manuelt
+opprettede produkter; generell porsjonseditor for andre produkter er fortsatt utenfor scope.
+
+### Profilsletting (7. oktober 2026)
+
+Under Profil → Innstillinger tilbys «Slett alle lokale data» uten konto.
+Bekreftelsen forklarer at logger, mål, bilder og personlige detaljer for aktiv
+profil fjernes permanent; andre profiler bevares. Med konto skilles «Fjern
+lokale data» fra «Slett konto». Kontosletting krever nett for serverbekreftelse.
+Bekreftet serversletting lagres før lokal opprydding; oppryddingen gjenopptas
+ved omstart uten ny innlogging. Ved feil finnes «Fullfør lokal sletting» på
+velkomstskjermen. Uteblitt serversvar vises som usikker kontostatus og må
+kontrolleres via support; lokal opprydding omtales ikke som serversletting.
+Eksportkopier utenfor appen omfattes ikke av lokal sletting.
+
+### Uferdig manuell registrering (2026-10-07)
+
+- Ufullstendig og ugyldig input lagres som lokalt utkast uten å inngå i matloggen.
+- Omstart tilbyr Fortsett/Forkast for aktiv profil og beholder dato og måltid.
+- Produkt, produkthendelse og overgang til mengdevalg lagres atomisk.
+- Matlogg, logghendelse og fjerning av utkast lagres atomisk med stabile entitets-ID-er.
+- Utkast synkroniseres ikke og slettes ved forkasting, fullført logging eller lokal profilsletting.
+- Måltidsmalbygging og øvrige redigeringsskjermer omfattes ikke av første leveranse.
+
+### Navnesøk med global utvidelse
+
+- Lokale treff vises mens brukeren skriver; «Søk» henter norske Open Food Facts-treff.
+- Etter et eksternt søk kan brukeren velge «Søk i hele verden», også ved null treff.
+- Globale treff legges i en egen seksjon etter eksisterende treff. Produkt-ID og strekkode dedupliseres.
+- Global lasting og nettfeil beholder eksisterende treff; feil tilbyr nytt globalt forsøk.
+- Endret søketekst eller profil forkaster gamle svar og nullstiller global utvidelse.
+- Næringsdata, enheter og kilde følger samme validering som norske treff.
+
+### Søk etter tidligere logget mat (2026-10-09)
+
+Som bruker som søker «yoghurt», skal jeg raskt finne en yoghurt jeg har logget
+tidligere. «Tidligere logget» viser opptil tre søkeordmatchende produkter fra
+hele min lokale logghistorikk, sist logget først. Presise søk som «yoghurt
+jordbær» utelater historikk som ikke matcher. Øvrige produkter, inkludert eldre
+historikktreff, vises under «Andre treff» uten duplikater. Tomt søk beholder
+favoritter og seks nylige varer. Flyten fungerer offline og åpner vanlig
+produktkort med mengdevalg.
+
+### Flervalg i dagsloggen (9. oktober 2026)
+
+- «Velg» → marker individuelle registreringer, hele måltidsgrupper eller hele dagen.
+- «Lagre som måltid» → kontroller utvalget og navn, velg foreslått kategori ved
+  blandede grupper → lagre lokal mal. Dagboken påvirkes ikke; maks 50 varer.
+- «Slett» → bekreft antall → slett utvalget atomisk lokalt → samlet «Angre».
+- Avbrutt/feilet lagring beholder valget. Dato-/profilbytte og lukking nullstiller det.
+- Samme produkt kan markeres som separate registreringer. Flytting/kopiering av
+  utvalg inngår ikke.
+
+### Manuell inntasting av strekkode
+
+«Skriv inn strekkode» finnes på skanneskjermen, også uten kameratilgang.
+Når tallfeltet har fokus, viser navigasjonslinjen «Ferdig» som lukker tastaturet
+uten å sende eller endre input. Knappen skal være tilgjengelig også med største
+tekststørrelse på fysisk iPhone.
+Dette gjør «Finn produkt» og validering tilgjengelig også ved største tekststørrelse.
+Et ark tar imot GTIN med 8, 12, 13 eller 14 sifre, støtter innliming og
+validerer kontrollsiffer før eksplisitt «Finn produkt». Innledende nuller
+bevares; GTIN-14 normaliseres som ved eksisterende Data Matrix-oppslag.
+Kameradeteksjon pauses under inntasting og oppslag. Samme lokale/eksterne
+produktoppslag og produktkort brukes, med valgt måltid og dato beholdt.
+Feil beholder input og tilbyr nytt oppslag, navnesøk eller manuell
+produktregistrering med strekkoden videreført. Lokale treff fungerer uten
+nett; ukjente eksterne produkter krever nett.
+
+### Gjenoppretting av profiltilknytning (2026-11-06)
+
+Ved omstart før kontokobling er bekreftet vises samme bekreftelse igjen, med
+lokal profil som aktiv eier. Bekreftet flytting som ble avbrutt fullføres ved
+neste validerte innlogging på samme konto. Avbryt må fullføre utlogging før
+ny kontohandling kan starte. Dataene forblir lokale.
+
+Under Personlige detaljer vises «Gjenopprett eldre opplysninger» bare når
+eldre globale opplysninger mangler eier. Handlingen viser først en bekreftelse
+uten persondata. Ved «Knytt til denne profilen» fylles manglende lagrede felt
+fra de eldre opplysningene; eksisterende lagrede verdier beholdes. Ulagrede
+skjemaendringer erstattes, som opplyst i dialogen. Avbryt lar eldre data ligge
+urørt. Handlingen endrer ikke mål eller vekthistorikk og krever ikke nett.
+
+### Valgfri matgruppe for egne produkter (2026-11-06)
+
+- Manuell registrering tilbyr «Matgruppe (valgfritt)», med «Ikke valgt» som standard.
+- Et kategoriikon forhåndsvises; eget bilde prioriteres i matvarelistene.
+- Valget bevares ved gjenoppretting av et lokalt registreringsutkast.
+- Produktkortet for egne matvarer tilbyr samme valg og lagrer på enheten.
+  Feil beholder forrige valg og viser mulighet til å forsøke på nytt.
+- Eksisterende matvarer uten bilde/kjent kategori bruker et nøytralt tallerkenikon.
+- Endringen innfører ingen automatisk gjetting fra navn, bilde eller næringsverdier.

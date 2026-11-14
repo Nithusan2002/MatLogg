@@ -1,6 +1,6 @@
 import Foundation
 
-struct MatvaretabellenProduct: Codable {
+nonisolated struct MatvaretabellenProduct: Codable, Equatable, Sendable {
     let id: String
     let name: String
     let brand: String?
@@ -15,7 +15,9 @@ struct MatvaretabellenProduct: Codable {
 }
 
 /// Provides the official Norwegian food table as a bundled, searchable snapshot.
-final class MatvaretabellenService {
+// Catalog state and file decoding are confined to queue.
+nonisolated final class MatvaretabellenService: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "matlogg.bundled-catalog", qos: .userInitiated)
     private let bundledData: () throws -> Data
     private var loadedCatalog: [MatvaretabellenProduct]?
 
@@ -33,8 +35,8 @@ final class MatvaretabellenService {
 
     func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
         let catalog = try await loadCatalog()
-        return catalog.filter {
-            catalogSearchMatches(query: query, name: $0.name, brand: $0.brand)
+        return try await BackgroundWork.run {
+            catalog.filter { catalogSearchMatches(query: query, name: $0.name, brand: $0.brand) }
         }
     }
 
@@ -42,23 +44,32 @@ final class MatvaretabellenService {
         try await loadCatalog()
     }
 
-    private func loadCatalog() async throws -> [MatvaretabellenProduct] {
-        if let loadedCatalog { return loadedCatalog }
-
-        let data = try bundledData()
-        let products = MatvaretabellenResponseParser.parse(data: data)
-        guard !products.isEmpty else { throw MatvaretabellenCatalogError.invalidCatalog }
-        loadedCatalog = products
-        return products
+    nonisolated private func loadCatalog() async throws -> [MatvaretabellenProduct] {
+        let timing = PerformanceSignposts.begin("Catalog.Load")
+        defer { PerformanceSignposts.end(timing) }
+        return try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    let timing = PerformanceSignposts.begin("Catalog.Execute")
+                    defer { PerformanceSignposts.end(timing) }
+                    if let loadedCatalog = self.loadedCatalog { return loadedCatalog }
+                    let data = try PerformanceSignposts.measure("Catalog.Read") { try self.bundledData() }
+                    let products = PerformanceSignposts.measure("Catalog.Parse") { MatvaretabellenResponseParser.parse(data: data) }
+                    guard !products.isEmpty else { throw MatvaretabellenCatalogError.invalidCatalog }
+                    self.loadedCatalog = products
+                    return products
+                })
+            }
+        }
     }
 }
 
-enum MatvaretabellenCatalogError: Error {
+nonisolated enum MatvaretabellenCatalogError: Error {
     case missingBundledCatalog
     case invalidCatalog
 }
 
-enum MatvaretabellenResponseParser {
+nonisolated enum MatvaretabellenResponseParser {
     static func parse(data: Data) -> [MatvaretabellenProduct] {
         if let normalized = try? JSONDecoder().decode([MatvaretabellenProduct].self, from: data) {
             return normalized
@@ -122,7 +133,7 @@ enum MatvaretabellenResponseParser {
     }
 }
 
-private func number(in dict: [String: Any]?, keys: [String]) -> Float? {
+nonisolated private func number(in dict: [String: Any]?, keys: [String]) -> Float? {
     guard let dict else { return nil }
     for key in keys {
         if let value = dict[key] as? NSNumber { return value.floatValue }
@@ -130,7 +141,7 @@ private func number(in dict: [String: Any]?, keys: [String]) -> Float? {
     return nil
 }
 
-private func extractCalories(_ dict: [String: Any]) -> Float? {
+nonisolated private func extractCalories(_ dict: [String: Any]) -> Float? {
     if let calories = dict["calories"] as? [String: Any],
        let quantity = calories["quantity"] as? NSNumber {
         return quantity.floatValue
@@ -138,7 +149,7 @@ private func extractCalories(_ dict: [String: Any]) -> Float? {
     return (dict["calories"] as? NSNumber)?.floatValue
 }
 
-private func extractNutrient(_ dict: [String: Any], keys: [String], nutrientIds: [String]) -> Float? {
+nonisolated private func extractNutrient(_ dict: [String: Any], keys: [String], nutrientIds: [String]) -> Float? {
     if let value = number(in: dict, keys: keys) { return value }
     if let value = number(in: dict["nutrients"] as? [String: Any], keys: keys) { return value }
     guard let constituents = dict["constituents"] as? [[String: Any]] else { return nil }
@@ -148,7 +159,7 @@ private func extractNutrient(_ dict: [String: Any], keys: [String], nutrientIds:
     }.flatMap { ($0["quantity"] as? NSNumber)?.floatValue }
 }
 
-private func catalogSearchMatches(query: String, name: String, brand: String?) -> Bool {
+nonisolated private func catalogSearchMatches(query: String, name: String, brand: String?) -> Bool {
     func normalized(_ value: String) -> String {
         let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         return String(folded.map { $0.isLetter || $0.isNumber ? $0 : " " })

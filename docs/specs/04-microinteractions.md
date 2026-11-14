@@ -152,6 +152,9 @@ Sekvens:
 1. Skann-deteksjon → kamera lukkes umiddelbar
 2. "Henter produkt ..." (med spinner) vises (500ms–3s)
 3. Produktkort vises ved treff. Ukjent strekkode, ufullstendige næringsdata og tilkoblingsfeil har egne meldinger.
+   Søk og manuell registrering er tilgjengelig også under oppslaget. Etter tre
+   sekunder vises en forklaring om ventingen. Valg av en annen metode forkaster
+   det ventende resultatet, slik at det ikke åpner et produktkort senere.
 4. Hvis error: retry-option
 
 Tegn: iOS system spinner (UIActivityIndicatorView, style: medium)
@@ -163,6 +166,24 @@ produktdata» viser «Henter produktdata …» mens oppslaget kjører. Lagrede d
 mengde og valgt måltid beholdes ved feil. Resultat vises som tekst. Endret
 måleenhet krever at kortet åpnes på nytt; mengden omtolkes ikke automatisk.
 
+
+Søketreff beholder posisjon og farger når en matvare åpnes. Lokal klargjøring
+skjer før produktarket vises; etter 180 ms vises en liten spinner i valgt rad
+på pilens plass. Raske oppslag viser ingen spinner. Gjentatte trykk ignoreres
+under klargjøring. VoiceOver får «Åpner matvare» som verdi på valgt rad.
+
+Oppdatering av ferdig innhold flytter ikke eksisterende kort eller rader:
+- Søk viser katalog- og søkestatus i et fast område ved søkekontrollene.
+- Hurtigvalg på Hjem og Utvikling bruker en fast indikatorplass ved overskriften.
+- Lagrede måltider viser oppdatering i navigasjonslinjen; dra-for-å-oppdatere
+  bruker også systemindikatoren.
+- «Loggfør igjen» viser «Lagrer …» og spinner i valgt knapp uten å endre
+  knappens størrelse eller dempe alle radene. Gjentatte trykk ignoreres.
+
+Disse diskrete indikatorene vises etter 180 ms. Førstegangslasting uten
+innhold har umiddelbar respons. Eksisterende innhold beholdes ved oppdatering
+av samme profil; profilbytte fjerner tidligere data. VoiceOver får status fra
+indikatoren eller valgt knapp. Ingen ekstra overgangsanimasjon brukes.
 
 ### **Sync Upload**
 
@@ -193,6 +214,9 @@ Tap [Slett]:
 • Vis «Varen er slettet · Angre» over bunnmenyen i 4 sekunder
   (8 sekunder med VoiceOver), med minst 44 × 44 pt trykkflate.
 • Flere slettinger mens meldingen er aktiv samles: «N varer er slettet».
+• Når dagbokens valgmodus åpnes, lukkes tidligere loggbekreftelser både i
+  dagboken og app-skallet. En gammel Angre-handling skal ikke dekke
+  slettingsbekreftelsens Angre.
   Ny sletting starter visningstiden på nytt. Angre gjenoppretter alle samlet.
 • Angre bevarer mengde, enhet, produktreferanse, næringssnapshot og tidspunkter.
   Gjenopprettede innslag får nye ID-er og atomiske log.upsert-hendelser,
@@ -262,7 +286,9 @@ AppState: current_meal = "lunch"
 Visning: Etter [Legg til] på produktkort
 
 Sekvens:
-1. Produktarket lukkes og en kompakt, ikke-modal melding vises nederst.
+1. Etter vellykket lokal commit lukkes produktarket og en kompakt, ikke-modal melding vises nederst.
+   Ny innlasting av dagsoppsummering og synkstatus skjer etter bekreftelsen;
+   serversvar er aldri en forutsetning for bekreftet logging.
    Animasjon: kort slide-up + fade (0.2s ease-out)
 2. Haptikk: semantisk success-respons
 3. Lyd: ding-dong
@@ -412,3 +438,21 @@ Tap [Last ned MatLogg]:
 • App installs
 • User must return to link for import (or links is cached in clipboard)
 ```
+
+### Porsjonsvalg (2026-10-02)
+
+Første eksplisitte porsjonsvalg starter på 1; senere enhetsbytter bevarer total.
+−/+ endrer antall med 1 og deaktiveres når handlingen ville bryte mengdegrensen.
+Desimalantall støttes i feltet. Næring og total oppdateres fra samme mengdevalg.
+Lagring er deaktivert ved ugyldig input og under en pågående lagring.
+Mislykket redigering beholder utkastet for retry og lukker ikke skjermen.
+
+### Dra ned for å oppdatere
+
+Hjem, Logg og Utvikling støtter dra ned for å lese lokale data på nytt.
+Valgt dato og søketekst beholdes. Dagsloggen viser alltid hele dagen. Eksisterende innhold beholdes
+under oppdatering; den innebygde oppdateringsindikatoren erstatter ekstra
+indikatorer ved innholdet. Automatisk oppdatering etter logging fortsetter.
+Gesten fungerer uten nett, oppretter ingen synkhendelser og aktiverer ikke
+produksjonssynk. Hjem og Utvikling beholder eksisterende innhold ved lesefeil
+og tilbyr «Prøv igjen». Logg bruker eksisterende lokal leseflyt.

@@ -2,37 +2,44 @@ import SwiftUI
 import PhotosUI
 
 struct ManualProductView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: ManualProductViewModel
-
-    @State private var selectedPhoto: PhotosPickerItem?
-
     let barcode: String?
     let onSaved: (Product) -> Void
 
-    init(
-        barcode: String?,
-        saveProduct: @escaping (Product) async throws -> Void,
-        onSaved: @escaping (Product) -> Void
-    ) {
+    init(barcode: String?, saveProduct: @escaping (Product) async throws -> Void,
+         onSaved: @escaping (Product) -> Void) {
         self.barcode = barcode
         self.onSaved = onSaved
-        _viewModel = StateObject(
-            wrappedValue: ManualProductViewModel(barcode: barcode, saveProduct: saveProduct)
-        )
+        _viewModel = StateObject(wrappedValue: ManualProductViewModel(barcode: barcode, saveProduct: saveProduct))
     }
+
+    var body: some View {
+        ManualProductForm(viewModel: viewModel, barcode: barcode, onSaved: onSaved)
+    }
+}
+
+struct ManualProductForm: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: ManualProductViewModel
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showPhotoOptions = false
+    @State private var showPhotoLibrary = false
+    let barcode: String?
+    let onSaved: (Product) -> Void
+    var keepsFlowOpen = false
+    var onClose: (() async -> Bool)? = nil
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    productFields
-                    nutritionFields
+                    productFields.disabled(viewModel.isSaving)
+                    photoControls.disabled(viewModel.isSaving || viewModel.isLoadingImage)
+                    nutritionFields.disabled(viewModel.isSaving)
 
                     if let errorMessage = viewModel.errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
+                        ErrorMessageView(errorMessage)
                             .font(AppTypography.captionEmphasis)
-                            .foregroundColor(AppColors.action)
                             .accessibilityLabel("Feil: \(errorMessage)")
                     }
 
@@ -43,14 +50,19 @@ struct ManualProductView: View {
                         Task {
                             if let product = await viewModel.save() {
                                 onSaved(product)
-                                dismiss()
+                                if !keepsFlowOpen { dismiss() }
                             }
                         }
                     }
                     .disabled(viewModel.isSaving || viewModel.isLoadingImage)
                     .opacity(viewModel.isSaving ? 0.6 : 1)
 
-                    Text("Verdiene lagres slik du oppgir dem og merkes som brukerregistrerte. Du kan kontrollere dem mot emballasjen.")
+                    if keepsFlowOpen {
+                        Text("Utkastet lagres automatisk på denne iPhonen.")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                    Text("Merket som brukerregistrert.")
                         .font(AppTypography.caption)
                         .foregroundColor(AppColors.textSecondary)
                 }
@@ -61,20 +73,33 @@ struct ManualProductView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Avbryt") { dismiss() }
+                    Button(keepsFlowOpen ? "Lukk" : "Avbryt") {
+                        Task {
+                            if let onClose { if await onClose() { dismiss() } }
+                            else { dismiss() }
+                        }
+                    }
+                    .disabled(viewModel.isSaving)
                 }
             }
             .fullScreenCover(isPresented: $viewModel.showCamera) {
                 ProductCameraPicker { image in
-                    if let image { viewModel.selectImage(image) }
+                    if let image { Task { await viewModel.selectImage(image) } }
                     viewModel.showCamera = false
                 }
                 .ignoresSafeArea()
-                .background(Color.black.ignoresSafeArea())
+                .background(AppColors.imageViewerBackground.ignoresSafeArea())
             }
             .onChange(of: selectedPhoto) { _, item in
                 if let item { Task { await viewModel.loadPhoto(item) } }
             }
+            .confirmationDialog("Bytte næringsgrunnlag?", isPresented: $viewModel.showBasisConfirmation, titleVisibility: .visible) {
+                Button("Bytt og tøm næringsverdiene", role: .destructive) { viewModel.confirmBasisChange() }
+                Button("Avbryt", role: .cancel) {}
+            } message: {
+                Text("Fyll inn verdiene på nytt fra emballasjen for det nye grunnlaget.")
+            }
+            .interactiveDismissDisabled(keepsFlowOpen)
             .scrollDismissesKeyboard(.interactively)
         }
     }
@@ -92,50 +117,64 @@ struct ManualProductView: View {
                         .foregroundColor(AppColors.textSecondary)
                         .accessibilityLabel("Strekkode \(barcode)")
                 }
-                photoControls.disabled(viewModel.isSaving)
+                FoodGroupPicker(selection: $viewModel.selectedFoodGroup)
                 field("Produktnavn", text: $viewModel.name, prompt: "For eksempel Grovbrød", keyboard: .default)
-                Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
-                    .font(AppTypography.caption)
-                    .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.brand : AppColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
+                if viewModel.name.count >= ManualProductViewModel.maximumNameLength - 10 {
+                    Text("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn")
+                        .font(AppTypography.caption)
+                        .foregroundColor(viewModel.name.count > ManualProductViewModel.maximumNameLength ? AppColors.errorText : AppColors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityLabel("\(viewModel.name.count) av \(ManualProductViewModel.maximumNameLength) tegn brukt")
+                }
+                if viewModel.name.count > ManualProductViewModel.maximumNameLength {
+                    ErrorMessageView("Produktnavnet er for langt")
+                        .font(AppTypography.caption)
+                }
             }
         }
     }
 
     private var photoControls: some View {
-        let libraryTitle = viewModel.productImage == nil ? "Velg fra bilder" : "Bytt bilde fra bibliotek"
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("Produktbilde · valgfritt")
-                .font(AppTypography.bodyEmphasis)
-            if let image = viewModel.productImage {
-                ProductHeroImageView(image: image, height: 160)
-            }
-            Button {
-                Task { await viewModel.openCamera() }
-            } label: {
-                Label("Ta bilde", systemImage: "camera")
-                    .frame(minHeight: 44)
-            }
-            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                Label(libraryTitle, systemImage: "photo")
-                    .frame(minHeight: 44)
-            }
-            if viewModel.productImage != nil {
-                Button("Fjern bilde") {
-                    selectedPhoto = nil
-                    viewModel.selectImage(nil)
+        VStack(alignment: .leading, spacing: 8) {
+            CardContainer {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let image = viewModel.productImage {
+                        ProductHeroImageView(image: image, height: 160)
+                    }
+                    Button {
+                        showPhotoOptions = true
+                    } label: {
+                        Label(viewModel.productImage == nil ? "Legg til bilde (valgfritt)" : "Bytt bilde", systemImage: "photo")
+                            .frame(minHeight: 44)
+                    }
+                    .accessibilityIdentifier("manual-product-photo-options")
+                    if viewModel.productImage != nil {
+                        Button("Fjern bilde") {
+                            selectedPhoto = nil
+                            Task { await viewModel.selectImage(nil) }
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
+                    if let error = viewModel.imageError {
+                        ErrorMessageView(error).font(AppTypography.caption)
+                    }
                 }
-                .frame(minHeight: 44)
             }
-            if viewModel.isLoadingImage { ProgressView("Åpner bilde …") }
-            if let error = viewModel.imageError {
-                Text(error).font(AppTypography.caption).foregroundColor(AppColors.action)
-            }
-            Text("Bildet lagres kun på denne enheten sammen med produktet.")
-                .font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+            Text("Bildet lagres bare på denne iPhonen.")
+                .font(AppTypography.caption)
+                .foregroundStyle(AppColors.textSecondary)
         }
-        .foregroundColor(AppColors.action)
+        .foregroundStyle(AppColors.actionText)
+        .confirmationDialog("Velg produktbilde", isPresented: $showPhotoOptions, titleVisibility: .visible) {
+            Button("Ta bilde") { Task { await viewModel.openCamera() } }
+            Button("Velg fra bilder") {
+                selectedPhoto = nil
+                showPhotoLibrary = true
+            }
+            Button("Avbryt", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoLibrary, selection: $selectedPhoto, matching: .images)
     }
 
     private var nutritionFields: some View {
@@ -146,9 +185,27 @@ struct ManualProductView: View {
                         .font(AppTypography.sectionTitle)
                         .foregroundColor(AppColors.deepInk)
                         .accessibilityAddTraits(.isHeader)
-                    Text("Verdier per 100 g fra emballasjen.")
+                    Text("Velg samme næringsgrunnlag som på emballasjen og fyll inn verdiene derfra.")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)
+                }
+                Picker("Næringsinnhold per", selection: Binding(
+                    get: { viewModel.basis }, set: { viewModel.requestBasis($0) }
+                )) {
+                    ForEach(ManualNutritionBasis.allCases, id: \.self) { basis in
+                        Text(basis.title).tag(basis)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(viewModel.isSaving)
+                if viewModel.basis == .serving {
+                    field("Porsjonsnavn", text: $viewModel.servingName, prompt: "For eksempel Skive", keyboard: .default)
+                    field("Porsjonsstørrelse", text: $viewModel.servingAmount, prompt: "For eksempel 40", keyboard: .decimalPad, nutritionValue: false)
+                    Picker("Enhet for porsjonsstørrelse", selection: Binding(get: { viewModel.servingUnit }, set: { viewModel.requestServingUnit($0) })) {
+                        Text("g").tag(AmountUnit.grams)
+                        Text("ml").tag(AmountUnit.milliliters)
+                    }
+                    .pickerStyle(.segmented)
                 }
                 field("Energi (kcal)", text: $viewModel.calories, prompt: "For eksempel 250", keyboard: .numberPad)
                 field("Protein (g)", text: $viewModel.protein, prompt: "For eksempel 8,5", keyboard: .decimalPad)
@@ -162,7 +219,8 @@ struct ManualProductView: View {
         _ title: String,
         text: Binding<String>,
         prompt: String,
-        keyboard: UIKeyboardType
+        keyboard: UIKeyboardType,
+        nutritionValue: Bool = true
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
@@ -175,12 +233,10 @@ struct ManualProductView: View {
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(keyboard == .default ? .sentences : .never)
                 .autocorrectionDisabled(keyboard != .default)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 50)
-                .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .matLoggInputStyle()
                 .accessibilityLabel("\(title), obligatorisk")
                 .accessibilityIdentifier(title.components(separatedBy: " (").first ?? title)
-                .accessibilityHint(keyboard == .default ? prompt : "Verdi per 100 gram. \(prompt)")
+                .accessibilityHint(keyboard == .default || !nutritionValue ? prompt : "Verdi \(viewModel.nutritionContext). \(prompt)")
         }
     }
 }

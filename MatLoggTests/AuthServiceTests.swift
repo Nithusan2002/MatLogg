@@ -4,6 +4,32 @@ import Testing
 @testable import MatLogg
 
 struct AuthServiceTests {
+    @Test func pendingLinkSurvivesRestartAndIsClearedExplicitly() {
+        let defaults = isolatedDefaults()
+        let service = AuthService(defaults: defaults, keychain: KeychainClientSpy())
+        var link = PendingLocalDataLink(localOwnerId: UUID(), accountOwnerId: UUID(), shouldOnboard: false)
+        for phase in [PendingLocalDataLink.Phase.awaitingConfirmation, .confirmed, .canceling] {
+            link.phase = phase
+            service.setPendingLocalDataLink(link)
+            let restarted = AuthService(defaults: defaults, keychain: KeychainClientSpy())
+            #expect(restarted.pendingLocalDataLink() == link)
+        }
+        service.setPendingLocalDataLink(nil)
+        #expect(service.pendingLocalDataLink() == nil)
+    }
+
+    @Test func pendingDeletionSurvivesRestartAndCredentialRemoval() {
+        let defaults = isolatedDefaults()
+        let service = AuthService(defaults: defaults, keychain: KeychainClientSpy())
+        let deletion = PendingProfileDeletion(ownerId: UUID(), isLocalProfile: false, serverConfirmed: true)
+        service.setPendingProfileDeletion(deletion)
+        _ = service.clearStoredCredentials()
+        let restarted = AuthService(defaults: defaults, keychain: KeychainClientSpy())
+        #expect(restarted.pendingProfileDeletion() == deletion)
+        restarted.setPendingProfileDeletion(nil)
+        #expect(service.pendingProfileDeletion() == nil)
+    }
+
     @Test func storingExistingTokenUpdatesProtectedKeychainItem() {
         let keychain = KeychainClientSpy(updateStatus: errSecSuccess)
         let service = AuthService(defaults: isolatedDefaults(), keychain: keychain)

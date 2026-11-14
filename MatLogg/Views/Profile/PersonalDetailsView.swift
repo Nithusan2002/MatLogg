@@ -6,6 +6,7 @@ struct PersonalDetailsView: View {
     @EnvironmentObject private var viewModel: PersonalDetailsViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var initialized = false
+    @State private var showLegacyRecovery = false
     @State private var showActivitySheet = false
     @State private var showActivityHelp = false
     @State private var showMeasurement: PersonalMeasurement?
@@ -17,9 +18,16 @@ struct PersonalDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Fødselsdato må fylles inn. De øvrige opplysningene er valgfrie.")
+                Text("Alle opplysningene er valgfrie. Du kan lagre bare navn.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
+
+                if viewModel.canRecoverLegacyDetails {
+                    Button("Gjenopprett eldre opplysninger") { showLegacyRecovery = true }
+                        .font(AppTypography.body)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("personal-details-recover-legacy")
+                }
 
                 VStack(alignment: .leading, spacing: 12) {
                     sectionTitle("Profil")
@@ -34,12 +42,18 @@ struct PersonalDetailsView: View {
                                 .accessibilityIdentifier("personal-details-name")
                         }
                     }
+                    if let name = auth.currentUser?.appleDisplayNameSuggestion,
+                       viewModel.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button("Bruk navn fra Apple") { viewModel.useSuggestedName(name) }
+                            .font(AppTypography.body)
+                            .accessibilityHint("Fyller ut det valgfrie navnefeltet. Du kan endre eller fjerne navnet før du lagrer.")
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 6) {
                         sectionTitle("Grunnlag for målforslag")
-                        Text("Brukes til et veiledende forslag til kalorimål.")
+                        Text("Opplysningene brukes til å beregne et veiledende målforslag. Du kan også sette mål selv. Eksisterende mål endres ikke når du lagrer.")
                             .font(AppTypography.secondary)
                             .foregroundStyle(AppColors.textSecondary)
                     }
@@ -86,26 +100,25 @@ struct PersonalDetailsView: View {
                         }
                     }
 
-                    Text("Vekten her legges ikke til i vekthistorikken.")
+                    Text("Vekten her brukes til målforslag. Registrer vekt under Utvikling for å følge vekthistorikken.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
                 DisclosureGroup {
-                    Text("Du kan sette mål selv uten et automatisk målforslag. Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå brukes bare som grunnlag for et veiledende målforslag. Velger du Annet eller Ønsker ikke å oppgi for kjønn, kan du sette målet selv. Eksisterende mål endres ikke automatisk når du lagrer.")
+                    Text("Velger du Annet eller Ønsker ikke å oppgi for kjønn, setter du kalorimålet selv.")
                         .font(AppTypography.secondary)
                         .foregroundStyle(AppColors.textSecondary)
                         .padding(.top, 8)
                 } label: {
-                    Label("Om opplysningene og målforslag", systemImage: "info.circle")
+                    Label("Om kjønn og målforslag", systemImage: "info.circle")
                         .font(AppTypography.secondaryEmphasis)
                         .foregroundStyle(AppColors.ink)
                 }
 
                 if let error = viewModel.errorMessage {
-                    Text(error)
+                    ErrorMessageView(error)
                         .font(AppTypography.body)
-                        .foregroundStyle(AppColors.ink)
                         .accessibilityIdentifier("personal-details-error")
                 }
             }
@@ -138,6 +151,12 @@ struct PersonalDetailsView: View {
                 Spacer()
                 Button("Ferdig") { focusedField = nil }
             }
+        }
+        .alert("Tilhører opplysningene denne profilen?", isPresented: $showLegacyRecovery) {
+            Button("Knytt til denne profilen") { viewModel.recoverLegacyDetails() }
+            Button("Avbryt", role: .cancel) {}
+        } message: {
+            Text("Eldre opplysninger mangler profiltilknytning. Bekreft bare hvis de er dine. Eksisterende lagrede opplysninger beholdes. Ulagrede endringer i skjemaet erstattes.")
         }
         .onAppear {
             guard !initialized else { return }
@@ -249,7 +268,7 @@ struct PersonalDetailsView: View {
                 focusedField = nil
                 showMeasurement = measurement
             } label: {
-                detailRow(measurement.title) {
+                detailRow(measurement == .weight ? "Vekt brukt i målforslag" : measurement.title) {
                     selectionValue(text.wrappedValue.isEmpty
                                    ? "Ikke oppgitt"
                                    : text.wrappedValue + " " + measurement.unit)
@@ -263,7 +282,7 @@ struct PersonalDetailsView: View {
 
     @ViewBuilder private func fieldError(_ key: String) -> some View {
         if let error = viewModel.errors[key] {
-            Text(error).font(AppTypography.caption).foregroundStyle(AppColors.ink)
+            ErrorMessageView(error).font(AppTypography.caption)
         }
     }
 }
@@ -320,20 +339,12 @@ struct ActivityLevelSheet: View {
                     }
                 }
                 
-                HStack {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(AppColors.textSecondary)
-                    Text("Tips: Velg nivå for en vanlig uke. Du kan alltid justere senere.")
-                        .font(AppTypography.caption)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-                
                 Button("Hjelp meg å velge") {
                     dismiss()
                     onShowHelp()
                 }
                 .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 
                 Spacer()
             }
@@ -343,7 +354,7 @@ struct ActivityLevelSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }
@@ -400,7 +411,7 @@ struct ActivityLevelHelpSheet: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") { dismiss() }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                 }
             }
         }

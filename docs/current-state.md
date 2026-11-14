@@ -1,10 +1,48 @@
 # Gjeldende prosjektstatus
 
-Sist kontrollert mot kode: 2026-10-01.
+## Gjeldende lanseringsscope – 3. oktober 2026
 
-Denne kontrollen omfatter kode og Git-historikk, ikke nye testkjøringer eller
-ekstern kontroll av staging/produksjon. Verifiseringsresultater nedenfor er
-historiske og gjelder datoen og omfanget som er oppgitt.
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
+
+Lanseringspolicy og oppstartsbeskrivelse kontrollert mot kode: 2026-10-04.
+Denne kontrollen gjelder arbeidskopien, inkludert ucommittede endringer.
+Daterte test- og deployresultater nedenfor er historiske resultater for oppgitt
+omfang; de er ikke kjørt på nytt eller bekreftet mot staging i denne kontrollen.
+
+### Loggfør igjen i hurtigmenyen – 2026-10-03
+
+Loggfør-menyen har «Loggfør igjen» med siste faktiske mengde og enhet for
+aktiv profil. Søk beholder kompakte nylige produkter som åpner produktkortet.
+Valgt måltid og dato vises ved loggeknappen. Framtidige logger
+utelates; endret enhet eller porsjonsgrunnlag åpner mengdekontroll.
+Gjenlogging beregner næring fra lokale produktdata og lagrer ny logg og
+canonical hendelse atomisk. Angre bruker eksakt logg-ID og profil.
+Ingen migrasjon, synkkontraktsendring eller opplasting er innført.
+
+Verifisert med 34 målrettede Swift-tester (`RepeatFoodTests`, `FoodSearchTests`,
+`QuickLogTests`, `LogViewModelTests`) og én UI-test for direkte porsjonslogging
+og Angre med største tilgjengelighetstekst på iPhone 17 Pro / iOS 26.5.
+Flyttingen til hurtigmenyen er verifisert med 21 målrettede tester på tvers av
+`RepeatFoodTests`, `FoodSearchTests` og `QuickLogTests`, samt UI-testen for
+kompakt Søk, gjenlogging og Angre. Fysisk iPhone og manuell VoiceOver gjenstår.
+
+Synk-/recovery-oppfølgingen 2026-10-02 inkluderer nye målrettede tester og
+faktisk staging-kontroll. Øvrige resultater gjelder datoen og omfanget som er
+oppgitt; se produksjonsberedskap for full avgrensning.
 
 Dette dokumentet beskriver hva som finnes i kodebasen nå. Spesifikasjonene
 under `docs/specs/` beskriver i tillegg ønsket retning og kan ligge foran
@@ -15,25 +53,65 @@ SQL-skjema/RLS, Edge Functions, e-postbekreftelse, 15-minutters JWT,
 30-dagers sletting og daglig purge-cron er konfigurert. Debug-konfigurasjonen
 peker lokalt til staging, og simulatorbygg samt autentisert kill-switch-test er
 grønne. `backendSyncEnabled` og serverens synk-kill-switch er fortsatt `false`.
-Apple-secret/provider, eget SMTP-oppsett, backup/restore, fysisk iPhone,
-TestFlight og separat produksjonsprosjekt gjenstår. NestJS/Prisma beholdes fram
-til disse portene og stabil pilot er godkjent.
+Dette er historisk staging-status, ikke en oppdatert liste over gjenstående
+releaseporter. Senere fysisk iPhone- og intern TestFlight-testing er dokumentert
+i [produksjonsberedskap](production-readiness.md), som også beskriver åpne
+porter. NestJS/Prisma beholdes fram til relevante porter og stabil pilot er
+godkjent.
+
+Oppfølging 2026-10-02: staging har vann-, porsjons- og RPC-nødstoppmigrasjonene
+og sync-events v3. Siste relevante iOS-suiter gir 59 grønne tester, lokal DB
+71 grønne tester, og staging-HTTP kontrollerer auth, replay, eierskap og delvis
+batch. Direkte RPC respekterer nå serverens synk-kill-switch. Hosted backup,
+varsler, direkte-RPC rate limiting og øvrige pilotporter gjenstår;
+produksjonssynk forblir av. Se [resultatene](production-readiness.md).
+
+Oppfølging 2026-10-03: fysisk iPhone 17/iOS 27.0 bestod 40 lagrings-/synktester
+og én UI-test for lokal logging, Angre og gjenåpning, i separat QA-app.
+Innlogget dashboard bekrefter at Free-planen ikke har hosted backup;
+backup/PITR krever et budsjett-/scopevalg før hosted restore. Ingen
+abonnement eller synkinnstillinger ble endret. Se produksjonsberedskap.
 
 App-roten bruker `SupabaseService` for konto og synk når konfigurasjon finnes.
 Uten konfigurasjon brukes eksplisitt utilgjengelige kontotjenester; lokal profil
 fungerer fortsatt. NestJS er ikke appens aktive synktransport.
 
-Debug bruker ordinær velkomst-/sesjonsflyt som standard. Launch-argumentet
-`--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Brukeren kan
-fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
+Debug bruker ordinær sesjonsflyt og intro før første logging som standard. Launch-argumentet
+`--skip-auth` aktiverer en lokal utviklingssesjon bare i DEBUG. Lokal profil opprettes automatisk ved første åpning; brukeren kan
+velge Apple-innlogging som sekundær handling. Demo har eget lager.
 
 ## Implementert
 
+### Porsjonslogging, avgrenset oppdatering 2026-10-02
+
+Lokalt implementert støtte for antall basert på eksisterende, dokumenterte
+porsjoner og pakningsmengder. Gram/ml er tilgjengelig når porsjon mangler.
+Antall, navn, kilde, enhet og mengde per porsjon lagres som historisk snapshot
+og bevares ved redigering, gjenbruk, lagrede måltider og eksport. Egne nye
+porsjoner inngår ikke i første versjon. Ingen stykkvekt utledes fra varenavn.
+
+Tillegg i synkkontrakt v1 og migrasjon `20261002120000_portion_logging.sql`
+er verifisert lokalt med 69 databasetester, SQL-lint og 10 Deno-kontrakttester.
+77 målrettede Swift-tester var grønne før pause. UI-testene for porsjonslogging
+med omstart/redigering ved største tilgjengelighetstekst og logging på tidligere
+dag er grønne. Manuell VoiceOver-kontroll og fysisk iPhone gjenstår før release.
+Ved den opprinnelige lokale verifiseringen var ingen serverdeploy utført.
+Senere staging-verifisering 2026-10-02 dokumenterer at porsjonsmigrasjonen
+er deployet der; se [produksjonsberedskap](production-readiness.md).
+Ingen produksjonsmigrasjon er dokumentert. Produksjonssynk forblir deaktivert.
+Se [implementeringsplanen](portion-logging-implementation-plan.md).
+
 ### iOS
 
-- Morgensjekk på Hjem for dagens dato: valgfri vekt i eksisterende historikk,
-  fullfør uten vekt, endre og hopp over. Siste kortstatus er lokal per profil;
-  ingen nye helsefelt, påminnelser eller endringer i synkkontrakten.
+- Førstegangsbruk viser to korte, sveipbare introsider før matvaresøk med automatisk lokal profil, kort
+  personverninformasjon og valgfri innlogging. Skann/manuell finnes på samme
+  flate. Bekreftet lokal logging eller «Gå til Hjem» avslutter onboarding;
+  måloppsett finnes under Profil → Daglige mål. Tidligere fullført onboarding
+  bevares. Ingen nye mål opprettes automatisk.
+
+- Morgensjekk er tatt ut av Hjem inntil videre (2026-10-03). Vektregistrering
+  og eksisterende historikk beholdes i Utvikling. Innsjekkimplementasjonen og
+  lokal status beholdes uten aktiv inngang eller opprettelse ved app-roten.
 
 - Strekkodeoppslag/cache samles i `BarcodeLookupRepository`. OFF-produkter har
   30 dagers ferskhet og manuell oppdatering på produktkortet, med separate
@@ -50,14 +128,14 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
   mengder, valgfri kcal per vare, lokal atomisk lagring og angre. Se
   [scope og brukertest](meal-reuse.md).
 
-- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Oversikt og Profil.
+- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Utvikling og Profil.
 - Hjem prioriterer dagsstatus og måltidskort uten en duplisert generisk
   søk-/skannerad. Søk og skanning er fortsatt tilgjengelig fra den vedvarende
   Loggfør-handlingen og Søk-fanen; legg-til fra måltidskort beholder
   måltidskonteksten.
 - Lokal SQLite-lagring for mål, matlogger, produkter, favoritter,
   skannehistorikk, vekt, produktmatching, Matvaretabellen-cache og synkkø.
-- Gjeldende lokalt skjema er v7, med vannlogging. Migrasjonen til v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
+- Gjeldende lokalt skjema er v8, med vannlogging og lokale registreringsutkast. Migrasjonen til v6 inkluderer kompatibilitet med produktutkast og kataloginnsendinger fra utviklingsbranchen. Tabellene bevares ved oppstart og inngår i lokal sletting; redigeringsflytene er ikke aktivert på main.
 - Formell, transaksjonell versjonering av det lokale SQLite-skjemaet via
   `PRAGMA user_version`; eksisterende uversjonerte databaser migreres til v1
   uten å slette domenedata.
@@ -73,9 +151,40 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
   dagsoppsummering, måltidsliste og nye registreringer, også for fremtidige
   datoer.
 - Dagsoppsummering og gruppering av logger per måltid.
-- Oversikt med dagens energi, sju dagers oversikt, makroer mot mål
-  og vektregistrering. Måltidsfordelingskortet er fjernet. Kalorier og tilgjengelige makroverdier
-  vises også når brukeren ikke har opprettet mål.
+- Utvikling viser kalenderdag, kalenderuke og kalendermåned med datonavigasjon.
+  I Dag og Måned kan Skritt og Vekt stå ved siden av hverandre ved vanlig
+  tekststørrelse. Begge kort har historikk. Vektdetaljene har også
+  manuell registrering. Mat viser dagssum med makrofordeling, ukesum med
+  snitt og månedssnitt per logget dag.
+  Vis dagstall åpner et ark med loggede dager i uke- og månedsvisning.
+  Uloggede dager blir ikke nullinntak. Periodenavigasjonen har en snarvei
+  tilbake til inneværende dag, uke eller måned.
+- I Uke samles synlig Mat og næring, Skritt og Treningsøkter med en felles
+  mandag–søndag-akse. Hver rad åpner detaljene for valgt uke. Vekt er eget
+  kort under ukeoversikten. Radene bruker dagsverdiene appen allerede leser.
+- Kortvalg er lokale per profil og gjelder alle perioder. Tilpass har fire
+  brytere i fast rekkefølge. Eksisterende visningsvalg beholdes, og
+  egendefinert rekkefølge erstattes av standardrekkefølgen.
+- **Profil → Innstillinger → Apple Helse** har separate brytere for Skritt
+  og Vekt samt Treningsøkter. Kortdetaljene har en snarvei hit før tilkobling. Data hentes
+  bare for synlige kort i Utvikling. **Tilpass** styrer kortenes synlighet.
+- Vekt kan leses fra Apple Helse etter separat tilkobling i Innstillinger.
+  Kortet viser den nyeste målingen før periodens slutt og en linje
+  basert på målinger fra samme kilde i valgt periode. Helse-målinger og manuelle
+  MatLogg-registreringer vises hver for seg for valgt periode, med kilden fra
+  oversikten først. Full manuell historikk åpnes separat. Bare tilkoblingsvalget
+  lagres lokalt per profil. Helse-målinger brukes kun til visning i Utvikling.
+- Skritt viser skrittsummen og en kompakt graf fra Apple Helse for valgt dag,
+  uke eller måned. Graf og detaljer bruker timer i dagsvisning og dager i
+  uke- og månedsvisning. Pilene gir tilgang til tidligere perioder.
+  Første lesing krever en aktiv tilkobling fra brukeren.
+  Tall holdes bare i minnet, og tilkoblingsvalget er lokalt og profilbundet.
+  Native HealthKit-tilgang må fortsatt verifiseres på fysisk iPhone.
+- Treningsøkter er et valgfritt kort i full bredde, skjult som standard.
+  I Dag og Måned vises antall økter og de to siste etter starttid.
+  I Uke vises antall og en markør per treningsdag.
+  Detaljene viser alle øktene med type, starttid og varighet. Opplysningene
+  brukes midlertidig i Utvikling på enheten.
 - EAN- og GS1 Data Matrix-skanning med produktoppslag mot Open Food Facts API v3.
   Fra GS1 Data Matrix brukes bare kontrollsiffervalidert GTIN (AI 01); dato, lot
   og andre sporbarhetsfelt forkastes lokalt. Gyldige treff
@@ -114,7 +223,13 @@ fortsette med lokal profil eller velge Apple/e-postkonto. Demo har eget lager.
   med angre; globale feil presenteres ved app-roten, og standardmåltid velges
   etter lokal tid.
 
-### Local-first og synk
+### Local-first og synk – lanseringspolicy kontrollert 2026-10-04
+
+Dagens app bruker `localOnly`: domenedata og hendelser lagres atomisk lokalt,
+uten opplasting eller retry-timere. Brukerstatus er «Lagret på denne enheten».
+Punktene om transport, retry og synkfeil nedenfor beskriver implementert
+kapasitet for integrasjonstesting og framtidig skyscope, ikke aktiv adferd i
+lanseringen. Konto eller backendflagg alene åpner ikke denne kapasiteten.
 
 - Normativ offline-funksjonalitet, brukerstatus og grensen mellom v1-retry og
   fremtidig flerenhetskonflikt er dokumentert i `offline-behavior.md`.
@@ -173,7 +288,19 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
   hendelser uten sikker eierbinding beholdes i `quarantined` og sendes aldri.
 - `FeatureFlags.goalCalibrationEnabled` er `false`.
 - Debug-sesjon aktiveres bare eksplisitt med launch-argumentet `--skip-auth`.
-- Apple-innlogging og e-post/passord vises som valgfrie kontoalternativer.
+- Apple-innlogging vises som valgfritt kontoalternativ. E-post/passord er
+  implementert, men skjult med `FeatureFlags.emailAuthenticationEnabled = false`.
+  Apple-dialogen ber om navn og e-post. Delt navn beholdes lokalt som et
+  valgfritt forslag med «Bruk navn fra Apple» under Personlige detaljer;
+  eksisterende visningsnavn overskrives ikke. Forslaget bevares ved
+  sesjonsgjenoppretting for samme konto og fjernes ved utlogging.
+  Innloggingsskjermen lukkes ved fullført innlogging, viser ventestatus/feil
+  over innloggingsvalgene og tilbyr gjenåpning av bekreftelse for kontokobling.
+  Dialoglukking avbryter ikke koblingen; «Avbryt» er en eksplisitt handling.
+  Appspråket er Bokmål, også for Apples standardknapp.
+  Vellykket Apple-innlogging avslutter onboarding og åpner Hjem etter
+  eventuell bekreftet kontokobling. Fullføring lagres per konto; mislykket
+  eller avbrutt innlogging beholder den lokale introen.
   Google-innlogging er senere scope. Apple krever konfigurert Supabase Apple-provider og aktivert
   Sign in with Apple-capability før distribusjon.
 - Manuell opprettelse av ukjente produkter finnes fra skanneflyten.
@@ -240,14 +367,17 @@ Punktene her beskriver bevart legacy-kode, ikke appens aktive serverplattform.
 | Legacy-datamodell | `backend/prisma/schema.prisma` og `backend/prisma/migrations/` |
 | Varige valg | `docs/decisions.md` |
 
-## Nærmeste tekniske milepæl
+## Nærmeste tekniske milepæl – lokal lansering, 2026-10-04
 
-Før backend-synk aktiveres:
+Fullfør aktive konto-/personvernporter, eksport-/lagringskontroller, resterende
+fysisk QA og TestFlight før separat produksjonsutrulling. Gjeldende porter og
+daterte resultater finnes i [produksjonsberedskap](production-readiness.md).
 
-1. Etabler produksjonslignende miljø, hemmelighetsdistribusjon, rate limiting,
-   overvåkning og rollback.
-2. Kjør releaseportene i dette miljøet og hold `backendSyncEnabled` avslått til
-   de er grønne.
+Framtidig skyscope krever eget brukervalg og historikkvalg, serverautorisasjon,
+nødvendige rettsgrunnlag og godkjente synk-/restoreporter før en ny
+opplastingspolicy kan innføres. Produksjonslignende miljø, rate limiting,
+overvåkning og rollback inngår i dette arbeidet. `backendSyncEnabled` alene
+er ikke tilstrekkelig til å aktivere opplasting.
 
 Oppdater dette dokumentet når en funksjon flyttes mellom planlagt, delvis
 implementert og implementert.
@@ -312,7 +442,10 @@ implementert og implementert.
 Implementert lokalt: kompakt vannkort på Hjem, ett trykk per glass, valgt dato,
 korrigering ved å fjerne siste glass, profileierskap og eksport/sletting. SQLite-versjon 7 skriver
 glass og synkhendelse atomisk. Supabase har additive `water.upsert`/`water.delete`
-og egen migrasjon; migrasjonen må verifiseres og rulles ut før synk kan aktiveres.
+og egen migrasjon. Staging-verifisering 2026-10-02 dokumenterer deploy og
+integrasjonskontroll av migrasjonen; se [produksjonsberedskap](production-readiness.md).
+Produksjonsutrulling er ikke dokumentert, og dagens `localOnly`-policy sperrer
+opplasting av vannhendelser.
 Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksjonen.
 
 ## Demomodus for presentasjon (2026-09-30)
@@ -320,13 +453,45 @@ Legacy NestJS støtter ikke vannevents og er ikke målplattform for denne funksj
 DEBUG-versjonen har demokontroller bare i Profil. Ingen demorad vises over andre skjermer.
 Demo lagres separat fra vanlige data og bruker lokal, fiktiv profil uten
 serversynk. Datasettet inneholder 56 dagers variert mat-/vannlogging, vekthistorikk,
-favoritter og fire lagrede måltider med næringsdata fra medfølgende Matvaretabellen.
+åtte favoritter og åtte sammensatte lagrede måltider. Fra 2026-10-08 brukes
+sju Open Food Facts-produkter med lokale frontbilder og 16 råvarer fra den
+bundlete Matvaretabellen. Utvalget dekker yoghurtbolle, grovbrød, matpakke med
+makrell, knekkebrød, ovnsbakt laks, kylling med ris, fredagstaco og cottage cheese
+med bær. Kvikk Lunsj og eple varierer kveldsmaten i historikken. Mengder for
+stekt kjøtt/fisk, kokt ris og kokte poteter bruker tilsvarende tilberedt katalogvare.
+Næringsverdier per 100 g, kilde og verifiseringsstatus bevares; ingen verdier
+gjettes. Produktbildene fungerer offline; råvarer og måltider bruker eksisterende
+fallback. Yoghurt med havre og bær og laks med poteter har lokale, AI-genererte
+illustrasjonsbilder i demoen. OFF-snapshot og bildeattribusjon finnes i
+`MatLogg/Resources/demo-openfoodfacts*`. Fra 2026-11-11 bruker datasettet `demo-v4.sqlite`, som
+opprettes ved neste åpning av demo. Tidligere demo og vanlige data overskrives
+ikke. «Tilbakestill demodata» i Profil tilbakestiller det aktive demodatasettet.
+Dagens demo viser yoghurtfrokost, matpakke med makrell og laksemiddag med fem
+glass vann; kveldsmat er foreløpig tom. Historiske porsjoner varierer forsiktig
+fra dag til dag uten å endre katalogens næringsverdier. Havregryn i dagens frokost er utelatt slik at opptaksflyten kan
+loggføre 60 g én gang. Historiske dager beholder komplette måltider.
+Naturell yoghurt hentes fra Matvaretabellen (`01.011`), siden OFF-produktets
+navn/bilde og næringsverdier ikke samsvarte. Lagrede måltider har kortere navn.
+Fra 2026-11-11 har Helse-kortene syntetiske eksempeldata i demomodus:
+skritt per time/dag, en stabil vektserie og gåturer/styrkeøkter. De genereres
+for valgt periode, merkes som eksempeldata og holdes bare i minnet. Demoen
+ber ikke om Helse-tilgang og endrer ikke tilkoblingsvalgene. Opptaket aktiverer
+alle fire kortene i Tilpass og viser Dag med synlig Demodata-merking.
 Valgt modus og demoendringer beholdes etter omstart. Tilbakestilling krever
 bekreftelse og berører bare demoen. Vanlig modus er tom bare når den vanlige
 profilen ikke har registreringer fra før.
 
-Verifisert på iOS 26.5-simulator: 15 målrettede Swift-tester (demo og profil) og
-én UI-test for bytte begge veier og gjenoppretting av demomodus etter omstart.
+Oppdateringen 2026-10-08 er verifisert på iPhone 17 Pro / iOS 26.5 med seks
+målrettede demotester og én UI-test for redigering/forkasting av lagret måltid.
+Landingsopptak kjøres eksplisitt med `LandingCaptureUITests` på egen simulator;
+vanlige testkjøringer hopper over opptaket. Opptakstesten bestod og leverte åtte
+nye simulatorbilder til den lokale landingssiden. Alle bildene er uten tastatur,
+og måltidsloggen er tatt opp på nytt etter siste skjermoppdatering. Søkebildet
+viser ett presist produkttreff, og et eget dagbokbilde viser loggen uten
+bekreftelse over innholdet. Det finnes
+også et separat videoklipp på omtrent ti sekunder fra det første opptaket. Nettsiden er ikke publisert som del av oppgaven.
+Tidligere kontroll av bytte mellom
+vanlig modus og demo samt gjenoppretting etter omstart ble utført 2026-09-30.
 Produksjonsutrulling inngår ikke; release-bygg og fysisk enhet er ikke verifisert.
 
 ## Søk og produktbilder (kontrollert mot kode 2026-10-01)
@@ -340,9 +505,49 @@ Manuell produktregistrering støtter valgfritt kamera-/bibliotekbilde.
 Eksisterende produktbilder bruker separat cache via `ProductImageRepository`.
 Dette er kodekontroll, ikke en ny funksjons- eller enhetstest.
 
-## Apple Helse – 2026-10-02
+### Første logging – verifisert 2026-10-02
 
-Implementert som valgfri utvidelse bak Debug-pilotflagget `--enable-healthkit`,
-alltid deaktivert i Release. Mat ut og vekt inn/ut, separat beskyttet importcache,
-atomisk lokal eksportkø og profilisolasjon. Se [scope og QA-gates](health-integration.md).
-Fysisk HealthKit-verifisering og produksjonsgodkjenning er ikke utført.
+- Simulatorbuild og 18 målrettede AuthViewModelTests består, inkludert
+  automatisk lokal oppstart, gjenåpning, kjent konto med mislykket restore,
+  valgfri innlogging og avbrutt lokal datatilknytning.
+- 14 LogViewModelTests består, inkludert repositoryfeil og Angre.
+- testFirstLoggingWithoutAccountAndRelaunch og
+  testFirstLogCanBeSkippedWithLargeText består på en dedikert iPhone 17 Pro
+  med iOS 26.5. Lokalt treff er trykkbart med tastatur åpent; veien bruker
+  to trykk pluss tekstinntasting med foreslått mengde og måltid. Stor tekst
+  bruker rullbar, vertikal layout; tastaturet kan lukkes med Ferdig.
+- Kontrollert mot arkitekturprinsippene: ingen ny IO i views/AppState,
+  eksisterende injiserte søke- og lagringsgrenser gjenbrukes, og lokal
+  domeneskriving/synkhendelse, kilde/enhet og eierskap er bevart. Ingen
+  arkitekturavvik eller endring i synkkontrakten.
+- Ekte Apple-innlogging, fysisk kamera og manuell VoiceOver-gjennomgang
+  er ikke verifisert i denne endringen. Dette er ikke en produksjonsgodkjenning.
+
+## Lokal lansering: verifisert 3. oktober 2026
+
+Explicit localOnly-policy sperrer domenesynk uavhengig av backendflagget.
+Status, datatapsinformasjon og eksporttekst er samordnet. Filbeskyttelse er
+verifisert fysisk, og gamle eksporttempfiler ryddes best-effort etter 24 timer.
+76 målrettede enhetstester og tre fysiske UI-flyter bestod. Ingen backenddeploy,
+kjøp eller produksjonsutrulling. Restore, aktive konto-/personvernporter og
+visuell runtime-advarsel gjenstår; se [QA-resultater](production-readiness.md).
+
+### Gjenoppretting av manuell logging (2026-10-07)
+
+Manuell produktregistrering og påfølgende mengdevalg har ett lokalt
+registreringsutkast per profil. Hjem, Søk og Loggfør tilbyr Fortsett/Forkast.
+Samme flyt brukes ved første logging og ukjent strekkode. Lukk beholder
+utkastet; siste vellykkede lokale snapshot gjenopprettes etter omstart.
+Rå input, næringsgrunnlag, ferdig importert bilde, mengde/porsjon, dato og
+måltid beholdes. Autosave venter omtrent 300 ms; Lukk/bakgrunn forsøker flush.
+Ikke-lagrede endringer kan fortsatt gå tapt ved brå terminering.
+
+Produkt/stegovergang og logg/utkastfjerning er atomiske med eksisterende
+synkhendelser. Utkast er egne lokale data uten opplasting, med profileierskap,
+eksport og sletting. Måltidsmalbygging og andre redigeringsflyter omfattes ikke.
+Se `draft-recovery-improvement-plan.md` for verifisering og resterende kontroller.
+
+Utkastverifisering 2026-10-07: ni målrettede iOS-enhetstester og én UI-test
+med terminering/omstart er grønne. Åtte direkte macOS-lagringstester, inkludert
+migrasjon, er grønne. Ingen full testpakke er kjørt. Fysisk iPhone var offline;
+fysisk systemterminering, bildeimport og manuell tilgjengelighetskontroll gjenstår.

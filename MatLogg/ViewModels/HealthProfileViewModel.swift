@@ -5,16 +5,16 @@ import Combine
 final class HealthProfileViewModel: ObservableObject {
     @Published private(set) var currentGoal: Goal?
     @Published private(set) var personalDetails: PersonalDetails
-    @Published private(set) var weightHistory: [WeightHistoryItem] = []
     @Published private(set) var weightEntries: [WeightEntry] = []
+    @Published private(set) var isLoadingWeights = true
     @Published private(set) var errorMessage: String?
 
-    private let weightHistoryRepository: (any WeightHistoryRepository)?
-    private var weightRequestID = UUID()
-    private var goalRequestID = UUID()
     private let repository: any HealthProfileRepository
     private let personalDetailsStore: any PersonalDetailsStore
     private var activeUserId: UUID?
+    private var goalRequestID = UUID()
+    private var weightRequestID = UUID()
+    private var weightOwner: UUID?
 
     convenience init(repository: any HealthProfileRepository) {
         self.init(
@@ -25,10 +25,8 @@ final class HealthProfileViewModel: ObservableObject {
 
     init(
         repository: any HealthProfileRepository,
-        personalDetailsStore: any PersonalDetailsStore,
-        weightHistoryRepository: (any WeightHistoryRepository)? = nil
+        personalDetailsStore: any PersonalDetailsStore
     ) {
-        self.weightHistoryRepository = weightHistoryRepository
         self.repository = repository
         self.personalDetailsStore = personalDetailsStore
         self.personalDetails = .empty
@@ -39,6 +37,7 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func acceptSavedGoal(_ goal: Goal) {
+        goalRequestID = UUID()
         currentGoal = goal
     }
 
@@ -52,14 +51,14 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func loadGoal(userId: UUID) async {
+        if activeUserId != userId { currentGoal = nil }
+        activeUserId = userId
         let request = UUID()
         goalRequestID = request
-        activeUserId = userId
-        let details = personalDetailsStore.load(userId: userId)
-        let goal = await repository.latestGoal(userId: userId)
-        guard goalRequestID == request, activeUserId == userId else { return }
-        personalDetails = details
-        currentGoal = goal
+        personalDetails = personalDetailsStore.load(userId: userId)
+        let loaded = await repository.latestGoal(userId: userId)
+        guard goalRequestID == request, activeUserId == userId, !Task.isCancelled else { return }
+        currentGoal = loaded
     }
 
     func useDevelopmentGoalIfMissing(userId: UUID) {
@@ -85,7 +84,7 @@ final class HealthProfileViewModel: ObservableObject {
             currentGoal = goal
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre mål: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre mål. Prøv igjen."
             return false
         }
     }
@@ -102,28 +101,21 @@ final class HealthProfileViewModel: ObservableObject {
             personalDetails = details
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre personlige detaljer: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre personlige detaljer. Prøv igjen."
             return false
         }
     }
 
     func loadWeightEntries(userId: UUID) async {
+        if weightOwner != userId { weightEntries = [] }
+        weightOwner = userId
         let request = UUID()
         weightRequestID = request
-        let manual = await repository.getWeightEntries(userId: userId)
-        let history: [WeightHistoryItem]
-        var historyError: String?
-        do {
-            if let weightHistoryRepository { history = try await weightHistoryRepository.history(owner: userId) }
-            else { history = DefaultWeightHistoryRepository.merge(manual: manual, imported: [], calendar: .current) }
-        } catch {
-            history = DefaultWeightHistoryRepository.merge(manual: manual, imported: [], calendar: .current)
-            historyError = "Vekt fra Helse kunne ikke leses. Manuelle registreringer vises fortsatt."
-        }
-        guard weightRequestID == request else { return }
-        weightEntries = manual
-        weightHistory = history
-        if let historyError { errorMessage = historyError }
+        isLoadingWeights = true
+        defer { if weightRequestID == request { isLoadingWeights = false } }
+        let loaded = await repository.getWeightEntries(userId: userId)
+        guard weightRequestID == request, !Task.isCancelled else { return }
+        weightEntries = loaded
     }
 
     @discardableResult
@@ -135,7 +127,7 @@ final class HealthProfileViewModel: ObservableObject {
             await loadWeightEntries(userId: userId)
             return true
         } catch {
-            errorMessage = "Kunne ikke lagre vekt: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke lagre vekt. Prøv igjen."
             return false
         }
     }
@@ -152,7 +144,7 @@ final class HealthProfileViewModel: ObservableObject {
             await loadWeightEntries(userId: userId)
             return true
         } catch {
-            errorMessage = "Kunne ikke slette vekt: \(error.localizedDescription)"
+            errorMessage = "Kunne ikke slette vekt. Prøv igjen."
             return false
         }
     }
@@ -160,7 +152,8 @@ final class HealthProfileViewModel: ObservableObject {
     func resetUserState() {
         goalRequestID = UUID()
         weightRequestID = UUID()
-        weightHistory = []
+        weightOwner = nil
+        isLoadingWeights = false
         activeUserId = nil
         currentGoal = nil
         personalDetails = .empty

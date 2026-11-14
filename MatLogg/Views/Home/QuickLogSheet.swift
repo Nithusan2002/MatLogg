@@ -1,137 +1,119 @@
 import SwiftUI
 
 struct QuickLogSheet: View {
-    private enum LoadState: Equatable {
-        case loading
-        case content
-        case empty
-        case unavailable
-    }
-
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appState: AppState
-    @EnvironmentObject private var productViewModel: ProductViewModel
+    @EnvironmentObject private var viewModel: QuickLogViewModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var logViewModel: LogViewModel
     @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
-    @State private var products: [Product] = []
-    @State private var selectedProduct: Product?
-    @State private var loadState: LoadState = .loading
     @State private var selectedSavedMeal: SavedMeal?
     @State private var showAllSavedMeals = false
+    @State private var selectedReuseList = ReuseList.recent
+    @State private var hasSelectedReuseList = false
+    @State private var initialSelectionResolved = false
+    @State private var loadID = UUID()
+
+    private enum ReuseList: String, CaseIterable {
+        case recent = "Nylig logget"
+        case saved = "Lagrede måltider"
+    }
 
     let onSearch: () -> Void
     let onScan: () -> Void
     let onManualAdd: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
     let onSavedMealLogComplete: () -> Void
+    var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    Text("Loggfør mat")
-                        .font(AppTypography.title)
-                        .foregroundColor(AppColors.deepInk)
-                    Spacer()
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.body.weight(.semibold))
+        GeometryReader { geometry in
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 18) {
+                    HStack {
+                        Text(productSelectionContent == nil ? "Loggfør mat" : "Legg til i måltidet")
+                            .font(AppTypography.title)
                             .foregroundColor(AppColors.deepInk)
-                            .frame(width: 44, height: 44)
-                            .background(AppColors.mutedSurface, in: Circle())
-                    }
-                    .accessibilityLabel("Lukk")
-                }
-
-                QuickSearchBar(onSearch: onSearch, onScan: onScan)
-
-                mealPicker
-
-                savedMealsSection
-
-                if loadState == .loading {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                        Text("Henter hurtigvalg …")
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                    .accessibilityElement(children: .combine)
-                } else if loadState == .unavailable {
-                    VStack(spacing: 10) {
-                        Label("Kunne ikke hente hurtigvalg", systemImage: "exclamationmark.triangle")
-                            .font(AppTypography.bodyEmphasis)
-                        Button("Prøv igjen") { Task { await loadContent() } }
-                            .font(AppTypography.bodyEmphasis)
-                            .foregroundColor(AppColors.action)
-                            .frame(minHeight: 44)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                } else if loadState == .empty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        quickProductsHeading
-                        VStack(spacing: 10) {
-                            Text("Ingen enkeltvarer i hurtigvalg ennå")
-                                .font(AppTypography.bodyEmphasis)
+                        Spacer()
+                        ActivityIndicatorSlot(isActive: (viewModel.showsLoadingFeedback && !viewModel.recentFoods.isEmpty)
+                                              || (savedMealsViewModel.showsLoadingFeedback && !savedMealsViewModel.meals.isEmpty),
+                                              label: "Oppdaterer hurtigvalg og måltider")
+                        Button { dismiss() } label: {
+                            Image(systemName: "xmark")
+                                .font(.body.weight(.semibold))
                                 .foregroundColor(AppColors.deepInk)
-                            Text("Søk etter eller skann en matvare. Nylig brukte enkeltvarer og favoritter vises her neste gang.")
-                                .font(AppTypography.body)
-                                .foregroundColor(AppColors.textSecondary)
-                                .multilineTextAlignment(.center)
-                            Button("Legg til manuelt", action: onManualAdd)
-                                .font(AppTypography.bodyEmphasis)
-                                .foregroundColor(AppColors.action)
-                                .frame(minHeight: 44)
+                                .frame(width: 44, height: 44)
+                                .background(AppColors.mutedSurface, in: Circle())
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 28)
+                        .accessibilityLabel("Lukk")
                     }
-                } else {
-                    VStack(alignment: .leading, spacing: 10) {
-                        quickProductsHeading
-                        LazyVStack(spacing: 10) {
-                            ForEach(products) { product in
-                                Button { selectedProduct = product } label: {
-                                    HStack(spacing: 12) {
-                                        Text(String(product.name.prefix(1)).uppercased())
-                                            .font(AppTypography.bodyEmphasis)
-                                            .foregroundColor(AppColors.deepInk)
-                                            .frame(width: 44, height: 44)
-                                            .background(AppColors.mutedSurface, in: Circle())
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(product.name)
-                                                .font(AppTypography.bodyEmphasis)
-                                                .foregroundColor(AppColors.deepInk)
-                                                .lineLimit(1)
-                                            Text(productSubtitle(product))
-                                                .font(AppTypography.caption)
-                                                .foregroundColor(AppColors.textSecondary)
-                                                .lineLimit(1)
-                                        }
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .foregroundColor(AppColors.textSecondary)
-                                    }
-                                    .padding(12)
-                                    .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                }
-                                .buttonStyle(.plain)
-                            }
+
+                    if productSelectionContent == nil {
+                        LoggingDraftBanner(continueTitle: "Fortsett registreringen", onLogComplete: onLogComplete)
+                    }
+
+                    QuickSearchBar(onSearch: onSearch, onScan: onScan)
+
+                    Button(action: onManualAdd) {
+                        Label("Registrer manuelt", systemImage: "square.and.pencil")
+                            .font(AppTypography.bodyEmphasis)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .foregroundStyle(AppColors.actionText)
+                    .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 16))
+                    .accessibilityIdentifier("quick-log-manual")
+
+                    if productSelectionContent == nil {
+                        VStack(alignment: .leading, spacing: 12) {
+                            mealPicker
+                            reuseListPicker
                         }
+                        if selectedReuseList == .recent { recentContent }
+                        else { savedContent }
                     }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 28)
+                .frame(width: geometry.size.width, alignment: .leading)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
-            .padding(.bottom, 28)
+            .scrollBounceBehavior(.basedOnSize, axes: [.horizontal, .vertical])
+            .accessibilityIdentifier("quick-log-scroll")
         }
         .background(AppColors.background.ignoresSafeArea())
-        .task { await loadContent() }
-        .sheet(item: $selectedProduct) { product in
+        .safeAreaInset(edge: .bottom) {
+            if let payload = viewModel.repeatReceipt {
+                LogToastView(payload: payload, isUndoing: viewModel.isUndoingRepeat,
+                    onUndo: { undoRepeat(payload) },
+                    onDismiss: { viewModel.dismissRepeatReceipt() })
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+            }
+        }
+        .task(id: authViewModel.currentUser?.id) {
+            if productSelectionContent == nil { await loadContent() }
+            else { await viewModel.load(userId: authViewModel.currentUser?.id) }
+        }
+        .onChange(of: appState.logSelectedDate) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: appState.selectedMealType) { _, _ in viewModel.invalidateRepeatPresentation() }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
+            viewModel.invalidateRepeatPresentation()
+            selectedReuseList = .recent
+            hasSelectedReuseList = false
+            initialSelectionResolved = false
+            selectedSavedMeal = nil
+            showAllSavedMeals = false
+        }
+        .onDisappear { viewModel.invalidateRepeatPresentation() }
+        .sheet(item: $viewModel.selectedQuickProduct) { product in
+            if let productSelectionContent {
+                productSelectionContent(product)
+            } else {
             ProductDetailView(product: product, appState: appState) { payload in
                 dismiss()
                 onLogComplete(payload)
+            }
             }
         }
         .sheet(item: $selectedSavedMeal) { meal in
@@ -150,59 +132,227 @@ struct QuickLogSheet: View {
         }
     }
 
-    @ViewBuilder private var savedMealsSection: some View {
-        if !savedMealsViewModel.meals.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("Lagrede måltider")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundStyle(AppColors.deepInk)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                    Button("Se alle") { showAllSavedMeals = true }
-                        .font(AppTypography.bodyEmphasis)
-                        .foregroundStyle(AppColors.action)
-                        .frame(minHeight: 44)
+    private var repeatSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let error = viewModel.logError {
+                ErrorMessageView(error).font(AppTypography.caption)
+            }
+            ForEach(viewModel.recentFoods) { food in
+                let layout = dynamicTypeSize >= .xxxLarge
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                    : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+                layout {
+                    recentFoodDetails(food)
+                    repeatButton(food)
                 }
-                ForEach(savedMealsViewModel.meals.prefix(3)) { meal in
-                    Button { selectedSavedMeal = meal } label: {
-                        SavedMealRow(meal: meal)
-                            .padding(12)
-                            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(AppColors.separator.opacity(0.6), lineWidth: 1)
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
+                .padding(12)
+                .matLoggCardSurface()
+                .allowsHitTesting(!viewModel.isRepeating && !viewModel.isUndoingRepeat)
             }
         }
     }
 
-    private var quickProductsHeading: some View {
-        Text("Favoritter og nylig brukt")
-            .font(AppTypography.sectionTitle)
-            .foregroundStyle(AppColors.deepInk)
-            .accessibilityAddTraits(.isHeader)
+    private func recentFoodDetails(_ food: RecentFood) -> some View {
+        Button {
+            guard !viewModel.isRepeating else { return }
+            viewModel.selectedQuickProduct = food.product
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(food.product.name)
+                        .font(AppTypography.bodyEmphasis)
+                        .foregroundStyle(AppColors.deepInk)
+                    Text("Sist logget: \(food.amountLabel)")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.textSecondary.opacity(0.65))
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Åpner mengdevalg og loggføring")
+    }
+
+    private func repeatButton(_ food: RecentFood) -> some View {
+        let isSaving = viewModel.showsRepeatFeedback && viewModel.repeatingProductID == food.id
+        let isConfirmed = viewModel.confirmedProductID == food.id
+        return Button {
+            guard !viewModel.isRepeating else { return }
+            if food.canRepeat { repeatFood(food) }
+            else { viewModel.selectedQuickProduct = food.product }
+        } label: {
+            Text(isSaving ? "Lagrer …" : isConfirmed ? "Lagt til ✓" : food.canRepeat ? "Loggfør" : "Kontroller mengde")
+            .fixedSize(horizontal: false, vertical: true)
+            .font(AppTypography.secondaryEmphasis)
+            .foregroundStyle(AppColors.actionText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(AppColors.chipFillSelected, in: RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: dynamicTypeSize < .xxxLarge, vertical: false)
+        .accessibilityLabel(food.canRepeat
+            ? "Loggfør \(food.product.name), \(food.amountLabel)"
+            : "Kontroller mengde for \(food.product.name)")
+        .accessibilityValue(isSaving ? "Lagrer på enheten" : isConfirmed ? "Lagt til" : "")
+        .accessibilityHint("Til \(selectedMealTitle), \(logDateLabel)")
+        .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
+    }
+
+    private func repeatFood(_ food: RecentFood) {
+        let date = appState.logSelectedDate
+        let meal = appState.selectedMealType
+        let owner = authViewModel.currentUser?.id
+        Task {
+            guard await viewModel.logAgain(food, mealType: meal, date: date) != nil,
+                  authViewModel.currentUser?.id == owner,
+                  appState.logSelectedDate == date, appState.selectedMealType == meal else { return }
+            logViewModel.didPersistExternalLog()
+            UIAccessibility.post(notification: .announcement, argument: "\(food.product.name) lagt til")
+            await appState.refreshSyncStatus()
+        }
+    }
+
+    private func undoRepeat(_ payload: ReceiptPayload) {
+        guard let owner = authViewModel.currentUser?.id,
+              payload.ownerID == owner, viewModel.beginRepeatUndo() else { return }
+        Task {
+            let succeeded = await logViewModel.undoLatestLog(productId: payload.product.id,
+                mealType: payload.mealType, amountG: Float(payload.amountG), userId: owner,
+                date: payload.loggedDate, logID: payload.logID)
+            if succeeded, viewModel.repeatReceipt?.id == payload.id {
+                viewModel.dismissRepeatReceipt()
+            } else if !succeeded, authViewModel.currentUser?.id == owner {
+                viewModel.showRepeatUndoError()
+            }
+            viewModel.finishRepeatUndo()
+            await appState.refreshSyncStatus()
+        }
+    }
+
+    @ViewBuilder private var savedMealsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Lagrede måltider")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundStyle(AppColors.deepInk)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button(savedMealsViewModel.meals.isEmpty ? "Åpne" : "Se alle") { showAllSavedMeals = true }
+                    .accessibilityIdentifier("quick-log-saved-meals")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundStyle(AppColors.actionText)
+                    .frame(minHeight: 44)
+            }
+            if savedMealsViewModel.meals.isEmpty {
+                Text("Lagre et registrert måltid fra Gjenbruk-menyen i dagsloggen.")
+                    .font(AppTypography.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            ForEach(savedMealsViewModel.meals.prefix(3)) { meal in
+                Button { selectedSavedMeal = meal } label: {
+                    SavedMealRow(meal: meal)
+                        .padding(12)
+                        .matLoggCardSurface()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var reuseListPicker: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            ForEach(ReuseList.allCases, id: \.self) { list in
+                Button {
+                    hasSelectedReuseList = true
+                    selectedReuseList = list
+                } label: {
+                    Text(list.rawValue)
+                        .font(AppTypography.secondaryEmphasis)
+                        .foregroundStyle(selectedReuseList == list ? AppColors.deepInk : AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(selectedReuseList == list ? AppColors.surface : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedReuseList == list ? .isSelected : [])
+                .accessibilityIdentifier(list == .recent ? "quick-log-show-recent" : "quick-log-show-saved")
+            }
+        }
+        .padding(4)
+        .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .accessibilityLabel("Velg gjenbruk")
+    }
+
+    @ViewBuilder private var recentContent: some View {
+        if let error = viewModel.errorMessage {
+            ErrorMessageView(error).font(AppTypography.caption)
+            Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
+        }
+        if !viewModel.recentFoods.isEmpty {
+            repeatSection
+        } else if viewModel.isLoading || !viewModel.hasLoaded {
+            ProgressView("Henter nylig loggede matvarer …")
+        } else if viewModel.errorMessage == nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Ingen nylig loggede matvarer")
+                    .font(AppTypography.bodyEmphasis)
+                Text("Matvarer du logger, vises her.")
+                    .font(AppTypography.secondary).foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder private var savedContent: some View {
+        if let error = savedMealsViewModel.loadError {
+            ErrorMessageView(error).font(AppTypography.caption)
+            Button("Prøv igjen") { Task { await loadContent() } }.frame(minHeight: 44)
+        }
+        if savedMealsViewModel.isLoading && savedMealsViewModel.meals.isEmpty {
+            ProgressView("Henter lagrede måltider …")
+        } else if !savedMealsViewModel.meals.isEmpty || savedMealsViewModel.loadError == nil {
+            savedMealsSection
+        }
     }
 
     private var mealPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Logg til: \(selectedMealTitle)")
-                .font(AppTypography.bodyEmphasis)
-                .foregroundColor(AppColors.deepInk)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    mealPickerTitle
+                    Spacer()
+                    mealPickerDate
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    mealPickerTitle
+                    mealPickerDate
+                }
+            }
 
-            Label(logDateLabel, systemImage: "calendar")
-                .font(AppTypography.secondary)
-                .foregroundColor(AppColors.textSecondary)
-
-            HStack(spacing: 8) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))
+            layout {
                 ForEach(MealPresentation.all) { meal in
                     Button {
                         appState.selectedMealType = meal.key
                     } label: {
-                        Text(meal.title)
+                        Text(appState.selectedMealType == meal.key ? "\(meal.title) ✓" : meal.title)
                             .font(AppTypography.captionEmphasis)
                             .foregroundColor(appState.selectedMealType == meal.key ? AppColors.onVibrant : AppColors.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
@@ -214,6 +364,20 @@ struct QuickLogSheet: View {
                 }
             }
         }
+    }
+
+    private var mealPickerTitle: some View {
+        Text("Måltid")
+            .font(AppTypography.bodyEmphasis)
+            .foregroundStyle(AppColors.deepInk)
+            .fixedSize()
+    }
+
+    private var mealPickerDate: some View {
+        Label(logDateLabel, systemImage: "calendar")
+            .font(AppTypography.secondary)
+            .foregroundStyle(AppColors.textSecondary)
+            .fixedSize()
     }
 
     private var selectedMealTitle: String {
@@ -230,21 +394,87 @@ struct QuickLogSheet: View {
     }
 
     private func loadContent() async {
-        loadState = .loading
-        guard let userId = authViewModel.currentUser?.id else {
-            loadState = .unavailable
-            return
+        let userId = authViewModel.currentUser?.id
+        let request = UUID()
+        loadID = request
+        async let quick: Void = viewModel.load(userId: userId)
+        async let meals: Void = savedMealsViewModel.load(userId: userId)
+        _ = await (quick, meals)
+        guard !Task.isCancelled, loadID == request,
+              authViewModel.currentUser?.id == userId,
+              !initialSelectionResolved,
+              viewModel.errorMessage == nil, savedMealsViewModel.loadError == nil else { return }
+        initialSelectionResolved = true
+        if !hasSelectedReuseList && viewModel.recentFoods.isEmpty && !savedMealsViewModel.meals.isEmpty {
+            selectedReuseList = .saved
         }
-        await savedMealsViewModel.load(userId: userId)
-        let favorites = await productViewModel.favoriteProducts(userId: userId)
-        let recents = await productViewModel.recentProducts(userId: userId, limit: 8)
-        var seen = Set<UUID>()
-        products = (favorites + recents).filter { seen.insert($0.id).inserted }.prefix(8).map { $0 }
-        loadState = products.isEmpty ? .empty : .content
     }
 
-    private func productSubtitle(_ product: Product) -> String {
-        let brand = product.brand.map { "\($0) · " } ?? ""
-        return "\(brand)\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue)"
+}
+
+/// Every entry point keeps the same date and meal context throughout logging.
+struct LoggingFlowView: View {
+    private enum Destination: String, Identifiable {
+        case search, scan, manual
+        var id: String { rawValue }
+    }
+
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var viewModel: QuickLogViewModel
+    @EnvironmentObject private var appState: AppState
+    @State private var destination: Destination?
+    let onLogComplete: (ReceiptPayload) -> Void
+    let onSavedMealLogComplete: () -> Void
+    var productSelectionContent: ((Product) -> AnyView)? = nil
+
+    var body: some View {
+        QuickLogSheet(
+            onSearch: { destination = .search },
+            onScan: { destination = .scan },
+            onManualAdd: { destination = .manual },
+            onLogComplete: complete,
+            onSavedMealLogComplete: {
+                dismiss()
+                onSavedMealLogComplete()
+            },
+            productSelectionContent: productSelectionContent
+        )
+        .fullScreenCover(item: $destination, onDismiss: viewModel.finishManualCreation) { route in
+            switch route {
+            case .search:
+                if productSelectionContent == nil {
+                    RawMaterialsSearchView(onLogComplete: complete)
+                } else {
+                NavigationStack {
+                    FoodSearchView(focusOnAppear: true, onScan: { destination = .scan },
+                        onLogComplete: complete, productSelectionContent: productSelectionContent)
+                        .navigationTitle("Søk")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Avbryt") { destination = nil }
+                            }
+                        }
+                }
+                }
+            case .manual:
+                if productSelectionContent == nil {
+                    RecoverableManualLoggingView(onLogComplete: complete)
+                } else {
+                    ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
+                }
+            case .scan:
+                CameraView(onLogComplete: complete, onSearch: { destination = .search },
+                           productSelectionContent: productSelectionContent)
+            }
+        }
+        .sheet(item: $viewModel.selectedManualProduct) { product in
+            if let productSelectionContent { productSelectionContent(product) }
+            else { ProductDetailView(product: product, appState: appState, onLogComplete: complete) }
+        }
+    }
+
+    private func complete(_ payload: ReceiptPayload) {
+        dismiss()
+        onLogComplete(payload)
     }
 }

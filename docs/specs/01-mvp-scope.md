@@ -1,5 +1,23 @@
 # MatLogg iOS – Spesifikasjon
 
+## Gjeldende lanseringsscope – 3. oktober 2026
+
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
+
 ## 1. MVP-Scope & Suksessmetrikker
 
 ### MVP-Fase: "Core Logging"
@@ -14,21 +32,22 @@
 
 | Feature | Prioritet | Beskrivelse |
 |---------|-----------|-------------|
-| **Valgfri konto** | P0 | Full lokal bruk uten konto. Apple eller e-post/passord for konto; Google er senere scope. |
-| **Onboarding** | P0 | Måltype (weght loss/maintain/gain), kalorimål, makromål, valgfri vektlogg |
+| **Valgfri konto** | P0 | Full lokal bruk uten konto. Pilot: Apple for konto. E-post/passord utsettes til eget SMTP og e-postflytene er verifisert; Google er senere scope. |
+| **Onboarding** | P0 | To korte, sveipbare introsider før første logging med automatisk lokal profil. Konto og mål er valgfrie; mål settes under Profil. |
 | **Home-skjermen** | P0 | Status (totalt kcal/makro vs mål), måltidsrad (Frokost/Lunsj/Middag/Snack), kontekstuell legg-til per måltid og logging-liste. Generisk søk/skann åpnes fra den vedvarende Loggfør-handlingen. |
-| **Strekkode-skanning** | P0 | EAN- eller GS1 Data Matrix-skann → GTIN-oppslag → produktkort → logging |
-| **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser, mengdevelger (prefill: 100g), "Legg til"-knapp |
+| **Strekkode-skanning** | P0 | EAN-/GS1 Data Matrix-skann eller «Skriv inn strekkode» (GTIN med kontrollsiffervalidering, også uten kameratilgang) → felles lokalt/eksternt oppslag → produktkort → logging |
+| **Produktkort** | P0 | Næring per 100g, standard porsjonsstørrelser med antall og historisk grunnlag, mengdevelger (prefill: 100g), "Legg til"-knapp |
 | **Logging-operasjon** | P0 | Lagre eksakt mengde til valgt måltid og valgt dato, inkludert fremtidig dato |
 | **Kompakt loggbekreftelse** | P0 | Etter logging: vare, mengde og måltid + «Angre», uten å blokkere videre logging |
 | **Skann-historikk** | P0 | Panel med nylig skannede varer; tapp åpner produktkort (100g prefill igjen) |
-| **Favoritter** | P0 | Toggle fra produktkort, hurtig-liste på Home |
+| **Favoritter** | P0 | Toggle fra produktkort, tilgjengelig i Søk og hurtigvalg på Home |
+| **Loggfør igjen i hurtigmenyen** | P1 | Loggfør-menyen har en eksplisitt knapp med siste registrerte mengde/enhet til valgt dato og måltid. Lokal lagring med Angre; uforenlig mengde-/porsjonsgrunnlag åpner produktkortet. |
 | **Måltidsgjenbruk** | P1 | Gårsdagens enkeltmåltid på Hjem: forhåndsvisning, justering og angre. Se [avgrensning](../meal-reuse.md). |
-| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
+| **Lagrede måltider** | P1 | Lagre et registrert enkeltmåltid eller utvalgte registreringer fra én dato som navngitt mal med valgfritt lokalt bilde, justere og loggføre atomisk. Se [avgrensning](../saved-meals.md). |
 | **Ikke funnet-flow** | P0 | Minimum input (navn + kcal/protein/karb/fett per 100g), "Fullfør senere", lagres lokalt som unverified |
 | **Innstillinger** | P1 | Haptics/lyd toggle, sikkerlogging-ut, slette data, om |
 | **Del produkt (beta)** | P1 | Engangslink fra produktkort, web-preview med åpne-knapp, import som kopi |
-| **Offline-funksjonalitet** | P0 | Lokal SQLite DB, event-kø, synk når nett tilbake |
+| **Offline-funksjonalitet** | P0 | Lokal SQLite DB og hvilende event-kø; ingen opplasting |
 
 ---
 
@@ -58,7 +77,7 @@
 ### Teknisk Performance
 - **App-start tid:** <2s (cold), <500ms (warm)
 - **Skann-til-produktkort:** <1.5s (lokal cache), <3s (API-oppslag)
-- **Offline-funksjonalitet:** 100% loggbar når offline; synker når nett tilbake
+- **Offline-funksjonalitet:** lokal logging uten nett; ingen opplasting når nett kommer tilbake
 - **Crash-rate:** <0.5% (iOS standard)
 
 ### Brukergenerert Innhold
@@ -74,7 +93,7 @@
 ## 1.4 Out-of-Scope Metrikker (v1+)
 
 - Social adoption (shares, friend invites)
-- Platform-spesifikk analytics (Apple Health integration)
+- Platform-spesifikk analytics og ytterligere Apple Health-integrasjon utover valgfri visning av skritt og vekt
 - Revenue (ads, premium)
 
 ---
@@ -102,7 +121,7 @@
 
 ### Ny bruker:
 ```
-Åpne app → Fortsett lokalt eller logg inn → Onboarding (mål) → Home → Skann/Legg til
+Åpne app → Intro → Kom i gang → Søk/skann/manuell registrering → Kontroller mengde og måltid → Lagre lokalt → Hjem med Angre
 ```
 
 ### Aktiv bruker:
@@ -139,16 +158,93 @@ Hjem tilbyr ett trykk per glass, daglig antall, angre og fjerning av ett glass.
 Registrering følger valgt dato og lagres lokalt med atomisk synkhendelse. Ingen
 antatt glassvolum, drikkemål, påminnelser eller helseintegrasjon.
 
-## Morgensjekk (2026-10-01)
+## Morgensjekk utsatt (2026-10-03)
 
-Valgfri daglig innsjekk på Hjem med eksisterende vektregistrering, fullfør uten
-vekt, endre og hopp over dagen. Bare siste kortstatus lagres lokalt per profil.
-Se `../design-and-user-flow.md` for flyt og avgrensninger.
+Daglig innsjekk er tatt ut av Hjem inntil videre for å prioritere matlogging.
+Valgfri vektregistrering og vekthistorikk beholdes under Oversikt.
+Se `../design-and-user-flow.md` for gjeldende flyt.
 
-## Godkjent scope-utvidelse: Apple Helse (2026-10-02)
+### Manuelle produkter: næringsgrunnlag (2026-10-03)
 
-Førsteversjonen deler kalorier/makroer og manuell vekt, og henter 90 dagers
-vekthistorikk fulgt av nye målinger. Alle valg er av som standard. Ingen vann-,
-aktivitets- eller måljusteringsfunksjon. Avgrensning, datalagring og release-gates
-er normative i [Apple Helse-planen](../health-integration.md). Release er av;
-godkjent implementasjon betyr ikke godkjent produksjonsutrulling.
+Manuell registrering støtter 100 g, 100 ml og porsjon/stykk med navn og kjent
+størrelse i g/ml. Egne porsjoner er avgrenset til produktet som opprettes;
+editor for eksisterende katalogprodukter og porsjoner uten størrelse er utenfor scope.
+
+
+### Diskret loggerekke
+
+Hjem viser flamme og antall sammenhengende matloggdager. Se reglene i
+[design- og brukerflyt](../design-and-user-flow.md#loggerekke-på-hjem).
+Ingen premier, varsler, ny datainnsamling eller synkkontrakt inngår.
+
+### Utseendevalg
+
+Profil → Innstillinger → Utseende tilbyr lys modus, mørk modus og å følge telefonens innstillinger
+(standard). Valget lagres lokalt på enheten og gjelder hele appen umiddelbart.
+
+Dagsloggen støtter flervalg for samlet sletting med Angre og lagring av utvalget
+som måltid (9. oktober 2026). Valg begrenses til én dato, men kan omfatte flere
+måltidsgrupper. Flytting og kopiering av utvalg er utenfor denne utvidelsen.
+
+### Tilberedt mat ved strekkodeoppslag (2026-10-12)
+
+Open Food Facts-produkter med bare komplette tilberedte næringsverdier kan
+logges i gram/ml ferdig tilberedt mat når mengdegrunnlaget er eksplisitt.
+Automatisk omregning fra tørrvare og «én tilberedt pakke» inngår ikke i denne
+leveransen. Tilberedningsstatus bevares i logger og måltidsmaler.
+
+### Måltidskort (18. oktober 2026)
+
+Lagrede måltider utvides med frivillig lokal bildedeling i tre stiler (Lys, Mørk,
+Foto). Gjeldende mengder brukes; funksjonen logger eller lagrer ikke måltidet.
+Kalorier, protein, karbohydrater og fett kan velges bort individuelt i kortet;
+alle er på som standard, og utvalget huskes lokalt på enheten.
+MatLogg-logoen kan også skjules, med samme lokale lagring av valget.
+Kortet kan også lagres direkte i Bilder med kun tilgang til å legge til bilder.
+Formatene 3:4 og 9:16 støttes i alle stiler; sist valgte format huskes lokalt.
+Delingslenker, import og plattformspesifikke sosiale integrasjoner er utenfor scope.
+Se [lagrede måltider](../saved-meals.md#del-måltidskort).
+
+## Tillegg 2026-11-06: personlig oversikt på Utvikling
+
+Eksisterende mat-/næringsoversikt og valgfri vektregistrering samles i to kort.
+Brukeren kan vise eller skjule områder gjennom Tilpass. Valgene lagres lokalt
+per profil. Alle kan skjules uten å miste tilgang til tilpasning. Første versjon
+beholder siste sju dager og eksisterende vekthistorikk.
+
+### Valgfri skrittvisning fra Apple Helse
+
+Skritt slås på i Profil → Innstillinger → Apple Helse og ber om separat
+lesetilgang. Skrittkortet er valgfritt og skjult som standard. HealthKit
+leverer tilgjengelige summer per time i Dag og per dag i Uke og Måned, også
+tilbake i tid. Kortet viser periodens sum og graf. Detaljene viser kilden og
+fordelingen som søyler. Tallene
+ligger bare i minnet. Lokal tilkobling lagres per profil og følger eksport og
+sletting. Ekte HealthKit-tilgang krever verifisering på fysisk iPhone før release.
+
+### Valgfri vektvisning fra Apple Helse
+
+Vekt slås på med en egen bryter i Profil → Innstillinger → Apple Helse og
+ber om separat lesetilgang. Kortet viser
+siste måling før slutten av valgt periode og en graf fra samme kilde.
+Detaljene skiller målinger fra Helse og manuelle registreringer i MatLogg
+for valgt periode. Full manuell historikk åpnes separat.
+Målinger fra Helse ligger i minnet og brukes bare til visning i Utvikling.
+
+### Visuell korrigering etter valgt prototype (2026-11-06)
+
+Utvikling bruker kompakt næringskort, Skritt/Vekt på delt rad og detaljer
+bak kortene. Kalenderdag, mandag–søndag, kalendermåned og datonavigasjon er nå
+inkludert. Uke samler synlige mat-, skritt- og treningsrader på en felles
+dagsakse med kildespesifikke detaljer. Matkortet viser snitt per logget dag,
+med synlig dekning;
+ulogget dag er ikke null. Vis dagstall åpner et ark med registrerte dager i
+uke- og månedsvisning.
+
+### Valgfri visning av treningsøkter fra Apple Helse
+
+Treningsøkter slås på separat i Profil → Innstillinger → Apple Helse.
+Kortet er skjult som standard og kan vises under Tilpass.
+Det viser antall økter og de to nyeste i valgt dag, uke eller måned.
+Detaljene viser alle øktene i perioden. MatLogg bruker type, starttid og
+varighet midlertidig på enheten til visning i Utvikling.

@@ -1,4 +1,6 @@
-# MatLogg – design- og brukerflyt
+# Spor Mat – design- og brukerflyt
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er den normative, overordnede UX-retningen for MatLogg. Dokumentet
 beskriver brukerbehov, informasjonsarkitektur, handlingshierarki og tilstander.
@@ -40,7 +42,14 @@ pressende budskap.
 ### Hjem
 
 Hjem svarer på «Hva har jeg registrert i dag?» og gir rask vei til ny logging.
+Datovelgeren er første element, uten appnavn eller profilknapp over. Profil
+åpnes fra bunnmenyen.
 Datoen kan flyttes én dag om gangen med piler eller velges fra en kalender.
+Kalenderen åpnes som en popover ved datoknappen, med norsk språk og appens
+handlingsfarge. Datovalg oppdaterer dagsoversikten umiddelbart mens kalenderen
+forblir åpen, også ved måneds- og årsnavigasjon. Trykk utenfor lukker kalenderen
+og beholder valgt dato. Ved tilgjengelighetsstørrelser for tekst eller lav
+skjermhøyde er kalenderinnholdet scrollbart i samme popover.
 Fortidige og fremtidige datoer kan velges. Valgt dato gjelder både
 dagsoversikten, måltidslisten og nye registreringer, og vises derfor også i
 loggføringsflyten. En fremtidig registrering er en vanlig datert logg; den
@@ -49,19 +58,24 @@ utløser ikke automatisk logging, varsling eller en egen måltidsplan.
 Prioritet:
 
 1. dato og kontekst, inkludert status for lokalt lagrede endringer
-2. «Dagen din, så langt.» og valgfritt samlet næringsfelt
-3. kompakt vannrad med valgt dato, antall glass og minus/pluss
-4. tydelig «Loggfør mat»-knapp som åpner eksisterende loggingark
-5. alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
-6. personlige hurtigvalg
+2. en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer) og samlet dagsstatus med valgfritt næringsfelt
+3. vann som nederste rad i dagsstatusen, med antall glass og minus/pluss
+4. «Se dagslogg» og alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
+5. personlige hurtigvalg
 
 Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
 sekundær tekst; ved tilgjengelighetsstørrelser stables kolonnene vertikalt.
-Eksisterende visningsvalg for målstatus beholdes.
+Næringsfeltet viser registrerte verdier også uten mål; måltekst vises bare når mål finnes.
+Visningsvalget «Vis energi og mål» gjelder både Hjem og dagsloggen.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidsseksjoner viser et begrenset sammendrag; trykk åpner valgt måltid for valgt dato.
+Måltidsnavnet åpner valgt måltid for valgt dato. Synlige varerader åpner
+redigering direkte. «Se dagslogg» åpner alle måltider for valgt dato.
+Sveip til venstre på en synlig varerad for å vise «Rediger», «Flytt» og «Slett»,
+som i Dagslogg. Et fullt sveip sletter varen. Begge skjermene tilbyr «Angre»
+etter sletting. Flervalg er tilgjengelig i Dagslogg.
+Hurtigvalg viser favoritter og nylig loggede varer, med mengdevalg før logging.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
 måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
@@ -69,72 +83,62 @@ vises på Hjem fordi de gir en kortere flyt enn generisk søk.
 
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
-måloppnåelse.
+måloppnåelse. Under måltidsoverskriften vises da «Loggfør første måltid», som
+åpner eksisterende loggingark for valgt dato. Handlingen vises bare etter
+vellykket lasting av en dag uten matlogger, også når målstatus er skjult.
+Den skjules under lasting og ved feil. Dager med matlogger bruker den faste
+«Loggfør»-handlingen i bunnmenyen og «Legg til» på måltidene.
 
-### Morgensjekk
+### Vektregistrering
 
-På Hjem, rett under datoen, vises én «Sjekk inn»-knapp for dagens dato,
-med samme overflate, tekstfarge, høyde og avrunding som «Skann strekkode» i Søk.
-Ingen kortoverskrift eller forklaring vises på Hjem. «Sjekk inn» åpner et ark med valgfri vekt i kg og «Ferdig».
-Vektfeltet åpner den samme linjalvelgeren som profil og onboarding, med tekst
-om lagring i vekthistorikken. «Bruk verdi» fyller bare innsjekkutkastet; Avbryt
-beholder tidligere input. Dagens registrerte vekt brukes når den finnes.
-Tomme felt fylles ikke automatisk med startverdien. «Fjern opplysningen»
-tømmer bare utkastet og sletter ikke en registrert vekt. Innsjekk
-uten vekt er tillatt. Vekt bruker eksisterende vekthistorikk og atomisk lokal
-vekt-/synkskriving; redigering beholder dagens registrerings-ID. Mål og
-personlige detaljer endres ikke. Tomt felt sletter ikke tidligere vekt.
-
-Etter vellykket fullføring viser knappen en hake og «Sjekket inn i dag»,
-og åpner dagens innsjekk for redigering. Neste dag vises «Sjekk inn» igjen.
-VoiceOver leser den synlige statusen én gang. «Hopp over i dag»
-skjuler kortet resten av dagen. Avbryt endrer ingenting. Kortstatus er en lokal
-visningspreferanse per profil med bare siste dato/status, uten synk eller
-historikk. Ny dag tilbyr ny innsjekk. Kortet er tilgjengelig hele dagen og
-vises ikke på andre valgte datoer. Ingen popup, påminnelser, streaks,
-dagsintensjon eller nye helsefelt inngår. Store tekststørrelser bruker vertikal
-layout; alle handlinger har minst 44 punkters trykkflate og vektfeltet har
-VoiceOver-tekst med enhet. Lagringsfeil beholder input og tilbyr nytt forsøk.
+«Sjekk inn» er tatt ut av Hjem inntil videre (2026-10-03). Vekt registreres
+valgfritt under Utvikling → Registrer vekt. Eksisterende vekthistorikk beholdes;
+endringen påvirker ikke mål eller lagring. Ingen daglig innsjekk tilbys.
 
 ### Dagslogg
 
-Dagsloggen åpnes fra Hjem med alle måltider som standard, også ved trykk på
-et bestemt måltidskort. Måltidsfilter aktiveres kun eksplisitt av brukeren.
-Skjermen viser valgt dato, en kompakt dagsoppsummering og
-varer samlet i én flate per måltid. Varerader viser navn, mengde med lagret
+«Se dagslogg» på Hjem åpner dagsloggen uten måltidsfilter. Måltidsnavnene
+på Hjem åpner dagsloggen ved det aktuelle måltidet. Dagsloggen har ingen
+måltidssnarveier; brukeren scroller mellom måltidene.
+Skjermen viser valgt dato, samme dagsstatuskort som på Hjem og
+varer samlet i én lys kortflate per måltid med 24 pt avrundede hjørner.
+Overskrift og «Legg til» inngår i kortet, også når måltidet er tomt.
+Dagsstatuskortet viser energi, makroer og eventuelle mål over vannraden.
+Varerader viser navn, mengde med lagret
 enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
 sletting med eksisterende angremulighet. Oppsummeringen er informasjon, ikke
 en skjult handling for å nullstille søk eller filter.
 
-Søk åpnes med en knapp i skjermhodet og gjelder valgt dag. Aktivt måltidsfilter
-vises med en eksplisitt handling for å vise alle måltider. Ingen søke- eller
-filtertreff skilles fra en tom dag, og tilbyr nullstilling uten å endre dato.
+Dagsloggen har én •••-meny i skjermhodet og ingen søkeknapp. Søk etter mat
+er tilgjengelig fra Søk-fanen og loggingarket.
 Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
-«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen.
-«Kopier fra i går» ligger i dagsmenyen når handlingen er tilgjengelig.
+«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen og beholder
+valgt dato. Dagsloggen har ingen egen stor «Legg til mat»-knapp.
+•••-menyen samler «Lagre som måltid»,
+«Kopier hele dagen fra i går» når tilgjengelig, og «Gå til i dag».
 Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
-### Vann på Hjem
+### Vann på Hjem og i dagsloggen
 
-Et kompakt vannkort ligger etter valgfri dagsstatus og før måltidene. «Ett
-glass» lagrer én registrering direkte for valgt dato, også uten nett og konto.
-Kortet viser dagens antall uten kvitteringstekst eller angreknapp, og tilbyr
-«Fjern ett glass» ved trykk på antallet. En synlig minusknapp ved siden av plussknappen
-fjerner siste glass med ett trykk uten dialog. Den er deaktivert ved null,
-under lasting og mens en lagring pågår. Ingen antatt ml-mengde, mål eller påminnelser.
-Ny dag viser null uten å slette historikken. Feil viser retry uten å øke telleren.
-Vannkortet bruker et tydelig antall under en liten overskrift, to like store, runde
-ikonknapper for pluss og minus. Pluss har en dempet blå bakgrunn; minus en
-nøytral bakgrunn. Begge har 44 × 44 punkters trykkflate og tydelig VoiceOver-tekst. Kopper har nøytralt omriss
-og blått gradert vann når de er fylt. Vannkortet viser ti tomme kopper fra start, fordelt på to rader med fem.
-Én kopp fylles med blått vann per registrert glass. Etter ti legges flere fylte
-kopper til, fem per rad. Minusknappen tømmer siste kopp; ekstra kopper
-fjernes når antallet faller. Ti er en startlayout, ikke et anbefalt dagsmål;
-ingen «av ti», prosent eller målfeiring vises. Fyll og teller animeres kort.
-«Reduser bevegelse» gir umiddelbar oppdatering. VoiceOver leser antallet én
-gang og hopper over dekorasjonen.
-Store tekststørrelser flytter knappen til neste rad. Vann følger aktiv profileier,
-og inngår i eksport, kontooverføring og sletting.
+Vann vises som nederste rad i samme varme flate som energi og makroer,
+skilt med en diskret linje. Når «Vis energi og mål» er av, viser
+flaten bare vannraden. Valgt dato gjelder hele dagsstatusen; den synlige
+etiketten er «Vann», mens VoiceOver inkluderer datoen.
+
+Raden viser antall glass og nøytrale minus-/plussknapper med minst 44 × 44 pt
+trykkflate. Blått er begrenset til den dekorative dråpen. Store tekststørrelser
+eller liten bredde flytter kontrollene til neste rad. Ingen glassrutenett,
+antatt ml-mengde, mål, påminnelser eller målfeiring vises på Hjem.
+
+Pluss lagrer ett glass direkte for valgt dato, også uten nett og konto.
+Minus fjerner siste glass uten dialog og er deaktivert ved null. Trykk på
+antallet tilbyr fortsatt «Fjern ett glass». Kontroller deaktiveres under
+lasting og lagring. Telleren oppdateres først ved vellykket lagring, uten
+kvittering eller angreknapp. Feil vises lokalt i raden; lesefeil tilbyr retry.
+Næring og vann har uavhengige lastetilstander. Ny dag viser sin egen logg
+uten å slette historikken. Telleren animeres kort; redusert bevegelse gir
+umiddelbar oppdatering. VoiceOver hopper over dekorasjon og skillelinje.
+Vann følger aktiv profileier og inngår i eksport, kontooverføring og sletting.
 
 ### Søk
 
@@ -144,14 +148,23 @@ mens søkefeltet redigeres, slik at den ikke dekker treff over tastaturet, og vi
 igjen når redigeringen avsluttes. Søk fra Loggfør
 bruker samme skjerminnhold i en egen presentasjon med fokusert søkefelt.
 
-«Registrer manuelt» vises som en sekundær knapp i full bredde rett under
-Søk og Skann strekkode, før favoritter eller søkeresultater. Knappen er
-tilgjengelig i alle søketilstander og bruker samme høyde og avrunding som
-handlingsknappene over.
+Søkefelt og søkeknapp står på samme rad ved vanlig tekststørrelse.
+«Skann strekkode» og «Registrer manuelt» ligger som kompakte, sekundære
+handlinger på raden under, med minst 44 pt trykkflate. Ved stor tekst stables
+kontrollene i den scrollbare søkeflaten. Status vises bare når den har innhold,
+slik at favoritter og treff kommer høyere opp. Første logging beholder sine
+samlede handlingsvalg. Søkelogikk og datakilder er uendret.
 
-Før søk vises favoritter, inntil seks nylig **loggede** varer og et begrenset
-utvalg råvarer. Seksjonene «Favoritter» og «Nylig brukt» skjules når de er tomme.
-Alle produktrader åpner mengdevalg og loggføring. Favoritter og
+Søk-fanen har en fast inngang «Lagrede måltider» uten ekstra undertekst
+før favoritter og nylig brukt. Inngangen vises også når listen er tom,
+men skjules mens søkefeltet inneholder et søk. Den åpner den eksisterende
+oversikten med forhåndsvisning, logging, redigering og sletting. Loggfør-arket
+beholder sin hurtigtilgang. Endring av malen påvirker ikke tidligere logging.
+
+Før søk vises favoritter og inntil seks nylig **loggede** varer. Tomme
+seksjoner skjules. Uten favoritter eller historikk vises «Søk etter en matvare
+for å komme i gang.», også ved første logging. Råvarer vises først som treff
+når brukeren skriver i søkefeltet. Alle produktrader åpner mengdevalg og loggføring. Favoritter og
 nylig brukt følger aktiv profileier og oppdateres ved retur fra produktdetaljer
 og når skjermen vises igjen.
 
@@ -161,46 +174,218 @@ mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller inns
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
 Private produkter fra andre profiler er ikke søkbare.
 
+Ved aktivt søk vises «Tidligere logget» først, med maksimalt tre ulike produkter
+som matcher alle søkeord i navn eller merke. Treffene følger siste loggføring
+(`loggedTime`), med produkt-ID som stabil sortering ved likt tidspunkt.
+Grunnlaget er hele den tilgjengelige lokale historikken for aktiv profileier,
+ikke bare de seks nylige varene; framtidige registreringer utelates som i
+«Sist brukt». «Andre treff» beholder vanlig relevanssortering og inkluderer
+historikktreff utenfor de tre øverste. Produkter dedupliseres på ID og strekkode
+på tvers av seksjonene. Uten historikktreff skjules seksjonen og dagens
+resultatoverskrift beholdes. Historikktreff bruker eksisterende produktrader,
+kilde-/enhetsvisning og mengdevalg. Ingen ekstra nettverkskall er nødvendig.
+
+Eksternt navnesøk bruker først det norske Open Food Facts-endepunktet. Etter
+søk tilbys «Finner du ikke varen? Søk i hele verden», også uten treff. Globale
+treff vises i en egen seksjon etter eksisterende treff, uten duplikater på
+produkt-ID eller strekkode. Global lasting og feil beholder eksisterende treff
+og tilbyr retry. Endret søketekst nullstiller den globale utvidelsen. Cache
+skiller mellom norsk og globalt søk; samme næringsvalidering gjelder begge.
+
+«Nylig brukt» i Søk viser kompakte produktrader som åpner produktkortet.
+Hurtiglogging ligger under «Nylig logget» i Loggfør-menyen, med siste
+registrerte mengde/enhet ved varen og valgt måltid og dato over listen.
+Kompakte kort viser navn og «Sist logget: [mengde]» til venstre og «Loggfør»
+til høyre. Navn og mengde åpner mengdevalg. Ved ekstra stor tekst stables
+handlingen under innholdet. Loggeknappens VoiceOver-tekst inkluderer vare,
+mengde, måltid og dato.
+Favoritter og øvrige nylig brukte varer finnes i Søk; «Andre hurtigvalg» vises ikke i Loggfør-arket.
+Ved tilgjengelighetstekst ruller søkekontrollene sammen med listen, slik at
+kontrollene ikke skyver Nylig brukt utenfor tilgjengelig skjermplass.
+Framtidige registreringer brukes ikke som gjenloggingsgrunnlag. Ved like
+loggtidspunkter avgjør opprettelsestid og logg-ID rekkefølgen.
+
+Gjenlogging bevarer eksakt g/ml og et kompatibelt porsjonssnapshot. Endret
+enhet eller porsjonsgrunnlag krever kontroll i produktkortet. Næringsverdier
+beregnes fra gjeldende lokale produktdata; historiske registreringer endres
+ikke. Ny registrering og hendelse lagres atomisk uten nettverksoppslag.
+Knappene sperres under lagring. Feil beholder varen og lar brukeren prøve
+igjen. Bekreftelse vises først etter lokal lagring; Angre bruker den nye
+registreringens ID og profil og sletter aldri en annen identisk registrering.
+Etter direkte hurtiglogging forblir Loggfør-arket åpent med samme listeposisjon,
+måltid og dato. Valgt knapp viser «Lagt til ✓» i to sekunder; samme vare kan
+logges igjen etter fullført lagring. Den eksisterende bekreftelsen med «Angre»
+vises inne i arket og gjelder siste registrering. Brukeren lukker arket selv.
+Profil-, dato- eller måltidsbytte under lagring undertrykker en utdatert
+bekreftelse; en påbegynt lagring beholder destinasjonen fra trykkøyeblikket.
+
 Resultater viser navn, eventuelt merke og bilde, samt kilde-/enhetskontekst.
 Innledende lasting, lesefeil, ingen tidligere produkter, ingen lokale treff og
 ingen eksterne treff har ulike tilstander. Feil tilbyr retry uten å tømme søket.
 Skanning og fungerende manuell produktregistrering er tilgjengelige alternativer.
 Manuell registrering lagrer et brukeroppgitt produkt før mengdevalg og logging.
 Et valgfritt produktbilde kan tas med kamera eller velges fra bildebiblioteket
-i «Om produktet», med forhåndsvisning, bytte og fjerning før lagring. Bildet
+etter produktnavnet. «Legg til bilde (valgfritt)» åpner valg mellom kamera og
+bildebibliotek. Et valgt bilde viser forhåndsvisning, bytte og fjerning før lagring. Bildet
 lagres kun lokalt; registrering fungerer uten bilde og ved avvist kameratilgang.
 Skjemaet grupperer feltene i «Om produktet» og «Næringsinnhold». Alle dagens
-felt er obligatoriske. Næringsverdiene oppgis per 100 g, med kcal eller g
-synlig i feltetiketten også etter inntasting. «Lagre og velg mengde» lagrer
+næringsfelt er obligatoriske. «Næringsinnhold per» tilbyr 100 g, 100 ml eller
+porsjon/stykk. Porsjon krever navn og størrelse i g/ml; verdier oppgis for én
+porsjon og normaliseres til per 100 g/ml ved lagring. Originalverdier og
+inntastingsgrunnlag bevares lokalt. Bytte av grunnlag etter inntasting krever
+bekreftelse og tømmer næringsfeltene. Kcal eller g er synlig i feltetiketten
+også etter inntasting. «Lagre og velg mengde» lagrer
 produktet lokalt før mengdevalget åpnes.
 
 ### Loggfør
 
 Den sentrale faneknappen heter «Loggfør» og åpner et bunnark uten å endre valgt
-hovedfane. Arket viser alltid «Logg til: [måltid]» og tilbyr:
+hovedfane. Samme ark brukes fra Hjem, bunnmenyen og dagsloggen.
+«Registrer manuelt» er alltid synlig og bruker det samme fungerende
+produktskjemaet som Søk-fanen, etterfulgt av mengdevalg. Skjemaet åpnes direkte
+uten en søkeskjerm som mellomsteg. Avbryt går tilbake til Loggfør-arket;
+lagring åpner mengdevalg med valgt dato og måltid bevart. Arket viser alltid «Logg til: [måltid]» og tilbyr:
 
 1. søk etter matvare
 2. skann strekkode
 3. manuell registrering
-4. hurtigvalg fra favoritter og nylig brukt
+4. en todelt velger: «Loggfør igjen» og «Lagrede måltider»
 
-Lagrede måltider vises før enkeltvarer når de finnes. De to innholdstypene har
+Velgeren ligger under dato og måltidsvalg og viser bare den valgte listen.
+«Loggfør igjen» er standard; ved vellykket førstegangslasting velges lagrede
+måltider automatisk hvis historikken er tom og maler finnes. Manuelt valg
+beholdes mens arket er åpent og overstyres ikke av oppdateringer. Begge valg
+har egne laste-, feil- og tomtilstander. Ved stor tekst stables valgene.
+
+Inngangen til «Lagrede måltider» er alltid synlig, også uten maler.
+Tomtilstanden forklarer oppretting fra dagsloggens Gjenbruk-meny. Inntil tre
+maler vises når «Lagrede måltider» er valgt; «Se alle» åpner hele listen. Trykk åpner detaljen med «Rediger»; sveip til venstre tilbyr «Rediger» og «Slett», med bekreftelse før sletting. De to innholdstypene har
 egne seksjonsoverskrifter, og en måltidsrad viser antall varer i tillegg til
 måltidsikon og innholdsoppsummering. En lagret mal åpnes i en forhåndsvisning
 med matvarer, mengder, valgt dato og måltidskategori før den loggføres.
-Oppretting skjer fra menyen til et allerede registrert måltid. Se [lagrede
+Oppretting skjer fra Gjenbruk-menyen i dagsloggen eller menyen til et registrert måltid. Se [lagrede
 måltider](saved-meals.md).
 
 Tidspunkt kan foreslå et måltid. Inngang fra et måltidskort overstyrer forslaget.
 Brukeren kan alltid endre måltid før lagring.
 
-### Oversikt
+### Utvikling
 
-Oversikt er valgfri og skal være nøytral. Den kan vise vektregistrering,
+Utvikling starter med skjermtittelen og Tilpass. Tilpass vises ved siden av
+tittelen når det er plass. Deretter følger Dag/Uke/Måned,
+datonavigasjon og kortene for valgt periode. I Dag og Måned kommer Mat og
+næring først, så Skritt og Vekt og til slutt Treningsøkter. Skritt og Vekt
+deler en rad når begge vises ved vanlig tekststørrelse. Ved store
+tilgjengelighetsstørrelser stables de.
+
+I Uke samles de synlige radene Mat og næring, Skritt og Treningsøkter i ett
+kort med sju delte dagkolonner i den rekkefølgen. Vekt står i eget kort
+under. Trykk på mat åpner dagstallarket. Skritt og
+Treningsøkter åpner sine detaljvisninger. Hver rad viser egne tom-, laste-
+og feiltilstander. Mat viser ukesum, snitt og dekning. Skritt viser ukesum
+og snitt per dag med data. Treningsøkter viser antall i uken og markerer
+dagene med økt. Flere økter på én dag får et antall.
+Skritt, Vekt og Treningsøkter har én pil ved tittelen og åpner detaljer.
+Registrering og sletting av manuell vekt ligger i vektflyten. Tilkoblingsvalg
+for Apple Helse ligger i Innstillinger.
+
+«Tilpass» åpner et ark med fire brytere i fast rekkefølge. Valgene gjelder
+alle perioder. «Lagre» bekrefter utkastet, og «Avbryt» forkaster det.
+«Gjenopprett standard» viser Mat og næring, samt Vekt når historikk finnes.
+Eksisterende valg om synlighet beholdes. Når alle områder er skjult, vises
+«Velg hva du vil se her» med inngang til tilpasning. Visningspreferansen er
+lokal per profil og separat fra SQLite-/synkskjemaet.
+
+Matperiodene er kalenderdag, mandag–søndag og kalendermåned. Pilene flytter én
+valgt periode og beholder ukedagen eller månedsdagen der kalenderen tillater
+det. Ved blaing over en kort måned brukes siste gyldige dag. Bytte av
+visning beholder ankret dato. Ved andre perioder hopper I dag, Denne uken
+eller Denne måneden tilbake til den gjeldende perioden.
+
+Matkortet i Dag viser totalt logget energi og en vannrett fordeling av
+energien fra registrerte makroer, med gram og prosent. Fordelingen
+beregnes med 4 kcal per gram protein og karbohydrat og 9 kcal per gram fett.
+Ved en registrering med energi og uten identifiserbart makrobidrag vises
+en nøytral stripe. Uke merker kcal-tallet «Totalt i uken» og viser snitt
+per logget dag separat. Måned viser snitt per logget dag som hovedtall.
+Uke og Måned oppgir antall loggede dager og periodens lengde.
+
+Søylene i Uke og Måned viser registrerte dagsverdier på en nullbasert
+skala. Dager uten data står tomme, mens en registrert null markeres på
+grunnlinjen i Uke. Dagstallarket viser én rad per logget dag med fulle
+næringsnavn.
+
+Vektkortet viser siste gyldige registrering før periodens slutt og nøytrale
+vektpunkter fra samme kilde i valgt periode. Kortet oppgir måledato.
+Detaljene viser samme periode, med kilden fra oversikten øverst. Begge
+kildene merker eventuelle eldre målinger med at de er fra før perioden. Registrering og full manuell historikk er
+tilgjengelig fra MatLogg-delen. Demomodus er merket ved tittelen i Utvikling.
+Skritt bruker samme periode og datonavigasjon som mat og vekt, med
+tilgjengelige skritt fra Apple Helse. Treningsøkter bruker full bredde uansett
+rekkefølge. I Dag og Måned viser det egne kortet antall økter og de to
+nyeste med type, dato og høyrestilt varighet. En pil ved tittelen viser at hele kortet åpner detaljene.
+Detaljene viser hele listen med klokkeslett og Apple Helse som kilde.
+Begge visningene bruker timer og minutter for økter på minst én time.
+
+Oppsettet lagres per profil på enheten og følger overføring, eksport og sletting.
+NavigationStack tilbakestilles ved profilbytte. Loading, tomtilstand og feil
+bevarer skillet mellom manglende og registrerte data. Kortet kan vise siste
+matdata ved oppdateringsfeil; ny periode tømmer gamle periodetall før lesing.
+
+**Profil → Innstillinger → Apple Helse** samler bryterne for Skritt, Vekt
+og Treningsøkter.
+Å slå på en datatype ber om lesetilgang til den datatypen. Bryterne viser
+hvilke datatyper MatLogg er satt opp til å hente for profilen. Systemets
+lesetilgang styres i Helse. Å slå av en bryter stopper lesing for profilen
+og tømmer de viste målingene. Brukeren kan sette opp Helse med kortet skjult.
+Målinger hentes når kortet vises i Utvikling. Før tilkobling kan brukeren
+åpne samme innstillingsside i et ark fra kortdetaljene. **Tilpass** styrer
+kortenes synlighet og forklarer hvor datatilgangen styres.
+
+Skrittkortet åpner en detaljvisning med valgt periode, kilde og hentetid.
+
+Skritt viser periodens tilgjengelige sum. I Uke vises dagsfordelingen
+som søyler. I Dag og Måned vises en liten graf fra to registrerte punkter. Detaljene viser søyler per time for Dag og per dag for
+Uke og Måned. Timer og dager uten skrittdata gir hull i grafene.
+Kortet oppdateres ved periodebytte,
+når kortet åpnes, når appen kommer til forgrunnen, ved
+lokalt døgn-/tidssoneskifte og når brukeren drar ned for å oppdatere.
+Ingen bakgrunnslevering eller kontinuerlig overvåking. Skjuling, bakgrunn og
+profilbytte fjerner visningens midlertidige tall og avviser sene svar.
+
+HealthKit avslører ikke om lesetilgang er avslått. Et tomt resultat vises som
+«Ingen skrittdata tilgjengelig», med forklaring om manglende registreringer
+eller tilgang og veiledning om å kontrollere tillatelsene i Helse. Et faktisk
+nulltall vises bare når kilden gir en sum på null. Lesefeil gir retry uten gamle
+skrittall. Demomodus viser fiktive skritt-, vekt- og treningsdata for valgt
+periode når kortene er synlige, med Demodata-merking ved tittelen. Eksempeldata
+holdes bare i minnet; demomodus leser ikke ekte helsedata. Ingen skrittmål, kalorijustering eller nye helseberegninger.
+
+Utvikling er valgfri og skal være nøytral. Den kan vise vektregistrering,
 historikk og graf, men skal ikke bruke gratulasjoner, advarsler eller farge alene
 til å vurdere vektendring. Sletting krever en tydelig bekreftelse.
+Etter tilkobling viser Helse-kortet siste måling og tidligere målinger i valgt
+periode. En eldre måling kan vises med dato når det ikke finnes en i perioden.
+Helse-målingene ligger i minnet og følger reglene for skjuling, bakgrunn og
+profilbytte. MatLogg-kortet i detaljene viser manuelle registreringer separat.
+«Registrer vekt» åpner et avgrenset skjema i kortet. «Se alle registreringer» åpner
+hele den lokale vekthistorikken med nyeste dato først, dato og kg-verdi samt
+egen sletteknapp per registrering. Bekreftelsen identifiserer dato og vekt.
+
+### Personvern og valg
+
+Kort forklaring om databruk, dokumentlenker og delingsstatus vises som tre
+separate kort med eksisterende komponenter. Dokumentlenker uten tilgjengelig
+handling er deaktivert. Bruksstatistikk og krasjrapporter har én informativ
+statusrad; utilgjengelige samtykkebrytere vises ikke. Kamerateksten dekker
+både strekkodeskanning og frivillige produktbilder.
 
 ### Profil
+
+Profil → Innstillinger har en «Utseende»-rad med ikon og valgt modus. Raden
+åpner en lokal popup-meny med «Følg telefonen» (standard), «Lys modus»
+og «Mørk modus». Valget gjelder hele appen umiddelbart og lagres på enheten
+mellom oppstarter, uten nettverk eller synk.
 
 Profil samler:
 
@@ -211,12 +396,25 @@ Profil samler:
 - eksport, innlogging og kontosletting
 - lokal/synkronisert datastatus
 
+«Hjelp og støtte» er siste rad i profilens menykort, under Innstillinger.
+FAQ-spørsmål vises som lukkede, individuelt utvidbare rader. Trykk på et
+spørsmål folder svaret ut eller inn; flere svar kan være åpne samtidig.
+Siden viser lokale svar om logging, manglende matvarer, offlinebruk, lokal
+lagring og eksport. Kontakt åpner brukerens e-postapp med mottaker og emne,
+uten automatisk vedlegg eller personopplysninger. Kontakt vises i én rad med
+«Send e-post» og adressen som undertekst. Langt trykk åpner deling av adressen,
+med kopiering fra delingsarket; avvist e-poståpning viser en forklaring. «Om MatLogg» viser versjon
+og buildnummer. Hjelpen krever verken konto eller nett; sending av e-post krever nett.
+
 Profilkortet er den faste inngangen til Personlige detaljer; denne lenken
 finnes ikke i Innstillinger. Innstillinger samler personvern, visning og
 tilbakemelding, data og lagring samt konto. Personopplysninger og forklaringen
 om målforslag ligger i Personlige detaljer, mens kalori- og makromål redigeres
 i Daglige mål.
-Profil viser ett målkort med eksplisitt redigering, uten dupliserte tallkort.
+Profil viser «Daglige mål» som første rad i menyen, over Favoritter og
+Innstillinger. Raden viser lagret kalorimål i kcal per dag, eller «Valgfritt ·
+Sett opp mål» når mål mangler. Hele raden åpner Daglige mål; den detaljerte
+kalori- og makrooversikten vises på målskjermen.
 Personlige detaljer redigeres som et utkast med Avbryt/Lagre. Navn vises i
 gruppen «Profil». Fødselsdato, kjønn, høyde, vekt og aktivitetsnivå
 samles i kortet «Grunnlag for målforslag», med en kort formålsforklaring før
@@ -234,20 +432,32 @@ profilen automatisk. «Bruk verdi» oppdaterer profilutkastet, «Fjern opplysnin
 tømmer feltet, og Avbryt eller lukking forkaster arket. Profilens «Lagre» er
 fortsatt eneste lagringshandling. VoiceOver kan justere skalaen med sveip
 opp/ned; direkte inntasting er tilgjengelig ved alle tekststørrelser.
-Fødselsdato kreves ved lagring av Personlige detaljer; øvrige opplysninger er
+Alle opplysninger i Personlige detaljer, inkludert fødselsdato, er
 valgfrie, og brukeren kan også sette mål selv.
 Et valgfritt visningsnavn lagres per profil på enheten, uten synk, og vises i profilkortet
 foran eventuelt navn fra kontoen. Eksisterende profiler uten fødselsdato
-beholdes, men må velge dato før nye detaljer lagres. Manglende dato og ugyldige tall avvises ved feltet, og lagringsfeil beholder
-utkastet på skjermen. Vekt her er beregningsgrunnlag, ikke en vektregistrering.
+kan lagre nye detaljer uten å velge dato. En oppgitt dato i fremtiden og ugyldige tall avvises ved feltet, og lagringsfeil beholder
+utkastet på skjermen. «Vekt brukt i målforslag» er beregningsgrunnlag, ikke en vektregistrering.
+Utvikling bruker «Registrer vekt» for vekthistorikken.
 Endrede opplysninger endrer ikke eksisterende mål automatisk. Målveiviseren
 kan åpne Personlige detaljer når beregningsgrunnlaget mangler.
 
 Innstillinger viser lokal lagringsstatus uten gjentatt forklaring når synk ikke
-er tilgjengelig. Eksportdetaljer samles under «Hva følger med?», uten egen
-forklaring under «Last ned data». I lokal modus har Konto ingen ekstra
+er tilgjengelig. Statusraden samler enhetsikon, lagringssted og offlineadferd.
+«Eksporter data» har delingsikon og viser fremdrift under klargjøring.
+Datasett og JSON-format samles under «Hva følger med?». Under kortet forklares
+manglende skybackup i lokal modus og at eksporten ikke kan importeres tilbake.
+Ved tilgjengelig synk beholdes status, feil og retry-handlinger, med synkforklaring
+under kortet. I lokal modus har Konto ingen ekstra
 lagringsstatusrad; en kort synlig tekst forklarer at konto er valgfritt og at
 innlogging foreløpig ikke gir sikkerhetskopi eller synk mellom enheter.
+
+Konto samler innloggingsmetode og e-postadresse i én rad, med e-post som
+sekundær tekst. Apple-adresser med privat videresending merkes «Privat
+e-postadresse fra Apple» og har et infoikon som åpner en forklaring.
+«Logg ut» vises som en nøytral rad. Lagringsbegrensningen står under
+kontokortet. «Fjern lokale data» og «Slett konto» ligger i en egen seksjon
+«Sletting» for innloggede brukere, med eksisterende bekreftelser og konsekvenser.
 
 Eksport under Innstillinger inneholder matlogg, vann, lagrede måltider,
 gjeldende daglige mål, vekthistorikk, personlige detaljer og favoritter for
@@ -281,51 +491,40 @@ Enkeltlogger redigeres i samme visuelle mønster og bruker presentasjonsnavnet
 «Kveldsmat». Alle nye logger lagres atomisk og kan angres samlet. Se [lagrede
 måltider](saved-meals.md).
 
-### Førstegangsbruk
+### Førstegangsbruk – kontrollert mot kode 2026-10-04
 
 ```text
 Åpne appen
-  → fortsett på denne iPhonen, eller logg inn med Apple/e-post
-  → se kort forklaring av lokal lagring, valgfrie opplysninger og avgrensning
-  → velg kun loggføring, eller sett opp et valgfritt mål
-  → oppgi eller hopp over beregningsgrunnlag; appen gjetter aldri manglende data
-  → kontroller eventuelt estimert energi- og makromål
-  → se personvernvalg og en oppsummering
-  → Hjem
+  → forsøk å gjenopprette eksisterende sesjon
+  → opprett lokal profil automatisk når ingen konto er lagret
+  → Første måltid: søk med fokus, Skann og Manuelt
+  → velg matvare og kontroller mengde, enhet og måltid i produktkortet
+  → loggfør lokalt
+  → Hjem med bekreftelse og Angre
 ```
 
-Velkomstskjermen skal vise budskap, trygghetspunkter og primærhandling uten
-scrolling på en vanlig iPhone i standard tekststørrelse. Innholdet ligger fortsatt
-i en scrollbar beholder som tilgjengelighetsfallback for små skjermer, liggende
-retning og store tekststørrelser. «Start med bare matlogging» skal ikke
-opprette et skjult kalorimål i bakgrunnen.
+«Gå til Hjem» avslutter førstegangsvisningen uten logging. «Logg inn» er en
+sekundær handling. Kort informasjon om lokal lagring og valgfrie konto/mål,
+personvernlenke og informasjon om manglende skybackup følger søket. Ved feil
+beholdes input slik at brukeren kan prøve igjen. Lokale treff og manuell
+registrering fungerer uten nett; eksterne katalogoppslag krever nett.
 
-
-### Forenklet førstegangsberegning
-
-Introduksjonen tilbyr «Få et forslag til dagsmål» eller «Start med bare
-matlogging». Måloppsett følger retning → beregningsgrunnlag → samlet forslag
-→ personvernvalg → oppsummering og eksplisitt lokal lagring. Tempo vises bare
-ved oppgang/nedgang. Aktivitet samles med vekt, høyde, alder og formelgrunnlag.
-Manglende eller ugyldige opplysninger forklares ved feltene før beregning;
-manuelt mål og fortsatt logging uten mål er tilgjengelig.
-
-Resultatet viser kalorier og makroer samlet. Balansert er standard, og
-«Tilpass målene» åpner kalorifelt og makrofordeling ved behov. Separate
-justeringsknapper og obligatorisk makrotrinn er fjernet. Oppsummeringens
-«Endre» for næringsoversikt går tilbake til resultatet. Beregningsformel,
-produktgrenser og eksisterende lagringsgrenser er uendret. Profilens nye
-forslag bruker samme GoalCalculator og har valgfri næringsfordeling.
-
+Ingen introduksjons- eller målveiviser blokkerer første logging. Mål settes
+valgfritt under Profil → Daglige mål; oppstart oppretter ikke et skjult mål.
+Ved stor tekst stables søkehandlingene vertikalt, og innholdet kan rulles.
+Søkeresultatets bilde og fremdriftsindikator ligger over teksten ved
+tilgjengelighetsstørrelser, slik at navn, enhet og kilde får hele radbredden.
+Detaljer om fullføring, gjenåpning og kjent konto finnes under
+[Første logging](#første-logging-2026-10-02).
 
 Lokal bruk er fullverdig og tidsubegrenset. Konto er et valgfritt valg på
-velkomstskjermen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
+førstegangsvisningen og i Profil. Konto skal ikke omtales som sikkerhetskopi eller
 flerenhetssynk før servernedlasting og gjenoppretting er implementert. Hvis en
 lokal profil med data logger inn, må brukeren bekrefte før dataene atomisk
 knyttes til kontoen. Utlogging skjuler kontodataene på enheten; de blir ikke
 synlige for en ny lokal profil.
 
-Målberegninger skal merkes som veiledende. Onboarding skal ikke love medisinsk
+Målberegninger skal merkes som veiledende. Førstegangsbruk skal ikke love medisinsk
 effekt eller gjøre vekt obligatorisk når funksjonen kan fungere uten.
 
 ### Redigere daglige mål
@@ -342,8 +541,10 @@ beregningsgrunnlaget er gyldig. Et automatisk forslag krever gyldig vekt,
 høyde, alder 18+ og valg av kvinne- eller mannvarianten i voksenformelen.
 Ved manglende eller annet formelgrunnlag skal appen ikke gjette et generelt
 kaloritall; brukeren kan oppdatere Personlige detaljer eller angi eget mål.
-«Bruk forslaget» endrer bare utkastet; vanlig lagring kreves etterpå. Veiviseren
-oppdaterer ikke personopplysninger. Førstegangsoppsett bruker fortsatt onboarding.
+Resultatet fremhever «ca.» kalorier med enhet, med makroer i kompakte rader.
+Estimatforklaringen står under resultatkortet. «Bruk forslaget» er
+primærhandlingen og endrer bare utkastet; vanlig lagring kreves etterpå. Veiviseren
+oppdaterer ikke personopplysninger. Førstegangsbruk åpner logging direkte; mål settes valgfritt under Profil.
 
 Forslaget omtales som et «estimert startpunkt», ikke som en anbefaling eller
 fasit. Standardprofilene for makroer ligger innenfor NNR 2023-intervallene for
@@ -409,6 +610,12 @@ påkrevd og valgfritt innhold og forklare feil ved feltet.
 Den normative funksjonslisten, konfliktavgrensningen og statusmatrisen finnes i
 [offline-adferd og synkstatus](offline-behavior.md).
 
+Dagens lanseringsscope bruker `DomainUploadPolicy.localOnly`: data og
+synkhendelse lagres atomisk lokalt, og status er «Lagret på denne enheten».
+Nettforbindelse eller kontokobling starter ikke opplasting eller retry-timere.
+
+Følgende flyt gjelder en framtidig, særskilt godkjent synkfunksjon:
+
 ```text
 Bruker lagrer uten nett
   → lagre data og synkhendelse atomisk lokalt
@@ -448,7 +655,8 @@ Bruk kort, konkret norsk og handling først:
 
 - «Loggfør mat»
 - «Logg til: Lunsj»
-- «Lagret på enheten – venter på synk»
+- «Lagret på denne enheten» (dagens lokale lagring)
+- «Lagret på enheten – venter på synk» (framtidig godkjent synkfunksjon)
 - «Vi fant ikke denne strekkoden»
 - «Prøv igjen»
 - «Ingen logget ennå»
@@ -464,6 +672,7 @@ Unngå:
 
 - effektiv trykkflate på minst 44 × 44 pt
 - Dynamic Type uten tap av kritisk informasjon eller handling
+- Ved tilgjengelighetsstørrelser vises fanene over to rader med Loggfør på en egen rad mellom dem. Alle handlingene er synlige samtidig.
 - logisk VoiceOver-rekkefølge og meningsfulle etiketter
 - normal tekst minst 4,5:1 kontrast; stor tekst og meningsfulle UI-elementer
   minst 3:1
@@ -493,20 +702,374 @@ slettehendelser. Bekreftelser for større slettinger beholdes.
 
 ## Måltidsrommet
 
-Hjem åpner riktig måltid og dato. Måltidsvelgeren viser Frokost, Lunsj, Middag
-og Kveldsmat; «Se hele dagen» tilbyr samlet liste. Datobytte beholder måltidet.
+Dagsloggen viser alltid hele valgt dag, med samlet næring og antall varer
+øverst og Frokost, Lunsj, Middag og Kveldsmat i samme liste. Tomme måltider
+viser «Ingen mat registrert» og «Legg til». Måltidsknappene ruller til en
+seksjon uten å skjule resten av dagen; de nullstiller et aktivt søk og setter
+måltidskontekst for logging. Åpning fra et måltid på Hjem ruller til seksjonen.
+Datobytte viser hele den nye dagen. «Velg frokost» og «Se hele dagen» er fjernet.
 Produktbilder, navn og mengde prioriteres; næring per vare er sekundært.
-Trykk eller VoiceOver-handlingen «Rediger» åpner eksisterende redigering; sveiping tilbyr flytting og
-sletting med angre. «Legg til mat» beholder valgt måltid og dato.
-Samlet næring vises rett under måltidsnavn og antall varer og summerer hele måltidet uavhengig av søk.
-Søk gjelder valgt måltid eller hele dagen. Lasting skilles fra tomt måltid og
-ingen søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
+Trykk eller VoiceOver-handlingen «Rediger» åpner eksisterende redigering;
+sveiping tilbyr flytting og sletting med angre. «Legg til» ved seksjonen
+bruker det måltidet og valgt dato. Søk gjelder hele dagen; dagsnæringen
+summerer alle varer uavhengig av søk. Lasting skilles fra tom dag og ingen
+søketreff. Måltidsmenyen kan lagre alle måltidets varer som en mal.
 «Kopier hele dagen fra i går» beholder eksisterende dagsscope.
 
-### Linjalvelger i onboarding
+### Linjalvelger i eldre onboarding – historisk implementasjon
+
+Den eldre målveiviseren (`MatLoggOnboardingFlowView`) er bevart i kode, men
+har ingen aktiv inngang i dagens førstegangsflyt. Beskrivelsen nedenfor gjelder
+denne veiviseren; aktiv redigering skjer under Profil.
 
 Vekt og høyde bruker samme linjalvelger som Personlige detaljer, med tekst
 tilpasset onboarding. «Bruk verdi» oppdaterer bare onboarding-utkastet.
 Avbryt beholder tidligere input; tomme felt fylles ikke automatisk med
 linjalens startverdi. Direkte inntasting og fjerning er tilgjengelig.
 Eksisterende validering avgjør om opplysningene kan brukes i beregningen.
+
+### Første logging (2026-10-02)
+
+Etter forsøk på sesjonsgjenoppretting opprettes lokal profil automatisk ved
+første åpning uten lagret konto. Mislykket gjenoppretting av en kjent konto
+beholder eksplisitt innloggingsinngang, uten å bytte eier automatisk. Førstegangsvisningen åpner to korte, sveipbare introsider: «Matlogging gjort enkelt»
+og «Oversikt på dine premisser». Lokalt bundlete fotografier viser en frokostskål og pizza. Native
+SwiftUI-sidevisning følger fingeren under sveiping; hver side er rullbar. «Neste» åpner side 2, mens «Logg din første matvare»
+og «Hopp over intro» åpner søk med fokus, skanning og manuell
+registrering på samme flate. Kort informasjon om lokal lagring, valgfri konto
+og mål samt personvernlenke følger søket. Innlogging er sekundær.
+
+Introen krever to trykk før logging, eller ett med «Hopp over intro»; målberegning, separat personvernside og oppsummering inngår ikke i oppstarten. Måloppsett gjenbruker Profil → Daglige mål. Kamera etterspørres først
+etter valgt skanning. Produktkortet beholder mengde, enhet, kilde og måltid.
+
+Bekreftet lokal lagring åpner Hjem med eksisterende kvittering og Angre.
+Kvitteringen har også en synlig «Lukk bekreftelse»-knapp, slik at brukeren
+kan frigjøre de underliggende matradene uten å angre loggingen eller vente.
+«Gå til Hjem» avslutter også førstegangsvisningen; ellers starter den på introen ved
+neste åpning. Angre starter ikke onboarding på nytt. Tidligere fullført
+onboarding bevares. Normalflyten har fire skjermer og fire trykk pluss tekstinntasting
+for lokalt treff med passende foreslått mengde og måltid.
+
+## Antall og porsjonslogging (2026-10-02)
+
+Produktkortet har én mengdevelger med gram/ml og tilgjengelige porsjoner.
+Porsjonsvalg viser antallsfelt, −/+, mengde per porsjon, kilde og beregnet total.
+Desimalantall er tillatt, og næringsoversikten følger totalen. Første eksplisitte
+porsjonsvalg starter på 1; senere enhetsbytter bevarer totalen. Sist brukte
+antall gjenbrukes bare når porsjonsgrunnlaget fortsatt matcher.
+
+Logg og redigering viser eksempelvis «2 Polarbrød · 75 g». Historisk grunnlag
+bevares ved katalogoppdatering. Basismengde er alltid tilgjengelig. Ugyldig
+input deaktiverer lagring, og mislykket redigering beholder utkastet for retry.
+Pakkevekt vises som hel pakke; navn alene bestemmer ikke stykkvekt.
+Ingen gram/ml-konvertering uten dokumentert grunnlag, og ingen porsjonseditor
+inngår i denne versjonen. Produktkortet brukes likt fra skanning og søk.
+Ved tilgjengelighetsstørrelser står enhetsvelgeren under etiketten og får
+tilgjengelig bredde. Tallfelt og øk/reduser-kontroller skal ikke bli bredere
+enn skjermen når Dynamic Type skalerer opp.
+
+## Lokal lansering – 3. oktober 2026
+
+Hjem og Profil bruker «Lagret på denne enheten» uavhengig av nettstatus eller
+hvilende kø. Ingen ventende opplasting/retry presenteres i lokal modus.
+Konto beskrives som innlogging uten skybackup, også ved bekreftet kontokobling.
+Første logging viser kort informasjon om datatap og eksport i den scrollbare
+listen, før søket er startet. Informasjonen skal ikke låses til bunnen og
+fortrenge handlinger ved store tilgjengelighetsstørrelser. Profil → Innstillinger
+har samme forklaring og «Eksporter data», med tydelig tekst om manglende import.
+Eksisterende tokens, tabbar-clearance og systemdeling beholdes.
+
+### Bearbeidingsgrad på produktkortet (2026-10-03)
+
+OFF-produkter viser en kompakt, trykkbar NOVA-rad før måltidsvalget.
+Gruppenavn og kildebasert status vises uten helsescore. Klassifiseringsraden
+bruker dempet grønn/rød bakgrunn som beskrevet nedenfor.
+Raden åpner et stort, rullbart forklaringsark med produktnavn, status,
+tilgjengelig norsk grunnlag, ingredienser og produktlenke. Arket har Lukk
+og støtter sveip for lukking. Mengde og måltid bevares. Ukjente markører
+vises ikke som tekniske tagger; delvis forståelig grunnlag merkes. Manglende klassifisering og ingredienser beskrives eksplisitt.
+Opplysningene følger produktcachen og fungerer offline; klassifiseringen er
+gjeldende kataloginformasjon, ikke et historisk snapshot av matloggen.
+
+### Nutri-Score og produktinformasjon (2026-10-03)
+
+Ett produktinformasjonskort samler Nutri-Score og bearbeidingsgrad etter
+næringsoversikten per 100 g og før måltidsvalget. Begge rader åpner egne
+forklaringsark uten nye nettverkskall. Nutri-Score viser offisiell A–E-grafikk for kjente beregningsversjoner
+(2021: original, 2023: «New calculation»). Bildene følger appen og virker
+offline. Ved ukjent/manglende versjon vises tekstlig karakter. Kilde og
+algoritmeversjon vises i arket; ingen lokal beregning eller poengoversikt.
+Manglende karakter vises som «Ikke tilgjengelig». Mengde og måltid bevares.
+
+Grafikken er hentet uendret fra Open Food Facts:
+https://static.openfoodfacts.org/images/attributes/dist/nutriscore-{a-e}.svg
+og `nutriscore-{a-e}-new-en.svg`. Bruk av offisiell merking følger
+https://www.santepubliquefrance.fr/en/nutrition-and-physical-activity/nutri-score
+og OFFs veiledning om offisielle assets.
+
+### Forklaring av Nutri-Score (2026-10-03)
+
+Kun Nutri-Score-arket viser kildeoppgitte komponenter og poeng fra samme
+2023-beregning som karakteren. Plusspoeng/minuspoeng vises med verdier,
+originale enheter og «x av y», uten egne poengberegninger. Estimater og
+utelatt proteinbidrag forklares; manglende verdier blir aldri null. Ukjent
+versjon eller karakteravvik gir generell forklaring uten beregningsdetaljer.
+
+### Visuelle poengbidrag (2026-10-03)
+
+Nutri-Score-arket viser kompakte komponentrader med navn/verdi, kildepoeng
+og segmentbokser. Totalen står ved seksjonstittelen. Lange navn og stor
+tilgjengelighetstekst får stablet layout; segmentene brytes etter tilgjengelig
+bredde. Plussbidrag bruker grønn nutritionPositiveContribution, minusbidrag rød
+nutritionNegativeContribution; farge er aldri eneste
+forklaring. VoiceOver leser tekstverdiene, ikke hver boks. Bokser viser bidrag
+til Nutri-Score, ikke daglige anbefalinger. Ugyldige/manglende poengtall
+eller maksimum over 100 gir ingen segmentillustrasjon.
+
+### Protein som ikke er medregnet
+
+Ved utelatt proteinbidrag vises en proteinrad nederst i plusspoengkortet,
+uten poengsegmenter eller nullpoeng. «Teller ikke med i Nutri-Score» åpner
+en kort forklaring via infoikon. Mengden vises bare når dokumentert
+næringsgrunnlag matcher beregningen og begge gjelder varen som solgt.
+Plusspoengtotalen endres ikke.
+
+
+### Tydeligere språk om ultraprosessering (2026-10-03)
+
+Produktinformasjon viser næringsinnhold, Nutri-Score og «Bearbeidingsgrad»
+på samme kortflate med konsekvente skillelinjer (oppdatert 2026-10-04).
+Bearbeidingsgrad viser den konkrete gruppen og «NOVA 1–4» i en kompakt
+brikke med mørk, halvfet tekst: «Minimalt
+bearbeidet» (NOVA 1), «Bearbeidet matlagingsingrediens» (NOVA 2), «Bearbeidet»
+(NOVA 3) og «Ultraprosessert» (NOVA 4). Ukjent/ugyldig gruppe viser «Ikke
+tilgjengelig» i samme brikkeform med nøytral grå bakgrunn, uten NOVA-nummer. «Kilde: Open Food Facts» står under.
+Brikken bruker svak rosa bakgrunn for NOVA 4 og svak grønn for NOVA 1–3,
+med samme form og flerlinjestøtte. Selve raden har nøytral bakgrunn.
+Nutri-Score beholder offisiell logo og får vertikal layout ved
+tilgjengelighetsstørrelser. Kildelenke, hentetidspunkt og «Oppdater» samles i
+kortets fot; hentestatus og feilmelding vises samme sted. Trykkflater er minst
+44 pt høye, og radene har fleksibel høyde og full tekst.
+Arket «Bearbeidingsgrad» viser produkt, status, gruppeforklaring, avgrensning
+mot næringskvalitet, «Hva bygger vurderingen på?», ingredienser, utfellbar
+NOVA-forklaring, kilde, hentetidspunkt og produktlenke. Markører knyttes til
+aktuell gruppe; ukjent grunnlag gjettes aldri. Gyldig gruppe beholdes selv om
+forklarende markører mangler. Åpning krever ingen IO og bevarer loggingstilstand.
+
+### Samlet loggingkort på produktdetaljer (2026-10-03)
+
+Måltid og mengde vises på én kortflate med tydelige deloverskrifter og en
+diskret intern skillelinje. Måltidsvalg bruker fire knapper med lik bredde i
+et rutenett med to kolonner, valgt måltid i dempet rosa. Dato vises under
+Måltid. Mengdevelger, porsjonsgrunnlag, total mengde og «Næringsinnhold for
+din mengde» følger under. Full tekst og fleksibel høyde beholdes ved stor
+skrift. Den faste «Legg til»-knappen bruker fortsatt valgt måltid.
+
+### Prioritering på produktdetaljer (2026-10-03)
+
+Produktbilde (160 pt), fullt produktnavn og tilgjengelig merke kommer først.
+Loggingkortet følger med mengde, næringsinnhold og deretter måltid/dato.
+Valgt måltid har både rosa bakgrunn og hake. Produktinformasjon kommer etter
+logging og samler utfellbart næringsinnhold per 100 g/ml, Nutri-Score og NOVA
+(de to siste når OFF-metadata er tilgjengelige). Kilde, hentetid og
+oppdateringshandling følger under. Den faste lagreknappen viser måltid og
+total mengde. Eksisterende datagrunnlag, validering og lagring beholdes.
+
+Mengdevelgeren har en ramme rundt valgt porsjon/enhet og nedoverpil.
+Antall vises til venstre for en samlet kontroll med minus, tallfelt og pluss.
+Ved tilgjengelighetsstørrelser vises etiketten over kontrollgruppen. Generisk
+«portion» vises som «Porsjon»; råverdi og lagret porsjonsgrunnlag beholdes.
+
+### Norske feilmeldinger (2026-10-03)
+
+Konto- og lagringsmeldinger bruker norsk tekst fra feiltype/kode eller en
+handlingsspesifikk fallback. Rå servertekst og systemfeil vises ikke direkte.
+Ukjente feil lover ikke at en flertrinnshandling ble rullet tilbake.
+Synkresultater skiller automatisk retry fra behov for oppfølging og omtaler
+allerede lagrede hendelser som lokale data. Produksjonssynk aktiveres ikke.
+
+### Redigering av matlogging
+
+Redigeringsarket viser «Rediger logging», produktbilde/navn, eventuell merkevare og
+loggingens dato. Mengde og lagret porsjonsgrunnlag kommer først, deretter en kompakt
+næringsoppsummering beregnet fra loggingens opprinnelige næringssnapshot og måltidsvalg.
+Det gjøres ikke nye katalogoppslag for å åpne arket. «Lagre endringer» er deaktivert
+uten en gyldig, reell endring. Under lagring låses kontrollene og lukking; feil vises
+ved lagreknappen og beholder utkastet. Stor tekst bruker full arkhøyde.
+For tilgjengelige matvarer viser arket et hjerte øverst til høyre. Trykk legger
+varen til i eller fjerner den fra favoritter med en gang, uavhengig av om
+endringer i loggingen lagres. Et fylt hjerte viser at varen er en favoritt.
+
+Hjems overskrift erstattes av «God morgen» kl. 05–11, «God ettermiddag» kl. 11–17,
+«God kveld» kl. 17–23 og «Hei» kl. 23–05, basert på enhetens lokale tid.
+Hilsenen oppdateres ved gjenåpning og hvert minutt mens skjermen vises. Andre
+valgte datoer viser «Dagsoversikt». Samme plassering og typografi beholdes;
+ingen ekstra tekstlinje eller animasjon legges til.
+
+### Samlet detalj og redigering av lagrede måltider
+
+Et lagret måltid åpnes i én detaljflate. «Rediger» bytter samme flate til
+redigeringsmodus; sveipehandlingen «Rediger» åpner denne modusen direkte. Navn, bilde,
+mengder og fjerning av matvarer redigeres i en kladd. Dato og måltidskategori
+skjules under redigering. «Lagre endringer» lagrer lokalt og går tilbake til
+oppdatert visning. Feil beholder kladden. «Avbryt» eller lukk ber om bekreftelse
+før endrede verdier forkastes. Sveip for å lukke er deaktivert under redigering.
+Mengdejustering før logging gjelder bare aktuell loggføring; redigeringskladden
+starter alltid fra den lagrede malen. Tidligere loggføringer påvirkes ikke.
+Nye matvarer kan legges til i redigeringskladden.
+
+Detaljflaten beholder måltidsnavnet som tittel i begge moduser. «Rediger»/
+«Avbryt» ligger fast over scrollinnholdet sammen med modusmarkeringen.
+Navn og næringsoppsummering samles i ett kort øverst. Navnet vises som
+tekst før logging og som redigerbart felt i redigeringsmodus. Eksisterende bilde har
+samme høyde (180 pt) i begge moduser; redigering viser kompakte bildehandlinger.
+«Mengdene gjelder denne loggføringen» vises bare før logging. Loggdestinasjonen
+samler måltid og dato i ett kort; matvarene ligger i ett eget innholdskort.
+Modusmarkeringen skiller «Loggfør lagret måltid» fra «Rediger lagret måltid».
+Matvarenes handlingsmeny ligger ved produktnavnet, med reservert plass også
+utenfor redigeringsmodus, slik at radstruktur og navnebryting beholdes.
+
+I redigeringsmodus tilbyr måltidsdetaljen «Legg til matvare». Søk og mengdevalg
+legger varen i kladden uten logging. Eksisterende vare får oppdatert mengde;
+hele kladden lagres først med «Lagre endringer» og forkastes ved avbryt.
+
+### Kildeinformasjon på produktkortet (2026-10-04)
+
+Produktinformasjon samler næringsinnhold per 100 g/ml og vurderingene i ett
+kort. En kort næringskilde vises når kildevisning er aktiv eller varen bruker
+Open Food Facts. «Kilde og oppdatering» samler næringskilde, eventuell annen
+bildekilde og tilgjengelig oppdateringsdato fra kilden i en utvidbar del.
+Oppdateringsmeldinger vises også når delen er lukket. Open Food Facts-lenken åpner produktet når gyldig
+strekkode finnes, ellers katalogens forside. Hentetidspunkt og Oppdater beholdes.
+Det separate Kilder-arket og info-knappen er fjernet. Datakilder, forbehold og
+Open Food Facts-lisenser finnes under Hjelp og støtte → Om MatLogg → Datakilder
+og lisenser. Kildedata og datoer beholdes i lagringen.
+
+«Legg til matvare» i lagret måltid bruker Loggfør-valgflaten i kladdkontekst,
+med søk, skanning og manuell registrering. Dato, kategori og måltidsgjenbruk
+skjules. Alle produkter går til kladdens mengdevalg, uten å opprette matlogger.
+
+
+### Loggerekke på Hjem
+
+Hjem viser en diskret flamme og antall sammenhengende dager med minst én
+matregistrering til høyre for hilsenen. Ved stor tekst kan telleren stå under
+hilsenen. VoiceOver leser «Mat logget N dager på rad». Null vises dempet;
+lasting eller lesefeil viser ingen teller fremfor en uriktig null.
+
+Rekken gjelder dagens dato uavhengig av valgt dato i dagsoversikten.
+Registreringens `loggedDate` og enhetens gjeldende kalender/tidssone brukes.
+Flere registreringer samme dag teller én gang. En rekke som slutter i går
+beholdes til dagen er over; en hel manglende dag bryter rekken. Fremtidige
+registreringer teller ikke ennå. Etterregistrering kan reparere et hull;
+sletting og Angre beregner rekken på nytt. Vann inngår ikke.
+
+Beregningen er lokal og avgrenset til aktiv profileier, uten nye lagrede
+verdier, synkhendelser, premier, varsler eller pressende budskap.
+
+
+### Onboardingfoto (2026-10-05)
+
+Bildene er lokalt bundlet (1000 px bredde), uten nettverkskall.
+- OnboardingBreakfast: Livilla Latini, [Pexels](https://www.pexels.com/photo/a-bowl-of-oatmeal-with-berries-and-raspberries-27850094/).
+- OnboardingMeal: ROMAN ODINTSOV, [Pexels](https://www.pexels.com/photo/a-whole-pizza-on-a-wooden-table-5902953/).
+- Bruksgrunnlag: [Pexels License](https://www.pexels.com/license/), kontrollert 2026-10-05.
+
+### Gjenoppretting av manuell logging (2026-10-07)
+
+Manuell produktregistrering og påfølgende mengdevalg har ett lokalt utkast per
+profil, også uten konto. Hjem, Søk og Loggfør viser Fortsett/Forkast. Et nytt
+manuelt forsøk tilbyr først å fortsette eller forkaste et eksisterende utkast.
+Lukk beholder utkastet; Forkast krever bekreftelse og sletter ikke et allerede
+lagret produkt. Første logging og ukjent strekkode bruker samme flyt. Manuell
+oppretting som del av bygging av en måltidsmal beholder eksisterende adferd.
+
+Tekst, næringsgrunnlag, porsjon, ferdig importert bilde og registreringskontekst
+lagres etter omtrent 300 ms uten nye endringer. Bakgrunnslegging og Lukk forsøker
+å lagre straks. Fortsett gjenoppretter siste vellykkede lokale lagring og riktig
+steg. Mengdeskjermen viser opprinnelig dato og eksplisitt dato-/måltidsvalg.
+Siste ikke-lagrede endringer kan gå tapt ved brå terminering. Utkast er ikke backup.
+
+Bruk eksisterende komponenter og semantiske tokens, Dynamic Type, VoiceOver og
+44-punkters touchflater. Ingen automatisk åpning av utkast over onboarding eller
+innlogging. Ved lagringsfeil beholdes input og brukeren kan prøve igjen.
+
+## Landingsside (2026-10-08)
+
+Landingssiden bruker den varme paletten, store ekte appbilder og korte
+budskap om bruk uten konto, lokal logging og valgfrie mål. Toppseksjonen har
+et telefonbilde og små forklarende kort. Alle appbilder har en diskret mørk
+telefonramme som bevarer hele skjermbildet. En samlet måltidsseksjon viser gjenbruk av lagrede måltider med én forklaring,
+kompakte yoghurt- og lakseillustrasjoner og et ekte appbilde.
+Oversiktsseksjonen har en mørk kontrastflate med egne lyse teksttokens;
+lokal logging vises på en varm, lys flate. Måltidsbilder merkes som
+AI-genererte illustrasjoner. Primærhandlingen er «Se demoen» så lenge betapåmelding ikke er
+åpnet. Den lover ikke tilgang eller samler inn kontaktopplysninger.
+
+Forsiden prioriterer matlogging uten konto, norske matvarer og lokal lagring.
+To utfyllende funksjonskort erstatter den lengre funksjonslisten. FAQ på forsiden
+begrenser seg til tilgjengelighet, konto og lagring, inkludert manglende skybackup.
+«Se demoen» er den gjennomgående primærhandlingen fram til tilgjengelighet er avklart.
+Navnebyttet forklares kort nær toppen: «MatLogg heter nå Spor Mat. Samme app, nytt navn.»
+Bildedemoen viser søk → mengde → logg og åpner med mengdebildet. Brukeren velger steg manuelt;
+ingen automatisk avspilling eller spillknapp vises. Ved redusert bevegelse
+er CSS-animasjoner slått av. Appbilder beholder original tekst, tall og
+merking som demodata.
+
+### Flervalg i dagsloggen (9. oktober 2026)
+
+«Velg» aktiverer valgmodus for registreringer på valgt dato. Trykk på hele
+vareraden markerer eller fjerner markering; vanlig redigering og sveiping er
+utilgjengelig i valgmodus. Brukeren kan velge alle varer eller en måltidsgruppe,
+se antall valgte og avslutte med «Avbryt». Valget følger logg-ID, ikke produkt-ID,
+og nullstilles ved dato-/profilbytte eller når dagboken lukkes.
+
+I valgmodus erstattes den vanlige bunnmenyen midlertidig av én valgmeny i
+samme avrundede flate: antall valgte, «Lagre måltid» og «Slett» (variant C).
+«Avbryt», datobytte eller fullført handling gjenoppretter vanlig bunnmeny.
+Listen holder klaring over valgmenyen uten et ekstra handlingsfelt eller
+avstand for begge menyer. Ved stor tekst vises antallet over handlingsraden.
+Begge menyer deler samme vert og bunnplass. Overgangen kryssfades kort, og
+markeringer/antall får korte overganger. «Reduser bevegelse» slår av disse
+animasjonene. Måltidslagring bruker bare utvalget og
+beholder mengder/enheter/porsjoner og eksisterende næringsgrunnlag. Ved blandede
+måltidsgrupper kan foreslått kategori velges i arket. Måltidsmalen har fortsatt
+grense på 1–50 varer; sletting har ikke denne grensen.
+
+Samlet sletting bekreftes med antall registreringer og lagres atomisk lokalt
+sammen med synkhendelser. Én Angre-operasjon gjenoppretter batchen med nye ID-er.
+Ved feil beholdes utvalget; avbrutt måltidslagring beholder også valget.
+
+### Manuell inntasting av strekkode
+
+«Skriv inn strekkode» finnes på skanneskjermen, også uten kameratilgang.
+Et ark tar imot GTIN med 8, 12, 13 eller 14 sifre, støtter innliming og
+validerer kontrollsiffer før eksplisitt «Finn produkt». Innledende nuller
+bevares; GTIN-14 normaliseres som ved eksisterende Data Matrix-oppslag.
+Kameradeteksjon pauses under inntasting og oppslag. Samme lokale/eksterne
+produktoppslag og produktkort brukes, med valgt måltid og dato beholdt.
+Feil beholder input og tilbyr nytt oppslag, navnesøk eller manuell
+produktregistrering med strekkoden videreført. Lokale treff fungerer uten
+nett; ukjente eksterne produkter krever nett.
+
+## Logging av tilberedt produkt (2026-10-12)
+
+Mengdevelgeren viser «Gram tilberedt mat» eller «Milliliter tilberedt mat»,
+og «Næringsverdiene gjelder ferdig tilberedt mat. Oppgi vekten etter tilberedning.»
+Næringsgrunnlaget vises også i produktinformasjonen. Historiske mengder merkes
+«tilberedt», og redigering og lagrede måltider bruker snapshotets status.
+Tidligere mengdepreferanser gjenbrukes ikke for tilberedte katalogprodukter,
+siden preferansene ikke dokumenterer tilberedningsgrunnlag. Standard 100 g/ml
+er kun et redigerbart per-100-utgangspunkt, ikke en dokumentert porsjon.
+Hurtiglogging og oppdatering på et åpent produktkort skal ikke tolke om en
+gammel mengde når tilberedningsgrunnlaget endres. Manuell registrering fra
+emballasjen er alternativet ved ufullstendige data.
+
+### Deling av lagrede måltider
+
+«Del måltid» i måltidsforhåndsvisningen åpner et eget ark med et stort kort,
+velgerne Lys/Mørk/Foto og «Del kortet» nederst. Stilene kan også sveipes.
+Valget markeres med hake og huskes lokalt. Eksporten bruker gjeldende mengder,
+uten å lagre eller loggføre måltidet. Kortet har fast 9:16-format, mens kontrollene
+følger Dynamic Type. Ingen profil-, mål- eller vektopplysninger inngår.
+Se [lagrede måltider](saved-meals.md#del-måltidskort) for feiltilstander og innhold.

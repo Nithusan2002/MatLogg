@@ -1,4 +1,6 @@
-# MatLogg-dokumentasjon
+# Spor Mat-dokumentasjon
+
+Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode og versjonerte migrasjoner er teknisk sannhetskilde. Under Supabase-cutover er `supabase/` sannhetskilde for ny serverplattform, mens `backend/` beholdes midlertidig fram til godkjent pilot.
 
@@ -11,8 +13,6 @@ Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md)
 Produkt- og UX-adferd uten nett er definert i
 [offline-adferd og synkstatus](offline-behavior.md).
 
-Apple Helse-utvidelsen, lagring og pilotgates finnes i [helseintegrasjonen](health-integration.md).
-
 Funksjonsscope for gjenbruk finnes i [gårsdagens måltid](meal-reuse.md) og
 [lagrede måltider](saved-meals.md).
 
@@ -21,6 +21,10 @@ For å skille faktisk implementasjon fra planlagt scope, start med
 i [testveiledningen](testing.md).
 Operative krav for staging, pilot og produksjon finnes i
 [produksjonsberedskap](production-readiness.md).
+Prioriterte leveranser for norsk personvern- og sikkerhetsetterlevelse finnes i
+[forbedringsplanen](privacy-security-improvement-plan.md).
+Faktiske dataflyter og åpne funn er samlet i
+[datakart og kontrollstatus](privacy-data-inventory.md).
 
 ## Leserekkefølge
 
@@ -43,7 +47,8 @@ Operative krav for staging, pilot og produksjon finnes i
 - Build, test og release-gates: [testveiledningen](testing.md)
 - iOS-oppstart og dependency composition: `MatLogg/MatLoggApp.swift` og `MatLogg/App/AppState.swift`
 - Lokal lagring og synkkø: `MatLogg/Services/LocalStore.swift` og `MatLogg/Services/SyncEngine.swift`
-- API-klient: `MatLogg/Services/APIService.swift`
+- Eksterne produktkall: `MatLogg/Services/APIService.swift`
+- Konto-/synktransport: `MatLogg/Services/SupabaseService.swift` (domeneopplasting sperres av `DomainUploadPolicy.localOnly`)
 - Supabase-kontrakt og Edge Functions: `supabase/functions/`
 - Serverpersistens og RLS: `supabase/migrations/`
 - Lokal Supabase- og deployoppskrift: `supabase/README.md`

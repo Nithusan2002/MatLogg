@@ -1,6 +1,6 @@
 # App Store Connect – databruk
 
-Sist oppdatert: 1. oktober 2026
+Sist oppdatert: 11. november 2026
 
 Arbeidsgrunnlag, ikke bekreftelse på det innsendte App Privacy-skjemaet.
 Kontroller faktisk releasekonfigurasjon, arkiv og leverandørers datalagring før innsending.
@@ -10,7 +10,7 @@ merkes som innsamling.
 
 ## Dagens app: skysynk deaktivert
 
-- Email Address: e-post ved kontoopprettelse og innlogging; knyttet til bruker;
+- Email Address: e-post som Apple deler ved innlogging (inkludert relay-adresse), samt eventuelle eksisterende e-postkontoer; knyttet til bruker;
   App Functionality (autentisering).
 - User ID: Supabase bruker-ID og Apple-kontoidentitet; knyttet til bruker;
   App Functionality (autentisering og eierskap).
@@ -43,14 +43,49 @@ merkes som innsamling.
 - [Apple App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/)
 - [Apple App Review Guidelines 5.1.3](https://developer.apple.com/app-store/review/guidelines/#health-and-health-research)
 
-## Apple Helse – pilotgrunnlag (2026-10-02)
 
-HealthKit-capability og lese-/skrivetekster er inkludert, men funksjonen er av i
-Release. En aktivert pilot behandler importert vekt bare lokalt i separat beskyttet
-cache og deler brukerens valgte mat-/vektregistreringer med HealthKit på enheten.
-MatLogg får ingen servertilgang til disse Helse-dataene. Dette innfører ingen
-analyse, sporing eller annonser. Ikke merk ren lokal HealthKit-behandling som
-serverinnsamling. Kontroller faktisk arkiv, flagg, leverandører og Apples gjeldende
-skjemakrav før pilot/innsending; dette er ikke en oppdatering av det innsendte
-App Store Connect-skjemaet. Personvernerklæringen beskriver valgene, frakobling og
-separat sletting av eksporterte Helse-data.
+## Kandidatvurdering 19. oktober 2026 – fortsatt arbeidsgrunnlag
+
+Kodekontroll ved `55e513b`: kontoskjermen er Apple-only, domeneopplasting er
+sperret av `.localOnly`, og analyse-/krasj-SDK er ikke aktivert. Ingen ny
+Release-arkivering eller App Store Connect-kontroll er gjort i denne runden.
+Det eksisterende personvernmanifestet deklarerer e-post og bruker-ID, ikke
+søkehistorikk eller diagnostikk. Manifestet er ikke bevis på et riktig utfylt
+App Privacy-skjema.
+
+| Flyt | Forslag / avklaring før innsending |
+| --- | --- |
+| Apple/Supabase Auth | Behold Email Address og User ID som knyttet til bruker, App Functionality. Skjult e-postskjerm fjerner ikke Apple-delt e-post. |
+| Supabase tekniske logger | Avklar beholdte felt, bruk og varighet separat fra konto-ID. Eventuelle ytterligere kategorier og kobling til bruker må vurderes ut fra faktisk bruk. Ingen antatt fast frist. |
+| OFF-søk/strekkode | Search History må vurderes dersom søk beholdes utover forespørselen. At Spor Mat ikke sender konto-ID beviser ikke at data er uknyttet. |
+| IP og bildetrafikk | IP er ikke automatisk Device ID eller Location; klassifiser etter faktisk bruk. Produktbilde-URL og tidspunkt kan også avsløre produktvisning. Retensjon hos bildeverter er uavklart. |
+| Lokal mat/vekt/bilder/fødselsdato | Ikke merk ren lokal behandling som innsamling. Fødselsdato er valgfri i undersøkt kode. Vurder SDK-/kandidatadferd før endelig erklæring. |
+| Måltidsdeling, Bilder og JSON | Lokalt generert og brukerinitiert. Kontroller Apples unntak og faktisk delingsflyt; ikke anta at all tredjepartsbehandling omfattes av et unntak. Ingen produkt-tokenlenke er funnet. |
+
+[Apples definisjon av innsamling og datakategorier](https://developer.apple.com/app-store/app-privacy-details/)
+er kontrollert 19. oktober. Retensjon utover sanntidsbetjening er sentralt;
+opplysninger hos relevante tredjepartspartnere inngår. IP klassifiseres etter
+bruken. Det er derfor ikke tilstrekkelig å sende inn bare de to eksisterende
+manifestkategoriene uten å vurdere leverandørlogger og søk.
+
+Neste steg: lukk mottaker-/retensjonsvurderingen i
+`docs/privacy-data-inventory.md`, kontroller faktisk kandidatarkiv og samordne
+App Privacy, manifest og publiserte tekster der vurderingen krever det.
+Ingen kategorier er endret i manifest eller App Store Connect her.
+
+## Valgfri visning av skritt, vekt og treningsøkter fra Apple Helse
+
+Appen ber om separat lesetilgang til `.stepCount`, `.bodyMass` og HealthKit-økter
+etter brukerhandling. Skrittsummer per time eller dag, vektmålinger og
+økttype, starttid og varighet brukes i minnet til visning i Utvikling.
+Helse-data inngår verken i opplasting,
+synkkø, logger, analyse eller eksport. Profilens lokale tilkoblingsvalg
+lagres i UserDefaults og følger eksport og sletting av innstillinger.
+Helse på iPhonen er felles for Spor Mat-profilene. Skrivetilgang og
+bakgrunnslevering er utenfor denne dataflyten.
+
+Dette dokumenterer implementert lokal bruk, ikke godkjenning av App Privacy-
+skjema eller produksjonsarkiv. Før innsending: kontroller signert HealthKit-
+entitlement, formålstekst, native tillatelsesflyt, tomt/tilbaketrukket lesetilgang
+og faktisk fravær av ekstern overføring på fysisk iPhone. Ingen App Store
+Connect-felt er endret i denne implementeringen.

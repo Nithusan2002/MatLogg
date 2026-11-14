@@ -52,7 +52,7 @@ class AppState: ObservableObject {
     var inFlightSyncCount: Int { syncQueueStatus.inFlightCount }
     var failedSyncCount: Int { syncQueueStatus.failedCount }
     var unsyncedSyncCount: Int { syncQueueStatus.unsyncedCount }
-    var isSyncAvailable: Bool { syncEnabled() }
+    var isSyncAvailable: Bool { syncEngine.isUploadAvailable && syncEnabled() }
     
     // MARK: - Init
     
@@ -120,7 +120,7 @@ class AppState: ObservableObject {
     }
     
     func triggerSync(reason: SyncReason) async {
-        guard syncEnabled() else {
+        guard isSyncAvailable else {
             lastSyncSucceeded = nil
             lastSyncError = nil
             await refreshSyncStatus()
@@ -149,7 +149,7 @@ class AppState: ObservableObject {
     }
 
     func retryFailedEvent(_ eventId: UUID) async {
-        guard syncEnabled(), let activeSyncUserId else { return }
+        guard isSyncAvailable, let activeSyncUserId else { return }
         await databaseService.retryFailedEvent(eventId, ownerUserId: activeSyncUserId)
         await refreshSyncStatus()
         await triggerSync(reason: .userInitiated)

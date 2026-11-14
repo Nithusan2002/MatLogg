@@ -37,7 +37,7 @@ struct SignUpView: View {
                             Image(systemName: "chevron.left")
                             Text("Tilbake")
                         }
-                        .foregroundColor(AppColors.action)
+                        .foregroundColor(AppColors.actionText)
                     }
                     Spacer()
                 }
@@ -57,8 +57,7 @@ struct SignUpView: View {
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .padding(12)
-                        .background(AppColors.mutedSurface)
-                        .cornerRadius(12)
+                        .matLoggFieldSurface()
                     
                     HStack {
                         if showPassword {
@@ -79,15 +78,13 @@ struct SignUpView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .accessibilityLabel(showPassword ? "Skjul passord" : "Vis passord")
                     }
-                    .background(AppColors.mutedSurface)
-                    .cornerRadius(12)
+                    .matLoggFieldSurface()
                     
                     SecureField("Gjenta passord", text: $confirmPassword)
                         .textContentType(.password)
                         .foregroundColor(AppColors.ink)
                         .padding(12)
-                        .background(AppColors.mutedSurface)
-                        .cornerRadius(12)
+                        .matLoggFieldSurface()
                     
                     if !password.isEmpty && password != confirmPassword {
                         HStack(spacing: 8) {
@@ -114,15 +111,11 @@ struct SignUpView: View {
                     }
                     
                     if let error = authViewModel.errorMessage {
-                        HStack {
-                            Image(systemName: "exclamationmark.circle")
-                            Text(error)
-                                .font(.caption)
-                        }
-                        .foregroundColor(AppColors.ink)
-                        .padding(12)
-                        .background(AppColors.warmSurface)
-                        .cornerRadius(12)
+                        ErrorMessageView(error)
+                            .font(.caption)
+                            .padding(12)
+                            .background(AppColors.warmSurface)
+                            .cornerRadius(12)
                     }
                 }
             }
@@ -152,7 +145,7 @@ struct SignUpView: View {
 
             Image(systemName: "envelope.badge")
                 .font(.system(size: 48, weight: .semibold))
-                .foregroundColor(AppColors.action)
+                .foregroundColor(AppColors.actionText)
                 .accessibilityHidden(true)
 
             VStack(spacing: 12) {
@@ -178,9 +171,8 @@ struct SignUpView: View {
             }
 
             if let error = authViewModel.errorMessage {
-                Label(error, systemImage: "exclamationmark.circle")
+                ErrorMessageView(error)
                     .font(AppTypography.body)
-                    .foregroundColor(AppColors.ink)
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(AppColors.warmSurface, in: RoundedRectangle(cornerRadius: 12))
@@ -195,7 +187,7 @@ struct SignUpView: View {
                 authViewModel.dismissEmailVerification()
             }
             .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.action)
+            .foregroundColor(AppColors.actionText)
             .frame(minHeight: 44)
 
             Spacer()

@@ -1,12 +1,30 @@
 # Offline-adferd og synkstatus
 
-Dato: 2026-09-27  
+Dato: 2026-10-04
 Status: normativ produkt- og UX-definisjon; produksjonssynk er fortsatt deaktivert
 
 MatLogg er local-first. Nettverk skal aldri være nødvendig for å registrere,
 se, redigere eller slette brukerens egne data på enheten. Lokal lagring er
 fullført arbeid; synk er en etterfølgende kopi til backend, ikke en forutsetning
 for at handlingen skal lykkes.
+
+## Gjeldende lanseringsscope – 3. oktober 2026
+
+Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
+vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
+kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth
+og brukerinitierte eksterne katalog-/bildeoppslag beholdes.
+
+`DomainUploadPolicy.localOnly` er eksplisitt ved app-roten og standard i alle
+SyncEngine-initializers. Releasebygg har ingen policy som åpner opplasting.
+Et backendflagg alene kan derfor ikke sende historikken. Køen beholdes atomisk
+med domenedata, uten opplasting eller retry-timere. Kontokobling gir ikke
+opplastingsgodkjenning. Framtidig skyfunksjon krever eget brukervalg,
+historikkvalg, serverautorisasjon og nødvendige rettsgrunnlag før aktivering.
+
+Status er «Lagret på denne enheten». Eksport er en JSON-kopi for innsyn/deling;
+appen kan ikke importere den. iCloud-/Finder-restore er ikke demonstrert.
+Data kan gå tapt ved avinstallering eller tap av telefonen.
 
 ## Dette skal fungere uten nett
 
@@ -41,7 +59,12 @@ Ved eksternt søk eller skanning uten nett skal lokale treff fortsatt vises og
 merkes som lagrede treff. Manglende lokalt treff er ikke det samme som at
 produktet ikke finnes; brukeren tilbys manuelt produkt eller nytt forsøk senere.
 
-## Når forbindelsen kommer tilbake
+## Framtidig opplasting når forbindelsen kommer tilbake
+
+Reglene nedenfor gjelder synkmotorens testede, framtidige oppførsel når en
+separat policy og brukerflyt har åpnet opplasting. I lokal lansering gjør disse
+triggerne ingen opplasting, heller ikke etter innlogging eller kontokobling.
+
 
 1. Synkkøen vekkes når appen starter eller blir aktiv, og mens appen kjører når
    nettverksmonitoren oppdager at forbindelsen er tilbake. iOS garanterer ikke
@@ -49,10 +72,13 @@ produktet ikke finnes; brukeren tilbys manuelt produkt eller nytt forsøk senere
 2. Bare hendelser med `ownerUserId` lik den aktive autentiserte kontoen kan
    velges for opplasting. Brukerbytte eller utlogging avbryter planlagte retries.
    En lokal profil kan eie domenedata og køhendelser, men disse hendelsene kan
-   ikke lastes opp før brukeren eksplisitt knytter dem til en konto.
+   ikke lastes opp uten separat opplastingsvalg; kontokobling alene er utilstrekkelig.
 3. Eldre hendelser uten verifiserbar eierbinding beholdes lokalt i karantene.
    De sendes aldri, og Innstillinger viser bare et generisk antall uten innhold.
-4. Ventende hendelser sendes i rekkefølge i batcher på maksimalt 50.
+4. Ventende hendelser sendes i lokal innsettingsrekkefølge i batcher på
+   maksimalt 50, med høyst én uavklart hendelse per logisk ressurs. Backoff,
+   in-flight og dead letter blokkerer etterfølgere for samme ressurs til ACK;
+   andre ressurser kan fortsette. Se synkkontrakten for grupperingsreglene.
 5. Backend dedupliserer på stabil `eventId`; et timeout-retry skal derfor ikke
    duplisere en domeneskriving.
 6. Bekreftede hendelser markeres `acked`. Midlertidige feil forblir `pending`
@@ -111,7 +137,8 @@ klient og backend.
 
 ## Synlig status for brukeren
 
-Status skal uttrykkes med tekst og ikon, aldri bare farge:
+Status skal uttrykkes med tekst og ikon, aldri bare farge. I lokal lansering
+vises bare lokal lagring/status; køens synkstatuser nedenfor er framtidig scope:
 
 | Tilstand | Primær tekst | Plassering og handling |
 | --- | --- | --- |
@@ -122,17 +149,17 @@ Status skal uttrykkes med tekst og ikon, aldri bare farge:
 | Denne enhetens kø er tom | «Alle endringer fra denne enheten er synkronisert» | Data og synk med tidspunkt for siste bekreftelse. |
 | Automatisk retry | «X endringer er lagret på enheten og prøves igjen når appen kan synkronisere» | Data og synk; vis neste planlagte forsøk når kjent. |
 | Krever handling | «X endringer er lagret på enheten, men kunne ikke synkroniseres» | Data og synk med «Forsøk synk på nytt». |
-| Backend-synk deaktivert | «Lagret bare på denne enheten» | Data og synk; ikke bruk «venter» uten å forklare at synk ikke er tilgjengelig. |
+| Backend-synk deaktivert | «Lagret på denne enheten» | Profil → Innstillinger → Data og lagring. Ingen permanent status på Hjem; ikke bruk «venter» uten å forklare at synk ikke er tilgjengelig. |
 
 En vellykket lokal handling skal aldri vises som mislykket bare fordi synk
-venter. Vedvarende status vises bare når det finnes ventende eller feilede
+venter. Vedvarende status på Hjem vises bare når synk er tilgjengelig og det finnes ventende eller feilede
 hendelser; en kort suksessmelding kan vises når en tidligere kø blir tom.
 
 VoiceOver skal lese både lokal trygghet og videre status, for eksempel:
 «Tre endringer er lagret på enheten og venter på synk». Dynamisk tekst skal
 kunne brytes over flere linjer uten at status eller retry-handling forsvinner.
 
-## Akseptansekriterier
+## Akseptansekriterier for framtidig synk
 
 - Flymodus under lagring gir umiddelbart synlige, persistente data etter
   omstart, med samme stabile event-ID i køen.

@@ -6,14 +6,130 @@ final class ProductDetailViewModel: ObservableObject {
     @Published private(set) var product: Product
     @Published private(set) var isRefreshing = false
     @Published private(set) var refreshMessage: String?
+    @Published private(set) var isLogging = false
+    @Published private(set) var logError: String?
+    let amountModel: AmountSelectionViewModel
     private let repository: any BarcodeLookupRepository
+    private let metadataRepository: (any ProductRepository)?
+    @Published private(set) var isSavingFoodGroup = false
+    @Published private(set) var foodGroupError: String?
+    private let favorites: (any ProductFavoriteRepository)?
+    @Published private(set) var isFavorite = false
+    @Published private(set) var isChangingFavorite = false
+    @Published private(set) var favoriteError: String?
+    private var favoriteOwner: UUID?
+    private var favoriteRequest = UUID()
 
-    init(product: Product, repository: any BarcodeLookupRepository) {
+    init(product: Product, repository: any BarcodeLookupRepository, favorites: (any ProductFavoriteRepository)? = nil, metadataRepository: (any ProductRepository)? = nil) {
+        self.metadataRepository = metadataRepository
         self.product = product
+        amountModel = AmountSelectionViewModel(unit: product.amountUnit, servings: product.servings ?? [], nutritionPreparation: product.nutritionPreparation)
         self.repository = repository
+        self.favorites = favorites
+    }
+
+    func updateFoodGroup(_ group: FoodGroup?, owner: UUID?) async {
+        guard !isSavingFoodGroup, product.source == "user", let owner, let metadataRepository else { return }
+        isSavingFoodGroup = true
+        foodGroupError = nil
+        defer { isSavingFoodGroup = false }
+        do {
+            // Resolve through the owner-scoped repository before editing; never claim a foreign product.
+            guard let stored = try await metadataRepository.getSearchableProducts(ownerUserId: owner)
+                .first(where: { $0.id == product.id && $0.source == "user" }) else {
+                foodGroupError = "Denne matvaren kan ikke endres av aktiv profil."
+                return
+            }
+            var updated = stored
+            updated.selectedFoodGroup = group?.rawValue
+            try await metadataRepository.saveProduct(updated, ownerUserId: owner)
+            product = updated
+        } catch {
+            foodGroupError = "Kunne ikke lagre matgruppen på enheten. Prøv igjen."
+        }
+    }
+
+    func loadFavorite(owner: UUID?) async {
+        let request = UUID()
+        favoriteRequest = request
+        favoriteOwner = owner
+        isFavorite = false
+        isChangingFavorite = false
+        favoriteError = nil
+        guard let owner, let favorites else { return }
+        let loaded = await favorites.isFavorite(userId: owner, productId: product.id)
+        guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return }
+        isFavorite = loaded
+    }
+
+    @discardableResult
+    func toggleFavorite(owner: UUID?) async -> Bool {
+        guard !isChangingFavorite, let owner, let favorites else { return false }
+        let request = UUID()
+        favoriteRequest = request
+        favoriteOwner = owner
+        isChangingFavorite = true
+        favoriteError = nil
+        defer { if favoriteRequest == request { isChangingFavorite = false } }
+        do {
+            try await favorites.toggleFavorite(userId: owner, productId: product.id)
+            let current = await favorites.isFavorite(userId: owner, productId: product.id)
+            guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return false }
+            isFavorite = current
+            return true
+        } catch {
+            guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return false }
+            favoriteError = "Kunne ikke oppdatere favoritt. Prøv igjen."
+            return false
+        }
+    }
+
+    var nutriScoreInfo: ProductNutriScoreInfo? {
+        product.source == "openfoodfacts" ? product.nutriScoreInfo : nil
+    }
+
+    var excludedProteinValue: String? {
+        guard let calculation = nutriScoreInfo?.calculation,
+              calculation.proteinExclusionReason != nil,
+              calculation.preparation == ((product.nutritionPreparation ?? .asSold) == .prepared ? "prepared" : "as_sold"),
+              let basis = calculation.nutritionBasis,
+              product.nutritionBasis == basis,
+              product.proteinGPer100g.isFinite, product.proteinGPer100g >= 0 else { return nil }
+        return "\(product.proteinGPer100g.formatted(.number.locale(Locale(identifier: "nb_NO")).precision(.fractionLength(0...2)))) g"
+    }
+
+    var processingInfo: ProductProcessingInfo? {
+        guard product.source == "openfoodfacts" else { return nil }
+        return product.processingInfo ?? ProductProcessingInfo(novaGroup: nil, markers: [:], ingredients: nil)
+    }
+
+    var processingPresentation: ProductProcessingPresentation? {
+        processingInfo.map(ProductProcessingPresentation.init)
+    }
+
+    var processingSourceURL: URL? {
+        guard let code = product.barcodeEan, !code.isEmpty,
+              code.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return URL(string: "https://world.openfoodfacts.org/product/\(code)")
     }
 
     var canRefresh: Bool { product.canRefreshCatalogData }
+
+    func nutrition(for amount: Double?) -> NutritionBreakdown {
+        guard let amount else { return NutritionBreakdown(calories: 0, protein: 0, carbs: 0, fat: 0) }
+        return product.calculateNutrition(forAmount: Float(amount))
+    }
+
+    func log(amount: AmountSelectionViewModel,
+             operation: (Product, Double, PortionSelection?) async -> Bool) async -> Bool {
+        guard !isLogging, amount.isValid, let total = amount.amount else { return false }
+        isLogging = true
+        logError = nil
+        defer { isLogging = false }
+        let success = await operation(product, total, amount.portion)
+        if !success { logError = "Kunne ikke lagre på enheten. Prøv igjen." }
+        return success
+    }
 
     func refresh(manually: Bool) async {
         guard !isRefreshing, canRefresh else { return }
@@ -27,11 +143,118 @@ final class ProductDetailViewModel: ObservableObject {
                     refreshMessage = "Produktets måleenhet er endret hos kilden. Åpne produktet på nytt for å bruke de nye dataene."
                     return
                 }
+                guard (updated.nutritionPreparation ?? .asSold) == (product.nutritionPreparation ?? .asSold) else {
+                    refreshMessage = "Produktets tilberedningsgrunnlag er endret hos kilden. Åpne produktet på nytt for å bruke de nye dataene."
+                    return
+                }
+                let portionsChanged = updated.servings != product.servings
                 product = updated
-                if manually { refreshMessage = "Produktdata er oppdatert." }
+                if portionsChanged {
+                    refreshMessage = "Porsjonsdata er oppdatert. Aktivt porsjonsvalg beholder sitt grunnlag til du velger på nytt."
+                } else if manually { refreshMessage = "Produktdata er oppdatert." }
             }
         } catch {
             if manually { refreshMessage = BarcodeLookupFailure.classify(error).message }
+        }
+    }
+}
+
+/// Pure presentation mapping of source-provided calculation components.
+nonisolated struct NutriScoreCalculationPresentation {
+    struct Row: Identifiable {
+        let id: String
+        let title: String
+        let value: String
+        let points: String?
+        let segments: NutriScoreSegments?
+    }
+    let calculation: NutriScoreCalculation
+
+    private static let titles = ["energy": "Energi", "sugars": "Sukkerarter", "saturated_fat": "Mettet fett",
+        "salt": "Salt", "fiber": "Fiber", "proteins": "Protein", "fruits_vegetables_legumes": "Frukt, grønnsaker og belgvekster"]
+
+    func rows(_ components: [NutriScoreComponent]) -> [Row] {
+        var seen = Set<String>()
+        return components.compactMap { component in
+            guard !(component.id == "proteins" && calculation.proteinExclusionReason != nil),
+                  let title = Self.titles[component.id], seen.insert(component.id).inserted else { return nil }
+            let value: String
+            if let number = component.value, number.isFinite, number >= 0,
+               let unit = component.unit, ["g", "kJ", "%"].contains(unit) {
+                value = "\(number.formatted(.number.locale(Locale(identifier: "nb_NO")).precision(.fractionLength(0...2)))) \(unit)"
+            } else { value = "Verdi ikke tilgjengelig" }
+            return Row(id: component.id, title: title, value: value,
+                       points: Self.points(component.points, maximum: component.points_max),
+                       segments: NutriScoreSegments(points: component.points, maximum: component.points_max))
+        }
+    }
+
+    static func points(_ points: Int?, maximum: Int?) -> String? {
+        guard let points, let maximum, maximum > 0, points >= 0, points <= maximum else { return nil }
+        return "\(points) av \(maximum)"
+    }
+
+    var incomplete: Bool {
+        (calculation.positive + calculation.negative).contains { Self.titles[$0.id] == nil }
+    }
+
+    var proteinExplanation: String? {
+        guard let reason = calculation.proteinExclusionReason else { return nil }
+        if reason == "negative_points_greater_than_or_equal_to_11" {
+            return "Nutri-Score har regler for når protein gir plusspoeng. I denne beregningen er minuspoengene høye nok til at protein ikke tas med. Proteinmengden i produktet er fortsatt den samme."
+        }
+        return "Nutri-Score har regler for når protein gir plusspoeng. Open Food Facts oppgir at protein ikke er medregnet i denne beregningen. Proteinmengden i produktet er fortsatt den samme."
+    }
+}
+
+/// Bounds untrusted source counts before allocating visual segments.
+nonisolated struct NutriScoreSegments: Equatable {
+    let filled: Int
+    let count: Int
+
+    init?(points: Int?, maximum: Int?) {
+        guard let points, let maximum, (1...100).contains(maximum),
+              (0...maximum).contains(points) else { return nil }
+        filled = points
+        count = maximum
+    }
+}
+
+
+/// Source-based presentation only; missing groups never imply a negative answer.
+nonisolated struct ProductProcessingPresentation {
+    let status: String
+    let isUltraProcessed: Bool?
+    let explanation: String
+    let basis: String
+
+    init(info: ProductProcessingInfo) {
+        let descriptions = [
+            1: "minimalt bearbeidet mat",
+            2: "matlagingsingredienser som salt, sukker og olje",
+            3: "bearbeidet mat. Gruppen omfatter blant annet mat der salt, sukker eller olje er tilsatt råvarer",
+            4: "ultraprosessert mat"
+        ]
+        guard let group = info.novaGroup, let description = descriptions[group] else {
+            isUltraProcessed = nil
+            status = "Klassifisering mangler"
+            explanation = "Open Food Facts har ingen tilgjengelig NOVA-klassifisering for dette produktet. Vi kan derfor ikke si om det er ultraprosessert."
+            basis = "Grunnlag for klassifiseringen er ikke tilgjengelig."
+            return
+        }
+        isUltraProcessed = group == 4
+        switch group {
+        case 1: status = "Minimalt bearbeidet"
+        case 2: status = "Bearbeidet matlagingsingrediens"
+        case 3: status = "Bearbeidet"
+        default: status = "Ultraprosessert"
+        }
+        explanation = "Open Food Facts plasserer produktet i NOVA \(group): \(description)."
+        if info.markerNames.isEmpty {
+            basis = "Open Food Facts oppgir en klassifisering, men vi har ikke en detaljert forklaring for dette produktet."
+        } else {
+            basis = "Open Food Facts oppgir \(info.markerNames.joined(separator: " og ")) som grunnlag for NOVA \(group)."
+                + (info.hasUntranslatedMarkers ? " Noe av grunnlaget kan ikke vises med en forståelig forklaring ennå." : "")
         }
     }
 }

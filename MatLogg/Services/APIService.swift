@@ -56,25 +56,26 @@ class APIService {
         case credentialPersistenceFailed
         case rateLimited(retryAfterSeconds: Int?)
         case incompleteProductData
+        case unclearPreparationData
         
         var errorDescription: String? {
             switch self {
             case .invalidURL:
                 return "Ugyldig URL"
-            case .networkError(let message):
-                return message
+            case .networkError:
+                return "Kunne ikke koble til tjenesten. Prøv igjen."
             case .decodingError:
                 return "Kunne ikke tolke svar fra server"
             case .serverError(let code):
                 return "Server feil: \(code)"
-            case .backendError(_, _, let message):
-                return message
+            case .backendError:
+                return "Tjenesten kunne ikke fullføre forespørselen. Prøv igjen."
             case .backendNotConfigured:
                 return "Backend ikke konfigurert"
             case .batchLimitExceeded(let limit):
-                return "For mange sync-events i batch (maks \(limit))"
+                return "For mange endringer i én forespørsel (maks \(limit))"
             case .payloadTooLarge(let limit):
-                return "For stor payload i sync-event (maks \(limit) bytes)"
+                return "Endringen er for stor til å sendes (maks \(limit) byte)"
             case .missingAccessToken:
                 return "Du må være innlogget for å synkronisere"
             case .sessionExpired:
@@ -86,6 +87,8 @@ class APIService {
                     return "Tjenesten ber oss vente. Prøv igjen om ca. \(seconds) sekunder."
                 }
                 return "Tjenesten ber oss vente litt før neste forsøk."
+            case .unclearPreparationData:
+                return "Produktet har tilberedte næringsverdier uten et tydelig mengdegrunnlag."
             case .incompleteProductData:
                 return "Produktet mangler komplette næringsverdier per 100 g eller 100 ml."
             }
@@ -378,11 +381,12 @@ class APIService {
     
     // MARK: - Open Food Facts Lookup
 
-    func searchProductsByNameOpenFoodFacts(_ query: String) async throws -> [Product] {
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope = .norway) async throws -> [Product] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
 
-        var components = URLComponents(string: "https://no.openfoodfacts.org/cgi/search.pl")
+        let host = scope == .norway ? "no.openfoodfacts.org" : "world.openfoodfacts.org"
+        var components = URLComponents(string: "https://\(host)/cgi/search.pl")
         components?.queryItems = [
             URLQueryItem(name: "search_terms", value: trimmed),
             URLQueryItem(name: "search_simple", value: "1"),
@@ -391,24 +395,21 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,categories_tags,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
 
         let data = try await openFoodFactsData(from: url)
-        let response = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
-
-        return response.products.compactMap { product in
-            makeOpenFoodFactsProduct(product, barcode: product.code, requiresCompleteMacros: true)
-        }
+        return try await BackgroundWork.run { try OpenFoodFactsParser.search(data) }
     }
     
     func searchProductByBarcodeOpenFoodFacts(_ ean: String) async throws -> Product {
         let fields = [
-            "code", "product_name", "brands", "categories", "image_front_url",
+            "code", "product_name", "brands", "categories", "categories_tags", "image_front_url",
+            "nutriscore_grade", "nutriscore_version", "nutriscore", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
             "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
-            "nutrition_data_per", "nutriments", "last_modified_t", "rev", "schema_version",
+            "nutrition_data_per", "nutrition_data_prepared_per", "nutriments", "last_modified_t", "rev", "schema_version",
             "data_quality_errors_tags", "data_quality_warnings_tags"
         ].joined(separator: ",")
         var components = URLComponents(string: "https://world.openfoodfacts.org/api/v3/product/\(ean)")
@@ -421,20 +422,7 @@ class APIService {
             throw APIError.invalidURL
         }
         let data = try await openFoodFactsData(from: url)
-        let responseData = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
-        
-        guard responseData.status == "success", let product = responseData.product else {
-            throw APIError.serverError(404)
-        }
-
-        guard let mapped = makeOpenFoodFactsProduct(
-            product,
-            barcode: product.code ?? ean,
-            requiresCompleteMacros: true
-        ) else {
-            throw APIError.incompleteProductData
-        }
-        return mapped
+        return try await BackgroundWork.run { try OpenFoodFactsParser.barcode(data, ean: ean) }
     }
 
     private func openFoodFactsData(from url: URL) async throws -> Data {
@@ -552,7 +540,33 @@ class APIService {
         NotificationCenter.default.post(name: .authSessionExpired, object: nil)
     }
 
-    private func makeOpenFoodFactsProduct(
+}
+
+nonisolated private enum OpenFoodFactsParser {
+    static func search(_ data: Data) throws -> [Product] {
+        let response = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
+        return response.products.compactMap {
+            makeOpenFoodFactsProduct($0, barcode: $0.code, requiresCompleteMacros: true)
+        }
+    }
+
+    static func barcode(_ data: Data, ean: String) throws -> Product {
+        let response = try JSONDecoder().decode(OpenFoodFactsResponse.self, from: data)
+        guard response.status == "success", let product = response.product else {
+            throw APIService.APIError.serverError(404)
+        }
+        guard let mapped = makeOpenFoodFactsProduct(product, barcode: product.code ?? ean, requiresCompleteMacros: true) else {
+            if validatedNutrition(product.nutriments) == nil,
+               validatedNutrition(product.nutriments?.preparedValues) != nil,
+               preparedNutritionBasis(product.nutritionDataPreparedPer) == nil {
+                throw APIService.APIError.unclearPreparationData
+            }
+            throw APIService.APIError.incompleteProductData
+        }
+        return mapped
+    }
+
+    private static func makeOpenFoodFactsProduct(
         _ product: OpenFoodFactsProduct,
         barcode: String?,
         requiresCompleteMacros: Bool
@@ -560,21 +574,24 @@ class APIService {
         let name = product.productName?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let name, !name.isEmpty else { return nil }
 
-        let nutriments = product.nutriments
+        let usesPrepared = validatedNutrition(product.nutriments) == nil
+        let preparedBasis = preparedNutritionBasis(product.nutritionDataPreparedPer)
+        // Prepared values require an explicit unit and must never inherit dry package portions.
+        if usesPrepared, preparedBasis == nil { return nil }
+        let nutriments = usesPrepared ? product.nutriments?.preparedValues : product.nutriments
         let completeNutrition = validatedNutrition(nutriments)
         if requiresCompleteMacros, completeNutrition == nil {
             return nil
         }
         guard let completeNutrition else { return nil }
 
-        let servings = buildServingOptions(
-            name: name,
+        let servings = usesPrepared ? nil : buildServingOptions(
+            identity: barcode ?? name,
             servingSize: product.servingSize,
-            servingQuantity: product.servingQuantity?.value,
             productQuantity: product.productQuantity?.value,
             productQuantityUnit: product.productQuantityUnit
         )
-        let nutritionBasis = nutritionBasis(
+        let nutritionBasis = usesPrepared ? (preparedBasis ?? .per100g) : nutritionBasis(
             nutritionDataPer: product.nutritionDataPer,
             productQuantityUnit: product.productQuantityUnit
         )
@@ -584,6 +601,7 @@ class APIService {
             name: name,
             brand: product.brands,
             category: product.categories,
+            categoryTags: product.categoryTags,
             barcodeEan: barcode,
             source: "openfoodfacts",
             kind: .packaged,
@@ -603,15 +621,26 @@ class APIService {
             createdAt: Date(),
             externalID: barcode,
             nutritionBasis: nutritionBasis,
+            nutritionPreparation: usesPrepared ? .prepared : .asSold,
             sourceUpdatedAt: product.lastModifiedTimestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) },
             sourceRevision: product.revision,
             sourceSchemaVersion: product.schemaVersion,
             fetchedAt: Date(),
+            nutriScoreInfo: product.nutriScoreInfo,
+            processingInfo: product.processingInfo,
             dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? [])
         )
     }
 
-    private func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
+    private static func preparedNutritionBasis(_ raw: String?) -> NutritionBasis? {
+        switch raw?.lowercased().replacingOccurrences(of: " ", with: "") {
+        case "100g": return .per100g
+        case "100ml": return .per100ml
+        default: return nil
+        }
+    }
+
+    private static func validatedNutrition(_ nutriments: OpenFoodFactsNutriments?) -> CompleteNutrition? {
         guard let energyKcal = nutriments?.energyKcal100g,
               let protein = nutriments?.protein100g,
               let carbohydrates = nutriments?.carbs100g,
@@ -630,116 +659,45 @@ class APIService {
         )
     }
     
-    private func buildServingOptions(
-        name: String,
+    private static func buildServingOptions(
+        identity: String,
         servingSize: String?,
-        servingQuantity: Double?,
         productQuantity: Double?,
         productQuantityUnit: String?
     ) -> [ServingOption]? {
         var options: [ServingOption] = []
-        
+        func add(label: String, amount: Double, unit: AmountUnit, kind: ServingKind,
+                 shortLabel: String, suggested: Bool) {
+            guard amount.isFinite, amount > 0, amount <= 10_000 else { return }
+            options.append(ServingOption(
+                id: Product.catalogID(source: "off-serving", externalID: "\(identity)|\(label)|\(amount)|\(unit.rawValue)|\(kind.rawValue)"),
+                label: label, grams: amount, unit: unit, source: .openFoodFacts,
+                isDefaultSuggestion: suggested, kind: kind, shortLabel: shortLabel))
+        }
         if let servingSize, let parsed = parseAmount(from: servingSize) {
             let label = servingSize.trimmingCharacters(in: .whitespacesAndNewlines)
-            options.append(
-                ServingOption(
-                    label: label,
-                    grams: parsed.value,
-                    unit: parsed.unit,
-                    source: .openFoodFacts,
-                    isDefaultSuggestion: true
-                )
-            )
-            
-            if label.lowercased().contains("bar"), parsed.unit == .grams {
-                let half = parsed.value / 2.0
-                let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
-                options.append(
-                    ServingOption(
-                        label: halfLabel,
-                        grams: half,
-                        source: .heuristic
-                    )
-                )
-            }
-        } else if let servingQuantity, servingQuantity > 0,
-                  let unit = amountUnit(from: productQuantityUnit) {
-            let label = "1 porsjon (\(formatGrams(servingQuantity)) \(unit.rawValue))"
-            options.append(
-                ServingOption(
-                    label: label,
-                    grams: servingQuantity,
-                    unit: unit,
-                    source: .openFoodFacts,
-                    isDefaultSuggestion: true
-                )
-            )
+            let short = ServingOption.documentedLabel(label)
+            add(label: label, amount: parsed.value, unit: parsed.unit,
+                kind: short == "porsjon" ? .portion : .piece, shortLabel: short, suggested: true)
         }
-        
-        if options.isEmpty {
-            if let quantity = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
-                let isBar = name.lowercased().contains("bar")
-                let label = isBar && quantity.unit == .grams
-                    ? "1 bar (\(formatGrams(quantity.value)) g)"
-                    : "1 porsjon (\(formatGrams(quantity.value)) \(quantity.unit.rawValue))"
-                options.append(
-                    ServingOption(
-                        label: label,
-                        grams: quantity.value,
-                        unit: quantity.unit,
-                        source: .heuristic,
-                        isDefaultSuggestion: true
-                    )
-                )
-                
-                if isBar, quantity.unit == .grams {
-                    let half = quantity.value / 2.0
-                    let halfLabel = "1/2 bar (\(formatGrams(half)) g)"
-                    options.append(
-                        ServingOption(
-                            label: halfLabel,
-                            grams: half,
-                            source: .heuristic
-                        )
-                    )
-                }
-            } else if let parsed = parseAmount(from: name), parsed.unit == .grams {
-                let isBar = name.lowercased().contains("bar")
-                let label = isBar ? "1 bar (\(formatGrams(parsed.value)) g)" : "1 porsjon (\(formatGrams(parsed.value)) g)"
-                options.append(
-                    ServingOption(
-                        label: label,
-                        grams: parsed.value,
-                        unit: .grams,
-                        source: .heuristic,
-                        isDefaultSuggestion: true
-                    )
-                )
-            }
+        // serving_quantity alone has no explicit serving unit; package units cannot establish it.
+
+        if let quantity = parseQuantity(productQuantity: productQuantity, unit: productQuantityUnit) {
+            add(label: "Hel pakke (\(formatGrams(quantity.value)) \(quantity.unit.rawValue))",
+                amount: quantity.value, unit: quantity.unit, kind: .package,
+                shortLabel: "hel pakke", suggested: false)
         }
-        
-        if options.isEmpty {
-            return nil
-        }
-        
-        let defaultUnit = amountUnit(from: productQuantityUnit) ?? options.first?.amountUnit ?? .grams
-        let has100 = options.contains { abs($0.grams - 100.0) < 0.1 && $0.amountUnit == defaultUnit }
-        if !has100 {
-            options.append(
-                ServingOption(
-                    label: "100 \(defaultUnit.rawValue)",
-                    grams: 100.0,
-                    unit: defaultUnit,
-                    source: .heuristic
-                )
-            )
-        }
-        
+        guard !options.isEmpty else { return nil }
+        let unit = options.first?.amountUnit ?? .grams
+        options.append(ServingOption(
+            id: Product.catalogID(source: "off-serving", externalID: "100-\(unit.rawValue)"),
+            label: "100 \(unit.rawValue)", grams: 100, unit: unit,
+            source: .heuristic, kind: .baseAmount))
         return options
     }
     
-    private func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
-        let pattern = #"([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
+    private static func parseAmount(from text: String) -> (value: Double, unit: AmountUnit)? {
+        let pattern = #"(?<![0-9.,+\-])([0-9]+(?:[.,][0-9]+)?)\s*(ml|g)\b"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return nil
         }
@@ -754,13 +712,13 @@ class APIService {
         return (number, unit)
     }
     
-    private func parseQuantity(productQuantity: Double?, unit: String?) -> (value: Double, unit: AmountUnit)? {
+    private static func parseQuantity(productQuantity: Double?, unit: String?) -> (value: Double, unit: AmountUnit)? {
         guard let productQuantity, productQuantity > 0,
               let amountUnit = amountUnit(from: unit) else { return nil }
         return (productQuantity, amountUnit)
     }
 
-    private func amountUnit(from rawValue: String?) -> AmountUnit? {
+    private static func amountUnit(from rawValue: String?) -> AmountUnit? {
         switch rawValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "g", "gram", "grams": return .grams
         case "ml", "milliliter", "milliliters", "millilitres": return .milliliters
@@ -768,14 +726,14 @@ class APIService {
         }
     }
 
-    private func nutritionBasis(nutritionDataPer: String?, productQuantityUnit: String?) -> NutritionBasis {
+    private static func nutritionBasis(nutritionDataPer: String?, productQuantityUnit: String?) -> NutritionBasis {
         let normalized = nutritionDataPer?.lowercased().replacingOccurrences(of: " ", with: "")
         if normalized == "100ml" { return .per100ml }
         if normalized == nil, amountUnit(from: productQuantityUnit) == .milliliters { return .per100ml }
         return .per100g
     }
     
-    private func formatGrams(_ grams: Double) -> String {
+    private static func formatGrams(_ grams: Double) -> String {
         if grams.truncatingRemainder(dividingBy: 1) == 0 {
             return String(Int(grams))
         }
@@ -853,20 +811,21 @@ private struct BackendErrorResponse: Decodable {
     }
 }
 
-private struct OpenFoodFactsResponse: Codable {
+nonisolated private struct OpenFoodFactsResponse: Codable {
     let status: String
     let product: OpenFoodFactsProduct?
 }
 
-private struct OpenFoodFactsSearchResponse: Codable {
+nonisolated private struct OpenFoodFactsSearchResponse: Codable {
     let products: [OpenFoodFactsProduct]
 }
 
-private struct OpenFoodFactsProduct: Codable {
+nonisolated private struct OpenFoodFactsProduct: Codable {
     let code: String?
     let productName: String?
     let brands: String?
     let categories: String?
+    let categoryTags: [String]?
     let imageUrl: String?
     let servingSize: String?
     let servingQuantity: FlexibleDouble?
@@ -874,17 +833,82 @@ private struct OpenFoodFactsProduct: Codable {
     let productQuantityUnit: String?
     let nutriments: OpenFoodFactsNutriments?
     let nutritionDataPer: String?
+    let nutritionDataPreparedPer: String?
     let lastModifiedTimestamp: Int?
     let revision: Int?
     let schemaVersion: Int?
     let dataQualityErrors: [String]?
     let dataQualityWarnings: [String]?
 
+    // Optional enrichment must never prevent decoding a usable product.
+    private var nutriScoreGrade: String? = nil
+    private var nutriScoreVersion: String? = nil
+    private var nutriScoreCalculations: [String: OFFNutriScoreCalculation]? = nil
+    private var novaGroup: Int? = nil
+    private var novaMarkers: [String: [[String]]] = [:]
+    private var ingredientsText: String? = nil
+    private var ingredientsNB: String? = nil
+    private var ingredientsNO: String? = nil
+
+    var nutriScoreInfo: ProductNutriScoreInfo? {
+        let selected = nutriScoreVersion == "2023" ? nutriScoreCalculations?["2023"] : nil
+        let matches = selected?.grade?.uppercased() == nutriScoreGrade?.uppercased()
+        return ProductNutriScoreInfo(grade: nutriScoreGrade, version: nutriScoreVersion,
+                                    calculation: matches ? selected?.mapped : nil)
+    }
+
+    var processingInfo: ProductProcessingInfo {
+        let ingredients = [ingredientsNB, ingredientsNO, ingredientsText]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        return ProductProcessingInfo(novaGroup: novaGroup.flatMap { (1...4).contains($0) ? $0 : nil },
+                                     markers: novaMarkers, ingredients: ingredients)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        code = try c.decodeIfPresent(String.self, forKey: .code)
+        productName = try c.decodeIfPresent(String.self, forKey: .productName)
+        brands = try c.decodeIfPresent(String.self, forKey: .brands)
+        categories = try c.decodeIfPresent(String.self, forKey: .categories)
+        categoryTags = try? c.decode([String].self, forKey: .categoryTags)
+        imageUrl = try c.decodeIfPresent(String.self, forKey: .imageUrl)
+        servingSize = try c.decodeIfPresent(String.self, forKey: .servingSize)
+        servingQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .servingQuantity)
+        productQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .productQuantity)
+        productQuantityUnit = try c.decodeIfPresent(String.self, forKey: .productQuantityUnit)
+        nutriments = try c.decodeIfPresent(OpenFoodFactsNutriments.self, forKey: .nutriments)
+        nutritionDataPer = try c.decodeIfPresent(String.self, forKey: .nutritionDataPer)
+        nutritionDataPreparedPer = try c.decodeIfPresent(String.self, forKey: .nutritionDataPreparedPer)
+        lastModifiedTimestamp = try c.decodeIfPresent(Int.self, forKey: .lastModifiedTimestamp)
+        revision = try c.decodeIfPresent(Int.self, forKey: .revision)
+        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion)
+        dataQualityErrors = try c.decodeIfPresent([String].self, forKey: .dataQualityErrors)
+        dataQualityWarnings = try c.decodeIfPresent([String].self, forKey: .dataQualityWarnings)
+        nutriScoreGrade = try? c.decode(String.self, forKey: .nutriScoreGrade)
+        nutriScoreVersion = try? c.decode(String.self, forKey: .nutriScoreVersion)
+        nutriScoreCalculations = try? c.decode([String: OFFNutriScoreCalculation].self, forKey: .nutriScoreCalculations)
+        novaGroup = try? c.decode(Int.self, forKey: .novaGroup)
+        novaMarkers = (try? c.decode([String: [[String]]].self, forKey: .novaMarkers)) ?? [:]
+        ingredientsText = try? c.decode(String.self, forKey: .ingredientsText)
+        ingredientsNB = try? c.decode(String.self, forKey: .ingredientsNB)
+        ingredientsNO = try? c.decode(String.self, forKey: .ingredientsNO)
+    }
+
     enum CodingKeys: String, CodingKey {
         case code
+        case nutriScoreGrade = "nutriscore_grade"
+        case nutriScoreVersion = "nutriscore_version"
+        case nutriScoreCalculations = "nutriscore"
+        case novaGroup = "nova_group"
+        case novaMarkers = "nova_groups_markers"
+        case ingredientsText = "ingredients_text"
+        case ingredientsNB = "ingredients_text_nb"
+        case ingredientsNO = "ingredients_text_no"
         case productName = "product_name"
         case brands
         case categories
+        case categoryTags = "categories_tags"
         case imageUrl = "image_front_url"
         case servingSize = "serving_size"
         case servingQuantity = "serving_quantity"
@@ -892,6 +916,7 @@ private struct OpenFoodFactsProduct: Codable {
         case productQuantityUnit = "product_quantity_unit"
         case nutriments
         case nutritionDataPer = "nutrition_data_per"
+        case nutritionDataPreparedPer = "nutrition_data_prepared_per"
         case lastModifiedTimestamp = "last_modified_t"
         case revision = "rev"
         case schemaVersion = "schema_version"
@@ -900,14 +925,14 @@ private struct OpenFoodFactsProduct: Codable {
     }
 }
 
-private struct CompleteNutrition {
+nonisolated private struct CompleteNutrition {
     let energyKcal: Double
     let protein: Double
     let carbohydrates: Double
     let fat: Double
 }
 
-private struct OpenFoodFactsNutriments: Codable {
+nonisolated private struct OpenFoodFactsNutriments: Codable {
     let energyKcal100g: Double?
     let protein100g: Double?
     let carbs100g: Double?
@@ -915,6 +940,18 @@ private struct OpenFoodFactsNutriments: Codable {
     let sugars100g: Double?
     let fiber100g: Double?
     let sodium100g: Double?
+
+    var energyKcalPrepared100g: Double? = nil
+    var proteinPrepared100g: Double? = nil
+    var carbsPrepared100g: Double? = nil
+    var fatPrepared100g: Double? = nil
+    var sugarsPrepared100g: Double? = nil
+    var fiberPrepared100g: Double? = nil
+    var sodiumPrepared100g: Double? = nil
+
+    var preparedValues: Self {
+        Self(energyKcal100g: energyKcalPrepared100g, protein100g: proteinPrepared100g, carbs100g: carbsPrepared100g, fat100g: fatPrepared100g, sugars100g: sugarsPrepared100g, fiber100g: fiberPrepared100g, sodium100g: sodiumPrepared100g)
+    }
 
     enum CodingKeys: String, CodingKey {
         case energyKcal100g = "energy-kcal_100g"
@@ -924,6 +961,14 @@ private struct OpenFoodFactsNutriments: Codable {
         case sugars100g = "sugars_100g"
         case fiber100g = "fiber_100g"
         case sodium100g = "sodium_100g"
+        case energyKcalPrepared100g = "energy-kcal_prepared_100g"
+        case proteinPrepared100g = "proteins_prepared_100g"
+        case carbsPrepared100g = "carbohydrates_prepared_100g"
+        case fatPrepared100g = "fat_prepared_100g"
+        case sugarsPrepared100g = "sugars_prepared_100g"
+        case fiberPrepared100g = "fiber_prepared_100g"
+        case sodiumPrepared100g = "sodium_prepared_100g"
+
     }
 }
 
@@ -941,7 +986,7 @@ enum SyncDeviceIdentity {
     }
 }
 
-private struct FlexibleDouble: Codable {
+nonisolated private struct FlexibleDouble: Codable {
     let value: Double?
     
     init(from decoder: Decoder) throws {
@@ -956,5 +1001,40 @@ private struct FlexibleDouble: Codable {
         } else {
             value = nil
         }
+    }
+}
+
+nonisolated private struct OFFNutriScoreCalculation: Codable {
+    let grade: String?
+    let estimated: Int?
+    let preparation: String?
+    let nutriscore_computed: Int?
+    let data: Details?
+
+    struct Details: Codable {
+        let components: Components?
+        let positive_points: Int?
+        let positive_points_max: Int?
+        let negative_points: Int?
+        let negative_points_max: Int?
+        let is_beverage: Int?
+        let count_proteins: Int?
+        let count_proteins_reason: String?
+    }
+    struct Components: Codable {
+        let positive: [NutriScoreComponent]?
+        let negative: [NutriScoreComponent]?
+    }
+
+    var mapped: NutriScoreCalculation? {
+        guard nutriscore_computed == 1, let data, let components = data.components else { return nil }
+        var result = NutriScoreCalculation(positive: components.positive ?? [], negative: components.negative ?? [],
+            positivePoints: data.positive_points, positiveMaximum: data.positive_points_max,
+            negativePoints: data.negative_points, negativeMaximum: data.negative_points_max,
+            estimated: estimated == 1, preparation: preparation,
+            proteinExclusionReason: data.count_proteins == 0 ? data.count_proteins_reason : nil)
+        if data.is_beverage == 1 { result.nutritionBasis = .per100ml }
+        else if data.is_beverage == 0 { result.nutritionBasis = .per100g }
+        return result
     }
 }

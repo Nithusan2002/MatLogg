@@ -4,6 +4,200 @@ MatLogg bruker risikobasert testing. Datatap, feil ernæringsberegning,
 auth/eierskap, synk/idempotens, sletting og personvernvalg prioriteres foran ren
 visuell dekning.
 
+## Måling av testdekning
+
+Kjør fra repo-roten med Deno 2.5.4 og en dedikert QA-simulator:
+
+```bash
+npm run functions:coverage
+bash scripts/measure-test-coverage.sh ios 'platform=iOS Simulator,name=<QA-simulator>'
+```
+
+Hver kjøring får en ny mappe under ignorert `build/coverage/`, med commit,
+arbeidstrestatus, verktøyversjon og testlogg. iOS kjører hele `MatLoggTests`
+med kode-dekning og skriver `tests.xcresult`, `report.json` og `report.txt`.
+Rapporter app-targetet `MatLogg.app` separat fra avhengigheter og testkode.
+Deno skriver linje-/grendekning, LCOV og HTML under `profiles/`. Dekningen
+omfatter bare lastede moduler; dagens tester laster `_shared/sync-contract.ts`
+og `_shared/account-deletion.ts`, ikke HTTP-handlerne eller `_shared/client.ts`.
+
+Supabase CI lagrer rapportene som artifacts, kjører hele iOS-enhetstesttargetet
+og fire UI-tester for første logging, redigering med omstart, samlet
+sletting/Angre og vannlogging med omstart. Testfeil stopper jobben; det er
+foreløpig ingen prosentbasert gate. pgTAP og HTTP-/integrasjonstester
+rapporteres som beståtte scenarioer, ikke som en felles kode-dekningsprosent.
+
+Måling 2026-10-12 med Deno 2.5.4:
+
+| Område | Linjer | Grener | Resultat |
+| --- | --- | --- | --- |
+| Delte Edge-moduler før nye tester | 89,8 % | 76,3 % | 15 tester bestod |
+| Delte Edge-moduler etter nye tester | 97,1 % | 93,3 % | 19 tester bestod |
+| iOS app-target, enhetstester | 32,57 % | Ikke grenmålt | 380 tester bestod |
+| iOS Services + ViewModels | 82,33 % | Ikke grenmålt | Delmengde av app-targetet |
+| PostgreSQL/RLS | Ikke linjemålt | Ikke grenmålt | 101 kontroller i 8 filer bestod |
+| Legacy `backend/src`, vanlig `npm test` | 28,27 % | 70,51 % | 6 testskript bestod |
+
+Databasemålingen brukte en ny lokal instans med prosjekt-ID
+`matlogg-coverage-qa`, nye migrasjoner og syntetiske testdata på port 56322.
+Eksisterende lokale instanser ble ikke endret. Legacy ble målt med Node 24,
+V8-profiler og c8 10.1.3 (`--all --src backend/src --include 'backend/src/**/*.ts'`).
+Legacy-tallet inkluderer umålte filer som 0 % og utelater egne Apple- og
+database-/HTTP-integrasjonstester; det er ikke dekningen av hele backend-testpakken.
+Kontoslettingens eksisterende ende-til-ende-test bestod mot samme lokale instans:
+Auth-sletting, nektet innlogging, produktsletting, eierskapsisolasjon og gjentatt purge.
+
+Første lokale iOS-kjøring fant to feil i migrasjonstestgrunnlagene: de beholdt
+`food_logging_drafts` da de ble merket som eldre skjema. Testgrunnlagene ble
+rettet uten endring i produksjonsmigrasjonene. Lokal Xcode 27.0 / iOS 26.5
+hang under testavslutning; verifiseringen ble derfor flyttet til et rent CI-miljø.
+
+[CI-kjøring 38217326998](https://github.com/Nithusan2002/MatLogg/actions/runs/38217326998)
+på testcommit `1908c67` med Xcode 26.2 er grønn: alle 380 enhetstester i 46
+suiter, fire UI-tester, 101 databasekontroller, kontosletting ende-til-ende og
+19 Deno-tester bestod.
+Dekningsartifactene ble lastet opp og iOS-rapporten lest tilbake.
+App-targetet har 14 060 av 43 164 kjørbare linjer dekket. Gruppen Services +
+ViewModels er definert som filer under disse to mappene: 9 765 av 11 861
+linjer. Dette er en avgrenset gruppe, ikke en prosent for alle typer
+kjernelogikk. Enhetstestene gir lav dekning av SwiftUI-visninger, som inngår i
+app-targetets total. UI-testresultatene holdes separat fra denne baseline.
+
+UI-kjøringene avdekket to faktiske feil: en gammel loggbekreftelse i app-skallet
+kunne dekke slettingskvitteringens Angre, og appen krasjet ved redigeringslagring
+med `EXC_BAD_ACCESS` i callbacken som overførte valgfri `PortionSelection`.
+Tidligere loggbekreftelser lukkes nå når valgmodus starter. Redigeringen bruker
+én uforanderlig `LogEditRequest` og en eksplisitt `@MainActor`-callback på begge
+inngangene. Mengde, måltid og historisk porsjon overføres videre til samme
+ViewModel/repository; lagring, synkformat og næringsberegning endres ikke.
+UI-testen trykker Angre straks, kontrollerer opprinnelig antall og nye ID-er
+etter gjenoppretting, og ruller fram rader før de undersøkes. Kontrollen av
+samme logg-ID, dato og valgt måltid etter redigering og omstart beholdes.
+
+Workflowen laster nå opp enhetsrapporten før UI-testene og bruker
+`test-without-building` for UI, med eksplisitte tidsgrenser. Begge jobbene,
+simulatoropprettelsen og artifact-opplastingen er verifisert i sluttkjøringen.
+CI oppretter en egen iPhone 16 Pro via `scripts/create-qa-simulator.sh` fra
+nyeste tilgjengelige iOS-runtime som støttes av valgt SDK, og bruker dens ID.
+Dette erstatter antakelsen om hvilke simulatornavn runneren har ferdig opprettet.
+CI-verifiseringen gjelder testgrenen, og omfatter ikke øvrige lokale
+arbeidsendringer som ikke er med i dens commit.
+Måleskriptene er syntakskontrollert med `bash -n`, og egen diff med
+`git diff --check`. Simulatorhjelperens kommandoargumenter ble også kontrollert
+med erstatninger ved CLI-grensen: kontrollen fanget en feil før retting og
+returnerte bare simulator-ID etter retting. Ingen arkitekturavvik er innført:
+presentasjonstilstand håndteres i UI, redigeringsstate og input i ViewModel,
+og eksisterende repository-/transaksjonsgrenser er bevart.
+
+Supabase-transport og varig retry (2026-10-12):
+
+Verifisert på commit `b8d9273` i [grønn CI-kjøring](https://github.com/Nithusan2002/MatLogg/actions/runs/38223522816):
+392 iOS-enhetstester i 48 suites, alle fire UI-tester og serverjobben bestod.
+Ny linjedekning med samme målemetode:
+
+| Filomfang | Linjer | Dekning |
+| --- | --- | --- |
+| Hele iOS-app-targetet | 14 193 / 43 168 | 32,88 % |
+| `Services/` + `ViewModels/` | 9 898 / 11 865 | 83,42 % |
+| `SupabaseService.swift` | 84 / 190 | 44,21 % |
+| `SyncEngine.swift` | 153 / 183 | 83,61 % |
+| `LocalStore.swift` | 2 718 / 3 085 | 88,10 % |
+
+Dette erstatter iOS-tallene fra baseline ovenfor for den testede committen.
+Deno-modulenes måleomfang er uendret; HTTP-integrasjonstesten måles ikke med Deno-dekning.
+Lokal `xcodebuild build-for-testing` for iOS Simulator, shell-syntakskontroll,
+Python-kompilering og `git diff --check` bestod også.
+
+- `SupabaseTransportTests` bruker den ekte Swift-SDK-en med injisert URLSession
+  og isolert HTTP-stub. Den kontrollerer wire-format/base64, batch-/payloadgrenser,
+  delvise svar, 401/503/429/502, relay-feil, timeout og ugyldige suksessvar.
+- `SupabaseQueueIntegrationTests` kobler transporten til `SyncEngine`,
+  `DatabaseService` og en faktisk SQLite-fil. Den kontrollerer offline-lagring,
+  delvis ACK, vedvarende backoff, omstart, in-flight-gjenoppretting og ny levering
+  med samme event-ID/payload uten tap av lokale logger. Retry gjøres klar eksplisitt
+  i testen; dette er ingen måling av automatisk ventetid.
+- `bash supabase/tests/run-sync-http-e2e.sh <disponibel-lokal-workdir>` tester
+  ekte lokal Auth → Edge Function → PostgreSQL/RLS. Den kontrollerer manglende,
+  ugyldig og utløpt token, deaktivert synk, metode/JSON/envelope-validering,
+  delvis batch, ukjent schema, replay etter antatt tapt ACK, eierskap og 51-eventsgrensen.
+  Kun loopback godtas. Testen oppretter syntetiske brukere, gjenoppretter
+  `sync_enabled` og sletter testbrukerne etterpå. Bruk kun disponibelt QA-prosjekt.
+  Kontrollen inngår i Supabase CI og bestod også lokalt på port 56321.
+
+`SupabaseService` kan nå få SDK-klienten injisert. Produksjonsinitializer,
+auth-oppsett, wire-kontrakt og domenelagring er uendret. Ingen arkitekturavvik:
+IO-grensen er injiserbar, og eksisterende repository-/transaksjonsgrenser beholdes.
+
+Samlet iOS → lokal Supabase (2026-10-12):
+
+`LiveSupabaseSyncTests` og `scripts/run-live-sync-e2e.py` bestod med to separate
+iOS-testprosesser på Xcode 27.0 / iOS 26.5. Hver prosess kjørte nøyaktig én test;
+helperen avviser en grønn kjøring med null utførte tester.
+
+Første prosess logger et syntetisk produkt og en matlogg lokalt før opplasting,
+og kontrollerer at serveren ennå ikke har loggen. Den bruker ekte Supabase Auth,
+Swift-SDK, Edge Function og PostgreSQL. En testadapter holder det mottatte ACK-et
+ved transportgrensen, slik at SyncEngine ikke får lagre det lokalt. Køen står
+som in-flight når testverten avsluttes. Andre prosess krever en ny prosess-ID,
+åpner samme SQLite-fil, kontrollerer identiske event-ID-er/payloads og leverer
+på nytt gjennom SyncEngine. Resultatet er én matlogg og to inbox-rader (produkt
+og logg) på serveren, bevart mengde/enhet/kcal og ingen ubekreftede lokale events.
+Dette tester kontrollert prosessavslutning ved ACK-grensen, ikke fysisk nettutfall
+eller vilkårlig krasj. Nedlasting og flerenhetskonflikter inngår ikke.
+
+Testene er deaktivert i vanlig enhetstestkjøring. Helperen injiserer runtime-oppsett
+via en midlertidig xctestrun-fil som slettes etterpå. Den godtar bare loopback og
+QA-prosjekt-ID `matlogg-coverage-qa` eller `matlogg-live-sync-qa`, oppretter en syntetisk
+bruker og rydder egne serverdata/bruker og gjenoppretter serverflagget også ved feil.
+Den vanlige klientens produksjonsflagg endres ikke. Start kun en disponibel QA-database.
+
+```bash
+xcodebuild build-for-testing -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=<QA-ID>' CODE_SIGNING_ALLOWED=NO
+python3 scripts/run-live-sync-e2e.py \
+  --workdir <disponibel-lokal-QA-workdir> \
+  --xctestrun '<DerivedData/MatLogg-.../Build/Products/MatLogg_...xctestrun>' \
+  --simulator <QA-ID>
+```
+
+Suksessrapport og begge xcresult-bundler ligger lokalt under
+`build/coverage/live-sync.gx2lk_a4/`. Denne kjøringen gjelder lokal arbeidskopi;
+den er ikke kjørt i GitHub CI. CI har separate iOS-/serverjobber og mangler den
+samlede testens lokale Docker-backend. Ingen produksjonskode, kontrakt eller
+arkitekturgrenser er endret i denne runden; kun testkode, testhelper og dokumentasjon.
+
+Midlertidige RPC-feil og automatisk retry (2026-10-12):
+
+HTTP-handleren ligger nå i `_shared/sync-handler.ts` med en injiserbar RPC-grense;
+`sync-events/index.ts` kobler fortsatt til de samme ekte auth-/Supabase-klientene.
+Deno-testene fremprovoserer returnerte RPC-feil fra `is_sync_enabled`,
+`consume_sync_quota_v1` og `apply_sync_event_v1`. De kontrollerer 500 før
+apply ved config/quota-feil, delvis 201/`SERVER_ERROR` ved apply-feil og vellykket
+ny levering med samme event-ID når feilen fjernes. Dette er feilinjeksjon ved
+RPC-grensen, ikke faktiske driftsavbrudd i PostgreSQL.
+
+`AutomaticSyncRetryTests` kobler ekte Supabase Swift-SDK, HTTP-stub, SyncEngine
+og SQLite. Tre feilforløp bruker vanlig timer og Backoff (10–15 sekunder),
+uten manuell retry, endring av køen eller akselerert klokke. De kontrollerer
+utsatt retry, samme event-ID/payload, bevart lokal logg, ACK etter gjenopprettet
+HTTP-svar og vedvarende ferdig kø etter gjenåpning.
+
+Verifisert lokalt: 3 nye Deno-handler-tester, 13 synkkontrakttester, Deno check/lint,
+10 iOS-tester i transport-/retry-suitene (inkludert tre retry-cases, totalt 44,67 s)
+3 SQLite-/transport-integrasjonstester og HTTP-regresjon mot ekte disponibel Supabase. Resultatbundle:
+`build/coverage/automatic-retry.xcresult`. Ingen API-kontrakt, autorisering,
+produksjonsflagg eller databasemigrasjon er endret. Avhengigheter injiseres ved
+IO-grensen; local-first-transaksjoner og eierkontroll beholdes uten arkitekturavvik.
+
+Gjenværende oppfølging:
+
+1. Legacy-integrasjonstester vurderes separat så lenge cutover trenger dem.
+   Øk ikke legacy-dekningen bare for å forbedre et samlet prosenttall.
+
+Risikospesifikasjonens mål om over 60 % kjernelogikk kan først brukes som gate
+når filomfang og målemetode er definert. Kritiske feilscenarioer skal være
+testet uansett prosent. Produksjonssynk holdes fortsatt deaktivert.
+
 ## Forutsetninger
 
 - Xcode med en kompatibel iOS-simulator
@@ -88,6 +282,27 @@ xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
   -only-testing:MatLoggUITests/DailyGoalsUITests \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
 ```
+
+### Første logging
+
+Kjør på en dedikert QA-simulator. UI-testene overstyrer lokal profiloppslag
+ved første launch for å opprette en ny testprofil; ved gjenåpning fjernes
+overstyringen og den lagrede profilen brukes. De sletter ikke domeneinnhold.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<QA-simulator>' \
+  -derivedDataPath /tmp/MatLoggFirstLogQA \
+  -only-testing:MatLoggTests/AuthViewModelTests \
+  -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch \
+  -only-testing:MatLoggUITests/MatLoggUITests/testFirstLogCanBeSkippedWithLargeText \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Testene dekker direkte lokalt søk med tastatur, lagring, Angre og omstart,
+samt rullbare alternativer med stor tekst og eksplisitt «Gå til Hjem».
+Sesjonstestene dekker også mislykket gjenoppretting av kjent konto, bevart
+lokal profil ved innloggingsfeil og valgfri innlogging før første logging.
 
 ## Supabase
 
@@ -233,40 +448,593 @@ dekker inngang fra Hjem, måltidsvalg og datobytte med stor tekst.
 dekker registrering på tidligere dato og flytting til et annet måltid.
 Begge UI-testene lagrer skjermbilder i testresultatet.
 
-## Apple Helse – målrettet verifisering
+### Navigasjonsforenkling
 
-HealthIntegrationTests bruker syntetiske data, en fake HealthKitClient og egne
-midlertidige databaser. SDK-samplekonverteringen testes uten HKHealthStore.
-Testene dekker migrasjon 7→8, atomisk outbox, canonical lokale HealthKit-typer,
-revisjoner/retry, presisjon/kilde/enhet, kopiering til valgt dato, sletting/angre,
-delvis tilgang, 90-dagers import, anchor, cachefeil, manuell prioritet, frakobling,
-profiloverføring og forsinkede native operasjoner. Kontroller også regresjonene
-for måltidslagring, morgeninnsjekk, profil, gjenbruk og lagrede måltider.
+`QuickLogTests` dekker lokal henting av gjenloggingsgrunnlag uten katalog-
+eller nettsøk, retry og forkasting av et profilsvar etter reset. Testene dekker
+også lokal manuell produktlagring, mengdevalg etter at skjemaet er lukket,
+og forkasting av ventende produktvalg ved profilreset.
+`testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu` dekker direkte
+åpning uten søkeskjerm, avbryt til hurtigmenyen og bevart dato.
+`testDailyLogIsDirectAndSavedMealsRemainDiscoverable` dekker direkte dagslogg
+uten filter, bytte mellom gjenbrukslistene og bibliotekinngangen fra bunnmenyen.
+`testQuickLogManualRegistrationAndDirectHomeEditingKeepPastDate` dekker
+manuell produktregistrering fra Loggfør, logging på tidligere dato og direkte
+redigering fra Hjem med kontroll av flytting til Lunsj.
+Testene bruker egne kontroll-ID-er slik at favoritt- og lagreknapper ikke
+forveksles. Fysisk skanning og VoiceOver kontrolleres før pilot.
 
-```bash
+### Loggfør igjen i hurtigmenyen
+
+`RepeatFoodTests` dekker profilfiltrering, framtidige registreringer, stabil
+sortering, eksakt g/ml, gjeldende næringsdata, porsjonssnapshot og kontroll ved
+endret grunnlag. Testene dekker også atomisk rollback ved hendelsesfeil,
+retry, raske dobbelttrykk, kontekst-/profilbytte og Angre med eksakt logg-ID.
+`RepeatFoodUITests/testRepeatPortionAndUndoKeepsOriginalLog` kontrollerer
+kompakte nylige varer i Søk, synlig mengde/destinasjon i Loggfør-menyen,
+direkte gjenlogging og bevart original etter Angre
+med største tilgjengelighetstekst.
+
+Målrettet kjøring: `xcodebuild test` med scheme `MatLogg`, en egen QA-simulator,
+`-only-testing:MatLoggTests/RepeatFoodTests`,
+`-only-testing:MatLoggTests/FoodSearchTests`,
+`-only-testing:MatLoggTests/QuickLogTests`,
+`-only-testing:MatLoggTests/LogViewModelTests` og
+`-only-testing:MatLoggUITests/RepeatFoodUITests`.
+
+### Porsjonslogging
+
+`PortionLoggingTests` og `PortionImportTests` dekker antall/desimaler, nøyaktig
+omregning, enhetsbytte, inkompatible og eldre heuristiske porsjoner, cache-ID-er,
+historisk snapshot, JSON-bakoverkompatibilitet, atomisk rollback/retry, angre,
+kopiering, måltidsgjenbruk, lagrede måltider, sist brukt og eksport.
+`PortionLoggingUITests` logger to brød, gjenåpner appen og redigerer til tre med
+stor tekst. Det syntetiske produktet aktiveres bare i Debug med `--portion-qa`.
+
+Målrettet iOS-kjøring, med en installert QA-simulator:
+
+```sh
 xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
-  -destination 'platform=iOS Simulator,name=<simulatornavn>' \
-  -only-testing:MatLoggTests/HealthIntegrationTests \
-  -only-testing:MatLoggTests/MealBatchStorageTests \
-  -only-testing:MatLoggTests/MorningCheckInTests \
-  -only-testing:MatLoggTests/ProfileTests \
+  -destination 'platform=iOS Simulator,name=<QA-simulator>' \
+  -only-testing:MatLoggTests/PortionLoggingTests \
+  -only-testing:MatLoggTests/PortionImportTests \
+  -only-testing:MatLoggTests/ProductSearchTests \
+  -only-testing:MatLoggTests/LogViewModelTests \
   -only-testing:MatLoggTests/MealReuseTests \
   -only-testing:MatLoggTests/SavedMealsTests \
+  -only-testing:MatLoggTests/SavedMealStorageTests \
+  -only-testing:MatLoggUITests/PortionLoggingUITests \
+  -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
 ```
 
-HealthIntegrationUITests tester valg, tomtilstand, omstart og frakobling med
-svært stor tekst og `--healthkit-fake`. Kjør separat med
-`-only-testing:MatLoggUITests/HealthIntegrationUITests`.
+Backend: `functions:test` og `supabase:test` dekker porsjonssnapshot, UTF-8,
+legacy/null-semantikk, logg og måltid, eierskap, retry og rollback.
+Bruk en separat lokal testdatabase for migrasjonsreset; ikke reset utviklerens
+eller staging-/produksjonsdata. Migrasjon og Edge Function må være på plass
+før klienten sender det nye valgfrie v1-feltet. Produksjonssynk forblir av.
 
-Verifisert 2026-10-02 på iOS 26.5 / iPhone 17 Pro-simulator: 71 tester i seks
-suiter grønne, hvorav 26 HealthIntegrationTests. HealthIntegrationUITests har
-bestått; Release-simulatorbygg og norske usage descriptions er kontrollert.
-`git diff --check` er grønn. Eksisterende testkilder har Swift 6-aktørvarsler;
-appen har fortsatt Swift 5-konfigurasjon.
+### Tidsmåling med Instruments
 
-Dette er ikke en produksjonsgodkjenning: fysisk HealthKit-tilgang, signert
-provisioning, Data Protection på låst iPhone og native retry/rettelser/sletting
-må fortsatt testes. Simulator eksponerer ikke iPhones filbeskyttelsesklasse;
-den automatiske testen bekrefter backup-unntak og atomisk cache/anchor, mens
-filbeskyttelsesklassen må bekreftes på enheten. Se [pilotgates](health-integration.md).
+`PerformanceSignposts` sender intervaller også i optimaliserte Release/Profile-
+bygg. Bruk Product → Profile på fysisk enhet, velg Time Profiler og legg til
+os_signpost-instrumentet. Filtrer på subsystem `com.nithusan.MatLogg` og
+kategori `Performance`. Intervallene inneholder bare statiske kodenavn.
+
+- `Database.Total` / `Database.Execute`: total ventetid og utførelse på IO-køen.
+  Metadata `operation` identifiserer repository-kallet. Differansen inkluderer
+  køventing og gjenopptakelse av den ventende tasken.
+  `Database.QueueWait` måler fra innsending til IO-closure-en starter;
+  `Database.ResumeWait` måler fra rett før continuation.resume til tasken
+  fortsetter etter await, også ved feil. ResumeWait inkluderer selve resume-
+  kallet og executor-planlegging; det beviser ikke alene at MainActor blokkeres.
+  Bruk metadata `operation=latestGoal(userId:)` for å undersøke målhenting.
+- `Store.Summaries.*`, `Store.Products.*` og `Store.Transaction.*`: indre SQL/
+  dekoding, aggregering og transaksjon, adskilt fra total tid med køventing.
+  Transaksjonsintervallet inkluderer commit eller rollback.
+- `Home.*` og `Log.*`: lasting av hjemoversikt og lokal matlogging. Oversikten
+  kan oppdateres i en separat task etter logging; disse intervallene skal derfor
+  undersøkes sammen, ikke summeres som én sekvens.
+- `Search.FirstLocal`, `Search.Load`, `Search.ResultsToState`, `Search.Index`:
+  første lokale state, full lasting, task frem til publisering og faktisk
+  søkeberegning inne i actor-en. Første lokale state kan publiseres før den
+  asynkrone treffberegningen er ferdig.
+- `Catalog.*` og `Search.Remote*`: filinnlesing, parsing, projisering,
+  sammenslåing, leverandør/cache, faktisk API-kall, filtrering og lokal cache.
+  `Store.Open`, `Store.Migrate` og `Store.ResetInFlight` dekker databaseoppstart.
+
+Gjenta kald oppstart, åpning av søk, tastetrykk, matlogging og datobytte.
+Sammenlign første og senere kjøringer. Marker samme tidsområde i Time Profiler
+for å finne CPU-arbeidet. Signpost-varighet er forløpt tid, inkludert venting;
+intervaller kan overlappe og skal ikke summeres ukritisk. Intervallene avsluttes
+også ved feil, kansellering og forkastede resultater. Slutten betyr derfor ikke
+alltid at data ble publisert, og måler aldri ferdig tegnet skjerm.
+
+Oppstart og UI: `Startup.RestoreContext`, `Startup.Compose`,
+`Startup.RestoreSession` og `Startup.LoadHealthProfile` måler koordinering og
+oppsett. `Startup.*Changed` og `Startup.ContentAppeared` er enkeltmarkører uten
+brukerdata. `UI.AppRootBody`, `UI.RootBody`, `UI.TabBody` og `UI.HomeBody` måler
+bare evaluering av view-verdier. De inkluderer ikke underliggende body-kall,
+layout eller rendering. Bruk SwiftUI-instrumentet sammen med Time Profiler for
+å se view-grafarbeid mellom intervallene og antall gjentatte evalueringer.
+`Startup.Compose` dekker initializer-arbeid, men StateObject kan opprette
+objektene senere; intervallet dekker derfor ikke hele objektinitialiseringen.
+
+## Kontosletting og lokal opprydding
+
+Målrettede iOS-suiter: `AuthViewModelTests`, `AuthServiceTests` og
+`ProfileTests`. Kontroller at xcresult faktisk inneholder kjørte tester;
+en vellykket testkommando med null tester er ikke verifisering.
+`account_deletion.test.sql`, `account_deletion_access.test.sql` og
+`002_sync_security.test.sql` dekker purge,
+produkter, rate-limit-rader, alle domenekategorier, eierisolasjon og retry.
+
+`bash supabase/tests/run-account-deletion-e2e.sh <lokalt-supabase-prosjekt>`
+setter opp en midlertidig cron-secret og functions-server, kjører HTTP-testen
+og rydder egne prosesser/hemmeligheter. Samme kontroll inngår i Supabase CI.
+
+For manuell lokal ende-til-ende-kontroll må Supabase være startet med migrasjonene,
+og funksjonene må serves med en lokal `PURGE_CRON_SECRET` i en ignorert eller
+midlertidig env-fil. Kjør:
+
+```sh
+python3 supabase/tests/account-deletion-e2e.py \
+  --workdir <lokalt-supabase-prosjekt> --env-file <lokal-env-fil>
+```
+
+Testen godtar bare localhost, leser lokale CLI-nøkler uten å skrive dem ut,
+og oppretter/rydder syntetiske kontoer og produkter. Den tester innlogging,
+serverbekreftelse, sperret innlogging, umiddelbar lesesperring med gammelt
+token, purge, Auth hard-delete og eierisolasjon.
+Bruk et isolert lokalt prosjekt: purge behandler alle forfalte kontoer i
+testmiljøet. Hosted tester skal avgrenses til staging og syntetiske kontoer;
+kontroller at ingen andre kontoer forfaller før en bulk-purge kjøres.
+
+### Registreringsutkast
+
+Målrettet verifisering på en dedikert simulator:
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=MatLogg Draft QA' \
+  -derivedDataPath /tmp/MatLoggDraftQA \
+  -only-testing:MatLoggTests/LoggingDraftTests \
+  -only-testing:MatLoggTests/MatLoggTests/schemaVersionSixMigratesAndReopensWithoutDeletingDrafts \
+  -only-testing:MatLoggUITests/LoggingDraftUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Testene bruker syntetiske data. UI-testen bruker debugprofilen på dedikert
+simulator og forkaster eventuelt et tidligere utkast der, beholder et
+syntetisk produkt og logger én testregistrering. Fysisk systemterminering og
+VoiceOver må vurderes separat; UI-testen modellerer prosessavbrudd.
+
+### Skjermbilder til landingssiden
+
+`LandingCaptureUITests/testCaptureLandingScreens` er et eksplisitt opptaksverktøy.
+Bruk en dedikert simulator og sett `TEST_RUNNER_MATLOGG_LANDING_CAPTURE=1`
+foran `xcodebuild test` med `-only-testing:MatLoggUITests/LandingCaptureUITests`.
+Testen tilbakestiller bare demoen og lagrer åtte navngitte `landing-*`-bilder
+i xcresult. Utvikling-bildet viser Dag med mat, skritt, vekt og treningsøkter aktivert.
+Helse-kortene bruker fiktive demodata i minnet uten systemtilgang. Opptaket bruker
+tekststørrelse Medium for å vise alle fire kortene i telefonrammen. Testen logger 60 g havregryn til dagens frokost én gang. Alle bildene tas uten
+tastatur. Søkebildet bruker et presist produktsøk; et eget dagbokbilde tas
+etter at bekreftelsen har lukket seg automatisk. Opptaket venter på at den
+forsvinner, siden den kan utløpe mens forrige skjermbilde tas. Mengdebildet tas ved å åpne produktet igjen med den huskede
+mengden på 60 g, uten å fokusere feltet eller logge en ekstra registrering.
+Eksporter vedlegg med `xcrun xcresulttool export attachments` og kontroller
+bildene visuelt før de erstatter `matlogg-web/public/screenshots/`.
+
+### Historikktreff i matsøk
+
+`FoodSearchTests` dekker tregrensen, presise søkeord, stabil rekkefølge,
+deduplisering og tømming ved søke-/profilbytte. `RepeatFoodTests` dekker lokalt
+historikkgrunnlag utover seks nylige varer, siste loggføring per produkt,
+framtidige registreringer, eierskap, sletting og uendret synkkø ved lesing.
+`FoodSearchLoadingTests` kontrollerer bevart lokal/katalog-lastestruktur.
+`RepeatFoodUITests/testRepeatPortionAndUndoKeepsOriginalLog` kontrollerer også
+«Tidligere logget», unik produktrad og åpning av produktkort med største tekst.
+Kjør disse målrettet på en dedikert QA-simulator.
+
+### Flervalg i dagsloggen
+
+Målrettet kontroll: `LogViewModelTests`, `RenderPresentationTests`,
+`SavedMealsTests` og `MealBatchStorageTests`. Disse dekker valg per logg-ID,
+måltidsgrupper/dato, 50-varegrense, uavhengig batchkvittering, feil og
+atomisk sletting/gjenoppretting med synkhendelser.
+
+På en ledig dedikert QA-simulator kjøres også
+`MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch` og
+`MatLoggUITests/testDiarySelectionSavesOnlyChosenEntryWithLargeText`.
+Testene oppretter syntetiske porsjonslogger med `--portion-qa`, kontrollerer
+Angre og avbrutt/vellykket måltidslagring, og lagrer skjermbilder. VoiceOver
+må fortsatt kontrolleres manuelt; UI-testene verifiserer ikke opplesning.
+
+
+## Databasekvote og staging-prøve – 2026-10-12
+
+Kodecommit `1edbbeb` måler 14 201 / 43 169 linjer (32,90 %) i hele app-targetet,
+og 9 906 / 11 866 (83,48 %) i Services + ViewModels. iOS-enhetstargetet bestod
+med 395 registrerte tester i 50 suiter; de to LiveSupabaseSyncTests er eksplisitt
+skippet i vanlig CI og har separat lokal verifisering ovenfor. RATE_LIMITED i
+et delvis svar prøves igjen etter 60 sekunder med samme event-ID.
+
+`bash scripts/rehearse-staging-migrations.sh` lager en disponibel lokal database
+fra de åtte observerte staging-migrasjonene, oppgraderer med manglende migrasjoner,
+kontrollerer bevaring av syntetiske næringsverdier og batchteller og kjører pgTAP
+og schema-lint. Serverjobben bestod 115 pgTAP-kontroller på ferskt skjema og
+115 etter oppgraderingen, Auth-/HTTP-regresjoner og 22 Deno-tester.
+Resultater: [CI på den testede kodecommitten](https://github.com/Nithusan2002/MatLogg/actions/runs/38280707469).
+Etter brukergodkjenning ble de samme migrasjonene og Edge-koden deployet på
+staging. Syntetiske kvote-/replay-/eierskaps-/nødstoppkontroller bestod med
+rollback; etterkontrollen bekreftet null testrester og avslått synkflagg.
+Utrulling og verifiseringsgrenser finnes i
+[production-readiness.md](production-readiness.md#klargjort-staging-oppgradering--2026-10-12).
+
+### Manuell strekkodeinntasting
+
+Målrettede suiter: `ProductBarcodeParserTests` og `ProductSearchTests`.
+UI: `MatLoggUITests/testManualBarcodeEntryWithoutCameraValidatesAndCancels`
+kontrollerer inngangen med største tekststørrelse, ugyldig kontrollsiffer og
+avbryt uten kameratilgang.
+`MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs` bruker lokale
+demodata for inntasting → produktkort → loggføring. Kjør på egen QA-simulator.
+Pause/gjenopptakelse av kameradeteksjon og VoiceOver må også kontrolleres på
+fysisk iPhone.
+
+## Tilberedt næringsgrunnlag
+
+Målrettede iOS-suiter: `ProductSearchTests`, `PortionLoggingTests`,
+`LoggingDraftTests`, `SavedMealsTests`, `MealReuseTests`, `APIServiceTests`.
+Regresjonen `preparedNutritionDoesNotUseDryPackageWeight()` skal avvise varen
+uten prepared-fallback og godta tilberedte verdier med fallback, uten tørr
+pakkeporsjon. UI-test: `testPreparedProductUsesCookedWeightAndLogs`.
+Debug-argumentet `--prepared-nutrition-qa` legger inn en syntetisk lokal vare
+med strekkode `1000000000009`, uten behov for ekstern produktforespørsel.
+Kontraktstest: `supabase/functions/tests/nutrition_preparation_test.ts`.
+Databasetest: `supabase/tests/database/nutrition_preparation.test.sql`;
+kjøres bare mot bekreftet lokal/disponibel Supabase.
+
+## Fysisk iPhone – 2026-10-14
+
+Sju kritiske UI-flyter ble verifisert på iPhone 17 med iOS 27.2, bygget med
+Xcode 27.0. En ignorert QA-xcconfig ga app og testkjører egne bundle-ID-er og
+«MatLogg QA» som appnavn; vanlig installasjon, datacontainer og nøkkelring ble
+ikke brukt. Klientens `backendSyncEnabled` forble false.
+
+Første kjøring bestod 1/7 og viste rotasjon til liggende modus. De sju
+portrettscenarioene velger nå `.portrait` før appstart. Neste kjøring bestod
+5/7: første logging/omstart, måltidsredigering på tidligere dag, batchsletting/
+angre, tilberedt næringsgrunnlag og vannlagring/korreksjon.
+
+Fysisk talltastatur viste ikke SwiftUIs keyboard-toolbar i strekkodearket.
+Eksisterende «Ferdig» ble flyttet til navigasjonslinjen når feltet har fokus.
+Regresjonen bekrefter tilgjengelig knapp, lukket tastatur, uendret input,
+kontrollsiffervalidering og avbryt med største tekststørrelse. Det andre
+strekkodetreffet viste riktig havregrynprodukt med annen bokstavstørrelse;
+testen krever fortsatt samme produktnavn og loggkvittering, men sammenligner
+navnet uten hensyn til store/små bokstaver og venter på presentasjonen.
+Begge berørte strekkodetester ble kjørt på nytt og bestod (2/2).
+
+Resultatbundler under ignorert `build/physical-qa-20261014/`:
+`physical-ui-portrait.xcresult` (5/7 før strekkoderetting) og
+`physical-barcode-final.xcresult` (2/2 etter retting). Skjermbilder av tilberedt
+grunnlag og strekkodevalidering ble inspisert. Ingen full unit-suite eller ny
+dekningsmåling ble kjørt; endringen gjelder fokus/UI og testforutsetninger.
+Faktisk kameradeteksjon/pause/gjenopptakelse, VoiceOver, Apple-innlogging og
+en Release-/TestFlight-kandidat inngikk ikke i denne kontrollen.
+
+### Supplerende eksport- og kontokontroll – 2026-10-14
+
+På samme fysiske iPhone og med isolert QA-konfigurasjon bestod 22 tester i
+`ProfileTests` og `CameraAuthorizationViewModelTests`, samt to UI-tester:
+`testLocalStorageInformationInProfile` og
+`testPilotAccountOffersAppleWithoutEmailForms`. `xcodebuild test` avsluttet
+med `TEST SUCCEEDED`. Resultat: `build/physical-qa-20261014/remaining-gates.xcresult`;
+kjørelogg: `build/physical-qa-20261014/remaining-gates.log` (ignorert).
+
+Eksporttestene dekker syntetisk eksportinnhold og eierisolasjon, feil/retry,
+profilbytte under eksport og opprydding. UI-kontrollen bekrefter tilgjengelig
+eksportknapp og lokal lagringsinformasjon; den åpner ikke delingsarket og
+verifiserer ikke faktisk lagring av JSON via Filer. Kontotesten bekrefter
+Apple-knapp og fravær av e-posthandlinger, ikke ekte autentisering.
+
+Brukeren valgte å utsette ekte kameraskanning, VoiceOver og Apple-inn-/utlogging
+i denne runden. Disse punktene og ende-til-ende-eksport via delingsarket står
+fortsatt åpne. Ingen appkode, auth-konfigurasjon eller synkflagg ble endret.
+Skills: ios-swiftui og qa-release. Arkitektur: ingen implementeringsendring;
+avhengighetsretning, local-first, eierskap og transaksjonsgrenser er uendret.
+Resultatet gir ikke samlet pilot-/releasegodkjenning.
+
+### Delbare måltidskort
+
+Målrettede suiter: `MealShareTests`, `SavedMealNutritionPreviewTests` og
+`SavedMealDetailTests`. Kontroller justerte mengder, ugyldig grunnlag,
+stilpreferanse, feil/retry, profilreset under eksport, bilde uten lesbare data
+og 1080 × 1920-eksport av alle stiler med og uten bilde.
+`MealShareUITests` bruker demo på en dedikert QA-simulator og kontrollerer
+stilvalg, avbryt og største tekststørrelse, med skjermbilder som vedlegg.
+VoiceOver og faktisk overføring til en sosial app krever separat fysisk kontroll.
+
+Kontroll 2026-10-18: 13 målrettede enhetstester bestod, og vanlig UI-flyt
+bestod med alle tre stilvalg, åpning/lukking av systemdelingsarket og avbryt
+uten loggføring. Siste kodeversjon bestod `build-for-testing`. Etter opplåsing
+av Mac-en bestod også `testStyleControlsWithLargestText`, med alle tre stilvalg
+og avbryt. Testen bruker små rullebevegelser og krever at hele stilvalget ligger
+mellom navigasjonslinjen og eksportknappen før trykk. Skjermbilder med største
+tekststørrelse ble inspisert. Resultat: `build/meal-share-qa/large-scroll-fix.xcresult`.
+VoiceOver og faktisk overføring til en sosial app på fysisk iPhone er ikke kontrollert.
+
+Finpuss av måltidskort 2026-10-18: `MealShareTests` bestod 6 tester, inkludert
+12 renderkombinasjoner (tre stiler med stående, liggende, kvadratisk og manglende
+bilde) og en pikselkontroll av at Foto beholder lysstyrken mellom tekstområdene.
+Eksportbilder med langt navn og uten bilde ble inspisert. Vanlig delingsflyt
+bestod på nytt etter at avslutning av systemarket ble koblet eksplisitt til
+presentasjonstilstanden. UI-testen krever også at alle stilvalgene er synlige
+med minst 12 pt klaring over deleknappen ved vanlig tekststørrelse. Største
+tekststørrelse bestod i separat kjøring på samme dedikerte QA-simulator.
+Resultater: `build/meal-share-qa/polish-unit.xcresult`, `polish-close.xcresult`
+og `polish-large.xcresult` i samme mappe. Skjermbilder er vedlagt resultatene.
+
+Valgfritt næringsinnhold 2026-10-18: `MealShareTests` bestod 7 tester, inkludert
+fem parameteriserte tilfeller som bekrefter at endringer i skjulte næringsverdier
+ikke påvirker eksportpikslene i noen av de tre stilene. Preferanselagring,
+gjenåpning, standardvalg og ugyldig preferansedata er kontrollert. Vanlig UI-flyt
+bestod med alle fire brytere, gjenåpning med lagrede valg, eksport uten
+næringsverdier og synlig tilpasningsrad over deleknappen uten rulling.
+Resultat: `build/meal-share-qa/custom-content-clearance.xcresult`.
+Skjermbilder er inspisert. Største tekststørrelse, VoiceOver og fysisk
+overføring til sosiale apper ble ikke kjørt på nytt for denne utvidelsen.
+
+Valgfri MatLogg-logo 2026-10-18: Tre målrettede enhetstester bestod for lagring,
+bevaring av eldre næringsvalg og eksport i alle tre stiler med og uten bilde.
+Eksportbilder uten logo ble inspisert. Resultat:
+`build/meal-share-qa/optional-logo-targeted.xcresult`. UI-testen er utvidet med
+logobryteren, men ble ikke kjørt på nytt for denne lille utvidelsen.
+
+Direkte lagring i Bilder 2026-10-18: Tre målrettede enhetstester bestod for
+avvist tilgang, lagringsfeil/retry, riktige innholdsvalg, overlappende handlinger
+og profilreset under ventende tilgang/eksport. `testSaveMealCardToPhotos` bestod
+på dedikert QA-simulator med `photos-add` gitt på forhånd. En ny PNG i simulatorens
+Bilder-bibliotek ble bekreftet som 1080 × 1920 piksler, og knappene ble visuelt
+kontrollert. Resultat: `build/meal-share-qa/save-photos.xcresult`.
+Debug- og Release-plist er validert; begrunnelsen finnes også i bygget Debug-app.
+En ekstra kjøring etter reset av `photos-add` stoppet i Simulator ved systemdialogen
+og ble avbrutt. Førstegangsdialog, native «Lagre bilde» i systemdelingsarket,
+VoiceOver og svært stor tekst gjenstår som fysisk kontroll.
+
+For å kjøre lagringsintegrasjonen: start den dedikerte QA-simulatoren og bruk
+`xcrun simctl privacy <QA-UUID> grant photos-add com.nithusan.MatLogg` før testen.
+Bruk aldri denne testen mot en simulator med personlige data. Avvist tilgang
+kontrolleres uten ekte bildebibliotek gjennom den injiserte testdoblingen.
+
+Formatvalg 2026-10-18: `build-for-testing` mot generisk iOS Simulator bestod
+for appen og testmålene. Tester er utvidet for lokal formatpreferanse, format
+ved lagring/deling, låsing under behandling og 18 eksportkombinasjoner (to
+formater, tre stiler, fullt/minimalt innhold og manglende bilde). En kort UI-test
+dekker formatbytte og gjenåpning. Den målrettede kjøringen startet ingen tester:
+Xcode fant ingen tilgjengelig simulator, og `simctl` svarte ikke på statusforespørsel.
+Kjøretidstester og visuell kontroll av begge formater gjenstår. Bygglogg:
+`/tmp/matlogg-share-format-build.log`; blokkeringslogg:
+`/tmp/matlogg-share-format-tests.log`.
+
+## Utvikling-hub (2026-11-06)
+
+På `codex/utvikling-hub` bestod 24 målrettede Swift Testing-tester i fire suiter
+og tre UI-tester på iPhone 16 Pro / iOS 26.5 i den dedikerte simulatoren
+`MatLogg Hub QA` (`2C8D196B-DA78-4FEE-8543-1A72C7477AE8`). QA bruker syntetiske
+demodata og isolerte midlertidige databaser/UserDefaults-suiter.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=2C8D196B-DA78-4FEE-8543-1A72C7477AE8' \
+  -derivedDataPath build/hub-qa \
+  -only-testing:MatLoggTests/ProgressHubTests \
+  -only-testing:MatLoggTests/LoadingStateTests \
+  -only-testing:MatLoggTests/HealthProfileViewModelTests \
+  -only-testing:MatLoggTests/RenderPresentationTests \
+  -only-testing:MatLoggUITests/ProgressHubUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Dekker standardoppsett, lagre/avbryt, omstart, gyldig tomt oppsett,
+normalisering av innstillinger, profilisolasjon, feil/retry, profiloverføring,
+eksport, sletting og reset. Eksisterende lastetester kontrollerer utdaterte
+asynkrone svar og lokale ukesdata. UI-testene kontrollerer bryterverdier,
+rekkefølge, alle kort skjult, gjenoppretting, stor tekst/mørk modus og
+registrering/sletting av en konkret vekt med dato og kg-verdi.
+
+Den første UI-kjøringen avdekket et uklart treffområde for brytere og en
+slettetest som etter sletting traff en annen historisk rad med samme vekt.
+Bryterne har nå eget treffområde, og slettetesten identifiserer dato og verdi.
+Flyttehandlingene stables ved tilgjengelighetsstørrelser. Regresjonskontrollene
+bestod etter retting; ingen tester ble svekket.
+
+Den nye arbeidskopien manglet det ignorerte lokale Xcode-skjemaet; eksisterende
+skjema ble kopiert inn for verifisering. Testoppstart med feilsøker hang lokalt;
+sluttkjøringen brukte et lokalt skjema uten feilsøker. Ingen av disse lokale
+oppsettsendringene inngår i produktkoden. Ingen backend-/synkkontrakter er endret,
+og full testpakke eller produksjonsutrulling er ikke kjørt. Manuell VoiceOver-
+gjennomgang og fysisk iPhone er ikke verifisert i denne leveransen.
+
+Arkitekturgjennomgang: nye visningsvalg går gjennom feature-ViewModel og injisert
+repository ved app-roten. Profilbytte tømmer hub- og helsestate. Eksisterende
+transaksjoner for mat/vekt og deaktivert opplasting beholdes. Ingen kjente
+arkitekturavvik. `git diff --check` bestod.
+
+Resultatpakken er `build/hub-qa/Logs/Test/Test-MatLogg-2026.11.06_14-35-21-+0100.xcresult`
+med 27 beståtte, null feilede og null hoppede tester (`TEST SUCCEEDED`).
+Skjermbilder i `artifacts/utvikling-hub/` viser normalvisning, vekt først,
+tom oversikt og tilpasning med største tekststørrelse. Bildene ble inspisert.
+Kjøringen registrerte fortsatt én SwiftUI-advarsel om ugyldig rammestørrelse
+under vektflyten. Testene bestod, men opprinnelsen er ikke lokalisert; dette
+står som et verifiseringshull før eventuell release.
+
+## Apple Helse – dagens skritt (2026-11-06)
+
+Sluttkjøringen bestod med **30 målrettede tester**: ti `StepCountTests`, åtte
+`ProgressHubTests`, seks `LoadingStateTests` og seks UI-tester i
+`HealthStepsUITests`/`ProgressHubUITests`. iPhone 16 Pro / iOS 26.5 i dedikert
+MatLogg Hub QA. Resultat: `TEST SUCCEEDED`, ingen feilede eller hoppede tester.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,id=2C8D196B-DA78-4FEE-8543-1A72C7477AE8' \
+  -derivedDataPath build/hub-qa \
+  -only-testing:MatLoggTests/StepCountTests \
+  -only-testing:MatLoggTests/ProgressHubTests \
+  -only-testing:MatLoggTests/LoadingStateTests \
+  -only-testing:MatLoggUITests/HealthStepsUITests \
+  -only-testing:MatLoggUITests/ProgressHubUITests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Resultatpakke:
+`build/hub-qa/Logs/Test/Test-MatLogg-2026.11.06_15-58-21-+0100.xcresult`.
+`plutil -lint` for prosjekt/entitlements og `git diff --check` bestod. Generert
+Debug-Info.plist ble kontrollert for norsk `NSHealthShareUsageDescription`;
+begge konfigurasjoner har formålsteksten og targetet har HealthKit-capability.
+
+Verifisert: ingen lesing/forespørsel før eksplisitt tilkobling, ekte null kontra
+manglende data, lesefeil/retry uten gamle tall, dagens hentetid, sene svar etter
+profilbytte/frakobling/skjuling, bakgrunn/suspendering, ikke-overlappende
+publisering ved samtidige oppdateringer og tilbakekomst fra tilgangsforespørsel.
+Tilkoblingsvalgets profilisolasjon, omstart, eksport, overføring og sletting er
+kontrollert mot isolert lokal database og UserDefaults-suite. Eksisterende
+hub-, uke- og vektflyter bestod fortsatt.
+
+UI bruker eksplisitt DEBUG-fixture `--steps-qa` (eventuelt
+`--steps-qa-no-data`), med «QA – eksempeldata» på visningen. Ingen ekte Helse-
+data eller systemtillatelser inngår i disse testene. Vanlig demomodus uten QA-
+flagget er verifisert uten tilbud om ekte Helse-tilkobling. Skjermbilder med
+skritt og stor tekst er inspisert og lagret i `artifacts/utvikling-hub/`.
+Den første talltesten ble korrigert for norsk tusenskille, med samme forventede
+antall og enhet. Ingen produksjonslogikk ble endret for å få den testen grønn.
+
+Arkitektur: feature-ViewModel går gjennom injiserte repositories, HealthKit-
+spørringen er asynkron, og bare en lokal visnings-/tilkoblingspreferanse skrives.
+Skrittall kommer ikke inn i SQLite, synkkø, målberegning eller eksport. Ingen
+nye backendkontrakter, migrasjoner, eksterne mottakere eller arkitekturavvik.
+Personvern-/databrukstekster er oppdatert lokalt; ingen publisering er utført.
+
+**Før release:** verifiser signert HealthKit-entitlement og native forespørsel
+på fysisk iPhone, at bare Skritt forespørres som lesetype og ingen skrivetyper,
+og sammenlign dagens tall med Helse. Prøv avslag, tilbaketrekking i Helse,
+frakobling, døgn-/tidssoneskifte og VoiceOver på enheten. Simulatorens fixtures
+beviser ikke native autorisasjon, HealthKit-kildesummering eller signering.
+Den tidligere registrerte SwiftUI-advarselen om ugyldig rammestørrelse finnes
+fortsatt i vektregistreringstesten; ingen nye runtime-advarsler ble registrert
+for skritt-testene. Dette er ikke en produksjonsgodkjenning.
+
+## Kompakt Utvikling etter visuell referanse (2026-11-06)
+
+Det faktiske UI-et er sammenlignet med brukerens valgte prototype. Ny
+skjermtest kontrollerer at næringskortet er under en halv skjerm høyt, at
+Aktivitet/Vekt ligger på samme rad i riktig rekkefølge og er tilgjengelige,
+og at Dag/Uke/Måned, pilnavigasjon og detaljvisning fungerer. Skjermbildet
+`artifacts/utvikling-hub/kompakt-prototype-faktisk-app.png` er fra appen med
+syntetiske data og er inspisert visuelt; ingen nye genererte mockuper er brukt.
+
+Verifisert i avgrensede kjøringer på MatLogg Hub QA / iOS 26.5:
+
+- Første berørte kontroll: 31 enhetstester og sju UI-tester bestod. Resultat:
+  `Test-MatLogg-2026.11.06_19-51-57-+0100.xcresult` i `build/hub-qa/Logs/Test/`.
+- Periode-/preferansekontroll etter v2-normalisering og aksejustering: 16
+  enhetstester og prototype-skjermtesten bestod, ingen runtime-advarsler.
+  Resultat: `Test-MatLogg-2026.11.06_20-04-22-+0100.xcresult`.
+- Siste navigasjonskontroll: 17 enhetstester (`ProgressPeriodTests` og
+  `StepCountTests`) samt tre UI-tester for prototype/periode, vektregistrering/
+  sletting og skritt med omstart/frakobling bestod. Resultat:
+  `Test-MatLogg-2026.11.06_20-08-29-+0100.xcresult`. Detaljsidene laster egne data
+  slik at avbrutt henting fra oversikten ikke etterlater fastlåst loading.
+
+Periodetestene dekker mandag–søndag, månedslengde/skuddår, norsk DST-uke,
+reelle nullverdier versus uloggede dager, registrerte dagsgjennomsnitt,
+årsskifte, eldre svar etter periodebytte og profilavgrensede vektpunkter.
+Preferansetestene dekker v1- og v2-valg, inkludert at alle områder er skjult.
+Alle 16 synlighetskombinasjoner testes med fast rekkefølge i Dag, Uke og Måned.
+Den første kontrollen bekreftet også tilpasning, alle kort skjult, mørk modus,
+stor tekst og eksisterende lokal data-/Helse-adferd gjennom de berørte suitene.
+
+`git diff --check` bestod. Ingen ekstra backend-/SQL-kontroller er kjørt:
+endringen leser eksisterende lokale data og endrer ikke database, synkformat,
+HealthKit-lesetyper eller lagrede næringsverdier. Arkitekturgjennomgangen
+bekrefter at periode og avledede tall eies av feature-ViewModel, med injisert
+repository ved IO-grensen. NavigationStack nullstilles per profil. Ingen
+arkitekturavvik. Fysisk HealthKit/VoiceOver er fortsatt en separat releaseport;
+treningsøkter og historisk skrittgraf er ikke implementert som del av denne
+visuelle korrigeringen.
+
+Siste navigasjonskjøring registrerte fortsatt den tidligere rapporterte
+SwiftUI-advarselen om ugyldig rammestørrelse i vektflyten. De 20 testene bestod;
+advarselen er ikke presentert som løst av den visuelle korrigeringen.
+
+### Profilisolasjon og synkrekkefølge – 2026-11-06
+
+Målrettede suiter: `ProfileTests`, `AuthViewModelTests`, `AuthServiceTests`,
+`SyncRetryTests` og `AutomaticSyncRetryTests`. De dekker eksplisitt tilordning
+av eldre personopplysninger, profilbytte, bevaring av eksisterende/ugyldige
+data, avbrutt og allerede utført kontoflytting, feil ved avbryt og retry av
+samme ressurs etter delvis ACK og omstart. Testene bruker egne SQLite-filer
+og isolerte defaults; ingen ekte kontoer kreves.
+
+UI-regresjoner på dedikert QA-simulator:
+`MatLoggUITests/testPendingAccountLinkResumesAfterRestartAndPreservesLog` og
+`MatLoggUITests/testLegacyDetailsRequireExplicitRecovery`. Debug-argumentet
+`--local-link-qa` bruker egen database/defaults og en injisert syntetisk
+kontotjeneste. `--local-link-qa-reset` tilbakestiller bare dette testoppsettet.
+Første test avslutter appen før bekreftelse og etter fullført kobling, og
+kontrollerer at loggen fortsatt vises. Andre test kontrollerer avbryt og
+bekreftet gjenoppretting med største tekststørrelse. Mac-en må være ulåst.
+
+`supabase/tests/database/ordered_sync_replay.test.sql` har åtte
+transaksjonelle pgTAP-kontroller mot en bekreftet lokal QA-database: siste
+mengde, sletting og inbox bevares ved replay. Alle testendringer rulles
+tilbake, inkludert et eventuelt midlertidig pgTAP-oppsett. Dette tester
+serverens deduplisering; klientens leveringsrekkefølge kontrolleres i
+`SyncRetryTests`. Wire-format, schema-versjon og produksjonsflagg endres ikke.
+
+
+Verifisering 2026-11-06: `build-for-testing` bestod. De fem målrettede
+suitene ovenfor bestod med 76 tester på MatLogg Privacy QA / iOS 26.5
+(`build/remediation-qa`; resultat `/tmp/MatLoggRemediation-current-unit.xcresult`).
+De tre første regresjonene feilet mot opprinnelig implementasjon før retting.
+Åtte pgTAP-kontroller bestod mot den bekreftede lokale `matlogg-nutrients-qa`-
+databasen, med rollback og etterkontroll av avslått synkflagg og null testrester.
+Separate kjøringer av faktisk Swift-lagrings-/køkode bestod også uten simulator.
+Etter opplåsing bestod begge UI-kontrollene (2/2, null feil): kontokobling
+før og etter omstart med bevart logg, og eksplisitt gjenoppretting/avbryt med
+største tekststørrelse. Resultat: `/tmp/MatLoggRemediation-ui-unlocked-final.xcresult`.
+Skjermbildene er inspisert og eksportert til
+`build/remediation-qa/ui-attachments/`. Den gjenopprettede verdien og den
+bevarte loggen vises riktig. Ved aller største tekststørrelse blir teksten i
+den eksisterende bunnmenyen klippet eller overlappet. Feilen ble rettet
+separat 7. november, se kontrollen nedenfor.
+Testoppsettet bruker samme app-rot og injiserer også nødvendig demokontekst;
+kun testoppsettet ble justert etter den grønne enhetstestkjøringen. Ingen
+fysisk Apple-innlogging, VoiceOver eller releasekontroll er utført i denne
+endringen. Dette gir ingen produksjonsgodkjenning.
+
+### Bunnmeny ved største tekststørrelse – 2026-11-07
+
+`testBottomBarKeepsEveryActionVisibleWithLargestText` feilet før rettingen
+fordi Utvikling gikk utenfor skjermen. Testen bestod etter rettingen på
+MatLogg Privacy QA med iOS 26.5. Alle fem knappene ligger innenfor skjermen,
+har minst 44 × 44 pt trykkflate og kan brukes uten å rulle menyen.
+`testDebugSessionShowsHomeAndPrimaryNavigation` og
+`testLegacyDetailsRequireExplicitRecovery` bestod også (3/3 totalt).
+Skjermbildet bekrefter at hele «Loggfør» får plass på egen rad.
+Resultat: `/tmp/MatLoggTabBar-verified.xcresult`. Skjermbilder ligger i
+`build/remediation-qa/tab-bar-final-attachments/`.
+
+### Matgruppeikoner
+
+Målrettede iOS-suiter: `FoodGroupTests`, `ProductSearchTests`,
+`ProductImageTests` og `ManualProductViewModelTests`. `FoodGroupUITests`
+kontrollerer kategorivalg, manuell logging og stor tekst med skjermbilder på
+QA-simulator. Testene bruker syntetiske produkter.
+
+Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
+og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
+lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
+replay, inbox og eierskap og ruller testdata tilbake.

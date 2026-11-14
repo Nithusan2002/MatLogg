@@ -1,25 +1,39 @@
-# MatLogg
+# Spor Mat (tidligere MatLogg)
 
-MatLogg er en norsk iOS-app for rask matlogging, ernæringsoversikt og
+MatLogg videreføres som Spor Mat. Dette er det samme prosjektet som tidligere er omtalt som MatLogg i søknader og prosjektbeskrivelser.
+
+Repoet beholder navnet `MatLogg`, slik at eksisterende GitHub-lenker fungerer videre. Tekniske navn og filstier beholdes også.
+
+Spor Mat er en norsk iOS-app for rask matlogging, ernæringsoversikt og
 måloppfølging. SwiftUI-klienten er local-first: brukerhandlinger lagres i
-SQLite før eventuell synk mot Supabase (Auth, Edge Functions og PostgreSQL).
+SQLite. Første lansering bruker bare lokale domenedata, uten skybackup eller
+flerenhetssynk. Supabase brukes til valgfri konto (Auth); Edge Functions og
+PostgreSQL er bevart for framtidig synk.
 NestJS/Prisma-backenden beholdes som legacy under cutover.
 
 ## Status
 
 Prosjektet er under aktiv MVP-utvikling og er ikke produksjonsklart.
+Intern TestFlight-testing er dokumentert; dette er ikke en samlet godkjenning
+av ekstern pilot eller produksjon. Se [produksjonsberedskap](docs/production-readiness.md).
 
 - Matlogging, dagsoversikt, favoritter, historikk, vekt og ernæringsmål lagres
   lokalt.
 - Produkter kan finnes via strekkode/Open Food Facts og råvaresøk i
   Matvaretabellen.
 - En versjonert synkkø, retry/backoff og backend-mottak finnes, men
-  `FeatureFlags.backendSyncEnabled` er avslått.
-- Supabase er koblet til konto og synk når appkonfigurasjon finnes; uten den
+  `DomainUploadPolicy.localOnly` sperrer opplasting og retry-timere uavhengig
+  av backendflagget. `FeatureFlags.backendSyncEnabled` er også avslått.
+- Supabase-konto er tilgjengelig når appkonfigurasjon finnes; uten den
   fungerer lokal profil fortsatt, mens kontokall er utilgjengelige.
+  Kontokobling åpner ikke opplasting.
 - Vannlogging, lagrede måltider, lokale produktbilder og DEBUG-demomodus finnes.
-- Debug bruker ordinær innloggingsflyt som standard. `--skip-auth` aktiverer
-  en lokal utviklingssesjon.
+- Utvikling viser mat og næring, skritt, vekt og treningsøkter for dag, uke
+  og måned, med lokale valg for synlige kort. Valgfri tilkobling til Apple
+  Helse for skritt, vekt og treningsøkter styres under Profil → Innstillinger.
+- Førstegangsbruk oppretter lokal profil automatisk og åpner første logging
+  direkte. Innlogging er valgfri. `--skip-auth` aktiverer en lokal
+  utviklingssesjon bare i DEBUG.
 
 Se [gjeldende prosjektstatus](docs/current-state.md) for implementert, delvis
 implementert og planlagt funksjonalitet.
@@ -65,15 +79,20 @@ matlogg-legal/           Juridiske tekster
 
 ### iOS
 
-Krav: en kompatibel versjon av Xcode og en installert iOS-simulator.
+Krav: Xcode med støtte for valgt kjøreenhet. Appen krever iOS 17 eller nyere
+og kan kjøres på fysisk iPhone eller en installert iOS-simulator.
 
 1. Åpne `MatLogg.xcodeproj`.
-2. Velg `MatLogg`-scheme og en simulator.
+2. Velg `MatLogg`-scheme og en iPhone eller simulator. Fysisk iPhone krever
+   konfigurert kodesignering i Xcode.
 3. Bygg og kjør appen.
+
+Lokal matlogging krever verken konto eller et kjørende Supabase-miljø.
 
 ### Supabase
 
-Krav: Docker og Node.js. Fra repo-roten:
+Valgfritt for arbeid med kontotjenester og backend. Krav: Docker og Node.js.
+Fra repo-roten:
 
 ```bash
 npm ci

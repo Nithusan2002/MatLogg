@@ -15,8 +15,10 @@ struct DailyGoalsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(viewModel.hasGoal ? "Juster målene dine. Endringene lagres først når du trykker Lagre endringer." : "Du har ikke satt opp mål ennå. Fyll inn egne verdier eller beregn et veiledende forslag.")
-                    .foregroundStyle(AppColors.textSecondary)
+                if !viewModel.hasGoal {
+                    Text("Fyll inn egne mål eller beregn et veiledende forslag.")
+                        .foregroundStyle(AppColors.textSecondary)
+                }
                 CardContainer {
                     VStack(alignment: .leading, spacing: 16) {
                         goalField("Kalorier", unit: "kcal/dag", field: .calories, text: $viewModel.calories)
@@ -32,7 +34,7 @@ struct DailyGoalsView: View {
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("daily-goals-suggest")
                 if let error = viewModel.errorMessage {
-                    Text(error).foregroundStyle(AppColors.ink)
+                    ErrorMessageView(error)
                         .accessibilityIdentifier("daily-goals-error")
                 }
                 PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Lagre endringer") {
@@ -109,21 +111,19 @@ struct DailyGoalsView: View {
             Text("\(title) (\(unit))").font(AppTypography.bodyEmphasis)
             TextField(title, text: text)
                 .keyboardType(field == .calories ? .numberPad : .decimalPad)
-                .textFieldStyle(.roundedBorder)
+                .matLoggInputStyle()
                 .frame(minHeight: 44)
                 .focused($focusedField, equals: field)
                 .accessibilityLabel("\(title), \(unit)")
                 .accessibilityIdentifier("daily-goals-\(field)")
             if let error = viewModel.errors[field] {
-                Text(error).font(AppTypography.caption)
-                    .foregroundStyle(AppColors.ink)
+                ErrorMessageView(error).font(AppTypography.caption)
             }
         }
     }
 }
 
 private struct GoalSuggestionView: View {
-    @State private var showCustomization = false
     @StateObject private var viewModel: GoalSuggestionViewModel
     @Environment(\.dismiss) private var dismiss
     let onEditDetails: () -> Void
@@ -139,20 +139,34 @@ private struct GoalSuggestionView: View {
         NavigationStack {
             Form {
                 if viewModel.showingResult, let suggestion = viewModel.suggestion {
-                    Section("Veiledende forslag") {
-                        LabeledContent("Forslag til kalorimål", value: "ca. \(suggestion.calories) kcal/dag")
-                        GoalMacroSummaryView(macros: suggestion.macros)
+                    Section {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Forslag til kalorimål")
+                                .font(AppTypography.captionEmphasis)
+                                .foregroundStyle(AppColors.textSecondary)
+                            Text("ca. \(suggestion.calories) kcal/dag")
+                                .font(AppTypography.heroValue)
+                                .foregroundStyle(AppColors.ink)
+                        }
+                        .padding(.vertical, 8)
+                        .accessibilityElement(children: .combine)
+                        LabeledContent("Protein", value: "\(suggestion.macros.proteinG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        LabeledContent("Karbohydrater", value: "\(suggestion.macros.carbsG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                        LabeledContent("Fett", value: "\(suggestion.macros.fatG.formatted(.number.precision(.fractionLength(0...1)))) g/dag")
+                    } header: {
+                        Text("Veiledende forslag")
+                    } footer: {
                         Text("Beregnet fra lagrede personopplysninger og valgene dine. Dette er et estimat, ikke en medisinsk anbefaling.")
-                            .font(AppTypography.caption)
                     }
                     .listRowBackground(AppColors.surface)
                     Section {
-                        Button("Bruk forslaget") {
+                        PrimaryButton(title: "Bruk forslaget") {
                             onApply(suggestion)
                             dismiss()
                         }
                         .accessibilityIdentifier("daily-goals-apply-suggestion")
                         Button("Tilbake") { viewModel.showingResult = false }
+                            .frame(minHeight: 44)
                     } footer: {
                         Text("Forslaget fylles inn i feltene. Trykk Lagre endringer for å lagre.")
                     }
@@ -170,10 +184,8 @@ private struct GoalSuggestionView: View {
                         Picker("Aktivitetsnivå", selection: $viewModel.activity) {
                             ForEach(ActivityLevel.allCases, id: \.self) { Text($0.label).tag($0) }
                         }
-                        DisclosureGroup("Tilpass næringsfordelingen", isExpanded: $showCustomization) {
                         Picker("Fordeling av næringsstoffer", selection: $viewModel.preset) {
                             ForEach([MacroPreset.balanced, .proteinFocus, .carbFocus], id: \.self) { Text($0.label).tag($0) }
-                        }
                         }
                     }
                     .listRowBackground(AppColors.surface)

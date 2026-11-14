@@ -6,16 +6,19 @@ final class ProductThumbnailViewModel: ObservableObject {
     @Published private(set) var image: UIImage?
     private var requestID = UUID()
 
-    func load(url: URL?, localData: Data? = nil, repository: (any ProductImageRepository)?) async {
+    func load(url: URL?, localData: Data? = nil, repository: (any ProductImageRepository)?, maximumPixelSize: Int = 160) async {
         let id = UUID()
         requestID = id
         image = nil
-        if let localData { image = UIImage(data: localData); return }
-        guard let url, let repository else { return }
         do {
-            let data = try await repository.data(for: url)
+            let prepared: UIImage
+            if let localData {
+                prepared = try await ProductImagePreparation.image(from: localData, maximumPixelSize: maximumPixelSize)
+            } else if let url, let repository {
+                prepared = UIImage(cgImage: try await repository.pixels(for: url, maximumPixelSize: maximumPixelSize))
+            } else { return }
             guard requestID == id, !Task.isCancelled else { return }
-            image = UIImage(data: data)
+            image = prepared
         } catch {
             // Keep the fixed placeholder for missing, invalid or offline images.
         }

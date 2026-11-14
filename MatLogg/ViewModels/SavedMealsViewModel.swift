@@ -15,6 +15,16 @@ struct SavedMealReceipt: Equatable {
 @MainActor
 final class SavedMealsViewModel: ObservableObject {
     @Published private(set) var meals: [SavedMeal] = []
+    @Published private(set) var isLoading = true {
+        didSet {
+            loadingFeedback.update(isActive: isLoading) { [weak self] in self?.showsLoadingFeedback = $0 }
+        }
+    }
+    @Published private(set) var showsLoadingFeedback = false
+    private let loadingFeedback = DelayedActivity()
+    @Published private(set) var loadError: String?
+    @Published private(set) var isLoadingSource = true
+    @Published private(set) var sourceProductNames: [UUID: String] = [:]
     @Published private(set) var isSaving = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var receipt: SavedMealReceipt?
@@ -33,6 +43,9 @@ final class SavedMealsViewModel: ObservableObject {
     private let now: () -> Date
     private var userId: UUID?
     private var contextID = UUID()
+    private var isPreparingMutation = false
+    private var loadID = UUID()
+    private var sourceID = UUID()
 
     init(
         savedMealRepository: any SavedMealRepository,
@@ -48,12 +61,27 @@ final class SavedMealsViewModel: ObservableObject {
         self.now = now
     }
 
+    func makeItemsViewModel(meal: SavedMeal) -> SavedMealItemsViewModel {
+        SavedMealItemsViewModel(meal: meal, repository: foodLogRepository)
+    }
+
     func beginPhotoEditing(data: Data? = nil) {
         photoRequestID = UUID()
         photoData = data
-        photoPreview = data.flatMap(UIImage.init(data:))
+        photoPreview = nil
         isLoadingPhoto = false
         photoError = nil
+        if let data {
+            let requestID = photoRequestID
+            isLoadingPhoto = true
+            Task { [weak self] in
+                let preview = try? await ProductImagePreparation.image(from: data)
+                guard let self, photoRequestID == requestID else { return }
+                photoPreview = preview
+                isLoadingPhoto = false
+                if preview == nil { photoError = "Kunne ikke åpne bildet. Prøv et annet bilde." }
+            }
+        }
     }
 
     func loadPhoto(_ item: PhotosPickerItem) async {
@@ -68,10 +96,12 @@ final class SavedMealsViewModel: ObservableObject {
         photoRequestID = requestID
         isLoadingPhoto = true
         photoError = nil
+        defer { if photoRequestID == requestID { isLoadingPhoto = false } }
         do {
             let data = try await operation()
             guard requestID == photoRequestID else { return }
-            guard let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
+            let image = try await ProductImagePreparation.image(from: data)
+            guard requestID == photoRequestID, !Task.isCancelled else { return }
             photoData = data
             photoPreview = image
             isLoadingPhoto = false
@@ -85,13 +115,19 @@ final class SavedMealsViewModel: ObservableObject {
     func reset() {
         beginPhotoEditing()
         contextID = UUID()
+        loadID = UUID()
+        sourceID = UUID()
+        isLoading = true
+        loadError = nil
+        sourceProductNames = [:]
+        isLoadingSource = true
         userId = nil
         meals = []
         receipt = nil
         errorMessage = nil
     }
 
-    func load(userId: UUID) async {
+    func load(userId: UUID?) async {
         if self.userId != userId {
             beginPhotoEditing()
             contextID = UUID()
@@ -101,14 +137,37 @@ final class SavedMealsViewModel: ObservableObject {
         }
         let context = contextID
         self.userId = userId
-        let loaded = await savedMealRepository.getSavedMeals(userId: userId)
-        guard context == contextID, self.userId == userId else { return }
-        meals = loaded
+        let request = UUID()
+        loadID = request
+        isLoading = true
+        loadError = nil
+        defer { if loadID == request { isLoading = false } }
+        guard let userId else { meals = []; return }
+        do {
+            let loaded = try await savedMealRepository.loadSavedMeals(userId: userId)
+            guard loadID == request, context == contextID, self.userId == userId, !Task.isCancelled else { return }
+            meals = loaded
+        } catch {
+            guard loadID == request, context == contextID, !Task.isCancelled else { return }
+            loadError = "Kunne ikke hente lagrede måltider. Prøv igjen."
+        }
+    }
+
+    func loadCreationSource(logs: [FoodLog], userId: UUID?) async {
+        if self.userId != userId { reset(); self.userId = userId }
+        let request = UUID()
+        sourceID = request
+        isLoadingSource = true
+        sourceProductNames = [:]
+        defer { if sourceID == request { isLoadingSource = false } }
+        let products = await foodLogRepository.getProducts(Set(logs.filter { $0.userId == userId }.map(\.productId)))
+        guard sourceID == request, self.userId == userId, !Task.isCancelled else { return }
+        sourceProductNames = products.mapValues(\.name)
     }
 
     @discardableResult
     func saveFromLogs(name: String, mealType: String, logs: [FoodLog], userId: UUID) async -> Bool {
-        guard !isSaving, !isLoadingPhoto else { return false }
+        guard !isSaving, !isPreparingMutation, !isLoadingPhoto else { return false }
         let cleanName = normalizedName(name)
         guard let cleanName else {
             errorMessage = "Gi det lagrede måltidet et navn på opptil 80 tegn."
@@ -120,9 +179,15 @@ final class SavedMealsViewModel: ObservableObject {
             return false
         }
 
+        isPreparingMutation = true
+        defer { isPreparingMutation = false }
+        let context = contextID
+        let photo = photoData
+        let products = await foodLogRepository.getProducts(Set(logs.map(\.productId)))
+        guard contextID == context, self.userId == userId, !Task.isCancelled else { return false }
         var items: [SavedMealItem] = []
         for (index, log) in logs.sorted(by: { $0.loggedTime < $1.loggedTime }).enumerated() {
-            guard valid(log: log), let product = foodLogRepository.getProduct(log.productId) else {
+            guard valid(log: log), let product = products[log.productId] else {
                 errorMessage = "Vi mangler opplysninger om en av matvarene og kan ikke lagre måltidet."
                 return false
             }
@@ -131,7 +196,8 @@ final class SavedMealsViewModel: ObservableObject {
                 productName: product.name,
                 amountG: log.amountG,
                 amountUnit: log.resolvedAmountUnit,
-                calories: log.calories,
+                portionSelection: log.portionSelection,
+                nutritionPreparation: log.nutritionPreparation, calories: log.calories,
                 proteinG: log.proteinG,
                 carbsG: log.carbsG,
                 fatG: log.fatG,
@@ -140,18 +206,19 @@ final class SavedMealsViewModel: ObservableObject {
             ))
         }
 
+        isPreparingMutation = false
         return await save(SavedMeal(
             userId: userId,
             name: cleanName,
             suggestedMealType: mealType,
             items: items,
-            localImageData: photoData
+            localImageData: photo
         ))
     }
 
     @discardableResult
-    func update(_ meal: SavedMeal, name: String, amounts: [UUID: Float], removedItemIDs: Set<UUID>) async -> Bool {
-        guard !isSaving, !isLoadingPhoto else { return false }
+    func update(_ meal: SavedMeal, name: String, amounts: [UUID: Float], removedItemIDs: Set<UUID>, addedItems: [SavedMealItem] = []) async -> Bool {
+        guard !isSaving, !isPreparingMutation, !isLoadingPhoto else { return false }
         guard meal.userId == userId else {
             errorMessage = "Måltidet tilhører en annen bruker."
             return false
@@ -160,7 +227,7 @@ final class SavedMealsViewModel: ObservableObject {
             errorMessage = "Gi det lagrede måltidet et navn på opptil 80 tegn."
             return false
         }
-        let kept = meal.items.filter { !removedItemIDs.contains($0.id) }
+        let kept = (meal.items + addedItems).filter { !removedItemIDs.contains($0.id) }
         guard !kept.isEmpty else {
             errorMessage = "Et lagret måltid må inneholde minst én matvare."
             return false
@@ -181,6 +248,7 @@ final class SavedMealsViewModel: ObservableObject {
                 to: amount
             ) else { return false }
             var item = original
+            item.portionSelection = original.portionSelection?.scaled(to: amount)
             item.amountG = amount
             item.calories = nutrition.calories
             item.proteinG = nutrition.protein
@@ -200,7 +268,7 @@ final class SavedMealsViewModel: ObservableObject {
 
     @discardableResult
     func delete(_ meal: SavedMeal) async -> Bool {
-        guard !isSaving, meal.userId == userId else { return false }
+        guard !isSaving, !isPreparingMutation, meal.userId == userId else { return false }
         isSaving = true
         let context = contextID
         errorMessage = nil
@@ -225,15 +293,20 @@ final class SavedMealsViewModel: ObservableObject {
         amounts: [UUID: Float],
         userId: UUID
     ) async -> Bool {
-        guard !isSaving, meal.userId == userId, self.userId == userId,
+        guard !isSaving, !isPreparingMutation, meal.userId == userId, self.userId == userId,
               validMealType(mealType), !meal.items.isEmpty else { return false }
         errorMessage = nil
 
+        isPreparingMutation = true
+        defer { isPreparingMutation = false }
+        let preparationContext = contextID
+        let products = await foodLogRepository.getProducts(Set(meal.items.map(\.productId)))
+        guard contextID == preparationContext, self.userId == userId, !Task.isCancelled else { return false }
         let timestamp = now()
         let targetDate = calendar.startOfDay(for: date)
         var logs: [FoodLog] = []
         for item in meal.items.sorted(by: { $0.sortIndex < $1.sortIndex }) {
-            guard foodLogRepository.getProduct(item.productId) != nil else {
+            guard products[item.productId] != nil else {
                 errorMessage = "\(item.productName) finnes ikke lenger lokalt. Fjern varen fra måltidet før du logger."
                 return false
             }
@@ -258,17 +331,18 @@ final class SavedMealsViewModel: ObservableObject {
                 mealType: mealType,
                 amountG: amount,
                 amountUnit: item.resolvedAmountUnit,
-                loggedDate: targetDate,
+                portionSelection: item.portionSelection?.scaled(to: amount),
+                nutritionPreparation: item.nutritionPreparation, loggedDate: targetDate,
                 loggedTime: timestamp,
                 calories: nutrition.calories,
                 proteinG: nutrition.protein,
                 carbsG: nutrition.carbs,
                 fatG: nutrition.fat,
-                nutritionSource: item.nutritionSource,
                 createdAt: timestamp
             ))
         }
 
+        isPreparingMutation = false
         isSaving = true
         let context = contextID
         defer { isSaving = false }
@@ -292,7 +366,7 @@ final class SavedMealsViewModel: ObservableObject {
 
     @discardableResult
     func undo() async -> Bool {
-        guard !isSaving, let receipt, receipt.userId == userId else { return false }
+        guard !isSaving, !isPreparingMutation, let receipt, receipt.userId == userId else { return false }
         isSaving = true
         let context = contextID
         errorMessage = nil
@@ -314,7 +388,7 @@ final class SavedMealsViewModel: ObservableObject {
     }
 
     private func save(_ meal: SavedMeal) async -> Bool {
-        guard !isSaving, meal.userId == userId else { return false }
+        guard !isSaving, !isPreparingMutation, meal.userId == userId else { return false }
         isSaving = true
         let context = contextID
         errorMessage = nil

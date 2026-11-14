@@ -1,5 +1,23 @@
 import Foundation
 
+/// Domain uploads require a separate launch policy, regardless of backend flags.
+/// Release builds deliberately have no upload-enabled policy yet.
+enum DomainUploadPolicy {
+    case localOnly
+    #if DEBUG
+    case integrationTesting
+    #endif
+
+    var allowsUpload: Bool {
+        switch self {
+        case .localOnly: return false
+        #if DEBUG
+        case .integrationTesting: return true
+        #endif
+        }
+    }
+}
+
 enum SyncReason {
     case userInitiated
     case appLaunch
@@ -48,6 +66,9 @@ final class SyncEngine {
     private let databaseService: any SyncQueueStore
     private let apiService: any SyncAPIClient
     private let syncEnabled: () -> Bool
+    private let uploadPolicy: DomainUploadPolicy
+
+    var isUploadAvailable: Bool { uploadPolicy.allowsUpload && syncEnabled() }
     private var isSyncing = false
     private var scheduledRetry: Task<Void, Never>?
     private var activeOwnerUserId: UUID?
@@ -57,11 +78,13 @@ final class SyncEngine {
         databaseService: any SyncQueueStore,
         apiService: any SyncAPIClient,
         syncEnabled: @escaping () -> Bool,
+        uploadPolicy: DomainUploadPolicy = .localOnly,
         maximumAutomaticAttempts: Int = 5
     ) {
         self.databaseService = databaseService
         self.apiService = apiService
         self.syncEnabled = syncEnabled
+        self.uploadPolicy = uploadPolicy
         self.maximumAutomaticAttempts = max(1, maximumAutomaticAttempts)
     }
 
@@ -82,15 +105,16 @@ final class SyncEngine {
         isSyncing = true
         defer { isSyncing = false }
         
-        guard syncEnabled() else {
-            return SyncResult(success: false, errorMessage: "Backend ikke aktiv")
+        guard isUploadAvailable else {
+            return SyncResult(success: false, errorMessage: "Matloggene lagres bare på denne enheten")
         }
         
+        var syncErrorMessage: String?
         while true {
             let pending = await databaseService.fetchPendingEvents(ownerUserId: ownerUserId, limit: 50)
             guard !pending.isEmpty else {
                 await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
-                return SyncResult(success: true, errorMessage: nil)
+                return SyncResult(success: syncErrorMessage == nil, errorMessage: syncErrorMessage)
             }
 
             let ids = pending.map { $0.eventId }
@@ -104,16 +128,16 @@ final class SyncEngine {
                     return SyncResult(success: false, errorMessage: "Brukeren ble byttet under synkronisering")
                 }
                 let result = try await apiService.uploadEvents(pending)
-                let acked = Set(result.ackedEventIds)
+                let acked = Set(result.ackedEventIds).intersection(ids)
                 if !acked.isEmpty {
                     await databaseService.markEventsAcked(Array(acked))
                 }
 
-                let rejectedMap = Dictionary(uniqueKeysWithValues: result.rejected.map { ($0.eventId, $0) })
+                let rejectedMap = Dictionary(result.rejected.map { ($0.eventId, $0) }, uniquingKeysWith: { first, _ in first })
                 var failedCount = 0
                 let unresolved = pending.filter { !acked.contains($0.eventId) }
                 for event in unresolved {
-                    if let rejected = rejectedMap[event.eventId] {
+                    if let rejected = rejectedMap[event.eventId], !["SERVER_ERROR", "SYNC_DISABLED", "RATE_LIMITED"].contains(rejected.code) {
                         failedCount += 1
                         await databaseService.markEventDeadLetter(event.eventId, error: rejected.message)
                         continue
@@ -123,7 +147,8 @@ final class SyncEngine {
                         failedCount += 1
                         await databaseService.markEventDeadLetter(event.eventId, error: "Ikke bekreftet av server")
                     } else {
-                        let backoff = Backoff.nextDelay(attempt: attempt)
+                        let backoff = rejectedMap[event.eventId]?.code == "RATE_LIMITED"
+                            ? 60 : Backoff.nextDelay(attempt: attempt)
                         await databaseService.markEventForRetry(
                             event.eventId,
                             error: "Ikke bekreftet av server",
@@ -132,12 +157,12 @@ final class SyncEngine {
                     }
                 }
 
-                guard unresolved.isEmpty else {
+                if !unresolved.isEmpty {
                     await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
                     let message = failedCount > 0
                         ? "\(failedCount) endring(er) krever et nytt manuelt synkforsøk."
                         : "Noen endringer ble ikke bekreftet av serveren og prøves igjen automatisk."
-                    return SyncResult(success: false, errorMessage: message)
+                    syncErrorMessage = syncErrorMessage ?? message
                 }
             } catch {
                 let permanent = Self.isPermanentFailure(error)
@@ -162,9 +187,9 @@ final class SyncEngine {
                 }
                 await scheduleNextRetryIfNeeded(ownerUserId: ownerUserId)
                 let message = failedCount > 0
-                    ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. \(error.localizedDescription)"
-                    : error.localizedDescription
-                return SyncResult(success: false, errorMessage: message)
+                    ? "\(failedCount) endring(er) kunne ikke synkroniseres automatisk. Dataene er fortsatt lagret på denne enheten."
+                    : "Dataene er lagret på denne enheten. Synkroniseringen prøves igjen senere."
+                syncErrorMessage = syncErrorMessage ?? message
             }
         }
     }
@@ -172,7 +197,7 @@ final class SyncEngine {
     private func scheduleNextRetryIfNeeded(ownerUserId: UUID) async {
         scheduledRetry?.cancel()
         scheduledRetry = nil
-        guard syncEnabled(),
+        guard isUploadAvailable,
               let retryDate = await databaseService.nextPendingRetryDate(ownerUserId: ownerUserId) else { return }
 
         let delay = max(0.1, retryDate.timeIntervalSinceNow)

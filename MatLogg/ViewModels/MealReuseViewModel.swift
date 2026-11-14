@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-struct MealReuseItem: Identifiable {
+nonisolated struct MealReuseItem: Identifiable, Sendable {
     let original: FoodLog
     let product: Product
     var amountText: String
@@ -17,7 +17,7 @@ struct MealReuseItem: Identifiable {
     }
 }
 
-struct MealReuseSuggestion: Identifiable {
+nonisolated struct MealReuseSuggestion: Identifiable, Sendable {
     let mealType: String
     var items: [MealReuseItem]
     fileprivate let contextID: UUID
@@ -104,30 +104,40 @@ final class MealReuseViewModel: ObservableObject {
         let requestID = UUID()
         loadID = requestID
         let context = contextID
-        let logs = await repository.getAllLogs(userId: userId)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: targetDay),
+              let tomorrow = calendar.date(byAdding: .day, value: 1, to: targetDay) else { return }
+        let logs = await repository.getLogs(userId: userId, from: yesterday, before: tomorrow)
+        let products = await repository.getProducts(Set(logs.map(\.productId)))
         guard loadID == requestID, contextID == context,
-              calendar.isDate(targetDay, inSameDayAs: now()),
-              let yesterday = calendar.date(byAdding: .day, value: -1, to: targetDay) else { return }
-        let ownLogs = logs.filter { $0.userId == userId }
-        suggestions = ["frokost", "lunsj", "middag", "snacks"].compactMap { meal in
-            guard !dismissed.contains(meal), !ownLogs.contains(where: {
-                $0.mealType == meal && calendar.isDate($0.loggedDate, inSameDayAs: targetDay)
-            }) else { return nil }
-            let previous = ownLogs.filter {
-                $0.mealType == meal && calendar.isDate($0.loggedDate, inSameDayAs: yesterday)
-            }.sorted { $0.loggedTime < $1.loggedTime }
-            guard !previous.isEmpty else { return nil }
-            var items: [MealReuseItem] = []
-            for log in previous {
-                guard log.amountG.isFinite, log.amountG > 0, log.amountG <= 10_000,
-                      log.calories.isFinite, log.calories >= 0, log.calories <= Float(Int32.max),
-                      [log.proteinG, log.carbsG, log.fatG].allSatisfy({ $0.isFinite && $0 >= 0 }),
-                      let product = repository.getProduct(log.productId) else { return nil }
-                items.append(MealReuseItem(original: log, product: product,
-                                           amountText: String(log.amountG).replacingOccurrences(of: ".", with: ",")))
+              calendar.isDate(targetDay, inSameDayAs: now()), !Task.isCancelled else { return }
+        let calendar = calendar
+        let dismissed = dismissed
+        let loaded = try? await BackgroundWork.run { () -> [MealReuseSuggestion] in
+            let ownLogs = logs.filter { $0.userId == userId }
+            return ["frokost", "lunsj", "middag", "snacks"].compactMap { meal in
+                guard !dismissed.contains(meal), !ownLogs.contains(where: {
+                    $0.mealType == meal && calendar.isDate($0.loggedDate, inSameDayAs: targetDay)
+                }) else { return nil }
+                let previous = ownLogs.filter {
+                    $0.mealType == meal && calendar.isDate($0.loggedDate, inSameDayAs: yesterday)
+                }.sorted { $0.loggedTime < $1.loggedTime }
+                guard !previous.isEmpty else { return nil }
+                var items: [MealReuseItem] = []
+                for log in previous {
+                    guard log.amountG.isFinite, log.amountG > 0, log.amountG <= 10_000,
+                          log.calories.isFinite, log.calories >= 0, log.calories <= Float(Int32.max),
+                          [log.proteinG, log.carbsG, log.fatG].allSatisfy({ $0.isFinite && $0 >= 0 }),
+                          let product = products[log.productId] else { return nil }
+                    items.append(MealReuseItem(original: log, product: product,
+                                               amountText: String(log.amountG).replacingOccurrences(of: ".", with: ",")))
+                }
+                return MealReuseSuggestion(mealType: meal, items: items, contextID: context)
             }
-            return MealReuseSuggestion(mealType: meal, items: items, contextID: context)
         }
+        guard loadID == requestID, contextID == context,
+              calendar.isDate(targetDay, inSameDayAs: now()), !Task.isCancelled else { return }
+        suggestions = (loaded ?? []).filter { !self.dismissed.contains($0.mealType) }
+
     }
 
     func dismissSuggestion(mealType: String) {
@@ -208,9 +218,10 @@ final class MealReuseViewModel: ObservableObject {
             }
             copies.append(FoodLog(userId: userId, productId: original.productId, mealType: suggestion.mealType,
                                   amountG: amount, amountUnit: original.resolvedAmountUnit,
-                                  loggedDate: day, loggedTime: timestamp,
+                                  portionSelection: original.portionSelection?.scaled(to: amount),
+                                  nutritionPreparation: original.nutritionPreparation, loggedDate: day, loggedTime: timestamp,
                                   calories: nutrition.calories,
-                                  proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, nutritionSource: original.nutritionSource, createdAt: timestamp))
+                                  proteinG: nutrition.protein, carbsG: nutrition.carbs, fatG: nutrition.fat, createdAt: timestamp))
         }
         do {
             try await repository.saveLogs(copies)

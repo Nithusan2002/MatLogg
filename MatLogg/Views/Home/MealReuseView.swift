@@ -61,9 +61,6 @@ struct MealReuseEditorView: View {
                     if let draft = viewModel.draft {
                         Text(draft.title)
                             .font(AppTypography.title)
-                        Text("Endre mengder eller fjern matvarer før du loggfører. Enhetene beholdes fra gårsdagens logg.")
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.textSecondary)
                         ForEach(draft.items) { item in
                             CardContainer {
                                 VStack(alignment: .leading, spacing: 12) {
@@ -81,7 +78,7 @@ struct MealReuseEditorView: View {
                                             set: { viewModel.setAmount(itemId: item.id, text: $0) }
                                         ))
                                         .keyboardType(.decimalPad)
-                                        .textFieldStyle(.roundedBorder)
+                                        .matLoggInputStyle()
                                         .frame(minHeight: 44)
                                         .focused($focusedItem, equals: item.id)
                                         .accessibilityLabel("Mengde i \(item.original.resolvedAmountUnit.spokenName) for \(item.name)")
@@ -105,7 +102,7 @@ struct MealReuseEditorView: View {
                                 .font(AppTypography.body)
                         }
                         if let error = viewModel.errorMessage {
-                            Text(error).font(AppTypography.body)
+                            ErrorMessageView(error).font(AppTypography.body)
                                 .accessibilityIdentifier("meal-reuse-editor-error")
                         }
                         PrimaryButton(title: viewModel.isSaving ? "Lagrer …" : "Loggfør måltidet") {

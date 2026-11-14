@@ -1,13 +1,15 @@
 # MatLogg – Roadmap: MVP → v1 → v2
 
-## Gjeldende ramme (2026-10-01)
+## Gjeldende ramme (2026-10-03)
 
 Prosjektet er fortsatt under MVP-utvikling; ingen ny lanseringsdato er avtalt.
 Faktisk implementasjon finnes i [gjeldende status](../current-state.md), og
 pilot-/produksjonskrav i [produksjonsberedskap](../production-readiness.md).
-Neste porter er server-/klientkompatibilitet inkludert vannmigrasjonen,
-Apple/SMTP, backup/restore, overvåkning, fysisk iPhone og TestFlight før
-synkaktivering og separat produksjonsutrulling.
+Første lansering bruker lokale domenedata uten skybackup eller opplasting.
+Valgfri konto og katalogoppslag beholdes. Neste lokale porter er aktive
+Apple/SMTP-/personvernkrav, eksport/lagring, fysisk QA og TestFlight før
+separat produksjonsutrulling. Hosted backup/restore og server-/klientporter
+for opplasting gjelder senere skyscope; kontokobling åpner ikke synk.
 
 Resten av dokumentet er en historisk plan: 2025-datoer, uketall, bemanning,
 markedsføring, bruker-/vekstmål og branchdiagram er forslag, ikke vedtatte
@@ -46,10 +48,10 @@ avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
 
 ### **MVP Features (Frozen)**
 
-✅ Valgfri konto (Apple eller e-post/passord) og full lokal bruk uten konto
+✅ Valgfri Apple-konto og full lokal bruk uten konto i pilot; e-post/passord utsettes til SMTP og levering er verifisert
 ✅ Onboarding (mål, kalorier, makroer)  
 ✅ Home: status + logg-liste + måltidsrad  
-✅ Strekkode-skanning  
+✅ Strekkode-skanning og manuell inntasting av strekkodenummer
 ✅ Produktkort (100g prefill)  
 ✅ Logging + kompakt bekreftelse med angre
 ✅ Skann-historikk  
@@ -67,7 +69,7 @@ avsnittet om aksept av snarveier gir ikke unntak fra disse kravene.
 ❌ Recipes / meal plans  
 ❌ Web app  
 ❌ Multi-language (MVP: Norsk + English UI)  
-❌ Apple Health integration  
+❌ Ytterligere Apple Health-integrasjon (valgfri visning av skritt og vekt med historikk inngår i Utvikling)
 ❌ Widgets / Apple Watch  
 ❌ Push notifications  
 ❌ Premium features / paywall  
@@ -146,7 +148,7 @@ MatLogg becomes not just a logging tool, but a **community platform** for food t
 | **Recipe builder** | P1 | L | Create meals from ingredients |
 | **Meal planning** | P1 | L | Plan next week, auto-log |
 | **Progress graphs** | P1 | M | Trend lines, 7/30-day views |
-| **Apple Health sync** | P2 | L | Read/write health data |
+| **Apple Health sync** | P2 | L | Ytterligere read/write; skritt- og vektvisning med historikk er lokale lesefunksjoner |
 | **Notifications** | P2 | M | Goal reminders, achievements |
 | **Web app** | P2 | XL | Full feature parity on web |
 | **Android port** | P2 | XL | 100% feature parity |
@@ -462,9 +464,3 @@ Notification: in-app banner + email
 Then: 3-month deprecation warning
 Finally: 410 Gone (archived)
 ```
-
-## 2026-10-02 – Apple Helse avgrenset til implementasjon bak flagg
-
-Historiske Apple Health-rader over er erstattet for førsteversjonen av
-[godkjent scope](../health-integration.md): mat ut og vekt inn/ut. Release- og
-pilotgodkjenning gjenstår. Vann, aktivitet og dynamiske mål er fortsatt senere scope.

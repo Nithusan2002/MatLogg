@@ -9,13 +9,25 @@ final class DailyGoalsUITests: XCTestCase {
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
         profile.tap()
         let goals = app.buttons["profile-edit-goals"]
-        for _ in 0..<8 {
-            if goals.isHittable { break }
-            app.swipeUp()
-        }
-        XCTAssertTrue(goals.waitForExistence(timeout: 3))
+        XCTAssertTrue(goals.waitForExistence(timeout: 5))
+        scrollAboveTabBar(goals, in: app)
         goals.tap()
         XCTAssertTrue(app.navigationBars["Daglige mål"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    private func scrollAboveTabBar(_ element: XCUIElement, in app: XCUIApplication) {
+        let home = app.buttons["Hjem"].firstMatch
+        XCTAssertTrue(home.exists)
+        let visibleBottom = home.frame.minY - 8
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: min(0.65, (visibleBottom - 8) / app.frame.height)))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3))
+        for _ in 0..<8 {
+            if element.isHittable && element.frame.maxY < visibleBottom { break }
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTAssertTrue(element.isHittable)
+        XCTAssertLessThan(element.frame.maxY, visibleBottom)
     }
 
     @MainActor
@@ -79,9 +91,15 @@ final class DailyGoalsUITests: XCTestCase {
     }
 
     @MainActor
-    func testSuggestionMustBeAppliedAndSavedExplicitly() {
+    func testSuggestionMustBeAppliedAndSavedExplicitly() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("--skip-auth")
+        // Synthetic adult profile in the argument domain; never persisted by this test.
+        let details = try JSONSerialization.data(withJSONObject: [
+            "weightKg": 70, "heightCm": 170, "birthDate": -315576000,
+            "gender": "kvinne", "activityLevel": "moderat"
+        ])
+        let encodedDetails = "<" + details.map { String(format: "%02x", $0) }.joined() + ">"
+        app.launchArguments += ["--skip-auth", "-personalDetails.00000000-0000-4000-8000-000000000001", encodedDetails]
         app.launch()
         openGoals(app)
         let original = app.textFields["daily-goals-calories"].value as! String
@@ -114,11 +132,7 @@ final class DailyGoalsUITests: XCTestCase {
         top.lifetime = .keepAlways
         add(top)
         let saveButton = app.buttons["daily-goals-save"]
-        for _ in 0..<8 {
-            if saveButton.isHittable { break }
-            app.swipeUp()
-        }
-        XCTAssertTrue(saveButton.isHittable)
+        scrollAboveTabBar(saveButton, in: app)
         let bottom = XCTAttachment(screenshot: app.screenshot())
         bottom.name = "Daglige mål – lagring med stor tekst"
         bottom.lifetime = .keepAlways

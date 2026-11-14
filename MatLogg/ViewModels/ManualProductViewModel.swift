@@ -7,11 +7,57 @@ import SwiftUI
 @MainActor
 final class ManualProductViewModel: ObservableObject {
     static let maximumNameLength = 80
-    @Published var name = ""
-    @Published var calories = ""
-    @Published var protein = ""
-    @Published var carbs = ""
-    @Published var fat = ""
+    @Published var basis: ManualNutritionBasis = .per100g { didSet { inputChanged?() } }
+    @Published var servingName = "" { didSet { inputChanged?() } }
+    @Published var servingAmount = "" { didSet { inputChanged?() } }
+    @Published var servingUnit: AmountUnit = .grams { didSet { inputChanged?() } }
+    @Published var showBasisConfirmation = false
+    private var pendingBasis: ManualNutritionBasis?
+    private var pendingServingUnit: AmountUnit?
+
+    var nutritionContext: String {
+        guard basis == .serving else { return "per \(basis.title)" }
+        let label = servingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !label.isEmpty, let amount = parseNumber(servingAmount), amount > 0 else {
+            return "per porsjon/stykk"
+        }
+        return "per \(label) (\(amount.formatted(.number.locale(Locale(identifier: "nb_NO")))) \(servingUnit.rawValue))"
+    }
+
+    func requestBasis(_ value: ManualNutritionBasis) {
+        guard value != basis else { return }
+        if [calories, protein, carbs, fat].contains(where: { !$0.isEmpty }) {
+            pendingServingUnit = nil
+            pendingBasis = value
+            showBasisConfirmation = true
+        } else { basis = value }
+    }
+
+    func requestServingUnit(_ value: AmountUnit) {
+        guard value != servingUnit else { return }
+        if [calories, protein, carbs, fat].contains(where: { !$0.isEmpty }) {
+            pendingBasis = nil
+            pendingServingUnit = value
+            showBasisConfirmation = true
+        } else { servingUnit = value }
+    }
+
+    func confirmBasisChange() {
+        guard pendingBasis != nil || pendingServingUnit != nil else { return }
+        calories = ""; protein = ""; carbs = ""; fat = ""
+        if let pendingBasis { basis = pendingBasis }
+        if let pendingServingUnit { servingUnit = pendingServingUnit }
+        self.pendingBasis = nil
+        self.pendingServingUnit = nil
+        errorMessage = nil
+    }
+
+    @Published var selectedFoodGroup: FoodGroup? { didSet { inputChanged?() } }
+    @Published var name = "" { didSet { inputChanged?() } }
+    @Published var calories = "" { didSet { inputChanged?() } }
+    @Published var protein = "" { didSet { inputChanged?() } }
+    @Published var carbs = "" { didSet { inputChanged?() } }
+    @Published var fat = "" { didSet { inputChanged?() } }
     @Published private(set) var errorMessage: String?
     @Published private(set) var isSaving = false
 
@@ -20,6 +66,9 @@ final class ManualProductViewModel: ObservableObject {
     @Published var showCamera = false
     @Published var imageError: String?
     private var imageRequestID = UUID()
+    private var imageData: Data? { didSet { inputChanged?() } }
+    var inputChanged: (() -> Void)?
+    var productID = UUID()
     private let cameraAuthorization: any CameraAuthorizationProviding
 
     func openCamera() async {
@@ -28,25 +77,33 @@ final class ManualProductViewModel: ObservableObject {
             return
         }
         guard await cameraAuthorization.requestAccess() else {
-            imageError = "Gi MatLogg kameratilgang i Innstillinger, eller velg et bilde fra bildebiblioteket."
+            imageError = "Gi Spor Mat kameratilgang i Innstillinger, eller velg et bilde fra bildebiblioteket."
             return
         }
         showCamera = true
     }
 
-    func selectImage(_ image: UIImage?) {
-        imageRequestID = UUID()
-        isLoadingImage = false
+    func selectImage(_ image: UIImage?) async {
+        let requestID = UUID()
+        imageRequestID = requestID
         imageError = nil
-        guard let image else { productImage = nil; return }
-        let maxSide: CGFloat = 512
-        let factor = min(1, maxSide / max(image.size.width, image.size.height))
-        let size = CGSize(width: max(1, image.size.width * factor), height: max(1, image.size.height * factor))
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 1
-        // Redrawing removes original photo metadata and limits local storage size.
-        productImage = UIGraphicsImageRenderer(size: size, format: format).image { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
+        guard let image else {
+            productImage = nil; imageData = nil; isLoadingImage = false
+            return
+        }
+        isLoadingImage = true
+        defer { if imageRequestID == requestID { isLoadingImage = false } }
+        do {
+            let data = try await ProductImagePreparation.cameraJPEG(from: image)
+            let preview = try await ProductImagePreparation.image(from: data, maximumPixelSize: 512)
+            guard imageRequestID == requestID, !Task.isCancelled else { return }
+            imageData = data
+            productImage = preview
+            isLoadingImage = false
+        } catch {
+            guard imageRequestID == requestID else { return }
+            isLoadingImage = false
+            imageError = "Kunne ikke åpne bildet. Prøv et annet bilde."
         }
     }
 
@@ -55,11 +112,15 @@ final class ManualProductViewModel: ObservableObject {
         imageRequestID = requestID
         isLoadingImage = true
         imageError = nil
+        defer { if imageRequestID == requestID { isLoadingImage = false } }
         do {
-            guard let data = try await item.loadTransferable(type: Data.self),
-                  let image = UIImage(data: data) else { throw CocoaError(.fileReadCorruptFile) }
-            guard imageRequestID == requestID else { return }
-            selectImage(image)
+            guard let original = try await item.loadTransferable(type: Data.self) else { throw CocoaError(.fileReadCorruptFile) }
+            let data = try await BackgroundWork.run { try LocalMealPhotoRepository.prepare(original, maximumPixelSize: 512) }
+            let preview = try await ProductImagePreparation.image(from: data, maximumPixelSize: 512)
+            guard imageRequestID == requestID, !Task.isCancelled else { return }
+            imageData = data
+            productImage = preview
+            isLoadingImage = false
         } catch {
             guard imageRequestID == requestID else { return }
             isLoadingImage = false
@@ -76,26 +137,53 @@ final class ManualProductViewModel: ObservableObject {
         self.saveProduct = saveProduct
     }
 
+    var input: ManualProductInput {
+        ManualProductInput(name: name, calories: calories, protein: protein, carbs: carbs, fat: fat,
+                           basis: basis, servingName: servingName, servingAmount: servingAmount,
+                           servingUnit: servingUnit, imageData: imageData, selectedFoodGroup: selectedFoodGroup?.rawValue)
+    }
+
+    func restoreInput(_ input: ManualProductInput, productID: UUID) {
+        self.productID = productID
+        selectedFoodGroup = input.selectedFoodGroup.flatMap(FoodGroup.init(rawValue:))
+        name = input.name; calories = input.calories; protein = input.protein
+        carbs = input.carbs; fat = input.fat; basis = input.basis
+        servingName = input.servingName; servingAmount = input.servingAmount
+        servingUnit = input.servingUnit; imageData = input.imageData
+        productImage = input.imageData.flatMap(UIImage.init(data:))
+    }
+
     func save() async -> Product? {
         guard !isLoadingImage else { return nil }
         errorMessage = nil
 
         guard let values = validatedValues() else { return nil }
 
+        let input = values.input
+        let factor = 100 / input.amount
+        let servings: [ServingOption]? = basis == .serving ? [
+            ServingOption(label: input.label ?? "Porsjon", grams: input.amount, unit: input.unit,
+                          source: .user, isDefaultSuggestion: true)
+        ] : nil
         let product = Product(
+            id: productID,
             name: values.name,
+            selectedFoodGroup: selectedFoodGroup?.rawValue,
             barcodeEan: barcode,
             source: "user",
             kind: .packaged,
-            caloriesPer100g: Float(values.calories),
-            proteinGPer100g: values.protein,
-            carbsGPer100g: values.carbs,
-            fatGPer100g: values.fat,
-            localImageData: productImage?.jpegData(compressionQuality: 0.75),
+            caloriesPer100g: Float(input.calories * factor),
+            proteinGPer100g: Float(input.protein * factor),
+            carbsGPer100g: Float(input.carbs * factor),
+            fatGPer100g: Float(input.fat * factor),
+            localImageData: imageData,
+            servings: servings,
             nutritionSource: .user,
             imageSource: productImage == nil ? .none : .user,
             verificationStatus: .unverified,
-            isVerified: false
+            isVerified: false,
+            manualNutritionInput: input,
+            nutritionBasis: input.unit == .grams ? .per100g : .per100ml
         )
 
         isSaving = true
@@ -122,37 +210,42 @@ final class ManualProductViewModel: ObservableObject {
             return nil
         }
 
-        guard let caloriesValue = parseNumber(calories),
-              caloriesValue.rounded() == caloriesValue,
-              (1...900).contains(caloriesValue) else {
-            errorMessage = "Energi må være et helt tall mellom 1 og 900 kcal per 100 g."
+        let unit: AmountUnit = basis == .serving ? servingUnit : (basis == .per100ml ? .milliliters : .grams)
+        let amount: Double
+        let label = servingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if basis == .serving {
+            guard !label.isEmpty, label.count <= 80,
+                  let parsed = parseNumber(servingAmount), (0.1...10000).contains(parsed) else {
+                errorMessage = "Oppgi et porsjonsnavn og en størrelse mellom 0,1 og 10 000 g/ml."
+                return nil
+            }
+            amount = parsed
+        } else { amount = 100 }
+
+        guard let caloriesValue = parseNumber(calories), caloriesValue >= 0,
+              caloriesValue * 100 / amount <= 10000 else {
+            errorMessage = "Oppgi gyldig energi i kcal \(nutritionContext)."
             return nil
         }
-
-        guard let proteinValue = parseMacro(protein),
-              let carbsValue = parseMacro(carbs),
-              let fatValue = parseMacro(fat) else {
-            errorMessage = "Oppgi protein, karbohydrat og fett mellom 0 og 100 g per 100 g."
+        guard let proteinValue = parseNumber(protein), proteinValue >= 0,
+              let carbsValue = parseNumber(carbs), carbsValue >= 0,
+              let fatValue = parseNumber(fat), fatValue >= 0,
+              [proteinValue, carbsValue, fatValue].allSatisfy({ $0 * 100 / amount <= 10000 }) else {
+            errorMessage = "Oppgi gyldige verdier for protein, karbohydrat og fett \(nutritionContext)."
             return nil
         }
-
-        guard proteinValue + carbsValue + fatValue <= 100 else {
-            errorMessage = "Protein, karbohydrat og fett kan til sammen ikke overstige 100 g per 100 g."
+        // Mass bounds apply only to grams; volume says nothing about product density.
+        if unit == .grams, proteinValue + carbsValue + fatValue > amount {
+            errorMessage = "Protein, karbohydrat og fett kan til sammen ikke overstige \(amount.formatted(.number.locale(Locale(identifier: "nb_NO")))) g \(nutritionContext)."
             return nil
         }
-
-        return ValidatedValues(
-            name: trimmedName,
-            calories: Int(caloriesValue),
-            protein: Float(proteinValue),
-            carbs: Float(carbsValue),
-            fat: Float(fatValue)
-        )
-    }
-
-    private func parseMacro(_ value: String) -> Double? {
-        guard let number = parseNumber(value), (0...100).contains(number) else { return nil }
-        return number
+        if unit == .grams, caloriesValue * 100 / amount > 900 {
+            errorMessage = "Energi kan ikke overstige 900 kcal per 100 g."
+            return nil
+        }
+        return ValidatedValues(name: trimmedName, input: ManualNutritionInput(
+            basis: basis, amount: amount, unit: unit, label: basis == .serving ? label : nil,
+            calories: caloriesValue, protein: proteinValue, carbs: carbsValue, fat: fatValue))
     }
 
     private func parseNumber(_ value: String) -> Double? {
@@ -166,8 +259,5 @@ final class ManualProductViewModel: ObservableObject {
 
 private struct ValidatedValues {
     let name: String
-    let calories: Int
-    let protein: Float
-    let carbs: Float
-    let fat: Float
+    let input: ManualNutritionInput
 }

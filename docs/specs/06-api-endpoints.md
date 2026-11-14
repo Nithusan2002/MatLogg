@@ -773,7 +773,11 @@ DELETE /user
 
 Identiteten hentes fra bearer-tokenet. Kontoen får `deletedAt`, eksisterende
 tokens avvises umiddelbart, og en idempotent jobb sletter domenedata og brukeren
-permanent etter 30 dager. Brukeropprettede produktbidrag beholdes anonymisert.
+uten fast ventetid. Aktiv Supabase-backend forsøker purge i samme forespørsel;
+ved feil prøver cron igjen hvert femte minutt. Feltet `permanentDeletionAt`
+angir når kontoen er kvalifisert for sletting, ikke garantert fullføring.
+`deletionCompleted` i Supabase-svaret angir om første forsøk fullførte.
+Responskoden beholdes for kompatibilitet med eksisterende klienter. Egne produkter knyttet til kontoen slettes også permanent. Gjentatte sletteforespørsler forlenger ikke den opprinnelige fristen.
 
 ---
 

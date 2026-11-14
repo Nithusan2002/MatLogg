@@ -7,7 +7,7 @@ function Logo() {
   return (
     <span className="flex items-center gap-2 font-bold">
       <img src="./matlogg-logo.png" alt="" width="40" height="40" className="h-10 w-10 rounded-xl" />
-      MatLogg
+      Spor Mat
     </span>
   );
 }
@@ -32,17 +32,15 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 }
 
 const FAQ = [
-  ["Er MatLogg tilgjengelig?", "MatLogg er under utvikling. Betatilgang og lansering er ikke åpnet ennå."],
-  ["Må jeg ha konto?", "Nei. MatLogg er laget for å kunne brukes lokalt på iPhonen uten konto."],
-  ["Fungerer det uten nett?", "Ja, lokal logging og lagrede matvarer fungerer uten nett. Oppslag av nye produkter kan kreve internett."],
-  ["Må jeg sette mål?", "Nei. Mål er helt valgfrie. Du kan bruke MatLogg bare for oversikt."],
-  ["Hvilke enheter støttes?", "MatLogg utformes for iPhone med iOS 17 eller nyere."],
+  ["Er Spor Mat tilgjengelig?", "Spor Mat er under utvikling. Betatilgang og lansering er ikke åpnet ennå. Bildedemoen viser hvordan appen fungerer i dag."],
+  ["Må jeg ha konto?", "Nei. Du kan logge mat på iPhonen uten å opprette konto. Innlogging er valgfritt og gir foreløpig ikke skybackup."],
+  ["Hvor lagres dataene mine?", "Matloggen lagres lokalt på iPhonen din. Spor Mat tilbyr foreløpig ikke skybackup eller synk mellom enheter. Du kan eksportere en JSON-kopi, men den kan ikke importeres tilbake i appen. Data kan gå tapt hvis du sletter appen eller mister telefonen."],
 ];
 
 function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 py-24">
+    <section id="faq" className="mx-auto max-w-3xl px-5 py-16 sm:py-20">
       <p className="eyebrow">Spørsmål</p>
       <h2 className="mt-3 text-4xl font-bold tracking-tight">Ofte stilte spørsmål</h2>
       <div className="mt-10 divide-y rounded-3xl border bg-card">
@@ -64,7 +62,7 @@ function Faq() {
 
 function Feature({ eyebrow, title, children, visual, flip }: { eyebrow: string; title: string; children: ReactNode; visual: ReactNode; flip?: boolean }) {
   return (
-    <div className="grid items-center gap-12 border-t py-20 lg:grid-cols-2">
+    <div className="feature-panel grid items-center gap-12 rounded-[2.5rem] border p-7 sm:p-12 lg:grid-cols-2">
       <div className={flip ? "lg:order-2" : ""}>
         <p className="eyebrow">{eyebrow}</p>
         <h3 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">{title}</h3>
@@ -77,7 +75,7 @@ function Feature({ eyebrow, title, children, visual, flip }: { eyebrow: string; 
 
 export default function App() {
   const [menu, setMenu] = useState(false);
-  const [dlg, setDlg] = useState<null | "beta" | "contact">(null);
+  const [dlg, setDlg] = useState<null | "contact">(null);
   const close = () => setDlg(null);
   const links = [["#slik", "Slik fungerer det"], ["#funksjoner", "Funksjoner"], ["#faq", "Spørsmål"]];
 
@@ -89,7 +87,7 @@ export default function App() {
           <a href="#top" className="flex min-h-11 items-center"><Logo /></a>
           <div className="hidden items-center gap-8 md:flex">
             {links.map(([h, l]) => <a key={h} href={h} className="text-sm text-muted-foreground hover:text-foreground">{l}</a>)}
-            <button onClick={() => setDlg("beta")} className="btn-primary !min-h-11 text-sm">Meld interesse</button>
+            <a href="#slik" className="btn-primary !min-h-11 text-sm">Se demoen <span aria-hidden>↗</span></a>
           </div>
           <button className="grid h-11 w-11 place-items-center rounded-full border md:hidden" aria-expanded={menu} aria-controls="mobilmeny" aria-label={menu ? "Lukk meny" : "Åpne meny"} onClick={() => setMenu(!menu)}>
             <span aria-hidden className="text-lg">{menu ? "✕" : "☰"}</span>
@@ -98,54 +96,87 @@ export default function App() {
         {menu && (
           <div id="mobilmeny" className="border-t bg-background px-5 pb-5 md:hidden">
             {links.map(([h, l]) => <a key={h} href={h} onClick={() => setMenu(false)} className="flex min-h-12 items-center border-b">{l}</a>)}
-            <button onClick={() => { setMenu(false); setDlg("beta"); }} className="btn-primary mt-4 w-full">Meld interesse for beta</button>
+            <a href="#slik" onClick={() => setMenu(false)} className="btn-primary mt-4 w-full">Se demoen</a>
           </div>
         )}
       </header>
 
       <main id="main">
-        <section id="top" className="mx-auto grid max-w-6xl items-center gap-14 px-5 pb-16 pt-14 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
+        <section id="top" className="hero-section mx-auto grid max-w-6xl items-center gap-14 px-5 pb-16 pt-14 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />Norsk matlogging · Under utvikling
             </span>
-            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Matlogging som passer hverdagen din.</h1>
-            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Søk etter mat, skann strekkoder og få oversikt over dagen. Enkelt, rolig og på norsk.</p>
+            <aside className="mt-4 text-sm text-muted-foreground" aria-label="Nytt navn">
+              <p><strong className="font-semibold text-foreground">MatLogg heter nå Spor Mat.</strong> Samme app, nytt navn.</p>
+            </aside>
+            <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Logg maten.<br /><span className="hero-highlight">Uten å lage konto.</span></h1>
+            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Norske råvarer, strekkodesøk og en matlogg som lagres på iPhonen din. Få oversikt over maten, med eller uten mål.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button onClick={() => setDlg("beta")} className="btn-primary">Meld interesse for beta</button>
-              <a href="#slik" className="btn-ghost">Se hvordan det fungerer</a>
+              <a href="#slik" className="btn-primary">Se demoen <span aria-hidden>→</span></a>
+              <a href="#funksjoner" className="btn-ghost">Utforsk appen</a>
             </div>
           </div>
-          <AppScreenshot screen="home" label="Hjem – matlogg for valgt dag" priority />
+          <div className="hero-stage">
+            <div className="hero-orbit" aria-hidden="true" />
+            <div className="hero-phone"><AppScreenshot screen="home" label="Dagen din, samlet på ett sted" priority /></div>
+            <div className="hero-note hero-note-top"><span aria-hidden="true">✦</span><div><strong>Din dag. Din oversikt.</strong><span>Mål er helt valgfrie.</span></div></div>
+            <div className="hero-note hero-note-bottom"><span aria-hidden="true">↗</span><div><strong>Enklere neste gang</strong><span>Lagre måltider du bruker ofte.</span></div></div>
+          </div>
         </section>
 
-        <ul className="mx-auto grid max-w-6xl gap-px overflow-hidden px-5 sm:grid-cols-3">
-          {[["Bruk uten konto", "Kom i gang uten å registrere deg."], ["Lagre på iPhonen", "Loggen din ligger lokalt på enheten."], ["Norske råvarer", "Basert på Matvaretabellen."]].map(([t, d]) => (
-            <li key={t} className="border-t py-6 sm:pr-6"><p className="font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></li>
+        <ul className="mx-auto grid max-w-6xl gap-4 px-5 sm:grid-cols-3">
+          {[["01", "Uten konto", "Start med maten. Registrering er valgfritt."], ["02", "Også uten nett", "Logg med matvarene som er lagret på iPhonen."], ["03", "På dine premisser", "Få oversikt, med eller uten mål."]].map(([n, t, d]) => (
+            <li key={t} className="benefit-card rounded-3xl border bg-card p-6"><span className="eyebrow">{n}</span><p className="mt-5 text-xl font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></li>
           ))}
         </ul>
 
         <DemoSection />
 
-        <section id="funksjoner" className="mx-auto max-w-6xl px-5">
-          <Feature eyebrow="Favoritter" title="Favorittene dine, klare igjen" visual={
-            <AppScreenshot screen="meals" label="Hjem – registrerte måltider" />
+        <section id="funksjoner" className="mx-auto max-w-6xl space-y-8 px-5">
+          <section className="meal-story" aria-labelledby="meal-story-title">
+            <div className="meal-story-heading">
+              <p className="eyebrow">Dine gjengangere</p>
+              <h2 id="meal-story-title">Favorittfrokosten din.<br /><span>Klar igjen i morgen.</span></h2>
+              <p>Lagre et måltid fra dagboken og loggfør det igjen når det passer. Velg dato og måltid før du lagrer, og angre rett etterpå hvis du vil.</p>
+            </div>
+            <div className="meal-story-pictures">
+              <figure className="meal-photo meal-photo-breakfast">
+                <img src="./meals/yoghurt.jpg" alt="Illustrasjon av yoghurt med havre, blåbær og banan" width="640" height="640" loading="lazy" />
+                <figcaption><span>01 / Frokost</span><strong>Yoghurt med havre og bær</strong></figcaption>
+              </figure>
+              <figure className="meal-photo meal-photo-dinner">
+                <img src="./meals/salmon.jpg" alt="Illustrasjon av laks med poteter og brokkoli" width="640" height="640" loading="lazy" />
+                <figcaption><span>02 / Middag</span><strong>Laks med poteter</strong></figcaption>
+              </figure>
+            </div>
+            <div className="meal-story-app">
+              <AppScreenshot screen="meals" label="Lagrede måltider – klare til gjenbruk" />
+            </div>
+            <p className="meal-image-note">Måltidsbildene er AI-genererte illustrasjoner. Appbildet viser fiktive demodata.</p>
+          </section>
+          <Feature flip eyebrow="Utvikling" title="Oversikt på dine premisser" visual={
+            <AppScreenshot screen="overview" label="Utvikling – mat, skritt, vekt og treningsøkter" />
           }>
-            <p>Lagre måltidene du spiser ofte, kontroller mengdene og loggfør dem på nytt.</p>
-            <p>Nylig brukte matvarer ligger klare øverst, så hverdagen går raskere.</p>
+            <p>Samle mat, skritt, vekt og treningsøkter i én oversikt. Velg selv hvilke kort du vil se, og bla mellom dag, uke og måned.</p>
+            <p>Skritt, vekt og treningsøkter fra Apple Helse vises når du velger å koble dem til. Du kan også registrere vekt manuelt. Bildet viser fiktive demodata.</p>
           </Feature>
-          <Feature flip eyebrow="Oversikt" title="Oversikt på dine premisser" visual={
-            <AppScreenshot screen="overview" label="Oversikt – historikk og næringsoversikt" />
-          }>
-            <p>Se dagens energi og makronæringsstoffer, og følg oversikten gjennom uken.</p>
-            <p>Mål er valgfrie. Ingen røde tall, ingen «bra» eller «dårlig» mat – bare tydelig oversikt.</p>
-          </Feature>
+          <div className="grid gap-6 sm:grid-cols-2">
+            {[
+              ["En dagbok du kan endre", "Rediger matvarer og mengder, flytt dem mellom måltider eller velg flere registreringer samlet."],
+              ["Norske råvarer og kjente produkter", "Søk i Matvaretabellen og slå opp merkevarer fra Open Food Facts. Matvarene viser kilden og næringsgrunnlaget."],
+            ].map(([title, text]) => (
+              <article key={title} className="benefit-card rounded-3xl border bg-card p-7">
+                <h3 className="text-xl font-semibold">{title}</h3>
+                <p className="mt-3 text-muted-foreground">{text}</p>
+              </article>
+            ))}
+          </div>
           <Feature eyebrow="Lokalt" title="På iPhonen. Også uten nett." visual={
-            <AppScreenshot screen="search" label="Søk – matvarer og favoritter" />
+            <AppScreenshot screen="diary" label="Dagbok – dagens måltider lagret på iPhonen" />
           }>
             <p>Loggen og lagrede matvarer ligger på iPhonen din, så logging av det du allerede har fungerer uten nett.</p>
-            <p>Oppslag av nye produkter kan kreve internett. Synkronisering mellom enheter og sikkerhetskopi er ikke en del av MVP-en.</p>
-            <p className="text-sm">Norske råvarer fra Matvaretabellen og produktoppslag fra Open Food Facts.</p>
+            <p>Oppslag av nye produkter kan kreve internett. Appen tilbyr ikke skybackup eller synk mellom enheter. Data kan gå tapt hvis du sletter appen eller mister telefonen.</p>
           </Feature>
         </section>
 
@@ -153,30 +184,29 @@ export default function App() {
 
         <section className="mx-auto max-w-6xl px-5 pb-24">
           <div className="rounded-[2.5rem] border border-primary/20 bg-primary-soft px-6 py-16 text-center">
-            <h2 className="text-4xl font-bold tracking-tight">Vil du prøve MatLogg først?</h2>
-            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Vi bygger MatLogg i rolig tempo. Betaen er ikke åpnet ennå.</p>
-            <button onClick={() => setDlg("beta")} className="btn-primary mt-8">Meld interesse for beta</button>
+            <h2 className="text-4xl font-bold tracking-tight">Se matloggingen i praksis.</h2>
+            <p className="mx-auto mt-4 max-w-md text-muted-foreground">Bla gjennom søk, mengde og logg i bildedemoen. Spor Mat er fortsatt under utvikling.</p>
+            <a href="#slik" className="btn-primary mt-8">Se demoen <span aria-hidden>→</span></a>
           </div>
         </section>
       </main>
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Prototype</span></div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Under utvikling</span></div>
+          <div className="flex flex-wrap gap-2">
             <a href="./personvern.html" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</a>
+            <a href="./personvern.html#bildekilder" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Bildekilder</a>
             <button onClick={() => setDlg("contact")} className="min-h-11 px-3 text-sm text-muted-foreground hover:text-foreground">Kontakt</button>
           </div>
         </div>
       </footer>
 
-      <Modal open={dlg === "beta"} onClose={close} title="Betapåmelding">
-        <p>Dette er en prototype. Betapåmelding åpnes senere.</p>
-      </Modal>
       <Modal open={dlg === "contact"} onClose={close} title="Kontakt">
-        <p>Kontaktinformasjon er ikke publisert ennå. Dette er en plassholder i prototypen.</p>
+        <p>Spor Mat drives av Nithusan Krishnasamymudali.</p>
+        <p><a className="underline" href="mailto:nithusank.2002@gmail.com">nithusank.2002@gmail.com</a></p>
+        <p className="text-sm">Unngå å sende matlogger, vekt eller andre helseopplysninger på vanlig e-post.</p>
       </Modal>
     </div>
   );
 }
-

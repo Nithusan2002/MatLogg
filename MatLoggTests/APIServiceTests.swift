@@ -1,9 +1,206 @@
 import Foundation
+import UIKit
 import Testing
 @testable import MatLogg
 
 @MainActor
 struct APIServiceTests {
+    @Test func processingPresentationPreservesUnknownAndSourceClassification() {
+        for group: Int? in [nil, 0, 1, 2, 3, 4, 9] {
+            let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: group, markers: [:], ingredients: nil))
+            switch group {
+            case 1, 2, 3:
+                let titles = [1: "Minimalt bearbeidet", 2: "Bearbeidet matlagingsingrediens", 3: "Bearbeidet"]
+                #expect(presentation.status == titles[group ?? 0])
+                #expect(presentation.isUltraProcessed == false)
+            case 4:
+                #expect(presentation.status == "Ultraprosessert")
+                #expect(presentation.isUltraProcessed == true)
+            default:
+                #expect(presentation.status == "Klassifisering mangler")
+                #expect(presentation.isUltraProcessed == nil)
+            }
+        }
+        let presentation = ProductProcessingPresentation(info: ProductProcessingInfo(novaGroup: 3,
+            markers: ["3": [["ingredients", "en:salt"], ["ingredients", "en:sugar"], ["ingredients", "en:unknown"]]], ingredients: nil))
+        #expect(presentation.basis.contains("salt og sukker som grunnlag for NOVA 3"))
+        #expect(presentation.basis.contains("Noe av grunnlaget"))
+    }
+
+    @Test func excludedProteinValueRequiresMatchingDocumentedBasis() {
+        for productBasis: NutritionBasis? in [nil, .per100g, .per100ml] {
+            for preparation in ["as_sold", "prepared"] {
+                var calculation = NutriScoreCalculation(positive: [], negative: [], positivePoints: 5,
+                    positiveMaximum: 10, negativePoints: 13, negativeMaximum: 55, estimated: true,
+                    preparation: preparation, proteinExclusionReason: "negative_points_greater_than_or_equal_to_11")
+                calculation.nutritionBasis = .per100g
+                let product = Product(name: "Test", source: "openfoodfacts", caloriesPer100g: 95,
+                    proteinGPer100g: 1.7, carbsGPer100g: 21, fatGPer100g: 0,
+                    nutritionBasis: productBasis,
+                    nutriScoreInfo: ProductNutriScoreInfo(grade: "C", version: "2023", calculation: calculation))
+                let model = ProductDetailViewModel(product: product, repository: ProteinNoIORepository())
+                #expect(model.excludedProteinValue == (productBasis == .per100g && preparation == "as_sold" ? "1,7 g" : nil))
+            }
+        }
+    }
+
+    @Test func scoreSegmentsPreserveSourceCountAndRejectInvalidCounts() {
+        #expect(NutriScoreSegments(points: 7, maximum: 20)?.filled == 7)
+        #expect(NutriScoreSegments(points: 7, maximum: 20)?.count == 20)
+        #expect(NutriScoreSegments(points: 0, maximum: 5)?.filled == 0)
+        #expect(NutriScoreSegments(points: 5, maximum: 5)?.filled == 5)
+        #expect(NutriScoreSegments(points: nil, maximum: 5) == nil)
+        #expect(NutriScoreSegments(points: 6, maximum: 5) == nil)
+        #expect(NutriScoreSegments(points: -1, maximum: 5) == nil)
+        #expect(NutriScoreSegments(points: 0, maximum: 0) == nil)
+        #expect(NutriScoreSegments(points: 1, maximum: 10000) == nil)
+    }
+
+    @Test func nutriScoreCalculationUsesMatchingVersionAndGrade() async throws {
+        for version in ["2023", "2021"] {
+            for grade in ["c", "b"] {
+                let client = HTTPClientStub { request, _ in
+                    let url = try #require(request.url)
+                    let body = """
+                    {"status":"success","product":{"product_name":"Tomatketchup","nutriscore_grade":"\(grade)","nutriscore_version":"\(version)","nutriscore":{"2023":{"grade":"c","estimated":1,"preparation":"as_sold","nutriscore_computed":1,"data":{"components":{"negative":[{"id":"energy","value":398,"unit":"kJ","points":1,"points_max":10},{"id":"salt","value":1.57,"unit":"g","points":7,"points_max":20}],"positive":[{"id":"fiber","value":1.97,"unit":"g","points":0,"points_max":5}]},"positive_points":5,"positive_points_max":10,"negative_points":13,"negative_points_max":55,"count_proteins":0,"count_proteins_reason":"negative_points_greater_than_or_equal_to_11"}}},"nutriments":{"energy-kcal_100g":95,"proteins_100g":1.7,"carbohydrates_100g":21,"fat_100g":0}}}
+                    """
+                    return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+                }
+                let product = try await APIService(httpClient: client).searchProductByBarcodeOpenFoodFacts("7039010081320")
+                let calculation = product.nutriScoreInfo?.calculation
+                if version == "2023", grade == "c" {
+                    let result = try #require(calculation)
+                    #expect(result.estimated)
+                    #expect(result.negativePoints == 13)
+                    #expect(result.positiveMaximum == 10)
+                    let display = NutriScoreCalculationPresentation(calculation: result)
+                    #expect(display.rows(result.negative).first?.value == "398 kJ")
+                    #expect(display.proteinExplanation?.contains("minuspoengene høye nok") == true)
+                    let decoded = try JSONDecoder().decode(Product.self, from: JSONEncoder().encode(product))
+                    #expect(decoded.nutriScoreInfo?.calculation == calculation)
+                } else { #expect(calculation == nil) }
+            }
+        }
+    }
+
+    @Test func calculationPresentationNeverInventsMissingValuesOrPoints() {
+        let calculation = NutriScoreCalculation(
+            positive: [NutriScoreComponent(id: "fiber", value: nil, unit: "g", points: 0, points_max: 5),
+                       NutriScoreComponent(id: "unknown", value: 1, unit: "g", points: 1, points_max: 5)],
+            negative: [], positivePoints: nil, positiveMaximum: nil, negativePoints: nil,
+            negativeMaximum: nil, estimated: false, preparation: nil, proteinExclusionReason: nil)
+        let display = NutriScoreCalculationPresentation(calculation: calculation)
+        #expect(display.rows(calculation.positive).first?.value == "Verdi ikke tilgjengelig")
+        #expect(display.incomplete)
+        #expect(NutriScoreCalculationPresentation.points(6, maximum: 5) == nil)
+        #expect(NutriScoreCalculationPresentation.points(nil, maximum: 5) == nil)
+    }
+
+    @Test func officialNutriScoreArtworkMatchesGradeAndKnownAlgorithm() throws {
+        for grade in ["A", "B", "C", "D", "E"] {
+            for version in ["2021", "2023"] {
+                let info = try #require(ProductNutriScoreInfo(grade: grade, version: version))
+                let name = try #require(info.imageAssetName)
+                #expect(name == "NutriScore-\(version)-\(grade)")
+                #expect(UIImage(named: name) != nil)
+            }
+        }
+        #expect(ProductNutriScoreInfo(grade: "C", version: nil)?.imageAssetName == nil)
+        #expect(ProductNutriScoreInfo(grade: "C", version: "future")?.imageAssetName == nil)
+    }
+
+    @Test func nutriScoreMappingWorksForBarcodeAndNameSearch() async throws {
+        for grade in ["a", "B", "c", "D", "e", "unknown", "", "not-applicable"] {
+            let client = HTTPClientStub { request, _ in
+                let url = try #require(request.url)
+                #expect(url.absoluteString.contains("nutriscore_grade"))
+                let product = """
+                {"code":"7039010081320","product_name":"Tomatketchup","nutriscore_grade":"\(grade)","nutriscore_version":"2023","nutriments":{"energy-kcal_100g":95,"proteins_100g":1.7,"carbohydrates_100g":21,"fat_100g":0}}
+                """
+                let body = url.path.contains("search.pl") ? "{\"products\":[\(product)]}" : "{\"status\":\"success\",\"product\":\(product)}"
+                return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+            }
+            let service = APIService(httpClient: client)
+            let barcode = try await service.searchProductByBarcodeOpenFoodFacts("7039010081320")
+            let search = try #require(try await service.searchProductsByNameOpenFoodFacts("Idun").first)
+            let expected = ProductNutriScoreInfo(grade: grade, version: "2023")
+            #expect(barcode.nutriScoreInfo == expected)
+            #expect(search.nutriScoreInfo == expected)
+        }
+    }
+
+    @Test func nutriScoreMissingOrMalformedEnrichmentDoesNotBlockLookup() async throws {
+        for fields in [#""nutriscore_grade":null"#, #""nutriscore_grade":42"#, #""nutriscore_grade":"c","nutriscore_version":42"#] {
+            let client = HTTPClientStub { request, _ in
+                let url = try #require(request.url)
+                let body = """
+                {"status":"success","product":{"product_name":"Vare",\(fields),"nutriments":{"energy-kcal_100g":95,"proteins_100g":1.7,"carbohydrates_100g":21,"fat_100g":0}}}
+                """
+                return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+            }
+            let item = try await APIService(httpClient: client).searchProductByBarcodeOpenFoodFacts("7039010081320")
+            #expect(item.nutriScoreInfo?.version == nil)
+            #expect(item.nutriScoreInfo?.grade == (fields.contains("\"c\"") ? "C" : nil))
+        }
+        #expect(ProductNutriScoreInfo(grade: "C", version: "future")?.version == "future")
+    }
+
+    @Test func processingEnrichmentUsesNorwegianAndToleratesMalformedFields() async throws {
+        for enrichment in [
+            #""nova_group":3,"nova_groups_markers":{"3":[["ingredients","en:salt"],["ingredients","en:sugar"]]},"ingredients_text":"Original","ingredients_text_nb":"Tomatpuré 80 %, sukker, eddik, salt, krydderekstrakt""#,
+            #""nova_group":9,"nova_groups_markers":"invalid","ingredients_text_nb":42"#,
+            #""nova_group":null"#
+        ] {
+            let client = HTTPClientStub { request, _ in
+                let url = try #require(request.url)
+                #expect(url.absoluteString.contains("nova_group"))
+                let body = """
+                {"status":"success","product":{"code":"7039010081320","product_name":"Tomatketchup","nutriments":{"energy-kcal_100g":95,"proteins_100g":1.7,"carbohydrates_100g":21,"fat_100g":0},\(enrichment)}}
+                """
+                return (try #require(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)), Data(body.utf8))
+            }
+            let product = try await APIService(httpClient: client).searchProductByBarcodeOpenFoodFacts("7039010081320")
+            #expect(product.caloriesPer100g == 95)
+            let info = try #require(product.processingInfo)
+            if enrichment.contains("Tomatpuré") {
+                #expect(info.novaGroup == 3)
+                #expect(info.ingredients?.hasPrefix("Tomatpuré") == true)
+                #expect(info.markerNames == ["salt", "sukker"])
+            } else {
+                #expect(info.novaGroup == nil)
+            }
+        }
+    }
+
+    @Test func partialProcessingMarkersAreExplicitWithoutExposingRawTags() {
+        let info = ProductProcessingInfo(novaGroup: 4,
+            markers: ["4": [["ingredients", "en:salt"], ["ingredients", "en:unknown"]]], ingredients: nil)
+        #expect(info.markerNames == ["salt"])
+        #expect(info.hasUntranslatedMarkers)
+        #expect(ProductProcessingInfo(novaGroup: nil, markers: [:], ingredients: nil).classificationText == nil)
+    }
+
+    @Test func processingPresentationAndLegacyProductDecoding() throws {
+        for group in 1...4 {
+            let info = ProductProcessingInfo(novaGroup: group, markers: [String(group): [["ingredients", "en:unknown"]]], ingredients: nil)
+            #expect(info.groupTitle.contains("NOVA \(group)"))
+            #expect(info.markerNames.isEmpty)
+            #expect(info.classificationText?.hasPrefix(group == 4 ? "Klassifisert" : "Ikke klassifisert") == true)
+        }
+        let product = Product(name: "Vare", caloriesPer100g: 95, proteinGPer100g: 1.7, carbsGPer100g: 21, fatGPer100g: 0,
+                              nutriScoreInfo: ProductNutriScoreInfo(grade: "c", version: "2023"),
+                              processingInfo: ProductProcessingInfo(novaGroup: 3, markers: [:], ingredients: "Tomat"))
+        let encoded = try JSONEncoder().encode(product)
+        #expect(try JSONDecoder().decode(Product.self, from: encoded).processingInfo == product.processingInfo)
+        var json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(try JSONDecoder().decode(Product.self, from: encoded).nutriScoreInfo == product.nutriScoreInfo)
+        json.removeValue(forKey: "nutriScoreInfo")
+        json.removeValue(forKey: "processingInfo")
+        let legacy = try JSONSerialization.data(withJSONObject: json)
+        #expect(try JSONDecoder().decode(Product.self, from: legacy).processingInfo == nil)
+        #expect(try JSONDecoder().decode(Product.self, from: legacy).nutriScoreInfo == nil)
+    }
+
     @Test func invalidBaseURLReturnsTypedErrorWithoutStartingRequest() async {
         let service = APIService(baseURL: "://ugyldig")
 
@@ -208,6 +405,14 @@ struct APIServiceTests {
 }
 
 private final class APIAuthSessionStore: AuthSessionStore {
+    var pendingLink: PendingLocalDataLink?
+    func pendingLocalDataLink() -> PendingLocalDataLink? { pendingLink }
+    func setPendingLocalDataLink(_ link: PendingLocalDataLink?) { pendingLink = link }
+    var pendingDeletion: PendingProfileDeletion?
+    func pendingProfileDeletion() -> PendingProfileDeletion? { pendingDeletion }
+    func setPendingProfileDeletion(_ deletion: PendingProfileDeletion?) { pendingDeletion = deletion }
+    func removeOnboardingCompletion(userId: UUID) { setOnboardingCompleted(false, userId: userId) }
+
     var tokens: AuthTokens?
     private var user: User?
 
@@ -252,4 +457,11 @@ private final class HTTPClientStub: HTTPClientProtocol {
         let (response, data) = try handler(request, timeout)
         return HTTPClientResponse(data: data, response: response)
     }
+}
+
+@MainActor
+private struct ProteinNoIORepository: BarcodeLookupRepository {
+    func cached(barcode: String, owner: UUID?) -> Product? { nil }
+    func fetch(barcode: String) async throws -> Product { throw BarcodeLookupFailure.unavailable }
+    func refresh(_ product: Product, manually: Bool) async throws -> Product? { nil }
 }

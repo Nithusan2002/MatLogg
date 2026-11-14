@@ -1,0 +1,114 @@
+import XCTest
+
+/// Explicitly selected presentation capture; never touches the normal profile.
+final class LandingCaptureUITests: XCTestCase {
+    @MainActor
+    func testCaptureLandingScreens() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["MATLOGG_LANDING_CAPTURE"] == "1",
+                          "Presentation capture must be explicitly enabled on a dedicated simulator.")
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-demoModeActive", "YES", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Hjem"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["Profil"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Tilbakestill demodata"].waitForExistence(timeout: 10))
+        app.buttons["Tilbakestill demodata"].tap()
+        app.buttons["Tilbakestill"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["Hjem"].firstMatch.waitForExistence(timeout: 20))
+        app.buttons["Hjem"].firstMatch.tap()
+        capture("home", app)
+
+        app.buttons["Søk"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["food-search-saved-meals"].waitForExistence(timeout: 10))
+        capture("search", app)
+        app.buttons["food-search-saved-meals"].tap()
+        XCTAssertTrue(app.staticTexts["Yoghurt med havre og bær"].firstMatch.waitForExistence(timeout: 10))
+        capture("meals", app)
+        app.buttons["Lukk"].firstMatch.tap()
+        app.buttons["Hjem"].firstMatch.tap()
+        app.buttons["Utvikling"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Mat og næring"].firstMatch.waitForExistence(timeout: 10))
+        app.buttons["progress-hub-customize"].tap()
+        for area in ["steps", "weight", "workouts"] {
+            let toggle = app.switches["progress-hub-toggle-" + area]
+            XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+            if toggle.value as? String != "1" {
+                toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+            }
+            let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: toggle)
+            XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 5), .completed)
+        }
+        app.buttons["progress-hub-save"].tap()
+        app.buttons["progress-period-day"].tap()
+        XCTAssertTrue(app.staticTexts["progress-hub-demo-label"].exists)
+        XCTAssertTrue(app.buttons["progress-hub-steps-open"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["progress-hub-workouts-open"].waitForExistence(timeout: 10))
+        capture("overview", app)
+
+        app.buttons["Hjem"].firstMatch.tap()
+        let breakfast = app.buttons["home-meal-open-frokost"]
+        XCTAssertTrue(breakfast.waitForExistence(timeout: 10))
+        for _ in 0..<5 {
+            if breakfast.isHittable { break }
+            app.swipeUp()
+        }
+        breakfast.tap()
+        XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].waitForExistence(timeout: 10))
+        app.buttons["tab-log-food"].tap()
+        app.buttons["Søk etter mat"].tap()
+        let search = app.textFields["food-search-field"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("lettkokte havregryn")
+        if app.buttons["Continue"].waitForExistence(timeout: 2) { app.buttons["Continue"].tap() }
+        let oats = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'havregryn' AND label CONTAINS 'Open Food Facts'")).firstMatch
+        XCTAssertTrue(oats.waitForExistence(timeout: 10))
+        let searchResults = app.collectionViews.firstMatch
+        searchResults.swipeUp()
+        searchResults.swipeDown()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        capture("flow-search", app)
+        oats.tap()
+        XCTAssertTrue(app.buttons["product-log-save"].waitForExistence(timeout: 10))
+        let amount = app.textFields["Mengde"]
+        XCTAssertTrue(amount.waitForExistence(timeout: 5))
+        amount.tap()
+        amount.typeText("60")
+        app.buttons["product-log-save"].tap()
+        let loggedOats = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Lettkokte havregryn'")).firstMatch
+        XCTAssertTrue(loggedOats.waitForExistence(timeout: 10))
+        capture("flow-log", app)
+        let closeReceipt = app.buttons["Lukk bekreftelse"]
+        // The receipt may expire while XCTest takes the preceding screenshot.
+        // Wait for its normal dismissal instead of racing its four-second timer.
+        let receiptDismissed = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: closeReceipt)
+        XCTAssertEqual(XCTWaiter.wait(for: [receiptDismissed], timeout: 12), .completed)
+        capture("diary", app)
+
+        // Reopen the remembered 60 g amount without focusing the input field.
+        // This captures the same selection with no keyboard and adds no second log.
+        app.buttons["tab-log-food"].tap()
+        app.buttons["Søk etter mat"].tap()
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("lettkokte havregryn")
+        XCTAssertTrue(oats.waitForExistence(timeout: 10))
+        oats.tap()
+        XCTAssertTrue(app.buttons["product-log-save"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["product-log-save"].label.contains("60 g"))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        capture("flow-amount", app)
+
+    }
+
+    @MainActor
+    private func capture(_ name: String, _ app: XCUIApplication) {
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "Presentation screenshots must not include the keyboard.")
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "landing-\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
