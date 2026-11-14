@@ -1063,3 +1063,18 @@ standardrekkefølgen.
 ## 2026-11-11 – Spor Mat som offentlig navn
 
 MatLogg videreføres som Spor Mat, som søsterapp til Spor Økonomi. Portefølje og nettside viser «tidligere MatLogg» gjennom den pågående jobbsøkingsperioden. Gamle nettadresser, bundle-ID-er, Keychain, lokal lagring, interne kodenavn og synkkontrakter beholdes. Dagens ikon og designsystem videreføres. Publisering og TestFlight-distribusjon avklares separat etter QA.
+
+
+## 2026-11-14 – Apple Helse-eksport som utviklingsscope
+
+Branchen `codex/apple-health-integration` bygger videre på dagens main.
+Eksport av loggede kalorier/makroer og manuelt registrert vekt utvikles som to
+uavhengige opt-in-valg under eksisterende Apple Helse-innstillinger. Dagens
+minnebaserte lesing og onboarding beholdes; prototypens vedvarende vektimport
+og alternative onboarding tas ikke videre. Eksport krever Debug-argumentet
+`--enable-healthkit-export`; Release og domeneopplasting forblir avslått.
+Nye/endrede registreringer etter aktivering kvalifiserer, uten automatisk
+historikkeksport. Atomisk lokal outbox, stabile HealthKit-identiteter og
+revisjoner håndterer endring, sletting, angre og retry. Ny SQLite-versjon er 9;
+versjon 8 tilhører loggingutkast på main. Ingen serverkontrakt endres.
+Fysisk enhet, native tilgang og release-go/no-go gjenstår før produksjon.

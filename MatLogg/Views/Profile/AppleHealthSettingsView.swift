@@ -18,6 +18,15 @@ struct AppleHealthSettingsView: View {
                 Text("Valgene gjelder denne Spor Mat-profilen. Spor Mat bruker dataene midlertidig for å vise dem i Utvikling. Du styrer lesetilgangen i Helse.")
             }
             .listRowBackground(AppColors.surface)
+            if FeatureFlags.healthIntegrationEnabled {
+                Section {
+                    NavigationLink("Del til Apple Helse") { HealthExportSettingsView() }
+                        .accessibilityIdentifier("apple-health-export-settings")
+                } footer: {
+                    Text("Valgfri deling av mat og manuelt registrert vekt. Tilgangene for lesing endres ikke.")
+                }
+                .listRowBackground(AppColors.surface)
+            }
         }
         .scrollContentBackground(.hidden)
         .matLoggTabBarScrollClearance()

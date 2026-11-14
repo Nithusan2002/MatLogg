@@ -1073,3 +1073,18 @@ Valget markeres med hake og huskes lokalt. Eksporten bruker gjeldende mengder,
 uten å lagre eller loggføre måltidet. Kortet har fast 9:16-format, mens kontrollene
 følger Dynamic Type. Ingen profil-, mål- eller vektopplysninger inngår.
 Se [lagrede måltider](saved-meals.md#del-måltidskort) for feiltilstander og innhold.
+
+
+### Apple Helse-eksport – utviklingsscope, 14. november 2026
+
+I Debug med `--enable-healthkit-export` viser Apple Helse-innstillingene
+«Del til Apple Helse». Skjermen bruker eksisterende Form, semantiske tokens og
+bunnmenyklaring. To brytere velger kalorier/makroer og manuelt registrert vekt;
+«Lagre valg og be om tilgang» innhenter bare valgt skrivetilgang. Dagens
+lesebrytere er uavhengige. Nye/endrede registreringer deles, uten automatisk
+historikkeksport. Status skiller ventende overføring fra sist fullførte overføring;
+feil skal bekrefte at maten fortsatt er lagret lokalt. «Prøv overføring nå»
+prøver igjen uten ny tilgangsdialog. «Stopp all deling» stopper nye forsøk og
+beholder allerede delte data. Separat sletting krever bekreftelse og gjelder
+bare profilens egne overføringer. Native Dynamic Type og VoiceOver brukes;
+tilgjengelighet med største tekststørrelse må verifiseres før release.

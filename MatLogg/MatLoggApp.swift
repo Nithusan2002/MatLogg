@@ -12,6 +12,7 @@ struct MatLoggContent: View {
     @StateObject private var progressViewModel: ProgressViewModel
     @StateObject private var progressHubViewModel: ProgressHubViewModel
     @StateObject private var stepCountViewModel: StepCountViewModel
+    @StateObject private var healthIntegrationViewModel: HealthIntegrationViewModel
     @StateObject private var healthWeightViewModel: HealthWeightViewModel
     @StateObject private var healthWorkoutViewModel: HealthWorkoutViewModel
     @StateObject private var scanHistoryViewModel: ScanHistoryViewModel
@@ -47,6 +48,9 @@ struct MatLoggContent: View {
         let timing = PerformanceSignposts.begin("Startup.Compose")
         defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
+        _healthIntegrationViewModel = StateObject(wrappedValue: HealthIntegrationViewModel(
+            repository: DefaultHealthIntegrationRepository(store: databaseService.healthExportStorage,
+                client: AppleHealthKitClient(), enabled: { !isDemo && FeatureFlags.healthIntegrationEnabled })))
         _mealShareViewModel = StateObject(wrappedValue: MealShareViewModel(
             renderer: MealShareRenderingService(), preferences: LocalMealSharePreferences(defaults: defaults),
             photoSaver: MealSharePhotoLibraryService()))
@@ -213,6 +217,8 @@ struct MatLoggContent: View {
                 savedMealsViewModel.reset()
             }
             .onChange(of: authViewModel.currentUser?.id, initial: true) { _, owner in
+                healthIntegrationViewModel.selectOwner(owner)
+                Task { await healthIntegrationViewModel.refresh() }
                 stepCountViewModel.activate(owner: owner)
                 healthWeightViewModel.activate(owner: owner)
                 healthWorkoutViewModel.activate(owner: owner)
@@ -263,7 +269,7 @@ struct MatLoggContent: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background { suspendHealthReads() }
                 if phase == .active {
-                    Task { await appState.triggerSync(reason: .foreground) }
+                    Task { await appState.triggerSync(reason: .foreground); await healthIntegrationViewModel.refresh() }
                 }
             }
             .onChange(of: networkMonitor.restorationCount) { oldValue, newValue in
@@ -272,6 +278,9 @@ struct MatLoggContent: View {
             }
             .onChange(of: networkMonitor.isConnected) { _, isConnected in
                 appState.updateNetworkAvailability(isConnected: isConnected)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .healthDomainDidChange)) { _ in
+                Task { await healthIntegrationViewModel.refresh() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .authSessionExpired)) { _ in
                 authViewModel.handleSessionExpired()
@@ -324,6 +333,7 @@ struct MatLoggContent: View {
         .environmentObject(progressViewModel)
         .environmentObject(progressHubViewModel)
         .environmentObject(stepCountViewModel)
+        .environmentObject(healthIntegrationViewModel)
         .environmentObject(healthWeightViewModel)
         .environmentObject(healthWorkoutViewModel)
         .environmentObject(scanHistoryViewModel)

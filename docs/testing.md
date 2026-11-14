@@ -1038,3 +1038,31 @@ Backend: `npx deno test --allow-env supabase/functions/tests/food_group_test.ts`
 og `supabase/tests/database/product_food_group.test.sql` etter migrasjonen i
 lokal QA-database. Databasetesten kontrollerer lagring, fravær/null, validering,
 replay, inbox og eierskap og ruller testdata tilbake.
+
+### Apple Helse-eksport – 2026-11-14
+
+På branchen `codex/apple-health-integration` bestod 38 målrettede tester på
+«Spor Mat Health Export QA» (iPhone 16, iOS 18.6 Simulator, Xcode 27.2):
+`HealthExportTests`, `HealthExportMigrationTests`, `PortionLoggingTests`,
+`LoggingDraftTests` og `HealthExportUITests`. Kjørt med `xcodebuild test`,
+scheme MatLogg, egen DerivedData `/tmp/spor-health-export-build`,
+`-parallel-testing-enabled NO` og `CODE_SIGNING_ALLOWED=NO`.
+Resultat: `/tmp/health-export-verified.xcresult` (lokalt, ikke i Git).
+Etter siste trådisoleringsretting bestod alle 12 eksport-/migrasjonstester
+på nytt; `/tmp/health-export-actor-check.xcresult`.
+
+Testene bruker disponible SQLite-filer og en injisert HealthKit-testklient.
+De dekker opt-in uten historikk, avslått eksportflagg, revisjon/ACK etter nyere
+redigering, persistent retry, sletting/angre, atomisk rollback, stabil vekt-ID,
+delvis avslått tilgang, frakobling/opprydding, profilbytte under native skriving,
+kontokobling med flere eksportnavnerom, ViewModel-state og oppgradering 8→9.
+UI-testen kontrollerer separat eksportskjerm med største tekststørrelse og at
+demoøkten ikke kan aktivere ekte skriving. Skjermbildet er visuelt gjennomgått.
+Den genererte appens NSHealthUpdateUsageDescription er kontrollert.
+
+Arkitekturkontroll: View → ViewModel → repository → injisert HealthKit-klient /
+egen lagringsactor; domenedata, synkhendelse og eksportjobb er atomiske.
+Ingen opplasting eller aktivering av produksjonssynk. Ingen arkitekturavvik.
+Native tillatelsesdialog, faktisk HealthKit-deduplisering, oppdatering/sletting,
+låst telefon, tilbaketrukket tilgang og VoiceOver krever fysisk QA før Release.
+Utviklingsversjonen aktiveres med `--enable-healthkit-export`.

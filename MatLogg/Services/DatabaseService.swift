@@ -3,6 +3,7 @@ import Foundation
 class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataExportRepository, RecentFoodRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
+    var healthExportStorage: (any HealthIntegrationStorage)? { store.map { LocalHealthExportStorage(store: $0) } }
     private let ioQueue: DispatchQueue
     let startupError: Error?
     private var defaults: UserDefaults = .standard

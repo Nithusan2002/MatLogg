@@ -89,3 +89,15 @@ skjema eller produksjonsarkiv. Før innsending: kontroller signert HealthKit-
 entitlement, formålstekst, native tillatelsesflyt, tomt/tilbaketrukket lesetilgang
 og faktisk fravær av ekstern overføring på fysisk iPhone. Ingen App Store
 Connect-felt er endret i denne implementeringen.
+
+
+## Utviklingsscope: eksport til Apple Helse (2026-11-14)
+
+Eksport er fortsatt avslått i Release. Debug-opt-in kan be om skrivetilgang til
+dietaryEnergyConsumed, dietaryProtein, dietaryCarbohydrates, dietaryFatTotal og
+bodyMass etter brukerens valg. Bare Spor Mats egne matlogger og manuelle
+vektregistreringer skrives. En lokal SQLite-outbox lagrer ventende verdier og
+stabil identitet/revisjon; den lastes ikke opp. Dagens Helse-lesing er uendret.
+Før release må fysisk skrivetilgang, avvisning, tilbaketrekking, native
+oppdatering/sletting og faktisk signert formålstekst verifiseres. App Store
+Connect-felt eller publiserte tekster er ikke endret her.

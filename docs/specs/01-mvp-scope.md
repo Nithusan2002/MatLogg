@@ -248,3 +248,13 @@ Kortet er skjult som standard og kan vises under Tilpass.
 Det viser antall økter og de to nyeste i valgt dag, uke eller måned.
 Detaljene viser alle øktene i perioden. MatLogg bruker type, starttid og
 varighet midlertidig på enheten til visning i Utvikling.
+
+
+### Separat utviklingsscope: eksport til Apple Helse (2026-11-14)
+
+Frivillig eksport av kalorier/makroer og manuelt registrert vekt utvikles på
+`codex/apple-health-integration`. Debug krever `--enable-healthkit-export`;
+Release er avslått. Dagens lesing fra Helse beholdes uendret. Ingen automatisk
+historikkeksport, vektimport til domenelagring eller endring av onboarding.
+Se beslutningen 2026-11-14 i `docs/decisions.md` og eksportflyten i
+`docs/design-and-user-flow.md`. Produksjon krever separat fysisk QA og go/no-go.
