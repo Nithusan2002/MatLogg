@@ -532,6 +532,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.buttons["home-select"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["home-select"].label, "Velg")
         XCTAssertTrue(app.buttons["tab-log-food"].exists)
+        revealDiaryElement(row, in: app)
         XCTAssertTrue(row.exists)
         revealDiaryElement(app.buttons["home-select"], in: app)
         app.buttons["home-select"].tap()

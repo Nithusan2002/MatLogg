@@ -365,65 +365,66 @@ private struct HomeTabContent: View {
     var body: some View {
         let timing = PerformanceSignposts.begin("UI.HomeBody")
         defer { PerformanceSignposts.end(timing) }
+        return dataContent
+    }
 
-        return NavigationStack {
-            List {
-                overviewHeader
-                mealSections
-            }
-            .listStyle(.plain)
-            .environment(\.defaultMinListRowHeight, 0)
-            .scrollContentBackground(.hidden)
-            .refreshable {
-                isPullRefreshing = true
-                defer { isPullRefreshing = false }
-                await refreshSummaries()
-            }
-            .matLoggTabBarScrollClearance()
-            .overlay(alignment: .bottom) {
-                if !selection.isSelecting {
-                    Group {
-                        if let receipt = copyPresentation.receipt {
-                            LogToastView(id: receipt.id, title: "Dagen fra i går er kopiert",
-                                isUndoing: copyPresentation.isBusy,
-                                onUndo: undoDayCopy,
-                                onDismiss: { logViewModel.dismissCopyReceipt(id: receipt.id) })
-                        } else if let receipt = mealReuseViewModel.receipt {
-                            LogToastView(id: receipt.id,
-                                title: "\(receipt.title) lagt til i dag",
-                                isUndoing: mealReuseViewModel.isSaving,
-                                onUndo: {
-                                    Task {
-                                        if await mealReuseViewModel.undo() { await refreshAfterMealReuse() }
-                                    }
-                                },
-                                onDismiss: { mealReuseViewModel.dismissReceipt(id: receipt.id) })
-                        } else {
-                            LogReceiptOverlay(logs: logViewModel, payload: nil, isUndoing: false,
-                                onDeletionUndo: undoDeletion, onLoggingUndo: {}, onLoggingDismiss: {})
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, tabBarScrollMargin)
+    private var diaryList: some View {
+        List {
+            overviewHeader
+            mealSections
+        }
+        .listStyle(.plain)
+        .environment(\.defaultMinListRowHeight, 0)
+        .scrollContentBackground(.hidden)
+        .refreshable {
+            isPullRefreshing = true
+            defer { isPullRefreshing = false }
+            await refreshSummaries()
+        }
+        .matLoggTabBarScrollClearance()
+        .overlay(alignment: .bottom) { receiptOverlay }
+        .onDisappear {
+            dismissDeletion()
+            logViewModel.dismissCopyReceipt()
+            mealReuseViewModel.dismissReceipt()
+            selection.endSelection()
+        }
+        .background(AppColors.background.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+    }
+
+    @ViewBuilder
+    private var receiptOverlay: some View {
+        if !selection.isSelecting {
+            Group {
+                if let receipt = copyPresentation.receipt {
+                    LogToastView(id: receipt.id, title: "Dagen fra i går er kopiert",
+                        isUndoing: copyPresentation.isBusy,
+                        onUndo: undoDayCopy,
+                        onDismiss: { logViewModel.dismissCopyReceipt(id: receipt.id) })
+                } else if let receipt = mealReuseViewModel.receipt {
+                    LogToastView(id: receipt.id,
+                        title: "\(receipt.title) lagt til i dag",
+                        isUndoing: mealReuseViewModel.isSaving,
+                        onUndo: {
+                            Task {
+                                if await mealReuseViewModel.undo() { await refreshAfterMealReuse() }
+                            }
+                        },
+                        onDismiss: { mealReuseViewModel.dismissReceipt(id: receipt.id) })
+                } else {
+                    LogReceiptOverlay(logs: logViewModel, payload: nil, isUndoing: false,
+                        onDeletionUndo: undoDeletion, onLoggingUndo: {}, onLoggingDismiss: {})
                 }
             }
-            .onDisappear {
-                dismissDeletion()
-                logViewModel.dismissCopyReceipt()
-                mealReuseViewModel.dismissReceipt()
-                selection.endSelection()
-            }
-            .background(AppColors.background.ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
-
+            .padding(.horizontal, 16)
+            .padding(.bottom, tabBarScrollMargin)
         }
-        .preference(key: MatLoggDiarySelectionKey.self, value: selection.isSelecting
-            ? MatLoggDiarySelectionPresentation(contextID: ObjectIdentifier(selection),
-                count: selection.selectedLogIDs.count, canSave: selection.canSaveSelection,
-                isBusy: selection.isDeletingOrRestoring,
-                onSave: { savedMealSource = SavedMealCreationSource(mealType: selection.selectionMealType,
-                    logs: selection.selectedLogs, allowsMealTypeChoice: selection.selectionSpansMeals) },
-                onDelete: { showBatchDeletion = true }) : nil)
+    }
+
+    private var navigationContent: some View {
+        NavigationStack { diaryList }
+        .preference(key: MatLoggDiarySelectionKey.self, value: diarySelectionPresentation)
         .sheet(item: $savedMealSource) { source in
             SaveMealFromLogsView(source: source) { selection.endSelection() }
         }
@@ -448,28 +449,11 @@ private struct HomeTabContent: View {
             appState.logSelectedDate = Date()
             await refreshSummaries()
         }
-        .sheet(item: $editingLog) { log in
-            EditLogView(
-                log: log,
-                productName: productNames[log.productId] ?? "Ukjent matvare",
-                brand: overviewModel.products[log.productId]?.brand,
-                imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
-                imageData: overviewModel.products[log.productId]?.localImageData,
-                foodGroup: overviewModel.products[log.productId]?.foodGroup ?? .other,
-                favorites: overviewModel.products[log.productId] == nil ? nil : productViewModel.favoriteRepository,
-                onSave: { request in
-                        guard let userId = authViewModel.currentUser?.id else { return false }
-                        let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
-                        if success {
-                            await appState.refreshSyncStatus()
-                        } else {
-                            appState.errorMessage = logViewModel.errorMessage
-                        }
-                        await refreshSummaries()
-                        return success
-                }
-            )
-        }
+    }
+
+    private var editingContent: some View {
+        navigationContent
+        .sheet(item: $editingLog) { log in logEditor(for: log) }
         .sheet(item: Binding(
             get: { mealReuseViewModel.draft },
             set: { if $0 == nil { mealReuseViewModel.cancelEditing() } }
@@ -486,6 +470,10 @@ private struct HomeTabContent: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)) { _ in
             Task { await refreshSummaries() }
         }
+    }
+
+    private var dataContent: some View {
+        editingContent
         .onChange(of: productViewModel.metadataRevision) { _, _ in
             Task { await refreshSummaries() }
         }
@@ -499,7 +487,7 @@ private struct HomeTabContent: View {
                 logViewModel.dismissCopyReceipt()
             }
         }
-        .onChange(of: overviewModel.overview.logsByMeal.mapValues { $0.map(\.id) }) { previous, current in
+        .onChange(of: mealLogIDs) { previous, current in
             // Reveal newly logged, moved or restored entries without opening unrelated meals.
             for meal in current.keys where previous[meal] != current[meal] {
                 collapsedMeals.remove(meal)
@@ -515,7 +503,45 @@ private struct HomeTabContent: View {
             dismissDeletion()
             Task { await refreshSummaries() }
         }
+    }
 
+    private var diarySelectionPresentation: MatLoggDiarySelectionPresentation? {
+        guard selection.isSelecting else { return nil }
+        return MatLoggDiarySelectionPresentation(
+            contextID: ObjectIdentifier(selection), count: selection.selectedLogIDs.count,
+            canSave: selection.canSaveSelection, isBusy: selection.isDeletingOrRestoring,
+            onSave: {
+                savedMealSource = SavedMealCreationSource(mealType: selection.selectionMealType,
+                    logs: selection.selectedLogs, allowsMealTypeChoice: selection.selectionSpansMeals)
+            },
+            onDelete: { showBatchDeletion = true })
+    }
+
+    private var mealLogIDs: [String: [UUID]] {
+        overviewModel.overview.logsByMeal.mapValues { $0.map(\.id) }
+    }
+
+    private func logEditor(for log: FoodLog) -> some View {
+        EditLogView(
+            log: log,
+            productName: productNames[log.productId] ?? "Ukjent matvare",
+            brand: overviewModel.products[log.productId]?.brand,
+            imageURL: overviewModel.products[log.productId]?.imageUrl.flatMap(URL.init(string:)),
+            imageData: overviewModel.products[log.productId]?.localImageData,
+            foodGroup: overviewModel.products[log.productId]?.foodGroup ?? .other,
+            favorites: overviewModel.products[log.productId] == nil ? nil : productViewModel.favoriteRepository,
+            onSave: { request in
+                guard let userId = authViewModel.currentUser?.id else { return false }
+                let success = await logViewModel.updateLog(log, amountG: request.amountG, mealType: request.mealType, userId: userId, portionSelection: request.portionSelection, clearPortion: request.portionSelection == nil)
+                if success {
+                    await appState.refreshSyncStatus()
+                } else {
+                    appState.errorMessage = logViewModel.errorMessage
+                }
+                await refreshSummaries()
+                return success
+            }
+        )
     }
 
     private var mealHeadingLayout: AnyLayout {
