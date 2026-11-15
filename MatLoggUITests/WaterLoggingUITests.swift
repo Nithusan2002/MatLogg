@@ -59,14 +59,15 @@ final class WaterLoggingUITests: XCTestCase {
         expectation(for: ready, evaluatedWith: add)
         waitForExpectations(timeout: 5)
         XCTAssertEqual(count.value as? String, String(initial + 1))
-        let diary = app.buttons["home-daily-log"]
-        XCTAssertTrue(diary.waitForExistence(timeout: 5))
-        for _ in 0..<5 {
-            if diary.isHittable { break }
-            app.swipeUp()
-        }
-        diary.tap()
-        XCTAssertTrue(app.staticTexts["Hele dagen"].waitForExistence(timeout: 5))
+        // Home now is the diary; verify persistence after leaving and returning to today's date.
+        let previousDay = app.buttons["Forrige dag"]
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 5))
+        previousDay.tap()
+        let today = app.buttons["home-go-to-today"]
+        XCTAssertTrue(today.waitForExistence(timeout: 5))
+        today.tap()
+        expectation(for: ready, evaluatedWith: add)
+        waitForExpectations(timeout: 5)
         expectation(for: NSPredicate(format: "value == %@", String(initial + 1)), evaluatedWith: count)
         waitForExpectations(timeout: 5)
 
