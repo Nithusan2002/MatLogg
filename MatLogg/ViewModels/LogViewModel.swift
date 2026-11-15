@@ -7,6 +7,12 @@ struct SelectedDayPresentation {
     static let empty = SelectedDayPresentation(summary: nil, productNames: [:])
 }
 
+struct DayCopyReceipt: Identifiable {
+    let id = UUID()
+    let userId: UUID
+    let logIDs: [UUID]
+}
+
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
@@ -21,6 +27,16 @@ final class LogViewModel: ObservableObject {
     /// Repositories used by other logging features have already committed the write.
     func didPersistExternalLog() {
         mutationRevision += 1
+    }
+
+    @Published private(set) var copyReceipt: DayCopyReceipt?
+    @Published private(set) var isCopyingOrUndoing = false
+    private var copyContextRevision = 0
+
+    func dismissCopyReceipt(id: UUID? = nil) {
+        guard id == nil || copyReceipt?.id == id else { return }
+        copyContextRevision += 1
+        copyReceipt = nil
     }
 
     @Published private(set) var deletionReceiptID: UUID?
@@ -108,6 +124,7 @@ final class LogViewModel: ObservableObject {
     private var summaryDate: Date?
 
     func resetSelectedSummary() {
+        dismissCopyReceipt()
         activeSummaryRequestID = UUID()
         summaryUserID = nil
         summaryDate = nil
@@ -354,27 +371,54 @@ final class LogViewModel: ObservableObject {
 
     @discardableResult
     func copyLogs(from sourceDate: Date, to targetDate: Date, userId: UUID) async -> Bool {
+        guard !isCopyingOrUndoing else { return false }
+        isCopyingOrUndoing = true
+        defer { isCopyingOrUndoing = false }
+        dismissCopyReceipt()
+        let context = copyContextRevision
         let sourceSummary = await repository.getSummary(userId: userId, date: sourceDate)
-        let targetDay = Calendar.current.startOfDay(for: targetDate)
-
-        return await persist(errorPrefix: "Kunne ikke kopiere logging") {
-            for log in sourceSummary.logs {
-                let copy = FoodLog(
-                    userId: userId,
-                    productId: log.productId,
-                    mealType: log.mealType,
-                    amountG: log.amountG,
-                    amountUnit: log.resolvedAmountUnit, portionSelection: log.portionSelection,
-                    nutritionPreparation: log.nutritionPreparation, nutritionSource: log.nutritionSource, loggedDate: targetDay,
-                    loggedTime: Date(),
-                    calories: log.calories,
-                    proteinG: log.proteinG,
-                    carbsG: log.carbsG,
-                    fatG: log.fatG
-                )
-                try await repository.saveLog(copy)
-            }
+        guard context == copyContextRevision, !Task.isCancelled else { return false }
+        guard sourceSummary.logs.allSatisfy({ $0.userId == userId }) else {
+            errorMessage = "Kunne ikke kopiere logging: Loggen tilhører en annen bruker."
+            return false
         }
+        guard !sourceSummary.logs.isEmpty else {
+            errorMessage = "Ingen registreringer å kopiere."
+            return false
+        }
+        let targetDay = Calendar.current.startOfDay(for: targetDate)
+        let timestamp = Date()
+        let copies = sourceSummary.logs.map { log in
+            FoodLog(userId: userId, productId: log.productId, mealType: log.mealType,
+                amountG: log.amountG, amountUnit: log.resolvedAmountUnit,
+                portionSelection: log.portionSelection, nutritionPreparation: log.nutritionPreparation,
+                nutritionSource: log.nutritionSource, loggedDate: targetDay, loggedTime: timestamp,
+                calories: log.calories, proteinG: log.proteinG, carbsG: log.carbsG, fatG: log.fatG)
+        }
+        let success = await persist(errorPrefix: "Kunne ikke kopiere logging") {
+            try await repository.saveLogs(copies)
+        }
+        if success, context == copyContextRevision {
+            copyReceipt = DayCopyReceipt(userId: userId, logIDs: copies.map(\.id))
+        }
+        return success
+    }
+
+    @discardableResult
+    func undoDayCopy(userId: UUID) async -> Bool {
+        guard !isCopyingOrUndoing, let receipt = copyReceipt else { return false }
+        guard receipt.userId == userId else {
+            errorMessage = "Kunne ikke angre kopieringen: Loggen tilhører en annen bruker."
+            return false
+        }
+        let context = copyContextRevision
+        isCopyingOrUndoing = true
+        defer { isCopyingOrUndoing = false }
+        let success = await persist(errorPrefix: "Kunne ikke angre kopieringen") {
+            try await repository.deleteLogs(receipt.logIDs)
+        }
+        if success, context == copyContextRevision { dismissCopyReceipt(id: receipt.id) }
+        return success
     }
 
     private func persist(

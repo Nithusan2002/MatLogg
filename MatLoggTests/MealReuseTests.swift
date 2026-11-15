@@ -51,6 +51,23 @@ struct MealReuseTests {
         #expect(f.vm.suggestions.isEmpty)
     }
 
+    @Test func dismissingReceiptKeepsLoggedMealAndDoesNotReappearOnReload() async throws {
+        let f = Fixture()
+        await f.load()
+        #expect(await f.vm.log(try #require(f.vm.suggestions.first)))
+        let receipt = try #require(f.vm.receipt)
+        let storedIDs = Set(f.repo.logs.map(\.id))
+        f.vm.dismissReceipt(id: UUID())
+        #expect(f.vm.receipt?.id == receipt.id, "A stale close must not dismiss a different receipt")
+        f.vm.dismissReceipt(id: receipt.id)
+        #expect(f.vm.receipt == nil)
+        #expect(f.repo.deleted.isEmpty)
+        #expect(Set(f.repo.logs.map(\.id)) == storedIDs)
+        await f.load()
+        #expect(f.vm.receipt == nil)
+        #expect(f.repo.logs.contains { receipt.logIDs.contains($0.id) })
+    }
+
     @Test func adjustmentUsesHistoricalNutritionAndCommaInput() async throws {
         let f = Fixture()
         let removable = f.log()

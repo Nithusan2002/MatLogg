@@ -253,7 +253,7 @@ struct QuickLogSheet: View {
                     .frame(minHeight: 44)
             }
             if savedMealsViewModel.meals.isEmpty {
-                Text("Lagre et registrert måltid fra Gjenbruk-menyen i dagsloggen.")
+                Text("Lagre et registrert måltid fra •••-menyen ved Måltider på Hjem.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
             }

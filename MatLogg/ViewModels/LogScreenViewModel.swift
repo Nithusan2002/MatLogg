@@ -134,3 +134,16 @@ final class LogDeletionReceiptViewModel: ObservableObject {
             .removeDuplicates().assign(to: &$receipt)
     }
 }
+
+
+/// Observes only copy confirmation state, independent of summary rendering.
+@MainActor
+final class DayCopyReceiptViewModel: ObservableObject {
+    @Published private(set) var receipt: DayCopyReceipt?
+    @Published private(set) var isBusy = false
+
+    init(logs: LogViewModel) {
+        logs.$copyReceipt.assign(to: &$receipt)
+        logs.$isCopyingOrUndoing.removeDuplicates().assign(to: &$isBusy)
+    }
+}

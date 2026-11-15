@@ -756,6 +756,74 @@ struct MatLoggTests {
 
 @MainActor
 struct LogViewModelTests {
+    @Test func dayCopyUndoDeletesOnlyCopiesAndRetainsReceiptOnFailure() async throws {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let presentation = DayCopyReceiptViewModel(logs: vm)
+        let owner = UUID()
+        let today = Date()
+        let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: today))
+        let original = makeLog(userId: owner, productId: UUID(), date: yesterday)
+        let existing = makeLog(userId: owner, productId: UUID(), date: today)
+        let foreign = makeLog(userId: UUID(), productId: UUID(), date: yesterday)
+        repository.logs = [original, existing, foreign]
+        #expect(await vm.copyLogs(from: yesterday, to: today, userId: owner))
+        let receipt = try #require(vm.copyReceipt)
+        #expect(presentation.receipt?.id == receipt.id && !presentation.isBusy)
+        let copy = try #require(repository.savedLogs.first)
+        #expect(repository.savedLogs.count == 1)
+        #expect(receipt.logIDs == [copy.id])
+        #expect(copy.id != original.id && copy.id != existing.id)
+        #expect(copy.userId == owner && copy.productId == original.productId)
+        #expect(copy.calories == original.calories && copy.amountG == original.amountG)
+        #expect(Calendar.current.isDate(copy.loggedDate, inSameDayAs: today))
+        #expect(!(await vm.undoDayCopy(userId: UUID())))
+        #expect(repository.deletedIds.isEmpty)
+        repository.deleteError = NSError(domain: "DayCopyQA", code: 1)
+        #expect(!(await vm.undoDayCopy(userId: owner)))
+        #expect(vm.copyReceipt?.id == receipt.id)
+        repository.deleteError = nil
+        #expect(await vm.undoDayCopy(userId: owner))
+        #expect(repository.deletedIds == [copy.id])
+        #expect(vm.copyReceipt == nil && presentation.receipt == nil && !presentation.isBusy)
+        #expect(!(await vm.undoDayCopy(userId: owner)))
+    }
+
+    @Test func failedDayCopyHasNoReceiptAndDismissalNeverDeletesLogs() async throws {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        repository.logs = [makeLog(userId: owner, productId: UUID(), date: Date())]
+        repository.saveError = NSError(domain: "DayCopyQA", code: 2)
+        #expect(!(await vm.copyLogs(from: Date(), to: Date(), userId: owner)))
+        #expect(vm.copyReceipt == nil && repository.savedLogs.isEmpty)
+        repository.saveError = nil
+        #expect(await vm.copyLogs(from: Date(), to: Date(), userId: owner))
+        let previous = try #require(vm.copyReceipt)
+        #expect(await vm.copyLogs(from: Date(), to: Date(), userId: owner))
+        let latest = try #require(vm.copyReceipt)
+        vm.dismissCopyReceipt(id: previous.id)
+        #expect(vm.copyReceipt?.id == latest.id)
+        vm.dismissCopyReceipt(id: latest.id)
+        #expect(vm.copyReceipt == nil)
+        #expect(repository.savedLogs.count == 2 && repository.deletedIds.isEmpty)
+    }
+
+    @Test func dayCopyRejectsDoubleTapAndInvalidatesPendingReceiptOnReset() async {
+        let repository = FoodLogRepositorySpy()
+        let vm = LogViewModel(repository: repository)
+        let owner = UUID()
+        repository.logs = [makeLog(userId: owner, productId: UUID(), date: Date())]
+        repository.summaryDelayNanoseconds = { _ in 50_000_000 }
+        let pending = Task { await vm.copyLogs(from: Date(), to: Date(), userId: owner) }
+        while !vm.isCopyingOrUndoing { await Task.yield() }
+        #expect(!(await vm.copyLogs(from: Date(), to: Date(), userId: owner)))
+        vm.resetSelectedSummary()
+        #expect(!(await pending.value))
+        #expect(repository.savedLogs.isEmpty && vm.copyReceipt == nil)
+        #expect(!vm.isCopyingOrUndoing)
+    }
+
     @Test func batchDeletionIsOneIndependentReceiptAndRestoresSnapshots() async throws {
         let repository = FoodLogRepositorySpy()
         let vm = LogViewModel(repository: repository)

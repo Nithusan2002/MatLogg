@@ -1089,3 +1089,12 @@ inngår ikke i LogSyncPayload; canonical synkkontrakt v1 og backend er uendret.
 Helse-eksport kombinerer valgt loggdag med loggedTime sitt klokkeslett. En
 allerede samsvarende tidsverdi beholdes, inkludert ved gjentatt time under
 sommertidsskifte. Datojusteringen endrer ikke lagrede historiske loggverdier.
+
+
+## 2026-11-14 – Hjem samles med dagsloggen
+
+Hjem viser alle varer og får sammenleggbare måltider samt dagsloggens flervalg,
+lagring av måltider og dagsvalg. Separat navigasjon fra «Se dagslogg» og
+måltidsoverskrifter fjernes for å unngå to nesten like arbeidsflater.
+Eksisterende ViewModels og lokale skrivebaner gjenbrukes. Sammenfolding lagres
+kun i skjermens levetid; ingen migrasjon, synkkontrakt eller opplastingspolicy endres.

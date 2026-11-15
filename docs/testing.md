@@ -1122,3 +1122,42 @@ katalogendring, redigering, kopiering til tidligere dag, sletting og angre.
 Alle 16 HealthExportTests bestod etterpå; `/tmp/pr7-source-lifecycle.xcresult`.
 Arkitekturkontroll: eksisterende lagdeling og atomiske transaksjoner beholdes;
 ingen domeneopplasting, authendring eller produksjonsaktivering. Ingen avvik.
+
+
+### Samlet Hjem/dagslogg (14. november 2026)
+
+Navigasjonstestene bruker nå Hjem direkte. `testHomeShowsAllMealRowsAndCanCollapseWithoutLosingAddAction`
+dekker mer enn tre registreringer, sammenfolding, utviding og måltidskontekst fra
+«Legg til». Testen for lagring av utvalg med stor tekst kontrollerer også at
+avbrytknappen ligger innenfor skjermen; mengder i kildeoversikten skal kunne
+brytes og stables uten å utvide arkets bredde. Kjør også `LogViewModelTests`,
+`testDiarySelectionDeletesAndRestoresWholeBatch`,
+`testDiarySelectionSavesOnlyChosenEntryWithLargeText` og
+`testMealRoomLogsAndEditsFoodForSelectedPastDay` ved endringer i denne flyten.
+VoiceOver, Reduser bevegelse og visuell bunnmenyklaring kontrolleres manuelt.
+
+
+`testHomeCanNavigateAcrossPastAndFutureDates` og
+`testReturnToTodaySupportsLargestText` kontrollerer «I dag» under datovelgeren:
+synlig fra tidligere/framtidig dato, skjult på dagens dato, minst 44 pt
+trykkflate og plassering innenfor skjermen også med største tekststørrelse.
+
+
+Angre etter kopiering av hele dagen dekkes av `LogViewModelTests`: bare nye
+kopi-ID-er slettes, annen eier avvises, feil kan prøves igjen, lukking sletter
+ikke data og dobbelttrykk/profilreset håndteres. `PortionLoggingTests` dekker
+bevaring av mengdegrunnlag; `MealBatchStorageTests` dekker atomiske batches.
+
+
+### Sluttkontroll av samlet Hjem – 15. november 2026
+
+80 målrettede enhetstester i åtte suiter og 12 målrettede UI-tester bestod på
+iOS 18.6-simulator med Xcode 27.2. Kontrollene dekker lokal batch/angre,
+mengdegrunnlag, presentasjonsstate, gjenbruk, logging, datobytte, sammenfolding,
+flervalg, favoritter og tilgang til lagrede måltider. En isolert DerivedData-mappe
+ble brukt etter at tidligere kjøringer viste gammel testkode. Testene ble
+rettet til å skille arkets avbrytknapp fra flervalgsknappen på Hjem og til å
+rulle mot skjermhodet via «Velg» fremfor •••-menyens upålitelige hittable-status.
+Simulatorbilder av vanlig og stor tekst er gjennomgått. Manuell VoiceOver og
+Reduser bevegelse er ikke utført og gjenstår før release. Ingen backendendring,
+migrasjon, synkaktivering eller produksjonsutrulling inngår i denne kontrollen.

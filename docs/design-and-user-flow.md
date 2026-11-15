@@ -1,5 +1,39 @@
 # Spor Mat – design- og brukerflyt
 
+
+## Samlet Hjem og dagslogg – 14. november 2026
+
+Denne delen erstatter eldre beskrivelser av en separat dagslogg og «Se dagslogg».
+Hjem er hele dagsloggen: dato, dagsstatus og vann vises én gang, deretter alle
+fire måltider. Hjem har ingen separat hurtigvalgseksjon; favoritter og nylig
+brukt nås gjennom eksisterende Søk-/Loggfør-flyter. Kontekstuelle forslag om
+gårsdagens måltid beholdes i måltidskortene. Alle registreringer vises som standard.
+Måltidsoverskriften med pil folder listen sammen/ut på samme skjerm. Sammenfoldet
+vises navn og antall registreringer. Samme næringsoppsummering med kcal og
+fargede felt for protein, karbohydrater og fett vises både sammenfoldet og
+utvidet når energi er synlig; bare matvarelisten skjules. «Legg til»
+er separat og alltid tilgjengelig utenfor flervalg. Tomme måltider er kompakte,
+uten foldehandling; eksisterende gjenbruksforslag beholdes.
+Sammenfolding er midlertidig skjermstate og nullstilles ved dato-/profilbytte.
+Registreringsendringer åpner listene igjen, slik at endret innhold er synlig.
+Trykk på en vare redigerer; sveip gir redigering, flytting og sletting med angre.
+«Velg» starter flervalg med alle måltider utvidet. Valgte varer kan slettes med
+angre eller lagres som måltid. ••• gir lagring av hele måltider og kopiering
+fra i går når tilgjengelig. «I dag» vises sentrert rett under datovelgeren bare
+når en tidligere eller framtidig dato er valgt. Knappen har minst 44 pt
+trykkflate og VoiceOver-navnet «Gå til i dag». Ett trykk bruker eksisterende
+datoflyt og skjuler knappen igjen. Ingen ny lagring eller datainnsamling.
+Et gjenbrukt måltid bekreftes med eksisterende toast nederst over bunnmenyen,
+med «Angre» og «Lukk bekreftelse». Den skjules etter 4 sekunder (8 med
+VoiceOver), og timeren pauses under angre. Lukking skjuler bare bekreftelsen;
+registrerte matvarer beholdes. Ingen vedvarende bekreftelseskort i dagsoversikten.
+Kopiering av hele dagen fra i går gir samme toast med «Dagen fra i går er kopiert»
+og «Angre». Kopiene lagres samlet atomisk; angre sletter bare de nye ID-ene i
+samme batch. Eksisterende logger beholdes. Feil ved angre beholder kvitteringen
+for nytt forsøk, mens lukking/tidsavbrudd bare fjerner bekreftelsen.
+Kontroller har minst 44 pt trykkflate, støtter stor tekst og annonserer utvidet/
+sammenfoldet status til VoiceOver. Animasjon respekterer Reduser bevegelse.
+
 Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er den normative, overordnede UX-retningen for MatLogg. Dokumentet
@@ -60,8 +94,7 @@ Prioritet:
 1. dato og kontekst, inkludert status for lokalt lagrede endringer
 2. en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer) og samlet dagsstatus med valgfritt næringsfelt
 3. vann som nederste rad i dagsstatusen, med antall glass og minus/pluss
-4. «Se dagslogg» og alle fire måltider med kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
-5. personlige hurtigvalg
+4. alle fire måltider med sammenfolding og kontekstuell «Legg til»: Frokost, Lunsj, Middag og Kveldsmat
 
 Måltidene vises i kompakte, lyse kort med myke hjørner og diskret skygge. Næringsfeltet bruker dagens varme tema,
 kaloritall og tre makrokolonner uten progresjonsstolper. Makromål vises som
@@ -70,16 +103,15 @@ Næringsfeltet viser registrerte verdier også uten mål; måltekst vises bare n
 Visningsvalget «Vis energi og mål» gjelder både Hjem og dagsloggen.
 
 `Kveldsmat` er presentasjonsnavnet for den kanoniske lagringsverdien `snacks`.
-Måltidsnavnet åpner valgt måltid for valgt dato. Synlige varerader åpner
-redigering direkte. «Se dagslogg» åpner alle måltider for valgt dato.
-Sveip til venstre på en synlig varerad for å vise «Rediger», «Flytt» og «Slett»,
-som i Dagslogg. Et fullt sveip sletter varen. Begge skjermene tilbyr «Angre»
-etter sletting. Flervalg er tilgjengelig i Dagslogg.
-Hurtigvalg viser favoritter og nylig loggede varer, med mengdevalg før logging.
+Måltidsoverskriften folder matvarelisten sammen og ut på Hjem. Alle varer vises
+som standard, og synlige varerader åpner redigering direkte. Næringsoppsummeringen
+beholdes sammenfoldet når energi er synlig. Sveip viser «Rediger», «Flytt» og
+«Slett» med angre etter sletting. «Velg» starter flervalg på samme skjerm.
+Favoritter og nylig loggede varer nås gjennom Søk og Loggfør, med mengdevalg før logging.
 Generiske søk- og skanneknapper vises ikke som en egen rad på Hjem. Den
 vedvarende «Loggfør»-handlingen åpner disse valgene, mens legg-til fra et
-måltidskort beholder måltidet som kontekst. Personlige hurtigvalg kan fortsatt
-vises på Hjem fordi de gir en kortere flyt enn generisk søk.
+måltidskort beholder måltidet som kontekst. En egen hurtigvalgseksjon vises ikke
+på Hjem. Kontekstuelle forslag om gjenbruk beholdes ved det aktuelle måltidet.
 
 Når målstatus er skjult eller mangler, skal matlogging fortsatt være like synlig
 og brukbar. En tom dag beskrives med «Ingen logget ennå», ikke som manglende
@@ -97,25 +129,12 @@ endringen påvirker ikke mål eller lagring. Ingen daglig innsjekk tilbys.
 
 ### Dagslogg
 
-«Se dagslogg» på Hjem åpner dagsloggen uten måltidsfilter. Måltidsnavnene
-på Hjem åpner dagsloggen ved det aktuelle måltidet. Dagsloggen har ingen
-måltidssnarveier; brukeren scroller mellom måltidene.
-Skjermen viser valgt dato, samme dagsstatuskort som på Hjem og
-varer samlet i én lys kortflate per måltid med 24 pt avrundede hjørner.
-Overskrift og «Legg til» inngår i kortet, også når måltidet er tomt.
-Dagsstatuskortet viser energi, makroer og eventuelle mål over vannraden.
-Varerader viser navn, mengde med lagret
-enhet og kcal; trykk åpner redigering, og sveip tilbyr redigering, flytting og
-sletting med eksisterende angremulighet. Oppsummeringen er informasjon, ikke
-en skjult handling for å nullstille søk eller filter.
-
-Dagsloggen har én •••-meny i skjermhodet og ingen søkeknapp. Søk etter mat
-er tilgjengelig fra Søk-fanen og loggingarket.
-Hvert vist måltid har «Legg til» som beholder dato og måltid, samt en meny for
-«Lagre som måltid». Generell logging er tilgjengelig fra bunnmenyen og beholder
-valgt dato. Dagsloggen har ingen egen stor «Legg til mat»-knapp.
-•••-menyen samler «Lagre som måltid»,
-«Kopier hele dagen fra i går» når tilgjengelig, og «Gå til i dag».
+Dagsloggen inngår i Hjem, uten egen navigasjonsinngang. Valgt dato gjelder
+både dagsstatus, vann og de fire måltidene. «Legg til» beholder dato og måltid.
+••• ved måltidsoverskriften gir «Lagre som måltid» og «Kopier hele dagen fra i går»
+når tilgjengelig. «I dag» ligger under datovelgeren når en annen dato er valgt.
+«Velg» gir flervalg og valg av alle varer samlet eller per måltid; utvalget kan
+slettes med angre eller lagres som måltid. Søk og skanning nås fra Loggfør/Søk.
 Listeinnhold og angremeldinger skal ha klaring over den vedvarende bunnmenyen.
 
 ### Vann på Hjem og i dagsloggen

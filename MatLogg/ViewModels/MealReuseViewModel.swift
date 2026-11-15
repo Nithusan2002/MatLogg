@@ -32,7 +32,8 @@ nonisolated struct MealReuseSuggestion: Identifiable, Sendable {
     }
 }
 
-struct MealReuseReceipt {
+struct MealReuseReceipt: Identifiable {
+    let id = UUID()
     let mealType: String
     let logIDs: [UUID]
     let userId: UUID
@@ -235,6 +236,12 @@ final class MealReuseViewModel: ObservableObject {
             if context == contextID { errorMessage = "Kunne ikke lagre måltidet. Prøv igjen." }
             return false
         }
+    }
+
+    /// Dismiss presentation only; the logged meal remains stored.
+    func dismissReceipt(id: UUID? = nil) {
+        guard !isSaving, id == nil || receipt?.id == id else { return }
+        receipt = nil
     }
 
     @discardableResult

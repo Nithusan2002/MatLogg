@@ -1,5 +1,39 @@
 # MatLogg – Skjermkart & iOS Tekstskisser
 
+
+## Samlet Hjem og dagslogg – 14. november 2026
+
+Denne delen erstatter eldre beskrivelser av en separat dagslogg og «Se dagslogg».
+Hjem er hele dagsloggen: dato, dagsstatus og vann vises én gang, deretter alle
+fire måltider. Hjem har ingen separat hurtigvalgseksjon; favoritter og nylig
+brukt nås gjennom eksisterende Søk-/Loggfør-flyter. Kontekstuelle forslag om
+gårsdagens måltid beholdes i måltidskortene. Alle registreringer vises som standard.
+Måltidsoverskriften med pil folder listen sammen/ut på samme skjerm. Sammenfoldet
+vises navn og antall registreringer. Samme næringsoppsummering med kcal og
+fargede felt for protein, karbohydrater og fett vises både sammenfoldet og
+utvidet når energi er synlig; bare matvarelisten skjules. «Legg til»
+er separat og alltid tilgjengelig utenfor flervalg. Tomme måltider er kompakte,
+uten foldehandling; eksisterende gjenbruksforslag beholdes.
+Sammenfolding er midlertidig skjermstate og nullstilles ved dato-/profilbytte.
+Registreringsendringer åpner listene igjen, slik at endret innhold er synlig.
+Trykk på en vare redigerer; sveip gir redigering, flytting og sletting med angre.
+«Velg» starter flervalg med alle måltider utvidet. Valgte varer kan slettes med
+angre eller lagres som måltid. ••• gir lagring av hele måltider og kopiering
+fra i går når tilgjengelig. «I dag» vises sentrert rett under datovelgeren bare
+når en tidligere eller framtidig dato er valgt. Knappen har minst 44 pt
+trykkflate og VoiceOver-navnet «Gå til i dag». Ett trykk bruker eksisterende
+datoflyt og skjuler knappen igjen. Ingen ny lagring eller datainnsamling.
+Et gjenbrukt måltid bekreftes med eksisterende toast nederst over bunnmenyen,
+med «Angre» og «Lukk bekreftelse». Den skjules etter 4 sekunder (8 med
+VoiceOver), og timeren pauses under angre. Lukking skjuler bare bekreftelsen;
+registrerte matvarer beholdes. Ingen vedvarende bekreftelseskort i dagsoversikten.
+Kopiering av hele dagen fra i går gir samme toast med «Dagen fra i går er kopiert»
+og «Angre». Kopiene lagres samlet atomisk; angre sletter bare de nye ID-ene i
+samme batch. Eksisterende logger beholdes. Feil ved angre beholder kvitteringen
+for nytt forsøk, mens lukking/tidsavbrudd bare fjerner bekreftelsen.
+Kontroller har minst 44 pt trykkflate, støtter stor tekst og annonserer utvidet/
+sammenfoldet status til VoiceOver. Animasjon respekterer Reduser bevegelse.
+
 > **Dokumentstatus:** Detaljerte skjermreferanser. Gjeldende overordnet
 > navigasjon, handlingshierarki og UX-regler finnes i
 > [`../design-and-user-flow.md`](../design-and-user-flow.md), mens visuelle regler
@@ -97,7 +131,7 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
 starter med datovelgeren. Appnavn og profilknapp vises ikke her; Profil åpnes fra bunnmenyen. Lokal lagring vises under Profil → Innstillinger → Data og lagring, uten permanent banner på Hjem. Når synk er tilgjengelig, vises eventuell status for ventende endringer og feil før en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer), et valgfritt
 samlet dagsstatusfelt med valgfri næring og vann som nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
-lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Etter måltidene følger personlige hurtigvalg.
+lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Ingen separat hurtigvalgseksjon følger etter måltidene.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 En uferdig manuell registrering vises i en egen kompakt flate mellom dagsstatus
 og måltidsområdet, aldri inne i nærings-/vannflaten. «Uferdig registrering»,

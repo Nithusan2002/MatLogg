@@ -63,12 +63,11 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(confirmation.waitForExistence(timeout: 15))
         XCTAssertTrue(confirmation.staticTexts.matching(NSPredicate(format: "label CONTAINS '1 loggføringer'")).firstMatch.exists)
         confirmation.buttons["Knytt til konto"].tap()
-        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.alerts["Knytt lokale data til kontoen?"].exists)
-        app.buttons["home-daily-log"].tap()
         XCTAssertTrue(app.staticTexts["Kontokobling testmat"].firstMatch.waitForExistence(timeout: 8))
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Kontokobling etter omstart – bevart logg"
@@ -274,12 +273,104 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testWholeDayCopyOffersUndoOnHome() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--portion-qa", "-demoModeActive", "NO",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        let ready = app.buttons["home-select"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 15))
+        selectPreviousDiaryDay(in: app)
+        logPortionTestBread(in: app, returningTo: ready)
+        let close = app.buttons["log-receipt-close"]
+        if close.exists { close.tap() }
+        let today = app.buttons["home-go-to-today"]
+        revealDiaryElement(today, in: app)
+        today.tap()
+        revealDiaryElement(ready, in: app)
+        app.buttons["home-diary-menu"].tap()
+        let copy = app.buttons["Kopier hele dagen fra i går"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        copy.tap()
+        let receipt = app.otherElements.matching(identifier: "log-receipt")
+            .containing(.staticText, identifier: "Dagen fra i går er kopiert").firstMatch
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
+        receipt.buttons["Angre"].tap()
+        let undone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: receipt)
+        XCTAssertEqual(XCTWaiter.wait(for: [undone], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["tab-log-food"].exists)
+        attachSearchScreenshot(app, name: "Hjem – hele dagen kopiert og angret")
+    }
+
+    @MainActor
+    func testHomeDiaryMenuOffersSavedMealsAndDayActions() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--portion-qa", "-demoModeActive", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-select"].waitForExistence(timeout: 15))
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        app.buttons["home-diary-menu"].tap()
+        XCTAssertTrue(app.buttons["Lagre som måltid"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Gå til i dag"].exists)
+    }
+
+    @MainActor
+    func testHomeShowsAllMealRowsAndCanCollapseWithoutLosingAddAction() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--portion-qa", "-demoModeActive", "NO"]
+        app.launch()
+        let ready = app.buttons["home-diary-menu"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 15))
+        let emptyDay = app.buttons["home-log-food"]
+        for _ in 0..<12 {
+            if emptyDay.exists { break }
+            selectPreviousDiaryDay(in: app)
+        }
+        XCTAssertTrue(emptyDay.exists, "Regresjonstesten skal bruke en tom QA-dag.")
+        let add = app.buttons["home-meal-add-frokost"]
+        revealDiaryElement(add, in: app)
+        add.tap()
+        app.buttons["Lukk"].tap()
+        for _ in 0..<4 { logPortionTestBread(in: app, returningTo: ready) }
+        let close = app.buttons["log-receipt-close"]
+        if close.exists { close.tap() }
+        let rows = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
+        revealDiaryElement(rows.firstMatch, in: app)
+        XCTAssertGreaterThanOrEqual(rows.count, 4, "Alle registreringer må vises, også den fjerde.")
+        let nutrition = app.descendants(matching: .any)["home-meal-nutrition-frokost"].firstMatch
+        revealDiaryElement(nutrition, in: app)
+        let expandedNutrition = nutrition.label
+        for nutrient in ["kilokalorier", "proteiner", "karbohydrater", "fett"] {
+            XCTAssertTrue(expandedNutrition.contains(nutrient))
+        }
+        let meal = app.buttons["home-meal-open-frokost"]
+        revealDiaryElement(meal, in: app)
+        meal.tap()
+        XCTAssertEqual(meal.value as? String, "Sammenfoldet")
+        XCTAssertTrue(nutrition.waitForExistence(timeout: 5))
+        XCTAssertEqual(nutrition.label, expandedNutrition, "Samme næringsinnhold skal vises når matvarelisten er skjult.")
+        XCTAssertEqual(rows.count, 0)
+        XCTAssertTrue(add.isHittable)
+        meal.tap()
+        XCTAssertEqual(meal.value as? String, "Utvidet")
+        XCTAssertGreaterThanOrEqual(rows.count, 4)
+        meal.tap()
+        add.tap()
+        XCTAssertTrue(app.buttons["Logg til Frokost"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Logg til Frokost"].isSelected)
+        app.buttons["Lukk"].tap()
+        XCTAssertEqual(meal.value as? String, "Utvidet")
+        attachSearchScreenshot(app, name: "Hjem – full dagslogg og sammenleggbare måltider")
+    }
+
+    @MainActor
     func testHomeSwipeDeletesOnlySelectedRegistrationAndOffersUndo() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launchArguments = ["--skip-auth", "--portion-qa"]
         app.launch()
-        let dailyLog = app.buttons["home-daily-log"]
+        let dailyLog = app.buttons["home-diary-menu"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 10))
         let emptyDay = app.buttons["home-log-food"]
         for _ in 0..<7 {
@@ -344,10 +435,9 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertFalse(target.exists) // Undo restores the entry with a fresh ID.
         XCTAssertEqual(mealTotals.allElementsBoundByIndex.map(\.label), originalTotals)
 
-        revealDiaryElement(dailyLog, in: app)
-        dailyLog.tap()
+        revealDiaryElement(app.buttons["home-select"], in: app)
         let diaryRows = app.buttons.matching(NSPredicate(
-            format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
+            format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: hasTwoRows, object: diaryRows)],
                                      timeout: 8), .completed)
     }
@@ -356,7 +446,7 @@ final class MatLoggUITests: XCTestCase {
     func testDiarySelectionDeletesAndRestoresWholeBatch() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = try prepareDiarySelection()
-        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'"))
         // Selection changes the visible list. Capture IDs while both saved rows are present.
         let populated = NSPredicate(format: "count >= 2")
         if !populated.evaluate(with: rows) { app.swipeUp() }
@@ -368,7 +458,8 @@ final class MatLoggUITests: XCTestCase {
         let firstID = rowIDs[rowIDs.count - 1]
         let secondID = rowIDs[rowIDs.count - 2]
         let originalCount = rowIDs.count
-        app.buttons["meal-room-select"].tap()
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        app.buttons["home-select"].tap()
         XCTAssertTrue(app.otherElements["meal-room-selection-bar"].exists)
         XCTAssertFalse(app.buttons["tab-log-food"].exists)
         revealDiaryElement(app.buttons[firstID], in: app)
@@ -401,18 +492,31 @@ final class MatLoggUITests: XCTestCase {
     @MainActor
     func testDiarySelectionSavesOnlyChosenEntryWithLargeText() throws {
         let app = try prepareDiarySelection(largeText: true)
-        app.buttons["meal-room-select"].tap()
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        let select = app.buttons["home-select"]
+        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: select)
+        XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 8), .completed)
+        select.tap()
+        XCTAssertTrue(app.otherElements["meal-room-selection-bar"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["tab-log-food"].exists)
-        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
         revealDiaryElement(row, in: app)
-        row.tap()
+        // At the largest text size the row can be taller than the available area.
+        // Tap its upper selection area instead of its potentially obscured midpoint.
+        let rowTapY = max(row.frame.minY + 20, app.frame.minY + 120)
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: row.frame.minX + 24, dy: rowTapY)).tap()
         XCTAssertTrue(app.staticTexts["1 valgt"].exists)
         app.buttons["meal-room-save-selection"].tap()
         let name = app.textFields["saved-meal-name"]
         XCTAssertTrue(name.waitForExistence(timeout: 5))
         let sourceRows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'saved-meal-source-row-'"))
         XCTAssertEqual(sourceRows.count, 1)
-        app.buttons["Lukk"].tap()
+        let cancel = app.buttons.matching(NSPredicate(
+            format: "label == %@ AND identifier != %@", "Avbryt", "home-select")).element
+        XCTAssertTrue(app.frame.contains(cancel.frame))
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
         XCTAssertTrue(app.staticTexts["1 valgt"].waitForExistence(timeout: 5))
         app.buttons["meal-room-save-selection"].tap()
         XCTAssertTrue(name.waitForExistence(timeout: 5))
@@ -424,46 +528,76 @@ final class MatLoggUITests: XCTestCase {
         name.typeText("Utvalgstest")
         if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         app.buttons["saved-meal-save"].tap()
-        XCTAssertTrue(app.buttons["meal-room-select"].waitForExistence(timeout: 8))
-        XCTAssertEqual(app.buttons["meal-room-select"].label, "Velg")
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        XCTAssertTrue(app.buttons["home-select"].waitForExistence(timeout: 8))
+        XCTAssertEqual(app.buttons["home-select"].label, "Velg")
         XCTAssertTrue(app.buttons["tab-log-food"].exists)
         XCTAssertTrue(row.exists)
-        app.buttons["meal-room-select"].tap()
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        app.buttons["home-select"].tap()
         XCTAssertFalse(app.buttons["tab-log-food"].exists)
-        app.buttons["meal-room-select"].tap()
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        app.buttons["home-select"].tap()
         XCTAssertTrue(app.buttons["tab-log-food"].exists)
     }
 
     @MainActor
     private func revealDiaryElement(_ element: XCUIElement, in app: XCUIApplication) {
-        guard !element.isHittable else { return }
-        for _ in 0..<6 { if element.isHittable { return }; app.swipeDown() }
-        for _ in 0..<10 { if element.isHittable { return }; app.swipeUp() }
-        XCTAssertTrue(element.isHittable)
+        func isReachable() -> Bool {
+            guard element.exists, element.isHittable else { return false }
+            let bar = app.otherElements["meal-room-selection-bar"]
+            let bottom = bar.exists ? bar.frame.minY : app.frame.maxY - 100
+            return element.frame.minY < bottom - 44 && element.frame.maxY > app.frame.minY + 100
+        }
+        guard !isReachable() else { return }
+        // Keep drags above the persistent selection bar, including at accessibility sizes.
+        let upper = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+        let lower = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+        for _ in 0..<8 {
+            if isReachable() { return }
+            upper.press(forDuration: 0.05, thenDragTo: lower)
+        }
+        for _ in 0..<24 {
+            if isReachable() { return }
+            lower.press(forDuration: 0.05, thenDragTo: upper)
+        }
+        XCTAssertTrue(isReachable())
     }
 
     @MainActor
     private func prepareDiarySelection(largeText: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--skip-auth", "--portion-qa", "-UIPreferredContentSizeCategoryName",
+        app.launchArguments = ["--skip-auth", "--portion-qa", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName",
             largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
         app.launch()
-        let dailyLog = app.buttons["home-daily-log"]
+        let dailyLog = app.buttons["home-diary-menu"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 10))
-        for _ in 0..<8 { if dailyLog.isHittable { break }; app.swipeUp() }
-        dailyLog.tap()
-        for _ in 0..<2 {
-            logPortionTestBread(in: app, returningTo: app.buttons["meal-room-select"])
+        let emptyDay = app.buttons["home-log-food"]
+        for _ in 0..<12 {
+            if emptyDay.exists { break }
+            selectPreviousDiaryDay(in: app)
         }
-        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
+        XCTAssertTrue(emptyDay.exists)
+        let add = app.buttons["home-meal-add-frokost"]
+        revealDiaryElement(add, in: app)
+        add.tap()
+        app.buttons["Lukk"].tap()
+        for _ in 0..<2 {
+            logPortionTestBread(in: app, returningTo: app.buttons["home-select"])
+        }
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
         for _ in 0..<8 { if row.isHittable { break }; app.swipeUp() }
         return app
     }
 
     @MainActor
     private func logPortionTestBread(in app: XCUIApplication, returningTo destination: XCUIElement) {
-        app.buttons["tab-log-food"].tap()
-        app.buttons["Søk etter mat"].tap()
+        let openLogging = app.buttons["tab-log-food"]
+        openLogging.tap()
+        let searchAction = app.buttons["Søk etter mat"]
+        if !searchAction.waitForExistence(timeout: 5) { openLogging.tap() }
+        XCTAssertTrue(searchAction.waitForExistence(timeout: 5))
+        searchAction.tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         search.tap()
@@ -476,7 +610,9 @@ final class MatLoggUITests: XCTestCase {
         let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 8))
         save.tap()
-        XCTAssertTrue(destination.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 8))
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        XCTAssertTrue(destination.exists)
     }
 
     @MainActor
@@ -500,16 +636,12 @@ final class MatLoggUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
-        let dailyLog = app.buttons["home-daily-log"]
+        let dailyLog = app.buttons["home-diary-menu"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 8))
-        for _ in 0..<8 {
-            if dailyLog.isHittable { break }
-            app.swipeUp()
-        }
-        dailyLog.tap()
-        XCTAssertTrue(app.staticTexts["Hele dagen"].firstMatch.waitForExistence(timeout: 5))
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["meal-room-all"].exists)
-        let lunch = app.buttons["meal-room-add-lunsj"]
+        let lunch = app.buttons["home-meal-add-lunsj"]
         for _ in 0..<8 {
             if lunch.isHittable { break }
             app.swipeUp()
@@ -521,7 +653,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(lunchChoice.isSelected)
         app.buttons["Lukk"].tap()
         selectPreviousDiaryDay(in: app)
-        XCTAssertTrue(app.staticTexts["Hele dagen"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["home-diary-menu"].exists)
     }
 
     @MainActor
@@ -536,13 +668,13 @@ final class MatLoggUITests: XCTestCase {
             if breakfast.isHittable { break }
             app.swipeUp()
         }
-        breakfast.tap()
-        XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home-meal-open-frokost"].waitForExistence(timeout: 5))
         selectPreviousDiaryDay(in: app)
         let dateLabel = app.buttons["day-navigation-date"].label
         let addFood = app.buttons["tab-log-food"]
         XCTAssertTrue(addFood.waitForExistence(timeout: 5))
         addFood.tap()
+        app.buttons["Logg til Frokost"].tap()
         app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -555,10 +687,15 @@ final class MatLoggUITests: XCTestCase {
         let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
         save.tap()
-        let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        let closeReceipt = app.buttons["log-receipt-close"]
+        if closeReceipt.waitForExistence(timeout: 3) { closeReceipt.tap() }
+        let edit = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
+        revealDiaryElement(edit, in: app)
         XCTAssertTrue(edit.waitForExistence(timeout: 8))
         let loggedRowID = edit.identifier
+        revealDiaryElement(app.buttons["day-navigation-date"], in: app)
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
+        revealDiaryElement(edit, in: app)
         edit.tap()
         let editor = app.scrollViews["log-editor-scroll"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -585,7 +722,7 @@ final class MatLoggUITests: XCTestCase {
 
         app.terminate()
         app.launch()
-        XCTAssertTrue(app.buttons["home-daily-log"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
         let lunch = app.buttons["home-meal-open-lunsj"]
         // The home list creates meal rows as they come into view.
         for _ in 0..<8 {
@@ -593,8 +730,6 @@ final class MatLoggUITests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(lunch.isHittable)
-        lunch.tap()
-        XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].waitForExistence(timeout: 5))
         selectPreviousDiaryDay(in: app)
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let restoredRow = app.buttons[loggedRowID]
@@ -609,10 +744,8 @@ final class MatLoggUITests: XCTestCase {
     private func selectPreviousDiaryDay(in app: XCUIApplication) {
         let previousDay = app.buttons["Forrige dag"]
         let date = app.buttons["day-navigation-date"]
-        let navigationBar = app.navigationBars.firstMatch
         for _ in 0..<8 {
-            // XCTest can report a button under the navigation bar as hittable.
-            if previousDay.isHittable && previousDay.frame.minY >= navigationBar.frame.maxY {
+            if previousDay.isHittable {
                 let oldLabel = date.label
                 previousDay.tap()
                 let changed = XCTNSPredicateExpectation(
@@ -794,19 +927,15 @@ final class MatLoggUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
-        let dailyLog = app.buttons["home-daily-log"]
+        let dailyLog = app.buttons["home-diary-menu"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 8))
-        for _ in 0..<8 {
-            if dailyLog.isHittable { break }
-            app.swipeUp()
-        }
-        dailyLog.tap()
-        XCTAssertTrue(app.staticTexts["Hele dagen"].firstMatch.waitForExistence(timeout: 5))
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["meal-room-all"].exists)
         for meal in ["frokost", "lunsj", "middag", "snacks"] {
             XCTAssertFalse(app.buttons["meal-room-select-" + meal].exists)
         }
-        XCTAssertTrue(app.buttons["meal-room-reuse"].exists)
+        XCTAssertTrue(app.buttons["home-diary-menu"].exists)
         app.buttons["tab-log-food"].tap()
         let savedTab = app.buttons["quick-log-show-saved"]
         XCTAssertTrue(savedTab.waitForExistence(timeout: 5))
@@ -936,11 +1065,9 @@ final class MatLoggUITests: XCTestCase {
             if lunch.isHittable { break }
             app.swipeUp()
         }
-        lunch.tap()
-        let moved = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS %@", name)).firstMatch
+        let moved = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS %@", name)).firstMatch
         XCTAssertTrue(moved.waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["meal-room-heading-lunsj"].exists)
-        app.buttons["BackButton"].tap()
+        XCTAssertTrue(app.buttons["home-meal-open-lunsj"].exists)
         XCTAssertTrue(app.buttons["day-navigation-date"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         attachSearchScreenshot(app, name: "Navigasjon – direkte redigering på tidligere dato")
@@ -954,7 +1081,7 @@ final class MatLoggUITests: XCTestCase {
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
 
-        let dailyLog = app.buttons["home-daily-log"]
+        let dailyLog = app.buttons["home-diary-menu"]
         XCTAssertTrue(dailyLog.waitForExistence(timeout: 10))
         logPortionTestBread(in: app, returningTo: dailyLog)
         let closeReceipt = app.buttons["log-receipt-close"]
@@ -987,9 +1114,8 @@ final class MatLoggUITests: XCTestCase {
         attachSearchScreenshot(app, name: "Rediger logging – favoritt")
         app.buttons["Avbryt"].tap()
 
-        revealDiaryElement(dailyLog, in: app)
-        dailyLog.tap()
-        let diaryRow = app.buttons["meal-room-row-\(logID)"]
+        revealDiaryElement(app.buttons["home-select"], in: app)
+        let diaryRow = app.buttons["home-log-row-\(logID)"]
         revealDiaryElement(diaryRow, in: app)
         XCTAssertTrue(diaryRow.waitForExistence(timeout: 8))
         diaryRow.tap()
@@ -1142,25 +1268,41 @@ final class MatLoggUITests: XCTestCase {
 
     @MainActor
     func testHomeCanNavigateAcrossPastAndFutureDates() throws {
+        verifyReturnToToday(largeText: false)
+    }
+
+    @MainActor
+    func testReturnToTodaySupportsLargestText() throws {
+        verifyReturnToToday(largeText: true)
+    }
+
+    @MainActor
+    private func verifyReturnToToday(largeText: Bool) {
         let app = XCUIApplication()
-        app.launchArguments.append("--skip-auth")
+        app.launchArguments = ["--skip-auth", "-UIPreferredContentSizeCategoryName",
+            largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
         app.launch()
-
-        let dateButton = app.buttons["day-navigation-date"]
-        XCTAssertTrue(dateButton.waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Neste dag"].isEnabled)
-
-        dateButton.tap()
-        XCTAssertTrue(app.staticTexts["Velg dato"].waitForExistence(timeout: 2))
-        app.buttons["Ferdig"].tap()
-
-        app.buttons["Forrige dag"].tap()
-
-        XCTAssertTrue(app.staticTexts["Måltider i går"].waitForExistence(timeout: 2))
-        app.buttons["Neste dag"].tap()
-        XCTAssertTrue(app.staticTexts["Måltider i dag"].waitForExistence(timeout: 2))
-        app.buttons["Neste dag"].tap()
-        XCTAssertTrue(app.staticTexts["Måltider i morgen"].waitForExistence(timeout: 2))
+        let date = app.buttons["day-navigation-date"]
+        let today = app.buttons["home-go-to-today"]
+        XCTAssertTrue(date.waitForExistence(timeout: 15))
+        let originalDate = date.label
+        XCTAssertFalse(today.exists)
+        for direction in ["Forrige dag", "Neste dag"] {
+            app.buttons[direction].tap()
+            XCTAssertTrue(today.waitForExistence(timeout: 5))
+            XCTAssertNotEqual(date.label, originalDate)
+            XCTAssertTrue(today.isHittable)
+            XCTAssertTrue(app.frame.contains(today.frame))
+            XCTAssertGreaterThanOrEqual(today.frame.height, 44)
+            XCTAssertGreaterThanOrEqual(today.frame.minY, date.frame.maxY)
+            today.tap()
+            let returned = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "label == %@", originalDate), object: date)
+            XCTAssertEqual(XCTWaiter.wait(for: [returned], timeout: 5), .completed)
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: today)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+        }
+        attachSearchScreenshot(app, name: largeText ? "Datovelger – tilbake til i dag med stor tekst" : "Datovelger – tilbake til i dag")
     }
 
     @MainActor

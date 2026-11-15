@@ -11,6 +11,7 @@ struct SavedMealCreationSource: Identifiable {
 
 struct SaveMealFromLogsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var viewModel: SavedMealsViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var productViewModel: ProductViewModel
@@ -76,7 +77,7 @@ struct SaveMealFromLogsView: View {
                                         if log.id != source.logs.first?.id {
                                             Divider().overlay(AppColors.separator)
                                         }
-                                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                        sourceRowLayout {
                                             Text(productName(for: log))
                                                 .font(AppTypography.bodyEmphasis)
                                                 .foregroundStyle(AppColors.deepInk)
@@ -84,7 +85,7 @@ struct SaveMealFromLogsView: View {
                                             Text(PortionDisplay.amount(Double(log.amountG), unit: log.resolvedAmountUnit, portion: log.portionSelection, preparation: log.nutritionPreparation))
                                                 .font(AppTypography.body)
                                                 .foregroundStyle(AppColors.textSecondary)
-                                                .fixedSize(horizontal: true, vertical: false)
+                                                .fixedSize(horizontal: false, vertical: true)
                                         }
                                         .accessibilityElement(children: .combine)
                                         .accessibilityIdentifier("saved-meal-source-row-\(log.id.uuidString)")
@@ -129,6 +130,12 @@ struct SaveMealFromLogsView: View {
         }
         .tint(AppColors.action)
         .presentationDragIndicator(.visible)
+    }
+
+    private var sourceRowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
     }
 
     private func save() async {
@@ -179,7 +186,7 @@ struct SavedMealsListView: View {
                     ContentUnavailableView {
                         Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
                     } description: {
-                        Text("Åpne dagsloggen på Hjem og velg Gjenbruk → Lagre som måltid.")
+                        Text("På Hjem velger du ••• ved Måltider → Lagre som måltid.")
                     }
                 } else {
                     List {
