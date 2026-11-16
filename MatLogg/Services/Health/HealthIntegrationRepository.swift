@@ -6,6 +6,8 @@ nonisolated protocol HealthIntegrationStorage: Sendable {
     func healthExport(id: String, owner: UUID) async throws -> HealthExportRecord?
     func healthExports(owner: UUID) async throws -> [HealthExportRecord]
     func completeHealthExport(_ record: HealthExportRecord, owner: UUID, at date: Date) async throws
+    func previewHealthHistory(owner: UUID, request: HealthHistoryRequest) async throws -> HealthHistoryPreview
+    func queueHealthHistory(owner: UUID, preview: HealthHistoryPreview) async throws -> HealthHistoryPreview
     func queueHealthCleanup(owner: UUID) async throws
 }
 
@@ -18,6 +20,8 @@ actor LocalHealthExportStorage: HealthIntegrationStorage {
     func healthExport(id: String, owner: UUID) throws -> HealthExportRecord? { try store.healthExport(id: id, owner: owner) }
     func healthExports(owner: UUID) throws -> [HealthExportRecord] { try store.healthExports(owner: owner) }
     func completeHealthExport(_ record: HealthExportRecord, owner: UUID, at date: Date) throws { try store.completeHealthExport(record, owner: owner, at: date) }
+    func previewHealthHistory(owner: UUID, request: HealthHistoryRequest) throws -> HealthHistoryPreview { try store.previewHealthHistory(owner: owner, request: request) }
+    func queueHealthHistory(owner: UUID, preview: HealthHistoryPreview) throws -> HealthHistoryPreview { try store.queueHealthHistory(owner: owner, preview: preview) }
     func queueHealthCleanup(owner: UUID) throws { try store.queueHealthCleanup(owner: owner) }
 }
 
@@ -36,6 +40,8 @@ protocol HealthIntegrationRepository {
     func refresh(owner: UUID) async throws
     func disconnect(owner: UUID) async throws
     func deleteExports(owner: UUID) async throws
+    func previewHistory(owner: UUID, request: HealthHistoryRequest) async throws -> HealthHistoryPreview
+    func shareHistory(owner: UUID, preview: HealthHistoryPreview) async throws -> HealthHistoryResult
 }
 
 @MainActor
@@ -169,6 +175,32 @@ final class DefaultHealthIntegrationRepository: HealthIntegrationRepository {
         try await store.setHealthSettings(settings, owner: owner)
         guard self.owner == owner, contextID == context else { throw HealthIntegrationError.staleContext }
         messages = [:]
+    }
+
+    func previewHistory(owner: UUID, request: HealthHistoryRequest) async throws -> HealthHistoryPreview {
+        guard isAvailable, self.owner == owner, let store else { throw HealthIntegrationError.unavailable }
+        let context = contextID
+        let settings = try await store.healthSettings(owner: owner)
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        let preview = try await store.previewHealthHistory(owner: owner, request: request)
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        return preview
+    }
+
+    func shareHistory(owner: UUID, preview: HealthHistoryPreview) async throws -> HealthHistoryResult {
+        guard isAvailable, self.owner == owner, let store else { throw HealthIntegrationError.unavailable }
+        let context = contextID
+        let settings = try await store.healthSettings(owner: owner)
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        let queued = try await store.queueHealthHistory(owner: owner, preview: preview)
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        try await refresh(owner: owner)
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        let ids = Set(queued.recordIDs)
+        let records = try await store.healthExports(owner: owner).filter { ids.contains($0.id) }
+        try await check(owner: owner, context: context, connection: settings.connectionID)
+        return HealthHistoryResult(transferred: records.filter { !$0.pending && !$0.isDeletion && $0.lastSuccess != nil }.count,
+            pending: records.filter { $0.pending }.count)
     }
 
     func deleteExports(owner: UUID) async throws {

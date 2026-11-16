@@ -2278,6 +2278,100 @@ private nonisolated struct ExplicitNullableString: Codable {
 // MARK: - Local-only HealthKit outbox (same transaction as domain writes)
 extension LocalStore {
 
+    private struct HistoryValue {
+        let entity: UUID
+        let kind: HealthDataKind
+        let value: Double
+        let date: Date
+        var source: NutritionSource? = nil
+        var amount: Float? = nil
+        var unit: String? = nil
+        var fingerprint: String {
+            healthFingerprint([kind.rawValue, String(value.bitPattern), String(date.timeIntervalSince1970.bitPattern),
+                source?.rawValue ?? "", amount.map { String($0.bitPattern) } ?? "", unit ?? ""])
+        }
+    }
+
+    nonisolated func previewHealthHistory(owner: UUID, request: HealthHistoryRequest) throws -> HealthHistoryPreview {
+        try queue.sync { try healthHistoryLocked(owner: owner, request: request).0 }
+    }
+
+    nonisolated func queueHealthHistory(owner: UUID, preview: HealthHistoryPreview) throws -> HealthHistoryPreview {
+        var result: HealthHistoryPreview?
+        try performTransaction {
+            let (current, values) = try healthHistoryLocked(owner: owner, request: preview.request)
+            guard current.signature == preview.signature else { throw HealthIntegrationError.historyChanged }
+            for value in values {
+                try enqueueHealthValueLocked(owner: owner, entity: value.entity, kind: value.kind,
+                    value: value.value, date: value.date, source: value.source, amount: value.amount, unit: value.unit)
+            }
+            result = current
+        }
+        guard let result else { throw HealthIntegrationError.invalidSample }
+        return result
+    }
+
+    private nonisolated func historyRowsLocked<T: Decodable>(_ type: T.Type, table: String, dateColumn: String,
+                                                            owner: UUID, request: HealthHistoryRequest) throws -> [T] {
+        // Table and column names come only from the two fixed call sites below.
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT json FROM \(table) WHERE userId = ? AND \(dateColumn) >= ? AND \(dateColumn) < ? ORDER BY id;",
+                                -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, owner.uuidString, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_double(stmt, 2, request.start.timeIntervalSince1970)
+        sqlite3_bind_double(stmt, 3, request.end.timeIntervalSince1970)
+        var rows: [T] = []
+        var status = sqlite3_step(stmt)
+        while status == SQLITE_ROW {
+            guard let data = readBlob(stmt, index: 0) else { throw databaseError() }
+            rows.append(try decoder.decode(T.self, from: data))
+            status = sqlite3_step(stmt)
+        }
+        try requireDone(status)
+        return rows
+    }
+
+    private nonisolated func healthHistoryLocked(owner: UUID, request: HealthHistoryRequest) throws -> (HealthHistoryPreview, [HistoryValue]) {
+        guard healthWritesEnabled, request.isValid else { throw HealthIntegrationError.invalidSample }
+        let settings = try healthSettingsLocked(owner: owner)
+        guard settings.isConnected, !request.nutrition || settings.shareNutrition,
+              !request.weight || settings.shareWeight else { throw HealthIntegrationError.staleContext }
+        let logs = request.nutrition ? try historyRowsLocked(FoodLog.self, table: "logs", dateColumn: "loggedDate", owner: owner, request: request) : []
+        let weights = request.weight ? try historyRowsLocked(WeightEntry.self, table: "weights", dateColumn: "date", owner: owner, request: request) : []
+        var candidates: [HistoryValue] = []
+        for log in logs {
+            guard log.userId == owner else { throw HealthIntegrationError.staleContext }
+            for (kind, value) in [(HealthDataKind.energy, log.calories), (.protein, log.proteinG), (.carbohydrates, log.carbsG), (.fat, log.fatG)] {
+                candidates.append(HistoryValue(entity: log.id, kind: kind, value: Double(value), date: log.healthExportTimestamp(),
+                    source: log.nutritionSource, amount: log.amountG, unit: log.resolvedAmountUnit.rawValue))
+            }
+        }
+        for weight in weights {
+            guard weight.userId == owner else { throw HealthIntegrationError.staleContext }
+            candidates.append(HistoryValue(entity: weight.id, kind: .weight, value: weight.weightKg, date: weight.date))
+        }
+        let existing = Dictionary(uniqueKeysWithValues: try healthExportsLocked(owner: owner).map { ($0.id, $0) })
+        var signature = [owner.uuidString, settings.connectionID?.uuidString ?? "", settings.exportNamespace.uuidString]
+        var values: [HistoryValue] = []
+        var ids: [String] = []
+        var unchanged = 0
+        for value in candidates {
+            guard value.value.isFinite, value.value >= 0, value.date.timeIntervalSince1970.isFinite else { throw HealthIntegrationError.invalidSample }
+            let id = try healthExportIdentifierLocked(owner: owner, entity: value.entity, kind: value.kind, namespace: settings.exportNamespace)
+            signature += [id, value.fingerprint]
+            ids.append(id)
+            // Pending identical values are already durable. Completed values retain only a hash.
+            if let previous = existing[id], !previous.isDeletion, previous.fingerprint == value.fingerprint,
+               previous.pending || previous.lastSuccess != nil {
+                unchanged += 1
+            } else { values.append(value) }
+        }
+        let preview = HealthHistoryPreview(request: request, signature: healthFingerprint(signature), foodCount: logs.count,
+            weightCount: weights.count, sampleCount: candidates.count, unchangedCount: unchanged, recordIDs: ids)
+        return (preview, values)
+    }
+
     nonisolated func healthSettings(owner: UUID) throws -> HealthIntegrationSettings {
         try queue.sync { try healthSettingsLocked(owner: owner) }
     }
@@ -2327,6 +2421,7 @@ extension LocalStore {
     private nonisolated func cancelDisabledHealthExportsLocked(_ settings: HealthIntegrationSettings, owner: UUID) throws {
         for var record in try healthExportsLocked(owner: owner) where !settings.exports(record.kind) && record.pending {
             record.pending = false
+            record.fingerprint = nil // A canceled newer revision was never confirmed in HealthKit.
             record.value = nil
             record.timestamp = nil
             record.nutritionSource = nil
@@ -2411,9 +2506,11 @@ extension LocalStore {
         guard value.isFinite, value >= 0, date.timeIntervalSince1970.isFinite else { throw HealthIntegrationError.invalidSample }
         let id = try healthExportIdentifierLocked(owner: owner, entity: entity, kind: kind, namespace: settings.exportNamespace)
         let previous = try healthExportLocked(id: id, owner: owner)
+        let fingerprint = healthFingerprint([kind.rawValue, String(value.bitPattern), String(date.timeIntervalSince1970.bitPattern),
+            source?.rawValue ?? "", amount.map { String($0.bitPattern) } ?? "", unit ?? ""])
         let record = HealthExportRecord(id: id, kind: kind, revision: (previous?.revision ?? 0) + 1, eventID: UUID(),
                                         pending: true, type: .upsert, value: value, timestamp: date,
-                                        nutritionSource: source, amount: amount, amountUnit: unit, lastSuccess: previous?.lastSuccess)
+                                        nutritionSource: source, amount: amount, amountUnit: unit, lastSuccess: previous?.lastSuccess, fingerprint: fingerprint)
         try writeHealthExportLocked(record, owner: owner)
         exportChangedInTransaction = true
     }

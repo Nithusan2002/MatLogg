@@ -5,7 +5,8 @@ struct MatLoggApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
+            if ProcessInfo.processInfo.arguments.contains("--health-history-qa") { HealthHistoryQARoot() }
+            else if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
             else { DemoAppRoot() }
             #else
             DemoAppRoot()

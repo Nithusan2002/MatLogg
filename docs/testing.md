@@ -1179,3 +1179,34 @@ Arkitekturkontroll: bare tilgjengelighetsflagget endres; MVVM, eksplisitt
 profilvalg, local-first, transaksjoner og eierskap er uendret. Ingen avvik.
 Ny native Release-/TestFlight-kontroll og tidligere dokumenterte fysiske
 QA-hull er fortsatt åpne. Ingen opplasting eller publisering ble utført.
+
+
+### Valgt Helse-historikk – 2026-11-16
+
+På `codex/health-history-export` bestod 27 tester i HealthExportTests og
+HealthExportMigrationTests på «Spor Mat Health Release QA» (iPhone 16,
+iOS 18.6, Xcode 27.2), med xcodebuild test, egen DerivedData
+/tmp/MatLoggHealthReleaseQA, ingen parallell testing og CODE_SIGNING_ALLOWED=NO.
+De ni nye testene dekker periode/eier/vekter, uendret domene og synkkø,
+identiske pending/completed-jobber etter omstart, foreldet oversikt etter
+redigering/sletting/opt-out, atomisk rollback ved SQLite-feil, retry etter
+kansellert revisjon, delvis native tilgang, profilbytte under skriving,
+kompatibel dekoding uten fingeravtrykk og kalenderdager over sommertid.
+
+Tre HealthExportUITests bestod: eksisterende lesing/eksport-separasjon samt
+historikkflyt med normal og største tekst. Historikkens dedikerte
+`--health-history-qa`-inngang oppretter syntetisk mat/vekt i disponibel database
+og bruker en klient uten native Helse-tilgang. Testen går gjennom oversikt,
+egen bekreftelse, resultat og ny oversikt med fem uendrede Helse-verdier.
+Resultat: /tmp/MatLoggHealthReleaseQA/Logs/Test/Test-MatLogg-2026.11.16_14-41-43-+0100.xcresult.
+Skjermbilder er visuelt kontrollert. Siste målrettede unit-kjøring etter
+valideringstekst: /tmp/MatLoggHistory-validated-final.log (27/27).
+Release-appbuild og `npm --prefix matlogg-web run build` bestod også.
+
+Arkitekturkontroll: View → feature-ViewModel → repository → storage-actor →
+LocalStore, ingen IO i views. Historikk og aktive delingsvalg revalideres før
+atomisk kølegging, uten domeneskriving eller serversynkhendelser. Ingen
+arkitekturavvik, SQL-migrasjon eller canonical kontraktsendring.
+Fysisk iPhone var utilgjengelig ved kontroll. Native historikkdatoer,
+gjentatt overføring og siste Release-/TestFlight-kandidat er derfor ikke
+verifisert på fysisk enhet. Ingen publisering eller opplasting ble utført.

@@ -1107,3 +1107,21 @@ prøver igjen uten ny tilgangsdialog. «Stopp all deling» stopper nye forsøk o
 beholder allerede delte data. Separat sletting krever bekreftelse og gjelder
 bare profilens egne overføringer. Native Dynamic Type og VoiceOver brukes;
 tilgjengelighet med største tekststørrelse må verifiseres før release.
+
+
+### Brukerinitiert Helse-historikk – 16. november 2026
+
+Under Apple Helse → Del til Apple Helse finnes «Del tidligere registreringer»
+når profilen har aktiv deling. Egen skjerm velger siste 7 eller 30 kalenderdager
+(inkludert i dag), eller fra/til og med. Fremtidige dager og omvendt periode
+kan ikke overføres. Bare aktivt delte datagrupper kan velges: matlogger med
+kalorier/makroer og manuelt registrert vekt, aldri Helse-leste målinger.
+«Vis oversikt» viser periode, antall mat-/vektregistreringer og antall
+Helse-verdier som allerede er delt eller kølagt uten endringer. Hver matlogg
+utgjør fire Helse-verdier. Tom periode har deaktivert delingsknapp.
+En separat bekreftelse kreves før «Del til Apple Helse». Historikken leses på
+nytt atomisk ved kølegging; endret/slettet grunnlag krever ny oversikt.
+Resultatet skiller overførte fra ventende verdier. Retry bruker eksisterende
+«Prøv igjen». Å lukke skjermen angrer ikke kølegging; allerede delte verdier
+kan slettes med eksisterende profilomfattende Helse-sletting. Ingen ny
+batch-angreknapp eller automatisk historikk ved aktivering.

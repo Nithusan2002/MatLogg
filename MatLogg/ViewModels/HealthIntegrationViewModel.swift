@@ -12,11 +12,14 @@ final class HealthIntegrationViewModel: ObservableObject {
     @Published private(set) var completionMessage: String?
     private let repository: any HealthIntegrationRepository
     private var refreshRequested = false
-    private var owner: UUID?
+    @Published private(set) var owner: UUID?
     private var contextID = UUID()
     var isAvailable: Bool { repository.isAvailable }
 
     init(repository: any HealthIntegrationRepository) { self.repository = repository }
+    func makeHistoryModel() -> HealthHistoryExportViewModel {
+        HealthHistoryExportViewModel(repository: repository, owner: owner)
+    }
     func selectOwner(_ owner: UUID?) {
         guard self.owner != owner else { return }
         refreshRequested = false

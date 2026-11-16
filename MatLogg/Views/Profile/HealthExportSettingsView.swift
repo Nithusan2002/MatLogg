@@ -23,6 +23,10 @@ struct HealthExportSettingsView: View {
             Section {
                 Text(model.exportStatus(kinds: HealthDataKind.allCases))
                 if model.settings.isConnected {
+                    NavigationLink {
+                        HealthHistoryExportView(model: model.makeHistoryModel())
+                    } label: { Text("Del tidligere registreringer") }
+                    .accessibilityIdentifier("health-history-open")
                     Button("Prøv igjen") { Task { await model.refresh() } }
                     Button("Stopp deling", role: .destructive) { Task { await model.disconnect() } }
                         .accessibilityIdentifier("health-disconnect")

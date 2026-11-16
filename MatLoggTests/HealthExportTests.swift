@@ -277,6 +277,195 @@ struct HealthExportTests {
             #expect(model.records.isEmpty && model.errorMessage == nil)
         }
     }
+    @Test func historyUsesSelectedOwnerDatesAndDoesNotChangeDomainOrSync() async throws {
+        try await withStore { store, _ in
+            let owner = UUID(), other = UUID()
+            let day = Calendar.current.startOfDay(for: Date())
+            let end = try #require(Calendar.current.date(byAdding: .day, value: 1, to: day))
+            let entry = FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 50,
+                loggedDate: day, loggedTime: day.addingTimeInterval(3600), calories: 120, proteinG: 3, carbsG: 8, fatG: 2)
+            try store.saveLogs([entry, log(owner: other), FoodLog(userId: owner, productId: UUID(), mealType: "lunsj", amountG: 10,
+                loggedDate: end, calories: 10, proteinG: 1, carbsG: 1, fatG: 1)])
+            try store.saveWeightEntry(WeightEntry(userId: owner, date: day, weightKg: 72))
+            let syncBefore = store.fetchPendingEvents(ownerUserId: owner, limit: 100).map(\.eventId)
+            let snapshotEncoder = JSONEncoder()
+            snapshotEncoder.outputFormatting = [.sortedKeys]
+            let original = try snapshotEncoder.encode(store.getAllLogs(userId: owner))
+            try store.setHealthSettings(settings(), owner: owner)
+            let request = HealthHistoryRequest(start: day, end: end, nutrition: true, weight: true)
+            let preview = try store.previewHealthHistory(owner: owner, request: request)
+            #expect(preview.foodCount == 1 && preview.weightCount == 1 && preview.sampleCount == 5)
+            _ = try store.queueHealthHistory(owner: owner, preview: preview)
+            let records = try store.healthExports(owner: owner)
+            #expect(records.count == 5)
+            #expect(records.first { $0.kind == .energy }?.timestamp == entry.healthExportTimestamp())
+            #expect(records.first { $0.kind == .weight }?.value == 72)
+            #expect(try store.healthExports(owner: other).isEmpty)
+            #expect(store.fetchPendingEvents(ownerUserId: owner, limit: 100).map(\.eventId) == syncBefore)
+            #expect(try snapshotEncoder.encode(store.getAllLogs(userId: owner)) == original)
+        }
+    }
+
+    @Test func repeatedHistoryKeepsPendingAndCompletedIdentitiesAndEvents() async throws {
+        try await withStore { store, url in
+            let owner = UUID(), entry = log(owner: UUID())
+            let saved = FoodLog(id: entry.id, userId: owner, productId: UUID(), mealType: "lunsj", amountG: 10,
+                loggedDate: entry.loggedDate, loggedTime: entry.loggedTime, calories: 90, proteinG: 1, carbsG: 2, fatG: 3)
+            try store.saveLogs([saved])
+            try store.setHealthSettings(settings(), owner: owner)
+            let request = HealthHistoryRequest(start: Calendar.current.startOfDay(for: Date()), end: Date().addingTimeInterval(86400), nutrition: true, weight: false)
+            let preview = try store.previewHealthHistory(owner: owner, request: request)
+            _ = try store.queueHealthHistory(owner: owner, preview: preview)
+            let queued = try store.healthExports(owner: owner)
+            _ = try store.queueHealthHistory(owner: owner, preview: preview)
+            #expect(try store.healthExports(owner: owner).map(\.eventID) == queued.map(\.eventID))
+            for record in queued { try store.completeHealthExport(record, owner: owner, at: Date()) }
+            let reopened = try LocalStore(databaseURL: url, healthWritesEnabled: true)
+            let repeated = try reopened.previewHealthHistory(owner: owner, request: request)
+            #expect(repeated.unchangedCount == 4)
+            _ = try reopened.queueHealthHistory(owner: owner, preview: repeated)
+            let completed = try reopened.healthExports(owner: owner)
+            #expect(completed.map(\.eventID) == queued.map(\.eventID))
+            #expect(completed.allSatisfy { !$0.pending && $0.value == nil && $0.fingerprint != nil })
+        }
+    }
+
+    @Test func historyRejectsChangedOrDeletedEntriesAndRevokedChoices() async throws {
+        try await withStore { store, _ in
+            let owner = UUID(), entry = log(owner: UUID())
+            var saved = log(owner: owner, id: entry.id)
+            try store.saveLogs([saved])
+            try store.setHealthSettings(settings(), owner: owner)
+            let request = HealthHistoryRequest(start: Date().addingTimeInterval(-86400), end: Date().addingTimeInterval(86400), nutrition: true, weight: false)
+            let preview = try store.previewHealthHistory(owner: owner, request: request)
+            saved = FoodLog(id: saved.id, userId: owner, productId: saved.productId, mealType: saved.mealType, amountG: 200,
+                loggedDate: saved.loggedDate, loggedTime: saved.loggedTime, calories: saved.calories, proteinG: saved.proteinG, carbsG: saved.carbsG, fatG: saved.fatG)
+            try store.saveLogs([saved])
+            do { _ = try store.queueHealthHistory(owner: owner, preview: preview); Issue.record("Stale preview accepted") }
+            catch HealthIntegrationError.historyChanged {}
+            let changed = try store.previewHealthHistory(owner: owner, request: request)
+            try store.deleteLogs([saved.id])
+            do { _ = try store.queueHealthHistory(owner: owner, preview: changed); Issue.record("Deleted entry accepted") }
+            catch HealthIntegrationError.historyChanged {}
+            try store.setHealthSettings(HealthIntegrationSettings(), owner: owner)
+            do { _ = try store.queueHealthHistory(owner: owner, preview: preview); Issue.record("Revoked choices accepted") }
+            catch HealthIntegrationError.staleContext {}
+        }
+    }
+
+    @Test func historyBatchRollsBackOnDatabaseFailure() async throws {
+        try await withStore { store, url in
+            let owner = UUID()
+            try store.saveLogs([log(owner: owner)])
+            try store.setHealthSettings(settings(), owner: owner)
+            let request = HealthHistoryRequest(start: Date().addingTimeInterval(-86400), end: Date().addingTimeInterval(86400), nutrition: true, weight: false)
+            let preview = try store.previewHealthHistory(owner: owner, request: request)
+            var db: OpaquePointer?
+            #expect(sqlite3_open(url.path, &db) == SQLITE_OK)
+            defer { sqlite3_close(db) }
+            #expect(sqlite3_exec(db, "CREATE TRIGGER fail_history BEFORE INSERT ON health_exports WHEN NEW.id LIKE '%.protein' BEGIN SELECT RAISE(ABORT, 'QA failure'); END;", nil, nil, nil) == SQLITE_OK)
+            do { _ = try store.queueHealthHistory(owner: owner, preview: preview); Issue.record("Expected rollback") } catch {}
+            #expect(try store.healthExports(owner: owner).isEmpty)
+            #expect(store.getAllLogs(userId: owner).count == 1)
+        }
+    }
+
+    @Test func canceledUnconfirmedRevisionCanBeExportedFromHistoryAgain() async throws {
+        try await withStore { store, _ in
+            let owner = UUID()
+            var entry = log(owner: owner)
+            try store.setHealthSettings(settings(), owner: owner)
+            try store.saveLogs([entry])
+            for record in try store.healthExports(owner: owner) { try store.completeHealthExport(record, owner: owner, at: Date()) }
+            entry = FoodLog(id: entry.id, userId: owner, productId: entry.productId, mealType: entry.mealType, amountG: 200,
+                loggedDate: entry.loggedDate, loggedTime: entry.loggedTime, calories: 999, proteinG: 10, carbsG: 20, fatG: 30)
+            try store.saveLogs([entry])
+            try store.setHealthSettings(HealthIntegrationSettings(), owner: owner)
+            try store.setHealthSettings(settings(), owner: owner)
+            let request = HealthHistoryRequest(start: Date().addingTimeInterval(-86400), end: Date().addingTimeInterval(86400), nutrition: true, weight: false)
+            let preview = try store.previewHealthHistory(owner: owner, request: request)
+            #expect(preview.unchangedCount == 0)
+            _ = try store.queueHealthHistory(owner: owner, preview: preview)
+            #expect(try store.healthExports(owner: owner).allSatisfy { $0.pending && $0.revision == 3 })
+            #expect(try store.healthExports(owner: owner).first { $0.kind == .energy }?.value == 999)
+        }
+    }
+
+    @Test func historicalPartialPermissionsRetryWithoutDuplicates() async throws {
+        try await withStore { store, _ in
+            let owner = UUID()
+            try store.saveLogs([log(owner: owner)])
+            try store.setHealthSettings(settings(), owner: owner)
+            let client = ExportTestClient()
+            client.denied = [.fat]
+            let repository = DefaultHealthIntegrationRepository(store: LocalHealthExportStorage(store: store), client: client, enabled: { true })
+            repository.selectOwner(owner)
+            let request = HealthHistoryRequest(start: Date().addingTimeInterval(-86400), end: Date().addingTimeInterval(86400), nutrition: true, weight: false)
+            let preview = try await repository.previewHistory(owner: owner, request: request)
+            let result = try await repository.shareHistory(owner: owner, preview: preview)
+            #expect(result.transferred == 3 && result.pending == 1)
+            client.denied = []
+            let retry = try await repository.shareHistory(owner: owner, preview: preview)
+            #expect(retry.transferred == 4 && retry.pending == 0)
+            #expect(client.saved.count == 4 && client.saveCalls == 4)
+        }
+    }
+
+    @Test func historyOwnerSwitchDuringNativeWriteCannotPublishPreviousResult() async throws {
+        try await withStore { store, _ in
+            let owner = UUID(), next = UUID()
+            try store.saveLogs([log(owner: owner)])
+            try store.setHealthSettings(settings(), owner: owner)
+            let client = ExportTestClient()
+            let repo = DefaultHealthIntegrationRepository(store: LocalHealthExportStorage(store: store), client: client, enabled: { true })
+            repo.selectOwner(owner)
+            let model = HealthHistoryExportViewModel(repository: repo, owner: owner)
+            await model.load()
+            await model.prepare()
+            #expect(model.preview?.foodCount == 1)
+            client.onSave = { _ in repo.selectOwner(next); model.selectOwner(next) }
+            await model.share()
+            #expect(model.result == nil && model.preview == nil && model.errorMessage == nil && !model.isBusy)
+            #expect(try store.healthExports(owner: next).isEmpty)
+            #expect(try store.healthExports(owner: owner).allSatisfy(\.pending))
+        }
+    }
+
+    @Test func legacyExportWithoutFingerprintStillDecodes() throws {
+        let record = HealthExportRecord(id: "legacy", kind: .energy, revision: 1, eventID: UUID(), pending: false,
+            type: .upsert, lastSuccess: Date())
+        var json = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(record)) as? [String: Any])
+        json.removeValue(forKey: "fingerprint")
+        let decoded = try JSONDecoder().decode(HealthExportRecord.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded.id == record.id && decoded.fingerprint == nil && decoded.lastSuccess != nil)
+    }
+
+    @Test func historyPeriodUsesCalendarDaysAcrossDSTAndClearsAfterOwnerChange() async throws {
+        try await withStore { store, _ in
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = try #require(TimeZone(identifier: "Europe/Oslo"))
+            let today = try #require(calendar.date(from: DateComponents(year: 2026, month: 3, day: 29, hour: 12)))
+            let owner = UUID()
+            try store.setHealthSettings(settings(), owner: owner)
+            let repo = DefaultHealthIntegrationRepository(store: LocalHealthExportStorage(store: store), client: ExportTestClient(), enabled: { true })
+            repo.selectOwner(owner)
+            let model = HealthHistoryExportViewModel(repository: repo, owner: owner, calendar: calendar, now: { today })
+            await model.load()
+            model.period = .week
+            await model.prepare()
+            let preview = try #require(model.preview)
+            #expect(calendar.component(.day, from: preview.request.start) == 23)
+            #expect(calendar.component(.day, from: preview.request.end) == 30)
+            #expect(preview.request.end.timeIntervalSince(preview.request.start) == 7 * 86400 - 3600)
+            model.period = .custom
+            model.startDate = today.addingTimeInterval(86400)
+            model.endDate = today.addingTimeInterval(-86400)
+            #expect(!model.canPreview && model.preview == nil)
+            model.selectOwner(UUID())
+            #expect(model.preview == nil && model.result == nil && !model.nutrition && !model.weight)
+        }
+    }
+
     @Test func samplePreservesUnitsPrecisionAndRevision() async throws {
         try await withStore { store, _ in
             let owner = UUID()

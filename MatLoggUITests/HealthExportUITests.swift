@@ -2,6 +2,60 @@ import XCTest
 
 final class HealthExportUITests: XCTestCase {
     @MainActor
+    func testHistoryPreviewConfirmationAndRepeatAvoidsNewValues() {
+        verifyHistoryExport(largeText: false)
+    }
+
+    @MainActor
+    func testHistoryExportSupportsLargestText() {
+        verifyHistoryExport(largeText: true)
+    }
+
+    @MainActor
+    private func verifyHistoryExport(largeText: Bool) {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--health-history-qa", "-UIPreferredContentSizeCategoryName",
+            largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        app.launch()
+        func reveal(_ element: XCUIElement, upwards: Bool = true) {
+            for _ in 0..<8 {
+                if element.exists && element.isHittable { return }
+                if upwards { app.swipeUp() } else { app.swipeDown() }
+            }
+        }
+        let history = app.buttons["health-history-open"]
+        reveal(history)
+        XCTAssertTrue(history.waitForExistence(timeout: 10))
+        history.tap()
+        let preview = app.buttons["health-history-preview"]
+        reveal(preview)
+        XCTAssertTrue(preview.waitForExistence(timeout: 5))
+        preview.tap()
+        let counts = app.staticTexts["1 matregistrering og 1 vektregistrering"]
+        reveal(counts)
+        XCTAssertTrue(counts.waitForExistence(timeout: 5))
+        let share = app.buttons["health-history-share"]
+        reveal(share)
+        share.tap()
+        let confirm = app.buttons["health-history-confirm"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        let transferred = app.staticTexts["5 Helse-verdier er overført, inkludert verdier som var delt fra før."]
+        reveal(transferred)
+        XCTAssertTrue(transferred.waitForExistence(timeout: 5))
+        reveal(preview, upwards: false)
+        preview.tap()
+        let unchanged = app.staticTexts["5 Helse-verdier. 5 er allerede overført eller ligger i kø uten endringer."]
+        reveal(unchanged)
+        XCTAssertTrue(unchanged.waitForExistence(timeout: 5))
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Historikkeksport – gjentatt forhåndsvisning"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testExportSettingsRemainSeparateFromReadingWithLargestText() {
         continueAfterFailure = false
         let app = XCUIApplication()

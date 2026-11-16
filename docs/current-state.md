@@ -567,3 +567,13 @@ tilgang og stopp av deling er brukerbekreftet på fysisk iPhone. Låst telefon,
 VoiceOver og samlet sletting av profilens Helse-overføringer er fortsatt
 verifiseringshull; TestFlight-kandidaten må kontrolleres etter arkivering. Slett egne overføringer før lokal profil slettes dersom
 kopier i Helse også skal fjernes.
+
+
+### Valgt Helse-historikk – 2026-11-16
+
+Branchen `codex/health-history-export` legger til «Del tidligere registreringer»
+med 7/30 dager eller egendefinert periode. Forhåndsvisning og bekreftelse
+kølegger kun valgt profils aktive datagrupper; opprinnelig dato og grunnlag
+bevares uten å endre matloggen. Fingeravtrykk og eksisterende stabile
+identiteter hindrer unødvendig ny overføring og duplikater. Standard aktivering
+av deling eksporterer fortsatt ikke historikk automatisk. Ikke distribuert.

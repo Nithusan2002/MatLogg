@@ -1111,3 +1111,21 @@ er uendret. Fysisk QA er delvis brukerbekreftet (se testing.md); låst telefon,
 VoiceOver, samlet Helse-sletting og den nye TestFlight-kandidaten gjenstår.
 Et tidligere arkiv uten funksjonen må bygges på nytt. Build 1 kan bare
 brukes dersom 2.0 (1) ikke allerede er lastet opp til Apple.
+
+
+## 2026-11-16 – Eksplisitt eksport av valgt Helse-historikk
+
+Brukeren godkjente periodevalg, forhåndsvisning og bekreftet eksport av
+historiske matlogger og manuell vekt. Gjenbruker HealthIntegrationRepository,
+LocalHealthExportStorage og eksisterende native eksportarbeider. Ny feature-
+ViewModel eier valgene; lagringsactoren leser/kølegger i én SQLite-transaksjon.
+Ingen domenedata eller serversynkhendelser endres. Profil, aktive delingsvalg,
+innhold og forbindelsesidentitet kontrolleres igjen ved bekreftelse.
+Et valgfritt SHA-256-fingeravtrykk i lokal eksport-JSON lar uendrede verdier
+hoppes over etter at payload er fjernet. Ingen SQL-migrasjon eller endring av
+canonical synkkontrakt v1. Eldre poster uten hash kan overføres én gang til
+med samme stabile HealthKit-identitet og høyere revisjon, uten ny identitet.
+Kansellerte ubekreftede revisjoner mister fingeravtrykket slik at historikken
+kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
+klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
+native historikk-QA kreves før funksjonen sendes til testerne.
