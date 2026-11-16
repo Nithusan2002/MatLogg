@@ -1161,3 +1161,21 @@ rulle mot skjermhodet via «Velg» fremfor •••-menyens upålitelige hittab
 Simulatorbilder av vanlig og stor tekst er gjennomgått. Manuell VoiceOver og
 Reduser bevegelse er ikke utført og gjenstår før release. Ingen backendendring,
 migrasjon, synkaktivering eller produksjonsutrulling inngår i denne kontrollen.
+
+
+### Release-aktivering av Helse-eksport – 2026-11-16
+
+18 tester i HealthExportTests og HealthExportMigrationTests bestod på
+«Spor Mat Health Release QA» (iPhone 16, iOS 18.6, Xcode 27.2), Debug,
+med xcodebuild test og dedikert DerivedData /tmp/MatLoggHealthReleaseQA.
+Ny test kontrollerer profilens avslåtte delingsstandarder og sperret serversynk.
+Release-appen ble kompilert, og generert Info.plist viste 2.0 (1) med
+NSHealthUpdateUsageDescription. Separat kjøring av FeatureFlags.swift uten
+DEBUG bekreftet aktivert Helse-funksjon og avslått backendSyncEnabled.
+Release-testmålet kunne ikke kompileres fordi eksisterende synktester bruker
+DomainUploadPolicy.integrationTesting, som bare finnes i Debug; ingen tester
+ble svekket. Nettsidens oppdaterte personverntekst bestod npm run build.
+Arkitekturkontroll: bare tilgjengelighetsflagget endres; MVVM, eksplisitt
+profilvalg, local-first, transaksjoner og eierskap er uendret. Ingen avvik.
+Ny native Release-/TestFlight-kontroll og tidligere dokumenterte fysiske
+QA-hull er fortsatt åpne. Ingen opplasting eller publisering ble utført.

@@ -22,3 +22,7 @@ matlogger (kalorier/makroer) og manuell vekt. Se `docs/decisions.md` og
 automatisk historikkeksport, atomisk lokal outbox og stabil identitet/revisjon
 ved retry/redigering/sletting. Eksport må ikke kopiere Helse-leste målinger til
 domenelagring eller server. Før Release kreves fysisk QA og egen go/no-go.
+
+Fra 2026-11-16 er eksisterende eksport godkjent for Release i 2.0 (1),
+fortsatt med eksplisitt opt-in og uten automatisk historikk. Debug krever
+fortsatt launch-argumentet. Se docs/decisions.md for QA-hull og arkivkrav.

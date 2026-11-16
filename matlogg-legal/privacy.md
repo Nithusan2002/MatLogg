@@ -1,5 +1,5 @@
 Personvernerklaering – Spor Mat
-Sist oppdatert: 11. november 2026
+Sist oppdatert: 16. november 2026
 
 Spor Mat het tidligere MatLogg. Navnebyttet endrer ikke hvordan personopplysninger behandles.
 
@@ -135,7 +135,7 @@ Uferdige registreringer
     gå tapt dersom appen avsluttes før lokal lagring er fullført.
 
 
-Utviklingsversjon: valgfri eksport til Apple Helse
-  - Eksport er deaktivert i Release. I særskilt aktivert utviklingsversjon kan du velge å dele kalorier/makroer fra matloggen og manuelt registrert vekt hver for seg. Appen ber om valgt skrivetilgang ved aktiv tilkobling. Eksisterende lesing fra Helse er uendret.
+Valgfri eksport til Apple Helse
+  - Fra versjon 2.0 kan du velge å dele kalorier/makroer fra matloggen og manuelt registrert vekt hver for seg. Appen ber om valgt skrivetilgang ved aktiv tilkobling. Eksisterende lesing fra Helse er uendret.
   - Nye eller endrede registreringer etter aktivering overføres med lagret verdi, enhet og tidspunkt. Tidligere historikk deles ikke automatisk. En lokal kø beholder ventende verdier for nye forsøk; etter fullføring beholdes bare identitet, revisjon og overføringsstatus. Dette sendes ikke til Spor Mats server.
   - Stopp av deling beholder allerede delte data i Helse. Du kan separat slette denne profilens delte data fra Helse før du sletter Spor Mat-profilen. Sletting av Spor Mat-data fjerner ikke automatisk kopier i Helse. Tilgang og videre bruk av andre apper styres i Helse og av Apples innstillinger.

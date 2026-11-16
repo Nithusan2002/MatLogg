@@ -1098,3 +1098,16 @@ lagring av måltider og dagsvalg. Separat navigasjon fra «Se dagslogg» og
 måltidsoverskrifter fjernes for å unngå to nesten like arbeidsflater.
 Eksisterende ViewModels og lokale skrivebaner gjenbrukes. Sammenfolding lagres
 kun i skjermens levetid; ingen migrasjon, synkkontrakt eller opplastingspolicy endres.
+
+
+## 2026-11-16 – Apple Helse-eksport i 2.0 (1)
+
+Brukeren godkjente å inkludere eksisterende Helse-eksport i versjon 2.0,
+build 1. Release viser delingsinnstillingene; hver profil velger fortsatt
+kalorier/makroer og manuell vekt eksplisitt, uten automatisk historikkeksport.
+Debug beholder launch-argumentet for å beskytte vanlig utviklingskjøring.
+Local-first, atomisk outbox, stabile identiteter og avslått serveropplasting
+er uendret. Fysisk QA er delvis brukerbekreftet (se testing.md); låst telefon,
+VoiceOver, samlet Helse-sletting og den nye TestFlight-kandidaten gjenstår.
+Et tidligere arkiv uten funksjonen må bygges på nytt. Build 1 kan bare
+brukes dersom 2.0 (1) ikke allerede er lastet opp til Apple.

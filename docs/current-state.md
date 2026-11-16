@@ -553,14 +553,17 @@ migrasjon, er grønne. Ingen full testpakke er kjørt. Fysisk iPhone var offline
 fysisk systemterminering, bildeimport og manuell tilgjengelighetskontroll gjenstår.
 
 
-### Apple Helse-eksport under utvikling – 2026-11-14
+### Apple Helse-eksport – 2026-11-16
 
-Branchen `codex/apple-health-integration` har eksport av kalorier/makroer og
-manuelt registrert vekt bak Debug-argumentet `--enable-healthkit-export`.
+Main har eksport av kalorier/makroer og manuelt registrert vekt.
+Release fra versjon 2.0 viser valgfri deling; Debug krever fortsatt
+`--enable-healthkit-export`.
 Innstillingene finnes under Apple Helse → Del til Apple Helse. Ingen automatisk
 historikkeksport. Lokal SQLite-outbox (schema 9) følger domenetransaksjoner;
 retry, redigering, sletting og angre bruker stabile identiteter/revisjoner.
 Dagens Helse-lesing og onboarding beholdes. Ingen server-/synkaktivering.
-Native skriving, tillatelser, tilbaketrekking og sletting må verifiseres fysisk
-før Release åpnes. Slett egne overføringer før lokal profil slettes dersom
+Native skriving, redigering/sletting/angre, makroer, manuell vekt, avslått
+tilgang og stopp av deling er brukerbekreftet på fysisk iPhone. Låst telefon,
+VoiceOver og samlet sletting av profilens Helse-overføringer er fortsatt
+verifiseringshull; TestFlight-kandidaten må kontrolleres etter arkivering. Slett egne overføringer før lokal profil slettes dersom
 kopier i Helse også skal fjernes.

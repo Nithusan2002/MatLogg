@@ -6,6 +6,17 @@ import Testing
 
 @MainActor
 struct HealthExportTests {
+    @Test func healthSharingRequiresProfileOptInAndNeverEnablesServerSync() {
+        #if DEBUG
+        #expect(FeatureFlags.healthIntegrationEnabled == ProcessInfo.processInfo.arguments.contains("--enable-healthkit-export"))
+        #else
+        #expect(FeatureFlags.healthIntegrationEnabled)
+        #endif
+        #expect(!FeatureFlags.backendSyncEnabled)
+        let defaults = HealthIntegrationSettings()
+        #expect(!defaults.shareNutrition && !defaults.shareWeight)
+    }
+
     private func withStore(_ operation: (LocalStore, URL) async throws -> Void) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
