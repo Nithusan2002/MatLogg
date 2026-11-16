@@ -571,9 +571,14 @@ kopier i Helse også skal fjernes.
 
 ### Valgt Helse-historikk – 2026-11-16
 
-Branchen `codex/health-history-export` legger til «Del tidligere registreringer»
+Main har «Del tidligere registreringer»
 med 7/30 dager eller egendefinert periode. Forhåndsvisning og bekreftelse
 kølegger kun valgt profils aktive datagrupper; opprinnelig dato og grunnlag
 bevares uten å endre matloggen. Fingeravtrykk og eksisterende stabile
 identiteter hindrer unødvendig ny overføring og duplikater. Standard aktivering
 av deling eksporterer fortsatt ikke historikk automatisk. Ikke distribuert.
+
+Fysisk QA 16. november: native historikkeksport, datoer, verdier, gjentatt
+overføring uten nye UUID-er og sletting av alle egne testposter bestod på
+iPhone 17 / iOS 27.3 i isolert QA-app. UI-flyten bestod også på telefonen.
+Se testing.md for resultater; nytt TestFlight-bygg er fortsatt ikke verifisert.

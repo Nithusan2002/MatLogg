@@ -38,7 +38,7 @@ final class HealthExportUITests: XCTestCase {
         let share = app.buttons["health-history-share"]
         reveal(share)
         share.tap()
-        let confirm = app.buttons["health-history-confirm"]
+        let confirm = app.buttons.matching(identifier: "health-history-confirm").firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         confirm.tap()
         let transferred = app.staticTexts["5 Helse-verdier er overført, inkludert verdier som var delt fra før."]

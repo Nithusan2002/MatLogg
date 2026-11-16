@@ -1210,3 +1210,44 @@ arkitekturavvik, SQL-migrasjon eller canonical kontraktsendring.
 Fysisk iPhone var utilgjengelig ved kontroll. Native historikkdatoer,
 gjentatt overføring og siste Release-/TestFlight-kandidat er derfor ikke
 verifisert på fysisk enhet. Ingen publisering eller opplasting ble utført.
+
+
+### Native Helse-historikk på fysisk iPhone – 2026-11-16
+
+På brukerens iPhone 17 med iOS 27.3 bestod
+HealthHistoryDeviceTests/testNativeHistoryDatesRepeatAndCleanup med Xcode
+27.2 og separat «MatLogg QA»-identitet. Testen bruker disponibel SQLite og
+AppleHealthKitClient mot ekte HealthKit. Én syntetisk matlogg (fire verdier)
+og én manuell vekt ble opprettet tre dager tilbake, før deling ble aktivert.
+Den eksplisitte historikkflyten overførte fem verdier. Eierskapsavgrensede
+HealthKit-spørringer bekreftet dato/klokkeslett, verdier/enheter og fem native
+poster. Ny eksport beholdt nøyaktig de samme fem UUID-ene. Profilavgrenset
+opprydding og etterfølgende spørringer bekreftet at alle testpostene var fjernet.
+Vanlig matlogg og andre Helse-poster ble ikke brukt eller slettet.
+
+Testen finnes kun med DEBUG og det eksplisitte byggeflagget
+HEALTH_HISTORY_NATIVE_QA. Kommandoen bruker fysisk destinasjon,
+-xcconfig build/physical-qa-20261014/PhysicalQA.xcconfig,
+-derivedDataPath /tmp/MatLoggPhysicalHomeQA,
+-only-testing:MatLoggTests/HealthHistoryDeviceTests,
+'OTHER_SWIFT_FLAGS=$(inherited) -D HEALTH_HISTORY_NATIVE_QA',
+-parallel-testing-enabled NO og -allowProvisioningUpdates.
+Helse-dialogen må godkjennes på telefonen. Lesespørringene er begrenset til
+QA-kildens egne testidentiteter; ingen ekte målinger føres i logger.
+Disponibel testdatabase beholdes ved oppryddingsfeil slik at identitetene
+ikke mistes. Resultat: /tmp/MatLoggNativeHistory-final-20261116.xcresult,
+TEST SUCCEEDED (1/1). Første native kjøring bestod også før forbedringen av
+feilopprydding: /tmp/MatLoggNativeHistory-20261116.xcresult.
+
+UI-flyten med simulert klient bestod separat på samme fysiske iPhone:
+HealthExportUITests/testHistoryPreviewConfirmationAndRepeatAvoidsNewValues,
+/tmp/MatLoggHistoryPhysicalUI-20261116.xcresult, TEST SUCCEEDED (1/1).
+Første UI-kjøring fant flere elementer med bekreftelsesknappens identifikator
+på iOS 27.3. Testen bruker nå første treff innen samme eksakte identifikator;
+kravene til oversikt, overføring og gjentatt eksport er beholdt.
+
+Skills: ios-swiftui, nutrition-privacy og qa-release. Ingen produktkode,
+arkitektur, transaksjoner, delingsstandarder eller serversynk ble endret.
+Native historikkdatoer, gjentatt eksport og opprydding er nå fysisk verifisert.
+Dette var Debug-QA, ikke en kontroll av et nytt distribuert TestFlight-bygg.
+VoiceOver og låst telefon er ikke dekket av denne kjøringen.
