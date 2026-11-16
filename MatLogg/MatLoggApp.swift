@@ -136,7 +136,9 @@ struct MatLoggContent: View {
             photoRepository: LocalMealPhotoRepository()
         ))
         let productAPI = APIService()
-        let barcodeRepository = DefaultBarcodeLookupRepository(products: databaseService, remote: productAPI)
+        let barcodeRepository: any BarcodeLookupRepository = isDemo
+            ? DemoBarcodeLookupRepository()
+            : DefaultBarcodeLookupRepository(products: databaseService, remote: productAPI)
         _productViewModel = StateObject(wrappedValue: ProductViewModel(
             repository: databaseService, catalogService: MatvaretabellenService(),
             barcodeService: productAPI, nameSearchService: productAPI,

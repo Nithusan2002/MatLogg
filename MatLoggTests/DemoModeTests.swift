@@ -4,6 +4,22 @@ import Testing
 @testable import MatLogg
 
 struct DemoModeTests {
+    @MainActor @Test func demoBarcodeRefreshKeepsBundledImageAndNeverNeedsRemoteData() async throws {
+        let catalog = try await DemoProductCatalog.load()
+        let expected = try #require(catalog.first { $0.barcodeEan == "7044416013141" })
+        var loads = 0
+        let repo = DemoBarcodeLookupRepository(loadCatalog: { loads += 1; return catalog })
+        let cached = try #require(await repo.cached(barcode: "7044416013141", owner: UUID()))
+        let refreshed = try #require(try await repo.refresh(cached, manually: false))
+        let manual = try #require(try await repo.refresh(cached, manually: true))
+        #expect(cached.localImageData == expected.localImageData && cached.localImageData != nil)
+        #expect(refreshed.localImageData == expected.localImageData && manual.localImageData == expected.localImageData)
+        #expect(refreshed.name == expected.name && refreshed.caloriesPer100g == expected.caloriesPer100g)
+        #expect(loads == 1)
+        #expect(await repo.cached(barcode: "1000000000000", owner: nil) == nil)
+        await #expect(throws: BarcodeLookupFailure.notFound) { _ = try await repo.fetch(barcode: "1000000000000") }
+    }
+
     @Test func missingBundledCatalogFailsWithoutPublishingProducts() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("\(UUID()).bundle")

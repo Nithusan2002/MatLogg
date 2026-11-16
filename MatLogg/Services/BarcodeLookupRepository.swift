@@ -155,3 +155,30 @@ extension Product {
             && barcodeEan?.isEmpty == false
     }
 }
+
+/// Demo barcode cards use the bundled snapshot, including images, without remote refresh.
+@MainActor
+final class DemoBarcodeLookupRepository: BarcodeLookupRepository {
+    private let loadCatalog: () async throws -> [Product]
+    private var catalog: [Product]?
+    init(loadCatalog: @escaping () async throws -> [Product] = { try await DemoProductCatalog.load() }) {
+        self.loadCatalog = loadCatalog
+    }
+    private func product(barcode: String) async throws -> Product? {
+        if catalog == nil { catalog = try await loadCatalog() }
+        return catalog?.first { $0.barcodeEan == barcode }
+    }
+    func cached(barcode: String, owner: UUID?) async -> Product? { try? await product(barcode: barcode) }
+    func fetch(barcode: String) async throws -> Product {
+        guard let product = try await product(barcode: barcode) else { throw BarcodeLookupFailure.notFound }
+        return product
+    }
+    func refresh(_ product: Product, manually: Bool) async throws -> Product? {
+        guard product.canRefreshCatalogData else {
+            if manually { throw BarcodeLookupFailure.protectedProduct }
+            return nil
+        }
+        guard let barcode = product.barcodeEan else { return nil }
+        return try await self.product(barcode: barcode)
+    }
+}

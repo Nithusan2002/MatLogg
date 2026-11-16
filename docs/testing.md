@@ -1251,3 +1251,18 @@ arkitektur, transaksjoner, delingsstandarder eller serversynk ble endret.
 Native historikkdatoer, gjentatt eksport og opprydding er nå fysisk verifisert.
 Dette var Debug-QA, ikke en kontroll av et nytt distribuert TestFlight-bygg.
 VoiceOver og låst telefon er ikke dekket av denne kjøringen.
+
+
+### Stabil strekkodedemo og kandidat 2.0 (3) – 2026-11-16
+
+CI-feilen ved product-hero-image skyldtes at demoens pakkebilde kunne bli
+byttet ut ved automatisk eksternt katalogoppslag. Demomodus bruker nå
+DemoBarcodeLookupRepository med pakket katalog for cached/fetch/refresh,
+uten eksterne strekkodeoppslag. Ordinær modus bruker fortsatt samme
+DefaultBarcodeLookupRepository og API som før. Ukjent demostrekkode gir
+notFound. Fem DemoModeTests samt
+MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs bestod på
+«Spor Mat Health Release QA», iOS 18.6, Xcode 27.2. Logg:
+/tmp/MatLoggDemoBarcodeFix.log. Testens krav til bilde, riktig produkt og
+lagringskvittering er beholdt. Ingen domeneskriving eller synkendring fra
+rettingen. Buildnummeret er satt til 3 for neste 2.0-kandidat.
