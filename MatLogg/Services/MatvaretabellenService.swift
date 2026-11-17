@@ -36,7 +36,7 @@ nonisolated final class MatvaretabellenService: @unchecked Sendable {
     func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
         let catalog = try await loadCatalog()
         return try await BackgroundWork.run {
-            catalog.filter { catalogSearchMatches(query: query, name: $0.name, brand: $0.brand) }
+            catalog.filter { FoodSearchMatcher.matches(query: query, name: $0.name, brand: $0.brand) }
         }
     }
 
@@ -157,18 +157,4 @@ nonisolated private func extractNutrient(_ dict: [String: Any], keys: [String], 
         guard let nutrientId = item["nutrientId"] as? String else { return false }
         return nutrientIds.contains(nutrientId) && item["quantity"] is NSNumber
     }.flatMap { ($0["quantity"] as? NSNumber)?.floatValue }
-}
-
-nonisolated private func catalogSearchMatches(query: String, name: String, brand: String?) -> Bool {
-    func normalized(_ value: String) -> String {
-        let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-        return String(folded.map { $0.isLetter || $0.isNumber ? $0 : " " })
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    let tokens = normalized(query).split(separator: " ")
-    guard !tokens.isEmpty else { return false }
-    let searchableText = normalized([name, brand].compactMap { $0 }.joined(separator: " "))
-    return tokens.allSatisfy { searchableText.contains($0) }
 }

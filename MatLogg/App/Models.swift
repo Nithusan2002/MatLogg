@@ -406,6 +406,14 @@ nonisolated enum NutritionSource: String, Codable, Sendable {
     case matvaretabellen
     case openFoodFacts
     case user
+
+    var displayName: String {
+        switch self {
+        case .matvaretabellen: "Matvaretabellen"
+        case .openFoodFacts: "Open Food Facts"
+        case .user: "Brukeroppgitt"
+        }
+    }
 }
 
 nonisolated enum ImageSource: String, Codable, Sendable {

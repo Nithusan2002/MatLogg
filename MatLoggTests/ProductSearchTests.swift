@@ -104,6 +104,28 @@ struct ProductSearchTests {
         #expect(products.map(\.id) == ["1"])
     }
 
+    @Test func bundledCatalogSearchNormalizesCaseDiacriticsAndPunctuation() async throws {
+        let item = MatvaretabellenProduct(
+            id: "2",
+            name: "Crème-brûlée",
+            brand: "Maison & Co",
+            category: nil,
+            caloriesPer100g: 250,
+            proteinGPer100g: 4,
+            carbsGPer100g: 35,
+            fatGPer100g: 10,
+            sugarGPer100g: nil,
+            fiberGPer100g: nil,
+            sodiumMgPer100g: nil
+        )
+        let data = try JSONEncoder().encode([item])
+        let service = MatvaretabellenService(bundledData: { data })
+
+        let products = try await service.searchProducts(query: "MAISON brulee")
+
+        #expect(products.map(\.id) == ["2"])
+    }
+
     @Test func productionMatvaretabellenSnapshotLoadsFromAppBundle() async throws {
         let products = try await MatvaretabellenService().fetchCommonFoods()
 
