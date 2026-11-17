@@ -9,7 +9,10 @@ nonisolated final class LocalStore: @unchecked Sendable {
     static let sharedResult: Result<LocalStore, Error> = Result {
         try LocalStore(databaseURL: nil)
     }
-    static let latestSchemaVersion = 9
+    static let latestSchemaVersion = 13
+    private var cloudLogRoutingAllowed = false
+    private var cloudLogReadOwner: UUID?
+    private var cloudLogChangedInTransaction = false
     private let healthWritesEnabled: Bool
 
     private nonisolated static let logger = Logger(subsystem: "com.nithusan.MatLogg", category: "LocalStore")
@@ -67,7 +70,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
-                for table in ["health_exports", "health_settings", "food_logging_drafts", "product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
+                for table in ["cloud_log_products", "cloud_log_connections", "cloud_log_bootstrap", "cloud_log_bootstrap_rows", "cloud_log_bootstrap_local", "cloud_log_recovery", "cloud_log_conflicts", "cloud_log_outbox", "cloud_log_entities", "cloud_log_state", "health_exports", "health_settings", "food_logging_drafts", "product_drafts", "catalog_submissions", "favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights", "match_mappings", "matvare_cache", "sync_queue", "products"] {
                     try execute("DELETE FROM \(table);")
                 }
                 try execute("COMMIT;")
@@ -99,6 +102,9 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
+                for table in ["cloud_log_products", "cloud_log_connections", "cloud_log_bootstrap", "cloud_log_bootstrap_rows", "cloud_log_bootstrap_local", "cloud_log_recovery", "cloud_log_state", "cloud_log_entities", "cloud_log_outbox", "cloud_log_conflicts"] {
+                    guard try cloudRowsLocked("SELECT owner FROM \(table) WHERE owner=? LIMIT 1;", values: [localOwnerId.uuidString], text: true).isEmpty else { throw CloudLogError.invalidData }
+                }
                 for table in ["goals", "logs", "weights", "water_logs", "saved_meals", "food_logging_drafts"] {
                     try rewriteUserIdInJSONLocked(table: table, from: localOwnerId, to: accountOwnerId)
                 }
@@ -125,6 +131,9 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try queue.sync {
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
+                for table in ["cloud_log_products", "cloud_log_connections", "cloud_log_bootstrap", "cloud_log_bootstrap_rows", "cloud_log_bootstrap_local", "cloud_log_recovery", "cloud_log_conflicts", "cloud_log_outbox", "cloud_log_entities", "cloud_log_state"] {
+                    try healthSQLLocked("DELETE FROM \(table) WHERE owner = ?;", values: [ownerId.uuidString])
+                }
                 for table in ["favorites", "scans", "logs", "water_logs", "saved_meals", "goals", "weights"] {
                     try deleteOwnerRowsLocked(table: table, column: "userId", ownerId: ownerId)
                 }
@@ -256,8 +265,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             try requireLoggingDraftLocked(draft)
             guard try loggingDraftLocked(owner: draft.userId)?.step == .amount else { throw LoggingDraftError.conflict }
             try requireDraftEntityOwnerLocked(table: "logs", id: log.id, ownerColumn: "userId", owner: log.userId)
-            try saveLogLocked(log, data: encoder.encode(log))
-            try enqueueSyncEventLocked(ownerUserId: log.userId, type: .logUpsert, entityId: log.id.uuidString, payload: syncEncoder.encode(LogSyncPayload(log: log)))
+            try saveOrdinaryLogLocked(log)
             try deleteLoggingDraftLocked(id: draft.id, owner: draft.userId)
         }
     }
@@ -380,19 +388,53 @@ nonisolated final class LocalStore: @unchecked Sendable {
                    !portion.matches(amount: Double(log.amountG), unit: log.resolvedAmountUnit) {
                     throw LocalStoreError.invalidStoredData("Porsjonen samsvarer ikke med loggens mengde")
                 }
-                let data = try encoder.encode(log)
-                let payload = try syncEncoder.encode(LogSyncPayload(log: log))
-                try saveLogLocked(log, data: data)
-                try enqueueSyncEventLocked(ownerUserId: log.userId, type: .logUpsert, entityId: log.id.uuidString, payload: payload)
+                try saveOrdinaryLogLocked(log)
             }
         }
     }
 
-    private func saveLogLocked(_ log: FoodLog, data: Data) throws {
+    #if DEBUG
+    /// Isolated recovery spike only. No production transport or UI calls this method.
+    /// Refuses differing local data; repeated identical delivery is a no-op.
+    func restoreLogSnapshotForTesting(_ log: FoodLog, authenticatedOwner: UUID) throws {
+        guard log.userId == authenticatedOwner,
+              [log.amountG, log.calories, log.proteinG, log.carbsG, log.fatG].allSatisfy({ $0.isFinite && $0 >= 0 }),
+              log.amountG > 0,
+              ["frokost", "lunsj", "middag", "snacks"].contains(log.mealType),
+              [log.loggedDate, log.loggedTime, log.createdAt].allSatisfy({ $0.timeIntervalSince1970.isFinite }),
+              log.portionSelection?.matches(amount: Double(log.amountG), unit: log.resolvedAmountUnit) != false else {
+            throw LocalStoreError.invalidStoredData("Ugyldig loggsnapshot eller eier")
+        }
+        let data = try encoder.encode(log)
+        try performTransaction {
+            let sql = "SELECT json FROM logs WHERE id = ?;"
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, log.id.uuidString, -1, SQLITE_TRANSIENT)
+            let status = sqlite3_step(stmt)
+            if status == SQLITE_ROW {
+                guard let blob = sqlite3_column_blob(stmt, 0) else { throw databaseError() }
+                let existing = Data(bytes: blob, count: Int(sqlite3_column_bytes(stmt, 0)))
+                // JSON object comparison ignores key ordering without rounding stored numbers.
+                let old = try JSONSerialization.jsonObject(with: existing) as? NSDictionary
+                let incoming = try JSONSerialization.jsonObject(with: data) as? NSDictionary
+                guard old == incoming else {
+                    throw LocalStoreError.invalidStoredData("Lokal logg finnes med annet innhold")
+                }
+                return
+            }
+            guard status == SQLITE_DONE else { throw databaseError() }
+            try saveLogLocked(log, data: data, exportToHealth: false)
+        }
+    }
+    #endif
+
+    private func saveLogLocked(_ log: FoodLog, data: Data, exportToHealth: Bool = true) throws {
         if let owner = ownerUserIdLocked(table: "logs", id: log.id), owner != log.userId {
             throw HealthIntegrationError.invalidSample
         }
-        try enqueueHealthLogLocked(log)
+        if exportToHealth { try enqueueHealthLogLocked(log) }
         let sql = """
         INSERT OR REPLACE INTO logs(id, userId, productId, mealType, loggedDate, loggedTime, calories, protein, carbs, fat, json)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -423,6 +465,14 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try performTransaction {
             for id in ids {
                 guard let ownerUserId = ownerUserIdLocked(table: "logs", id: id) else { continue }
+                if cloudLogRoutingAllowed, let connection = try cloudLogConnectionLocked(owner: ownerUserId) {
+                    if connection.enabled { try requireCloudLogReviewedLocked(owner: ownerUserId, id: id) }
+                    try enqueueHealthDeletionLocked(owner: ownerUserId, entity: id, kinds: HealthDataKind.allCases.filter { $0 != .weight })
+                    try deleteLogLocked(id)
+                    try enqueueCloudLogLocked(owner: ownerUserId, id: id, device: connection.device, payload: nil)
+                    if !connection.enabled { try quarantineCloudLogLocked(owner: ownerUserId, id: id) }
+                    continue
+                }
                 let payload = try syncEncoder.encode(SyncEventIdPayload(id: id.uuidString))
                 try enqueueHealthDeletionLocked(owner: ownerUserId, entity: id, kinds: HealthDataKind.allCases.filter { $0 != .weight })
                 try deleteLogLocked(id)
@@ -839,17 +889,19 @@ nonisolated final class LocalStore: @unchecked Sendable {
 
     func getProduct(_ id: UUID) -> Product? {
         queue.sync {
-            let sql = "SELECT json FROM products WHERE id = ? LIMIT 1;"
+            let owner = cloudLogRoutingAllowed ? cloudLogReadOwner : nil
+            let sql = "SELECT json FROM products WHERE id = ?" + (owner == nil ? "" : " AND (ownerUserId=? OR ownerUserId IS NULL)") + " LIMIT 1;"
             var stmt: OpaquePointer?
             sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
             sqlite3_bind_text(stmt, 1, id.uuidString, -1, SQLITE_TRANSIENT)
+            if let owner { sqlite3_bind_text(stmt, 2, owner.uuidString, -1, SQLITE_TRANSIENT) }
             defer { sqlite3_finalize(stmt) }
             if sqlite3_step(stmt) == SQLITE_ROW {
                 if let data = readBlob(stmt, index: 0) {
                     return decode(Product.self, from: data, entity: "product")
                 }
             }
-            return nil
+            return cloudLogSnapshotProductsLocked(ids: [id])[id]
         }
     }
 
@@ -862,7 +914,8 @@ nonisolated final class LocalStore: @unchecked Sendable {
             defer { PerformanceSignposts.end(timing) }
             let orderedIDs = Array(ids)
             let placeholders = Array(repeating: "?", count: orderedIDs.count).joined(separator: ",")
-            let sql = "SELECT id, json FROM products WHERE id IN (\(placeholders));"
+            let owner = cloudLogRoutingAllowed ? cloudLogReadOwner : nil
+            let sql = "SELECT id, json FROM products WHERE id IN (\(placeholders))" + (owner == nil ? "" : " AND (ownerUserId=? OR ownerUserId IS NULL)") + ";"
             var stmt: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [:] }
             defer { sqlite3_finalize(stmt) }
@@ -870,6 +923,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             for (index, id) in orderedIDs.enumerated() {
                 sqlite3_bind_text(stmt, Int32(index + 1), id.uuidString, -1, SQLITE_TRANSIENT)
             }
+            if let owner { sqlite3_bind_text(stmt, Int32(orderedIDs.count + 1), owner.uuidString, -1, SQLITE_TRANSIENT) }
 
             var products: [UUID: Product] = [:]
             while sqlite3_step(stmt) == SQLITE_ROW {
@@ -879,6 +933,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
                       let product = decode(Product.self, from: data, entity: "product") else { continue }
                 products[id] = product
             }
+            products.merge(cloudLogSnapshotProductsLocked(ids: ids.subtracting(products.keys))) { current, _ in current }
             return products
         }
     }
@@ -1592,6 +1647,10 @@ nonisolated final class LocalStore: @unchecked Sendable {
                 try execute("BEGIN IMMEDIATE TRANSACTION;")
                 do {
                     switch targetVersion {
+                    case 13:
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_products(owner TEXT NOT NULL, id TEXT NOT NULL, json BLOB NOT NULL, PRIMARY KEY(owner,id));")
+                    case 12:
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_connections(owner TEXT PRIMARY KEY, json BLOB NOT NULL);")
                     case 1:
                         try migrateToVersion1Locked()
                     case 2:
@@ -1604,6 +1663,18 @@ nonisolated final class LocalStore: @unchecked Sendable {
                         try migrateToVersion5Locked()
                     case 6:
                         try migrateToVersion6Locked()
+                    case 11:
+                        if !columnNamesLocked(table: "cloud_log_state").contains("epoch") { try execute("ALTER TABLE cloud_log_state ADD COLUMN epoch TEXT;") }
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_bootstrap(owner TEXT PRIMARY KEY, json BLOB NOT NULL);")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_bootstrap_rows(owner TEXT NOT NULL, id TEXT NOT NULL, json BLOB NOT NULL, PRIMARY KEY(owner,id));")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_bootstrap_local(owner TEXT NOT NULL, id TEXT NOT NULL, json BLOB NOT NULL, PRIMARY KEY(owner,id));")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_recovery(owner TEXT NOT NULL, id TEXT NOT NULL, json BLOB NOT NULL, PRIMARY KEY(owner,id));")
+                    case 10:
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_state(owner TEXT PRIMARY KEY, cursor INTEGER NOT NULL DEFAULT 0);")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_entities(owner TEXT NOT NULL, id TEXT NOT NULL, revision INTEGER NOT NULL, deleted INTEGER NOT NULL, json BLOB, PRIMARY KEY(owner,id));")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_outbox(event TEXT PRIMARY KEY, owner TEXT NOT NULL, entity TEXT NOT NULL, status TEXT NOT NULL, json BLOB NOT NULL);")
+                        try execute("CREATE INDEX IF NOT EXISTS cloud_log_outbox_owner ON cloud_log_outbox(owner);")
+                        try execute("CREATE TABLE IF NOT EXISTS cloud_log_conflicts(event TEXT PRIMARY KEY, owner TEXT NOT NULL, json BLOB NOT NULL);")
                     case 9:
                         try execute("CREATE TABLE health_settings(userId TEXT PRIMARY KEY, json BLOB NOT NULL);")
                         try execute("CREATE TABLE health_exports(id TEXT PRIMARY KEY, userId TEXT NOT NULL, json BLOB NOT NULL);")
@@ -1925,21 +1996,23 @@ nonisolated final class LocalStore: @unchecked Sendable {
     private func performTransaction(_ write: () throws -> Void) throws {
         let timing = PerformanceSignposts.begin("Store.Transaction.Total")
         defer { PerformanceSignposts.end(timing) }
-        let exportsChanged = try queue.sync {
+        let changed = try queue.sync {
             exportChangedInTransaction = false
+            cloudLogChangedInTransaction = false
             let execution = PerformanceSignposts.begin("Store.Transaction.Execute")
             defer { PerformanceSignposts.end(execution) }
             try execute("BEGIN IMMEDIATE TRANSACTION;")
             do {
                 try write()
                 try execute("COMMIT;")
-                return exportChangedInTransaction
+                return (exportChangedInTransaction, cloudLogChangedInTransaction)
             } catch {
                 _ = sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
                 throw error
             }
         }
-        if exportsChanged { NotificationCenter.default.post(name: .healthDomainDidChange, object: nil) }
+        if changed.0 { NotificationCenter.default.post(name: .healthDomainDidChange, object: nil) }
+        if changed.1 { NotificationCenter.default.post(name: .cloudLogNeedsSync, object: nil) }
     }
 
     private func enqueueSyncEventLocked(ownerUserId: UUID, type: SyncEventType, entityId: String?, payload: Data) throws {
@@ -2278,7 +2351,7 @@ private nonisolated struct ExplicitNullableString: Codable {
 // MARK: - Local-only HealthKit outbox (same transaction as domain writes)
 extension LocalStore {
 
-    private struct HistoryValue {
+    nonisolated private struct HistoryValue {
         let entity: UUID
         let kind: HealthDataKind
         let value: Double
@@ -2540,6 +2613,406 @@ extension LocalStore {
             record.amountUnit = nil
             try writeHealthExportLocked(record, owner: owner)
             exportChangedInTransaction = true
+        }
+    }
+}
+
+// MARK: - Explicit v2 log repository storage (not connected to normal app writes)
+nonisolated extension LocalStore: CloudLogSyncStorage {
+    func saveCloudLog(_ value: CloudLogAggregate, owner: UUID, device: UUID) throws {
+        try value.validate(owner: owner, id: value.log.id)
+        try performTransaction {
+            try requireCloudLogReviewedLocked(owner:owner,id:value.log.id)
+            guard try cloudChangeLocked(owner: owner, id: value.log.id)?.deleted != true else { throw CloudLogError.conflict }
+            try saveLogLocked(value.log, data: encoder.encode(value.log))
+            try enqueueCloudLogLocked(owner: owner, id: value.log.id, device: device, payload: value)
+        }
+    }
+    func deleteCloudLog(id: UUID, owner: UUID, device: UUID) throws {
+        try performTransaction {
+            try requireCloudLogReviewedLocked(owner:owner,id:id)
+            if let existing = ownerUserIdLocked(table: "logs", id: id), existing != owner { throw CloudLogError.invalidData }
+            try enqueueHealthDeletionLocked(owner: owner, entity: id, kinds: HealthDataKind.allCases.filter { $0 != .weight })
+            try healthSQLLocked("DELETE FROM logs WHERE id = ? AND userId = ?;", values: [id.uuidString, owner.uuidString])
+            try enqueueCloudLogLocked(owner: owner, id: id, device: device, payload: nil)
+        }
+    }
+    private func enqueueCloudLogLocked(owner: UUID, id: UUID, device: UUID, payload: CloudLogAggregate?) throws {
+        if let payload { try cacheCloudLogProductLocked(payload.product, owner: owner) }
+        let pending = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? LIMIT 1;", values: [owner.uuidString,id.uuidString])
+        var mutation = CloudLogMutation(eventId: UUID(), deviceId: device, entityId: id, schemaVersion: 2,
+            type: payload == nil ? "log.delete" : "log.upsert", baseRevision: pending.isEmpty ? (try cloudChangeLocked(owner: owner,id: id)?.revision ?? 0) : nil, payload: payload)
+        mutation.historyEpoch = try cloudLogEpochLocked(owner: owner)
+        try healthSQLLocked("INSERT INTO cloud_log_outbox(event,owner,entity,status,json) VALUES(?,?,?,'pending',?);",
+            values: [mutation.eventId.uuidString, owner.uuidString, id.uuidString], data: encoder.encode(mutation))
+        if cloudLogRoutingAllowed, try cloudLogConnectionLocked(owner: owner)?.enabled == true { cloudLogChangedInTransaction = true }
+    }
+    // Freezes baseRevision before network IO. Retries retain identical identity and payload.
+    func nextCloudLogMutation(owner: UUID) throws -> CloudLogMutation? {
+        var result: CloudLogMutation?
+        try performTransaction {
+            let rows = try healthRowsLocked("SELECT q.json FROM cloud_log_outbox q WHERE q.owner = ? AND q.status = 'pending' AND NOT EXISTS (SELECT 1 FROM cloud_log_outbox p WHERE p.owner=q.owner AND p.entity=q.entity AND p.rowid<q.rowid) ORDER BY q.rowid LIMIT 1;", owner: owner)
+            guard let data = rows.first else { return }
+            var mutation = try decoder.decode(CloudLogMutation.self, from: data)
+            guard let epoch = try cloudLogEpochLocked(owner: owner), mutation.historyEpoch == epoch else { throw CloudLogError.bootstrapRequired }
+            guard try cloudRowsLocked("SELECT json FROM cloud_log_bootstrap WHERE owner=?;", values:[owner.uuidString]).isEmpty else { throw CloudLogError.bootstrapRequired }
+            if mutation.baseRevision == nil {
+                let state = try cloudChangeLocked(owner: owner, id: mutation.entityId)
+                mutation.baseRevision = state?.revision ?? 0
+                try healthSQLLocked("UPDATE cloud_log_outbox SET json=?3 WHERE event=?1 AND owner=?2;", values: [mutation.eventId.uuidString, owner.uuidString], data: encoder.encode(mutation))
+            }
+            result = mutation
+        }
+        return result
+    }
+    private func cloudChangeLocked(owner: UUID, id: UUID) throws -> CloudLogChange? {
+        let rows = try cloudRowsLocked("SELECT json FROM cloud_log_entities WHERE owner=? AND id=?;", values: [owner.uuidString,id.uuidString])
+        return try rows.first.map { try decoder.decode(CloudLogChange.self, from: $0) }
+    }
+    func cloudLogCursor(owner: UUID) throws -> Int64 {
+        try queue.sync {
+            let rows = try cloudRowsLocked("SELECT CAST(cursor AS TEXT) FROM cloud_log_state WHERE owner=?;", values: [owner.uuidString], text: true)
+            return rows.first.flatMap { Int64(String(decoding: $0, as: UTF8.self)) } ?? 0
+        }
+    }
+    func cloudLogConflicts(owner: UUID) throws -> [CloudLogReceipt] {
+        try queue.sync { try healthRowsLocked("SELECT json FROM cloud_log_conflicts WHERE owner = ? ORDER BY rowid;", owner: owner).map { try decoder.decode(CloudLogReceipt.self, from: $0) } }
+    }
+    func cloudLogConflictCandidates(owner: UUID) throws -> [CloudLogConflict] {
+        try queue.sync {
+            try healthRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND status='conflict' ORDER BY rowid;", owner: owner).map { data in
+                let local = try decoder.decode(CloudLogMutation.self, from: data)
+                let rows = try cloudRowsLocked("SELECT json FROM cloud_log_conflicts WHERE event=? AND owner=?;", values: [local.eventId.uuidString,owner.uuidString])
+                guard let receipt = rows.first else { throw CloudLogError.invalidData }
+                guard let current = try cloudChangeLocked(owner: owner, id: local.entityId) else { throw CloudLogError.invalidData }
+                return CloudLogConflict(local: local, server: try decoder.decode(CloudLogReceipt.self, from: receipt), current: current)
+            }
+        }
+    }
+    func cloudLogAggregates(owner: UUID) throws -> [CloudLogAggregate] {
+        try queue.sync {
+            let changes = try healthRowsLocked("SELECT json FROM cloud_log_entities WHERE owner=? ORDER BY id;", owner: owner)
+                .map { try decoder.decode(CloudLogChange.self, from: $0) }
+            let tombstones = Set(changes.filter(\.deleted).map(\.entityId))
+            var values = Dictionary(uniqueKeysWithValues: changes.compactMap { c in c.payload.map { (c.entityId,$0) } })
+            for data in try healthRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? ORDER BY id;", owner: owner) {
+                let local = try decoder.decode(CloudLogAggregate.self, from: data)
+                if !tombstones.contains(local.log.id) { values[local.log.id] = local }
+            }
+            for data in try healthRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? ORDER BY rowid;", owner: owner) {
+                let mutation = try decoder.decode(CloudLogMutation.self, from: data)
+                if tombstones.contains(mutation.entityId) { continue }
+                values[mutation.entityId] = mutation.payload
+            }
+            return values.sorted { $0.key.uuidString < $1.key.uuidString }.map(\.value)
+        }
+    }
+    func applyCloudLogReceipt(_ receipt: CloudLogReceipt, mutation: CloudLogMutation, owner: UUID) throws {
+        guard receipt.eventId == mutation.eventId, receipt.change.entityId == mutation.entityId,
+              ["applied", "conflict"].contains(receipt.status) else { throw CloudLogError.invalidResponse }
+        try performTransaction {
+            guard receipt.historyEpoch == mutation.historyEpoch, receipt.historyEpoch == (try cloudLogEpochLocked(owner:owner)), receipt.historyEpoch != nil else { throw CloudLogError.historyEpochMismatch }
+            let rows = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE event=? AND owner=?;", values: [mutation.eventId.uuidString,owner.uuidString])
+            guard let stored = rows.first, try decoder.decode(CloudLogMutation.self, from: stored).eventId == mutation.eventId else { throw CloudLogError.invalidResponse }
+            if receipt.status == "conflict" {
+                try healthSQLLocked("UPDATE cloud_log_outbox SET status='conflict' WHERE event=? AND owner=?;", values: [mutation.eventId.uuidString,owner.uuidString])
+                try healthSQLLocked("INSERT OR REPLACE INTO cloud_log_conflicts(event,owner,json) VALUES(?,?,?);", values: [mutation.eventId.uuidString,owner.uuidString], data: encoder.encode(receipt))
+            } else {
+                try healthSQLLocked("DELETE FROM cloud_log_outbox WHERE event=? AND owner=?;", values: [mutation.eventId.uuidString,owner.uuidString])
+            }
+            try applyCloudChangeLocked(receipt.change, owner: owner)
+            if receipt.status == "applied" {
+                // Freeze the successor against this ACK, before any pull can change its base.
+                let next = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? AND status='pending' ORDER BY rowid LIMIT 1;",values:[owner.uuidString,mutation.entityId.uuidString])
+                if let data = next.first {
+                    var successor = try decoder.decode(CloudLogMutation.self,from:data)
+                    if successor.baseRevision == nil {
+                        successor.baseRevision = receipt.change.revision
+                        try healthSQLLocked("UPDATE cloud_log_outbox SET json=?3 WHERE event=?1 AND owner=?2;",values:[successor.eventId.uuidString,owner.uuidString],data:encoder.encode(successor))
+                    }
+                }
+            }
+        }
+    }
+    func applyCloudLogPage(_ page: CloudLogPage, after cursor: Int64, owner: UUID) throws {
+        guard page.owner == owner, page.cursor >= cursor, page.changes.count <= 100,
+              page.changes.allSatisfy({ $0.revision > cursor && $0.revision <= page.cursor }),
+              zip(page.changes, page.changes.dropFirst()).allSatisfy({ $0.revision < $1.revision }),
+              page.changes.last?.revision == page.cursor || (page.changes.isEmpty && page.cursor == cursor) else { throw CloudLogError.invalidResponse }
+        try performTransaction {
+            guard page.historyEpoch != nil, page.historyEpoch == (try cloudLogEpochLocked(owner:owner)) else { throw CloudLogError.historyEpochMismatch }
+            let current = try cloudRowsLocked("SELECT CAST(cursor AS TEXT) FROM cloud_log_state WHERE owner=?;", values: [owner.uuidString], text: true)
+            guard (current.first.flatMap { Int64(String(decoding: $0, as: UTF8.self)) } ?? 0) == cursor else { throw CloudLogError.invalidResponse }
+            for change in page.changes { try applyCloudChangeLocked(change, owner: owner) }
+            try healthSQLLocked("INSERT INTO cloud_log_state(owner,cursor) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET cursor=excluded.cursor;", values: [owner.uuidString,String(page.cursor)])
+        }
+    }
+    private func applyCloudChangeLocked(_ change: CloudLogChange, owner: UUID) throws {
+        guard change.revision > 0, change.deleted == (change.payload == nil) else { throw CloudLogError.invalidResponse }
+        try change.payload?.validate(owner: owner, id: change.entityId)
+        if let previous = try cloudChangeLocked(owner: owner, id: change.entityId), previous.revision > change.revision { return }
+        if let product = change.payload?.product { try cacheCloudLogProductLocked(product, owner: owner) }
+        else if let product = try cloudChangeLocked(owner: owner, id: change.entityId)?.payload?.product { try cacheCloudLogProductLocked(product, owner: owner) }
+        let pending = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? LIMIT 1;", values: [owner.uuidString,change.entityId.uuidString])
+        try healthSQLLocked("INSERT INTO cloud_log_entities(owner,id,revision,deleted,json) VALUES(?,?,?,?,?) ON CONFLICT(owner,id) DO UPDATE SET revision=excluded.revision,deleted=excluded.deleted,json=excluded.json;", values: [owner.uuidString,change.entityId.uuidString,String(change.revision),change.deleted ? "1":"0"], data: encoder.encode(change))
+        if change.deleted {
+            try healthSQLLocked("DELETE FROM logs WHERE id=? AND userId=?;", values: [change.entityId.uuidString,owner.uuidString])
+        } else if pending.isEmpty, try cloudRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? AND id=?;", values:[owner.uuidString,change.entityId.uuidString]).isEmpty, let aggregate = change.payload {
+            try saveLogLocked(aggregate.log, data: encoder.encode(aggregate.log), exportToHealth: false)
+        }
+    }
+    private func cloudRowsLocked(_ sql: String, values: [String], text: Bool = false) throws -> [Data] {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
+        defer { sqlite3_finalize(stmt) }
+        for (index,value) in values.enumerated() { sqlite3_bind_text(stmt, Int32(index+1), value, -1, SQLITE_TRANSIENT) }
+        var rows: [Data] = []
+        while true {
+            let status = sqlite3_step(stmt)
+            if status == SQLITE_DONE { return rows }
+            guard status == SQLITE_ROW else { throw databaseError() }
+            if text, let pointer = sqlite3_column_text(stmt,0) { rows.append(Data(String(cString:pointer).utf8)) }
+            else if let pointer = sqlite3_column_blob(stmt,0) { rows.append(Data(bytes:pointer,count:Int(sqlite3_column_bytes(stmt,0)))) }
+            else { throw CloudLogError.invalidData }
+        }
+    }
+}
+
+nonisolated extension LocalStore {
+    private func cacheCloudLogProductLocked(_ product: Product, owner: UUID) throws {
+        try healthSQLLocked("INSERT INTO cloud_log_products(owner,id,json) VALUES(?,?,?) ON CONFLICT(owner,id) DO UPDATE SET json=excluded.json;", values:[owner.uuidString,product.id.uuidString], data:encoder.encode(product))
+    }
+    private func cloudLogSnapshotProductsLocked(ids: Set<UUID>) -> [UUID: Product] {
+        guard cloudLogRoutingAllowed, let owner = cloudLogReadOwner, !ids.isEmpty else { return [:] }
+        var result: [UUID: Product] = [:]
+        let ordered = Array(ids)
+        let placeholders = Array(repeating: "?", count: ordered.count).joined(separator: ",")
+        if let rows = try? cloudRowsLocked("SELECT json FROM cloud_log_products WHERE owner=? AND id IN (\(placeholders));", values:[owner.uuidString] + ordered.map(\.uuidString)) {
+            for data in rows { if let product = try? decoder.decode(Product.self, from:data) { result[product.id] = product } }
+        }
+        if result.count == ids.count { return result }
+        // Historical snapshots remain scoped to the selected account, never shared catalog rows.
+        for (sql, kind) in [
+            ("SELECT json FROM cloud_log_outbox WHERE owner=? ORDER BY rowid DESC;", 0),
+            ("SELECT json FROM cloud_log_recovery WHERE owner=? ORDER BY id;", 1),
+            ("SELECT json FROM cloud_log_entities WHERE owner=? AND deleted=0 ORDER BY revision DESC;", 2)
+        ] {
+            guard let rows = try? cloudRowsLocked(sql, values: [owner.uuidString]) else { continue }
+            for data in rows {
+                let value: CloudLogAggregate?
+                switch kind {
+                case 0: value = (try? decoder.decode(CloudLogMutation.self, from: data))?.payload
+                case 1: value = try? decoder.decode(CloudLogAggregate.self, from: data)
+                default: value = (try? decoder.decode(CloudLogChange.self, from: data))?.payload
+                }
+                if let value, value.log.userId == owner, ids.contains(value.product.id), result[value.product.id] == nil { result[value.product.id] = value.product }
+            }
+        }
+        return result
+    }
+    func configureCloudLogRouting(allowed: Bool) { queue.sync { cloudLogRoutingAllowed = allowed } }
+    func selectCloudLogReadOwner(_ owner: UUID?) { queue.sync { cloudLogReadOwner = owner } }
+    private func cloudLogConnectionLocked(owner: UUID) throws -> CloudLogConnection? {
+        try cloudRowsLocked("SELECT json FROM cloud_log_connections WHERE owner=?;", values:[owner.uuidString]).first.map { try decoder.decode(CloudLogConnection.self, from:$0) }
+    }
+    func cloudLogConnection(owner: UUID) throws -> CloudLogConnection? { try queue.sync { try cloudLogConnectionLocked(owner: owner) } }
+    func setCloudLogEnabled(_ enabled: Bool, owner: UUID, device: UUID, discardBootstrap: Bool = false) throws {
+        try performTransaction {
+            guard cloudLogRoutingAllowed else { throw CloudLogError.disabled }
+            if enabled { guard try cloudLogEpochLocked(owner: owner) != nil, try cloudLogBootstrapPlanLocked(owner: owner) == nil else { throw CloudLogError.bootstrapRequired } }
+            var connection = try cloudLogConnectionLocked(owner: owner) ?? CloudLogConnection(owner: owner, enabled: false, device: device)
+            connection.enabled = enabled
+            try healthSQLLocked("INSERT INTO cloud_log_connections(owner,json) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET json=excluded.json;", values:[owner.uuidString], data:encoder.encode(connection))
+            if !enabled { try healthSQLLocked("UPDATE cloud_log_outbox SET status='recovery' WHERE owner=?;", values:[owner.uuidString]) }
+            if discardBootstrap { try clearCloudBootstrapLocked(owner: owner) }
+        }
+    }
+    private func quarantineCloudLogLocked(owner: UUID, id: UUID) throws {
+        try healthSQLLocked("UPDATE cloud_log_outbox SET status='recovery' WHERE owner=? AND entity=?;", values:[owner.uuidString,id.uuidString])
+    }
+    private func saveOrdinaryLogLocked(_ log: FoodLog) throws {
+        if cloudLogRoutingAllowed, let connection = try cloudLogConnectionLocked(owner: log.userId) {
+            if connection.enabled {
+                try requireCloudLogReviewedLocked(owner:log.userId,id:log.id)
+                guard try cloudChangeLocked(owner:log.userId,id:log.id)?.deleted != true else { throw CloudLogError.conflict }
+            }
+            let aggregate = try localCloudAggregateLocked(log)
+            try saveLogLocked(log, data:encoder.encode(log))
+            try enqueueCloudLogLocked(owner:log.userId,id:log.id,device:connection.device,payload:aggregate)
+            if !connection.enabled { try quarantineCloudLogLocked(owner:log.userId,id:log.id) }
+        } else {
+            try saveLogLocked(log, data:encoder.encode(log))
+            try enqueueSyncEventLocked(ownerUserId:log.userId,type:.logUpsert,entityId:log.id.uuidString,payload:syncEncoder.encode(LogSyncPayload(log:log)))
+        }
+    }
+    func cloudLogReviews(owner: UUID) throws -> [CloudLogReview] {
+        try queue.sync {
+            let ids = try cloudRowsLocked("SELECT entity FROM cloud_log_outbox WHERE owner=? AND status IN ('conflict','recovery') UNION SELECT id FROM cloud_log_recovery WHERE owner=? ORDER BY 1;", values: [owner.uuidString, owner.uuidString], text: true)
+            return try ids.map {
+                guard let id = UUID(uuidString: String(decoding: $0, as: UTF8.self)) else { throw CloudLogError.invalidData }
+                return try cloudLogReviewLocked(owner: owner, id: id)
+            }
+        }
+    }
+    private func cloudLogReviewLocked(owner: UUID, id: UUID) throws -> CloudLogReview {
+        guard let epoch = try cloudLogEpochLocked(owner: owner),
+              try cloudLogBootstrapPlanLocked(owner: owner) == nil else { throw CloudLogError.bootstrapRequired }
+        let mutations = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? ORDER BY rowid;", values: [owner.uuidString, id.uuidString]).map { try decoder.decode(CloudLogMutation.self, from: $0) }
+        let recovery = try cloudRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? AND id=?;", values: [owner.uuidString, id.uuidString]).first
+        let domain = try cloudRowsLocked("SELECT json FROM logs WHERE userId=? AND id=?;", values: [owner.uuidString, id.uuidString]).first
+        let local: CloudLogAggregate?
+        if let domain {
+            local = try localCloudAggregateLocked(decoder.decode(FoodLog.self, from: domain))
+        } else if let last = mutations.last { local = last.payload }
+        else { local = try recovery.map { try decoder.decode(CloudLogAggregate.self, from: $0) } }
+        try local?.validate(owner: owner, id: id)
+        return CloudLogReview(entityId: id, epoch: epoch, local: local, server: try cloudChangeLocked(owner: owner, id: id), mutations: mutations, domain: domain, recovery: recovery)
+    }
+    /// Removes superseded events only after an explicit, still-current confirmation.
+    /// A new choice always gets a new event ID. Tombstoned IDs are never revived.
+    @discardableResult
+    func resolveCloudLog(_ review: CloudLogReview, choice: CloudLogResolution, owner: UUID, device: UUID) throws -> UUID {
+        var resolvedID = review.entityId
+        try performTransaction {
+            guard try cloudLogReviewLocked(owner: owner, id: review.entityId).matches(review) else { throw CloudLogError.historyReviewRequired }
+            let unresolved = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? AND status IN ('conflict','recovery');", values: [owner.uuidString, review.entityId.uuidString])
+            guard !unresolved.isEmpty || review.recovery != nil else { throw CloudLogError.historyReviewRequired }
+            try healthSQLLocked("DELETE FROM cloud_log_conflicts WHERE owner=? AND event IN (SELECT event FROM cloud_log_outbox WHERE owner=? AND entity=?);", values: [owner.uuidString, owner.uuidString, review.entityId.uuidString])
+            try healthSQLLocked("DELETE FROM cloud_log_outbox WHERE owner=? AND entity=?;", values: [owner.uuidString, review.entityId.uuidString])
+            try healthSQLLocked("DELETE FROM cloud_log_recovery WHERE owner=? AND id=?;", values: [owner.uuidString, review.entityId.uuidString])
+            switch choice {
+            case .useCloud:
+                if let server = review.server { try applyCloudChangeLocked(server, owner: owner) }
+                else { try healthSQLLocked("DELETE FROM logs WHERE userId=? AND id=?;", values: [owner.uuidString, review.entityId.uuidString]) }
+            case .useLocal:
+                var value = review.local
+                if review.server?.deleted == true, let local = value {
+                    resolvedID = UUID()
+                    value = try local.copiedLog(id: resolvedID)
+                }
+                if let value { try saveLogLocked(value.log, data: encoder.encode(value.log), exportToHealth: false) }
+                else { try healthSQLLocked("DELETE FROM logs WHERE userId=? AND id=?;", values: [owner.uuidString, review.entityId.uuidString]) }
+                try enqueueCloudLogLocked(owner: owner, id: resolvedID, device: device, payload: value)
+            }
+        }
+        return resolvedID
+    }
+    private func requireCloudLogReviewedLocked(owner:UUID,id:UUID) throws {
+        guard try cloudRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? AND id=?;",values:[owner.uuidString,id.uuidString]).isEmpty,
+              try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? AND status='recovery' LIMIT 1;",values:[owner.uuidString,id.uuidString]).isEmpty else { throw CloudLogError.historyReviewRequired }
+    }
+    private func cloudLogEpochLocked(owner: UUID) throws -> UUID? {
+        let rows = try cloudRowsLocked("SELECT epoch FROM cloud_log_state WHERE owner=? AND epoch IS NOT NULL;", values:[owner.uuidString], text:true)
+        return rows.first.flatMap { UUID(uuidString:String(decoding:$0,as:UTF8.self)) }
+    }
+    func cloudLogEpoch(owner: UUID) throws -> UUID? { try queue.sync { try cloudLogEpochLocked(owner:owner) } }
+    private func cloudLogBootstrapPlanLocked(owner:UUID) throws -> CloudLogBootstrapPlan? {
+        try cloudRowsLocked("SELECT json FROM cloud_log_bootstrap WHERE owner=?;",values:[owner.uuidString]).first.map { try decoder.decode(CloudLogBootstrapPlan.self,from:$0) }
+    }
+    func cloudLogBootstrapPlan(owner:UUID) throws -> CloudLogBootstrapPlan? { try queue.sync { try cloudLogBootstrapPlanLocked(owner:owner) } }
+    private func writeCloudLogPlanLocked(_ plan:CloudLogBootstrapPlan) throws {
+        try healthSQLLocked("INSERT INTO cloud_log_bootstrap(owner,json) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET json=excluded.json;",values:[plan.owner.uuidString],data:encoder.encode(plan))
+    }
+    private func localCloudAggregateLocked(_ log:FoodLog) throws -> CloudLogAggregate {
+        for data in try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? ORDER BY rowid DESC;",values:[log.userId.uuidString,log.id.uuidString]) {
+            if let value = try decoder.decode(CloudLogMutation.self,from:data).payload, value.product.id == log.productId { return try CloudLogAggregate(log:log,product:value.product) }
+        }
+        // After epoch replacement, a lost remote aggregate may exist only in recovery.
+        // Preserve its historical product snapshot instead of requiring a catalog row.
+        if let data = try cloudRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? AND id=?;", values:[log.userId.uuidString,log.id.uuidString]).first {
+            let value = try decoder.decode(CloudLogAggregate.self, from: data)
+            if value.product.id == log.productId { return try CloudLogAggregate(log:log,product:value.product) }
+        }
+        if let product = try cloudChangeLocked(owner:log.userId,id:log.id)?.payload?.product, product.id == log.productId { return try CloudLogAggregate(log:log,product:product) }
+        let rows = try cloudRowsLocked("SELECT json FROM products WHERE id=? AND (ownerUserId=? OR ownerUserId IS NULL);", values:[log.productId.uuidString,log.userId.uuidString])
+        let privateRows = try cloudRowsLocked("SELECT json FROM cloud_log_products WHERE owner=? AND id=?;", values:[log.userId.uuidString,log.productId.uuidString])
+        guard let data = rows.first ?? privateRows.first else { throw CloudLogError.invalidData }
+        return try CloudLogAggregate(log:log,product:decoder.decode(Product.self,from:data))
+    }
+    private func localCloudAggregatesLocked(owner:UUID) throws -> [CloudLogAggregate] {
+        try cloudRowsLocked("SELECT json FROM logs WHERE userId=? ORDER BY id;",values:[owner.uuidString]).map { try localCloudAggregateLocked(decoder.decode(FoodLog.self,from:$0)) }
+    }
+    func beginCloudLogBootstrap(_ plan:CloudLogBootstrapPlan) throws {
+        guard plan.manifest == nil, plan.offset == 0 else { throw CloudLogError.invalidData }
+        try performTransaction {
+            guard try cloudLogBootstrapPlanLocked(owner:plan.owner) == nil else { throw CloudLogError.invalidResponse }
+            let locals = try localCloudAggregatesLocked(owner:plan.owner)
+            try writeCloudLogPlanLocked(plan)
+            for value in locals { try healthSQLLocked("INSERT INTO cloud_log_bootstrap_local(owner,id,json) VALUES(?,?,?);", values:[plan.owner.uuidString,value.log.id.uuidString],data:encoder.encode(value)) }
+        }
+    }
+    func saveCloudLogManifest(_ manifest:CloudLogBootstrapManifest,owner:UUID) throws {
+        try performTransaction {
+            guard var plan = try cloudLogBootstrapPlanLocked(owner:owner), manifest.owner == owner,
+                  manifest.snapshotId == plan.snapshotId, manifest.historyEpoch == plan.historyEpoch,
+                  manifest.upperCursor >= 0, manifest.totalCount >= 0, plan.manifest == nil else { throw CloudLogError.invalidResponse }
+            plan.manifest = manifest
+            try writeCloudLogPlanLocked(plan)
+        }
+    }
+    func stageCloudLogBootstrap(_ page:CloudLogBootstrapPage,owner:UUID) throws {
+        try performTransaction {
+            guard var plan = try cloudLogBootstrapPlanLocked(owner:owner), let manifest=plan.manifest,
+                  page.owner == owner, page.snapshotId == plan.snapshotId, page.historyEpoch == plan.historyEpoch,
+                  page.upperCursor == manifest.upperCursor, page.totalCount == manifest.totalCount,
+                  page.offset == plan.offset, page.changes.count == min(100,manifest.totalCount-plan.offset),
+                  page.complete == (plan.offset+page.changes.count == manifest.totalCount) else { throw CloudLogError.invalidResponse }
+            for change in page.changes {
+                guard change.revision>0, change.revision<=manifest.upperCursor, change.deleted == (change.payload == nil) else { throw CloudLogError.invalidResponse }
+                try change.payload?.validate(owner:owner,id:change.entityId)
+                try healthSQLLocked("INSERT INTO cloud_log_bootstrap_rows(owner,id,json) VALUES(?,?,?);",values:[owner.uuidString,change.entityId.uuidString],data:encoder.encode(change))
+            }
+            plan.offset += page.changes.count
+            try writeCloudLogPlanLocked(plan)
+        }
+    }
+    func finishCloudLogBootstrap(owner:UUID) throws {
+        try performTransaction {
+            guard let plan=try cloudLogBootstrapPlanLocked(owner:owner), let manifest=plan.manifest, plan.offset==manifest.totalCount else { throw CloudLogError.invalidResponse }
+            let changes = try healthRowsLocked("SELECT json FROM cloud_log_bootstrap_rows WHERE owner=? ORDER BY id;",owner:owner).map { try decoder.decode(CloudLogChange.self,from:$0) }
+            guard changes.count == manifest.totalCount else { throw CloudLogError.invalidResponse }
+            let remote = Dictionary(uniqueKeysWithValues:changes.map { ($0.entityId,$0) })
+            let locals = try localCloudAggregatesLocked(owner:owner)
+            let selected = Set(try healthRowsLocked("SELECT json FROM cloud_log_bootstrap_local WHERE owner=?;",owner:owner).map { try decoder.decode(CloudLogAggregate.self,from:$0).log.id })
+            let previousEpoch = try cloudLogEpochLocked(owner:owner)
+            if previousEpoch != plan.historyEpoch {
+                // Keep every original mutation and identity; never replay it in the new epoch.
+                try healthSQLLocked("UPDATE cloud_log_outbox SET status='recovery' WHERE owner=?;",values:[owner.uuidString])
+            }
+            for value in locals {
+                let server = remote[value.log.id]
+                let same = try server?.payload.map { try value.hasSameContent(as:$0) } ?? false
+                if same { continue }
+                let pending = try cloudRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND entity=? LIMIT 1;",values:[owner.uuidString,value.log.id.uuidString])
+                if plan.choice == .includeLocalHistory, (previousEpoch == nil || previousEpoch == plan.historyEpoch), selected.contains(value.log.id), pending.isEmpty, server?.deleted != true {
+                    // New IDs/current values from explicit history choice, never historical v1 events.
+                    try healthSQLLocked("DELETE FROM cloud_log_recovery WHERE owner=? AND id=?;",values:[owner.uuidString,value.log.id.uuidString])
+                    var event = CloudLogMutation(eventId:UUID(),deviceId:plan.deviceId,entityId:value.log.id,schemaVersion:2,type:"log.upsert",baseRevision:0,payload:value)
+                    event.historyEpoch = plan.historyEpoch
+                    try healthSQLLocked("INSERT INTO cloud_log_outbox(event,owner,entity,status,json) VALUES(?,?,?,'pending',?);",values:[event.eventId.uuidString,owner.uuidString,value.log.id.uuidString],data:encoder.encode(event))
+                } else if pending.isEmpty || previousEpoch != plan.historyEpoch {
+                    try healthSQLLocked("INSERT INTO cloud_log_recovery(owner,id,json) VALUES(?,?,?) ON CONFLICT(owner,id) DO UPDATE SET json=excluded.json;",values:[owner.uuidString,value.log.id.uuidString],data:encoder.encode(value))
+                }
+            }
+            try healthSQLLocked("DELETE FROM cloud_log_entities WHERE owner=?;",values:[owner.uuidString])
+            try healthSQLLocked("INSERT INTO cloud_log_state(owner,cursor,epoch) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET cursor=excluded.cursor,epoch=excluded.epoch;",values:[owner.uuidString,String(manifest.upperCursor),plan.historyEpoch.uuidString])
+            for change in changes { try applyCloudChangeLocked(change,owner:owner) }
+            try clearCloudBootstrapLocked(owner:owner)
+        }
+    }
+    private func clearCloudBootstrapLocked(owner:UUID) throws {
+        for table in ["cloud_log_bootstrap_rows","cloud_log_bootstrap_local","cloud_log_bootstrap"] { try healthSQLLocked("DELETE FROM \(table) WHERE owner=?;",values:[owner.uuidString]) }
+    }
+    func cancelCloudLogBootstrap(owner:UUID) throws { try performTransaction { try clearCloudBootstrapLocked(owner:owner) } }
+    func cloudLogRecovery(owner:UUID) throws -> [CloudLogRecovery] {
+        try queue.sync {
+            let candidates = try healthRowsLocked("SELECT json FROM cloud_log_recovery WHERE owner=? ORDER BY id;",owner:owner).map { try decoder.decode(CloudLogAggregate.self,from:$0) }
+            let mutations = try healthRowsLocked("SELECT json FROM cloud_log_outbox WHERE owner=? AND status='recovery' ORDER BY rowid;",owner:owner).map { try decoder.decode(CloudLogMutation.self,from:$0) }
+            let local = Dictionary(uniqueKeysWithValues:candidates.map { ($0.log.id,$0) })
+            let grouped = Dictionary(grouping:mutations,by:\.entityId)
+            return try Set(local.keys).union(grouped.keys).sorted { $0.uuidString<$1.uuidString }.map { id in
+                CloudLogRecovery(entityId:id,local:local[id],mutations:grouped[id] ?? [],server:try cloudChangeLocked(owner:owner,id:id))
+            }
         }
     }
 }

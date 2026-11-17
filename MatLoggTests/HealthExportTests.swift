@@ -517,7 +517,7 @@ struct HealthExportMigrationTests {
         #expect(sqlite3_exec(database, "DROP TABLE health_exports; DROP TABLE health_settings; PRAGMA user_version=8;", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(database)
         let upgraded = try LocalStore(databaseURL: url)
-        #expect(upgraded.schemaVersion() == 9)
+        #expect(upgraded.schemaVersion() == LocalStore.latestSchemaVersion)
         #expect(upgraded.getWeightEntries(userId: owner).count == 1)
         #expect(try upgraded.healthExports(owner: owner).isEmpty)
         #expect(try !upgraded.healthSettings(owner: owner).isConnected)

@@ -1129,3 +1129,97 @@ Kansellerte ubekreftede revisjoner mister fingeravtrykket slik at historikken
 kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
 klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
 native historikk-QA kreves før funksjonen sendes til testerne.
+
+
+## 2026-11-17 – Utviklingsscope for valgfri skylagring og synk
+
+Brukeren godkjente planen for Supabase-basert skylagring, automatisk
+gjenoppretting og toveis synk, med fortsatt lokal bruk uten konto. Første
+leveranse er utviklingsspesifikasjonen i [cloud-sync-v2.md](cloud-sync-v2.md),
+deretter én syntetisk matlogg gjennom backend til en ren lokal database.
+Eksisterende v1-opplasting er ikke en toveis kontrakt. V2 må ha serverrevisjon,
+slettemarkører, tapsfri konfliktbehandling og eksplisitt sky-/historikkvalg.
+Produksjon, autentisering og tilgang er uendret; ingen deploy eller kjøp er
+godkjent av denne beslutningen. Spesifikasjonen er ikke implementasjonsbevis.
+
+
+### Første isolerte Supabase-gjenoppretting
+
+Brukeren valgte Supabase-retningen og ba om ny branch. Arbeidet ligger på
+`codex/supabase-log-restore`. Debug-lageret har en tapsfri enkeltlogg-restore
+uten synk-/HealthKit-echo og uten overskriving av forskjellig lokalt innhold.
+En separat immutable QA-tabell med RLS beviser transporten av hele FoodLog;
+ingen ny produksjonsmigrasjon, kontoendring eller skyaktivering inngår.
+Full v2-kontrakt, produktreferanser og øvrige data er fortsatt videre arbeid.
+
+
+## 2026-11-17 – Separat v2-kontrakt for matloggaggregater
+
+Etter brukerens plan og «kjør» bygges logg-only v2 på
+`codex/supabase-log-restore`. Produktdata følger som historisk snapshot uten
+bilder, og deler ikke mutable katalograder mellom profiler. Postgres låser
+per eier for revisjon/commit-rekkefølge. SQLite-skjema 10 skriver logg og v2-
+outbox atomisk. Mottatte sider og markør committes atomisk uten Helse-echo.
+Konflikter bevares og returneres eksplisitt; sletting hindrer gjenoppliving.
+RPC-er krever både globalport og administrativ eieradgang. Registrert v2-eier
+kan ikke skrive gjennom v1. Ingen ordinær appskriver eller Release-policy
+er koblet om. Se sync-contract-v2.md for grenser, inklusive manglende
+historikkepoke før operativ serverrestore kan støttes.
+
+
+## 2026-11-17 – Epokebundet matlogghistorikk og gjenopptakbar import
+
+Brukeren godkjente neste avgrensede leveranse: historikkepoke og logg-only
+førstegangsoverføring på samme branch. Server-snapshot er uforanderlig og
+eier-/epokebundet; lokalt stages hele importen før atomisk fullføring i SQLite
+skjema 11. Lokal historikk inkluderes bare etter eksplisitt valg og som nye
+hendelser fra nåværende verdier, aldri replay av historisk v1-kø.
+
+Endret epoke krever ny bootstrap, og gamle lokale hendelser bevares urørt for
+gjennomgang uten automatisk opplasting. Et annet historikkvalg kan ikke
+stilltiende gjenoppta en lagret opplastingsplan. Etter operativ serverrestore
+må epoken roteres før trafikk åpnes; dette er ikke en automatisk egenskap ved
+leverandørens backuper. UI, hosted restore og produksjonsaktivering er utenfor
+leveransen. Injiserte IO-protokoller og localOnly ved app-roten beholdes.
+
+## 2026-11-17 – Eksplisitte loggvalg og manuell utviklingsflyt i Profil
+
+Brukerens «kjør» viderefører konflikt-/recoveryvalg og Profil-kobling på samme
+branch. Bekreftelser binder lokal verdi, kø, siste serverversjon og epoke;
+transaksjonen avviser valg som er blitt utdaterte. Et lokalt valg blir en ny
+hendelse, aldri replay av gamle recoveryhendelser. Sky-tombstones kan bare
+kopieres til en ny logg-ID. Valg av skyversjonen forkaster den eksplisitt
+gjennomgåtte lokale kandidaten. Ingen automatisk konfliktvinner.
+
+Profil-koblingen er manuell Debug-testing med launch-argument og lokal
+HTTP loopback-Supabase. Ingen kontoendringer, hosted tilgang, deploy eller
+produksjonsaktivering. Vanlige appskrivere og localOnly er uendret. Derfor
+kalles dette utviklingstest av matlogger, ikke full backup eller ferdig
+automatisk synk. Komplett aktivering, kontobundet samtykke/serverlivssyklus
+og ordinær v2-skriving er neste avgrensede leveranse.
+
+## 2026-11-17 – Kontobundet aktivering og ordinær matloggskriving i lokal QA
+
+Brukerens «kjør» godkjenner neste avgrensede steg på samme branch. Lokal
+SQLite-innstilling per konto aktiveres først etter eksplisitt historikkvalg
+og vellykket bootstrap. Vanlig oppretting/redigering, batch, utkastfullføring
+og sletting skriver matlogg/Health-outbox/v2-hendelse atomisk. Ingen v1-
+logghendelse legges i tillegg for disse aktiverte kontoene.
+
+Deaktivering stopper nye forespørsler og setter usendte hendelser til recovery.
+Senere lokale endringer og slettinger beholdes også der, uten at lokal bruk
+stoppes. Ny aktivering krever nytt historikkvalg; slike endringer sendes ikke
+automatisk på nytt. En allerede sendt forespørsel kan ha blitt committet på
+serveren. Lokale data beholdes og deaktivering sletter ikke skyhistorikken.
+
+App-roten komponerer en feature-ViewModel med repository. Etter lokal commit,
+forgrunn, nettgjenoppretting og innlogging med eksisterende aktivt valg kan den
+forsøke synk. Ingen timer eller realtime-abonnement. IO og domenevalgene ligger
+fortsatt utenfor Views/AppState. Snapshot-produkter vises kontobundet uten å
+materialisere dem i delt katalog. Produksjon, auth, serveradgang og juridiske
+Release-løfter er uendret. Testpolicy + Debug-argument + HTTP loopback kreves.
+
+Skjema 13 bevarer privat produktgrunnlag per eier også etter tombstone, slik
+at eksisterende angre-handling kan opprette en ny logg-ID etter synkronisert
+sletting. Dette er lokal snapshot-cache uten bilder, ikke en delt katalog
+eller ny datagruppe som lastes opp. Lokal kontosletting/reset fjerner cachen.

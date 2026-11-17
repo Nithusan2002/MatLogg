@@ -4,6 +4,10 @@ Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebytt
 
 ## Gjeldende lanseringsscope – 3. oktober 2026
 
+Utviklingsscope fra 2026-11-17: valgfri Supabase-skylagring med automatisk
+gjenoppretting og toveis synk er godkjent for videre arbeid. Se
+[synk v2](cloud-sync-v2.md). Dette endrer ikke dagens lokale lanseringspolicy.
+
 Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
 vekt, favoritter, egne produkter, lagrede måltider og bilder. Ingen skybackup,
 kontobasert gjenoppretting eller flerenhetssynk tilbys. Valgfri Supabase Auth

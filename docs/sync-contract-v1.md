@@ -203,3 +203,10 @@ Migrasjonen `20261106120000_product_food_group.sql` og Edge-valideringen må
 være på plass før nye payloads tas i bruk. `schemaVersion` forblir 1.
 Produksjonsopplasting forblir deaktivert; dette innfører ikke toveis synk eller
 skybackup. Klienten tåler ukjente lokale gruppe-ID-er ved visning.
+
+## Loggsynk v2 under utvikling (2026-11-17)
+
+En separat [v2-loggkontrakt](sync-contract-v2.md) er implementert for isolert
+utvikling, med revisjoner, nedlasting og slettemarkører. V1-formatet beholdes.
+Eiere som administrativt registreres for v2, avvises fra v1 med V2_REQUIRED;
+vanlige kontoer og produksjon aktiveres ikke. Historisk kø replayes ikke til v2.

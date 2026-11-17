@@ -4,6 +4,38 @@ final class ProfileUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
+    func testCloudDevelopmentEntryRequiresFlagAndLocalAccountCannotTransfer() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO"]
+        app.launch()
+        app.buttons["Profil"].tap()
+        XCTAssertTrue(app.buttons["profile-personal-details"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["profile-cloud-logs"].exists)
+        app.terminate()
+        app.launchArguments += ["--enable-cloud-log-sync", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        app.buttons["Profil"].tap()
+        let entry = app.buttons["profile-cloud-logs"]
+        for _ in 0..<8 {
+            if entry.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(entry.isHittable)
+        entry.tap()
+        XCTAssertTrue(app.staticTexts["Utviklingstest"].waitForExistence(timeout: 5))
+        for _ in 0..<6 {
+            if app.staticTexts["Krever et lokalt Supabase-testmiljø og innlogging med en testkonto. Synk må være åpnet for kontoen i testmiljøet."].isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(app.staticTexts["Krever et lokalt Supabase-testmiljø og innlogging med en testkonto. Synk må være åpnet for kontoen i testmiljøet."].isHittable)
+        XCTAssertFalse(app.buttons["Synkroniser"].exists)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "Skylagring uten testkonto med stor tekst"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     func testMeasurementPickerValidatesInputAndCancelDiscardsDraft() {
         let app = XCUIApplication()
         app.launchArguments.append("--skip-auth")

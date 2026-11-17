@@ -6,6 +6,10 @@ struct SupabaseConfiguration: Sendable {
     let publishableKey: String
     let callbackURL: URL
 
+    var isLocalCloudLogTestEnvironment: Bool {
+        url.scheme == "http" && ["127.0.0.1", "localhost"].contains(url.host ?? "")
+    }
+
     static func load(bundle: Bundle = .main) throws -> SupabaseConfiguration {
         guard let urlString = bundle.object(forInfoDictionaryKey: "SUPABASE_URL") as? String,
               !urlString.isEmpty,
@@ -28,6 +32,7 @@ struct SupabaseConfiguration: Sendable {
 
 final class SupabaseService: AccountAuthRepository, SyncAPIClient {
     private let client: SupabaseClient
+    func makeCloudLogTransport() -> any CloudLogTransport { SupabaseCloudLogTransport(client: client) }
     private let callbackURL: URL
     private let dateFormatter: ISO8601DateFormatter
 

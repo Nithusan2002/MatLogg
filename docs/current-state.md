@@ -1,5 +1,25 @@
 # Gjeldende prosjektstatus
 
+## Loggsynk v2 i utviklingsbranch – 2026-11-17
+
+På `codex/supabase-log-restore` finnes nå separat v2-RPC, lokal outbox og
+koordinator for matlogger med produkt-snapshot. Videreført med epokebundet
+nedlasting, gjenopptakbar logg-bootstrap og eksplisitt historikkvalg i tjenestelaget.
+Gamle usendte data etter serverrestore bevares for gjennomgang, ikke replay.
+Profil har en kontobundet utviklingsflyt bak `--enable-cloud-log-sync` i Debug,
+bare utenfor demo og med lokal Supabase-konfigurasjon (HTTP loopback).
+Historikkvalg, aktivering/deaktivering og konflikt-/recoveryvalg er implementert.
+SQLite-skjema 12 lagrer valget per konto. Vanlige matloggskrivere bruker v2
+atomisk når testkontoen har aktivert synk. Synk forsøkes ved lokale endringer,
+innlogging med tidligere aktivert valg, forgrunn og gjenopprettet nett.
+Avslått synk beholder nye lokale endringer som recovery uten opplasting.
+Dette er fortsatt logg-only i et lokalt testmiljø, ikke komplett skybackup.
+Skjema 13 beholder privat matvaregrunnlag per konto for visning og angre etter
+synkronisert sletting, uten å materialisere sky-snapshot i delt katalog.
+Dette er ikke aktivert i vanlig app eller produksjon. Se [v2-kontrakten](sync-contract-v2.md) for dekning og
+åpne porter; dagens lanseringspolicy nedenfor gjelder fortsatt.
+
+
 ## Gjeldende lanseringsscope – 3. oktober 2026
 
 Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,

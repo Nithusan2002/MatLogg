@@ -2,6 +2,10 @@
 
 ## Gjeldende ramme (2026-10-03)
 
+2026-11-17: Arbeid med valgfri skylagring, gjenoppretting og toveis synk er
+godkjent. Første leveranse er [spesifikasjonen](../cloud-sync-v2.md), deretter
+en isolert roundtrip for én matlogg. Produksjonsaktivering er egen port.
+
 Prosjektet er fortsatt under MVP-utvikling; ingen ny lanseringsdato er avtalt.
 Faktisk implementasjon finnes i [gjeldende status](../current-state.md), og
 pilot-/produksjonskrav i [produksjonsberedskap](../production-readiness.md).

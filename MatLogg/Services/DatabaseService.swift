@@ -3,6 +3,9 @@ import Foundation
 class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataExportRepository, RecentFoodRepository {
     static let shared = DatabaseService()
     private let store: LocalStore?
+    func makeDevelopmentCloudLogRepository(transport: any CloudLogTransport, uploadPolicy: DomainUploadPolicy = .localOnly) -> (any CloudLogRepository)? {
+        store.map { DevelopmentCloudLogRepository(store: $0, transport: transport, uploadsAllowed: uploadPolicy.allowsUpload) }
+    }
     var healthExportStorage: (any HealthIntegrationStorage)? { store.map { LocalHealthExportStorage(store: $0) } }
     private let ioQueue: DispatchQueue
     let startupError: Error?

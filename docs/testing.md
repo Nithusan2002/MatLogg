@@ -1266,3 +1266,257 @@ MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs bestod på
 /tmp/MatLoggDemoBarcodeFix.log. Testens krav til bilde, riktig produkt og
 lagringskvittering er beholdt. Ingen domeneskriving eller synkendring fra
 rettingen. Buildnummeret er satt til 3 for neste 2.0-kandidat.
+
+## Isolert matlogg-gjenoppretting (2026-11-17)
+
+Målrettet suite: `LogSnapshotRestoreTests` med egen midlertidig SQLite-database.
+Live-test bruker `scripts/run-live-sync-e2e.py --restore-spike` i tillegg til
+workdir, xctestrun og QA-simulator som i eksisterende live-sync-harness.
+Krever at `scripts/fixtures/log-restore-spike.sql` er installert i en ny
+disponibel loopback-instans med project_id `matlogg-live-sync-qa`. Ikke kjør
+fixturen mot hosted eller en vanlig utviklingsdatabase. Ingen produksjons-
+migrasjon er opprettet. Harness oppretter og fjerner to syntetiske kontoer.
+
+Testen bruker full FoodLog-JSON i en QA-tabell, ikke ferdig synk v2.
+Produksjons-policy localOnly og vanlig lagring/HealthKit er uendret.
+
+Resultat på branchen 2026-11-17: to `LogSnapshotRestoreTests` bestod på den
+dedikerte QA-simulatoren med installert iOS 18.6. `build-for-testing` bestod.
+Live-harness bestod alle tre trinn mot ny loopback-instans på port 57321:
+servercommit før lokal ACK, replay i ny prosess og komplett snapshot til ren
+SQLite. Kryssbruker-lesing/skriveforsøk ble testet med to syntetiske kontoer.
+Resultatbunter: `build/coverage/live-sync.mnzj4mp9/stage-{1,2,3}.xcresult`.
+Lokalt db lint rapporterte ingen skjemafeil. Minimumsrettighetene ble strammet
+inn eksplisitt etter live-test og kontrollert: anon har ingen lesetilgang;
+authenticated har SELECT/INSERT, ikke UPDATE/DELETE. Bare QA-fixturen endres.
+Ingen hosted staging, produksjon, fysisk enhet, UI eller full synk v2 er testet.
+
+## Loggsynk v2 – resultat 2026-11-17
+
+Branch: `codex/supabase-log-restore`. Testet med syntetiske eiere på disponibel
+loopback-Supabase (project_id `matlogg-live-sync-qa`, API port 57321) og
+Spor Mat Health Release QA / iOS 18.6. Ingen hosted miljøer er endret.
+
+- `CloudLogSyncTests`: tre tester bestod. Dekker frosset event ved omstart,
+  atomisk rollback av en side og avvisning av svar etter kontobytte.
+- `SyncRetryTests`: 15 eksisterende regresjoner bestod sammen med v2-testene.
+- `LogSnapshotRestoreTests`: to eksisterende prototypetester bestod.
+- `MatLoggTests`, `HealthExportMigrationTests`, `CloudLogSyncTests`: samlet
+  34 tester bestod etter migrasjonsreview. Oppgradering, reset og eksisterende
+  historikk/Helse-kø kontrolleres mot latestSchemaVersion (nå 10).
+- `build-for-testing`: bestod etter siste Sendable-/protokollendring.
+- `supabase test db`: 204 kontroller i 14 filer bestod, inkludert v1-regresjoner
+  og 24 v2-kontroller for porter, revisjon, replay, konflikt, tombstone,
+  tilgang/eierskap og ugyldig input.
+- `supabase db lint`: ingen skjemafeil. Hele endelig migrasjon kunne også
+  opprettes med tomme v2-tabeller i en egen QA-transaksjon som ble rullet tilbake.
+
+Live-harness med `--log-v2` bestod tre separate iOS-testprosesser. De første
+to tester eksisterende v1 commit/ACK/replay. Den tredje bruker v2-RPC mot to
+lokale SQLite-databaser: create/pull, tapt ACK og reopen/retry, edit/pull,
+samtidige redigeringskandidater, eksplisitt konfliktrapport, delete/pull,
+forhindret gjenoppliving og to samtidige uavhengige RPC-er med påfølgende
+konvergens. Sluttresultater: `build/coverage/live-sync.x46v7lnx/stage-*.xcresult`.
+V2-omstarten bruker ny LocalStore/koordinator; en separat prosess-kill under
+v2-pull er ikke testet. Det er ikke hevdet at v1-testen beviser dette.
+
+Kjøring (etter `build-for-testing` og etter at migrasjoner er installert i
+den disponible instansen):
+
+```bash
+python3 scripts/run-live-sync-e2e.py \
+  --workdir build/cloud-restore-server \
+  --xctestrun build/cloud-restore-qa/Build/Products/MatLogg_MatLogg_iphonesimulator27.2-arm64.xctestrun \
+  --simulator FACB3CBC-D7A3-46BD-B5FF-5CEE1C50E0D7 --log-v2
+```
+
+Harness begrenser prosjekt-ID og URL til disponibel loopback, oppretter en
+syntetisk konto, administrerer bare dens v2-adgang og gjenoppretter flaggene
+etter testen. Konto og tilhørende data ryddes. Ikke gjenbruk denne mekanismen
+som produksjonsregistrering eller skyvalg.
+
+Arkitekturreview: domenedata/outbox og mottatte endringer/markør er atomiske;
+koordinatoren har injiserte lagrings-/transportprotokoller; ingen ny featurelogikk
+i AppState eller Views. Vanlige appskrivere og localOnly er ikke koblet om.
+Produksjon er fortsatt no-go: UI/skyvalg, historieoverføring, konfliktvalg,
+historikkepoke/serverrestore, retensjon og øvrige datatyper er ikke levert.
+Ingen UI-, fysisk to-enhets- eller hosted staging-QA er gjennomført her.
+
+## Historikkepoke og logg-bootstrap – resultat 2026-11-17
+
+Videreført på `codex/supabase-log-restore`, fortsatt uten app-root/Release-
+aktivering. SQLite-skjema 11 og servermigrasjon
+`20261117110000_log_sync_history_epoch.sql` er testet lokalt.
+
+- 41 målrettede Swift-tester bestod: `CloudLogBootstrapTests` (7),
+  `CloudLogSyncTests` (3), `HealthExportMigrationTests` og `MatLoggTests`.
+  Dette inkluderer staging uten delvis import, gjenåpning ved offset 100,
+  atomisk fullføring, feil side/eier, valg av historikk senere, bevaring av
+  ukjent næringskilde, usendt sletting etter epokebytte og sperre mot at et
+  nytt historikkvalg stilltiende gjenopptar en tidligere opplastingsplan.
+  En kølagt etterfølger får grunnrevisjon fra forrige ACK atomisk, ikke fra en
+  nyere serverversjon som ble lastet ned før neste forsøk.
+- `build-for-testing` bestod med siste klient-/testkode.
+- `supabase test db`: 225 kontroller i 15 filer bestod. Ny suite tester
+  epokebinding, gammel-klient-sperre, immutable snapshot/retry, delta etter
+  snapshot, eierskap og utløp. SQL-lint er uten skjemefeil.
+- Hele endelige epokemigrasjonen ble også opprettet fra før-epoke-skjema
+  inne i en QA-transaksjon som ble rullet tilbake. Ingen reset av ordinære data.
+
+Live-harness med `--log-history` bestod alle fem trinn på QA-simulatoren
+Spor Mat Health Release QA / iOS 18.6 mot disponibel localhost-Supabase
+(`matlogg-live-sync-qa`, port 57321). Resultatbunter:
+`build/coverage/live-sync.4h1izasm/stage-{1,2,3,4,5}.xcresult`.
+
+De første tre trinnene kontrollerer tidligere v1-replay og toveis v2. Trinn 4
+oppretter 101 nye v2-logger, avbryter bootstrap etter første side med 100
+entiteter, gjenåpner SQLite og fullfører. Historikkvalg med eksisterende lokale
+og eksterne data beholder ulik lokal kandidat, rapporterer konflikt og lar
+v1-køen være uendret. Trinn 5 kjører i en ny iOS-testprosess etter at harness
+har tilbakerullet én serverrevisjon og rotert epoken for bare testens eier.
+Gamle usendte opprettinger/redigeringer og deres event-ID-er beholdes som
+recovery, gamle push-forsøk avvises, og en ren database henter serverens
+gjeldende historikk uten at usendte lokale data er blitt lastet opp igjen.
+Pagination-resume er testet med nettverksfeil og ny LocalStore i samme prosess;
+prosess-kill midt i SQLite-commit under en side er ikke testet.
+
+```bash
+python3 scripts/run-live-sync-e2e.py \
+  --workdir build/cloud-restore-server \
+  --xctestrun build/cloud-restore-qa/Build/Products/MatLogg_MatLogg_iphonesimulator27.2-arm64.xctestrun \
+  --simulator FACB3CBC-D7A3-46BD-B5FF-5CEE1C50E0D7 --log-history
+```
+
+Restore-delen i harness er uttrykkelig syntetisk: validert UUID, dedikert
+loopback-prosjekt og én testkonto. Ingen hosted backup er restaurert. En reell
+serverrestore må rotere alle berørte eieres epoker før trafikk gjenåpnes;
+hvis operatøren glemmer dette, kan numerisk gyldige gamle markører ikke
+gjenkjennes sikkert. UI/skyvalg, recovery-/konfliktoppløsning, andre datatyper,
+fysisk QA og hosted driftsøvelse gjenstår. Produksjon forblir no-go/localOnly.
+
+Arkitekturreview: valgt lokal historikk/plan, staging/offset og fullføring med
+epoke/markør bruker SQLite-transaksjoner. Nettverk ligger utenfor transaksjonen.
+IO-protokoller og aktiv eier/kjøringsgenerasjon bevares, og ingen ny feature-
+logikk legges i Views eller AppState. Ingen produksjonskonfigurasjon endres.
+
+## Konfliktvalg og Profil – 17. november 2026
+
+På samme utviklingsbranch bestod 26 målrettede Swift-tester i
+`CloudLogReviewTests` (8), `CloudLogRepositoryTests` (2),
+`CloudLogViewModelTests` (6), `CloudLogBootstrapTests` (7) og
+`CloudLogSyncTests` (3). Kommandoen bruker `xcodebuild test`, samme
+QA-destinasjon/DerivedData som over og `-only-testing` for disse suitene.
+
+Testene dekker avbrutt bekreftelse, kontobytte og sent svar, nye event-ID-er,
+ny ID ved tombstone, siste lokale etterfølger, utdatert lokal/server-/epoke-
+kandidat, eierskap og urelatert kø, manglende skyhistorikk og `localOnly` som
+sperre før nettverksarbeid. Ordinær lokal skriving ugyldiggjør også et åpent
+valg. Positiv testpolicy klargjør historikk uten opplasting.
+
+Første integrasjonskjøring avdekket at en tidligere nedlastet logg kunne miste
+tilgangen til sitt produkt-snapshot i gjennomgangen etter serverrestore.
+Produktet fantes i recovery, men ikke lenger i server-shadow/katalog.
+`previouslyDownloadedProductSnapshotSurvivesLossFromRestoredServer()` feilet
+med invalidData før rettelsen og bestod etter at recovery-snapshot ble
+inkludert i lokal oppslag av historisk produktgrunnlag.
+
+Én målrettet UI-test bestod: `ProfileUITests/`
+`testCloudDevelopmentEntryRequiresFlagAndLocalAccountCannotTransfer`.
+Kontrollerer skjult rad uten Debug-argument, navigasjon med største tekst,
+og ingen overføringsknapper uten testkonto. Simulatoren hadde tidligere aktiv
+demo; testen bruker nå eksplisitt `-demoModeActive NO` i QA-prosessen.
+Resultat: `build/cloud-restore-qa/Logs/Test/Test-MatLogg-2026.11.17_09-57-16-+0100.xcresult`.
+Skjermbildet er inspisert: teksten flyter over flere linjer med native
+navigasjon og rullbar forklaring over bunnmenyen. Innlogget handlings-/avviks-UI,
+VoiceOver, mørk modus og fysisk enhet er ikke visuelt verifisert i denne runden.
+
+Etter rettelsen bestod alle fem live-trinn med `--log-history`, samme lokale
+QA-miljø og simulator som over. Resultater:
+`build/coverage/live-sync._vcnx8el/stage-{1,2,3,4,5}.xcresult`.
+Trinn 3 verifiserer nå at en tombstone kan beholdes som ny ID på begge enheter,
+og at et nytt avvik kan løses ved å velge skyversjonen. Trinn 5 verifiserer
+eksplisitt lokal-/skyvalg etter tilbakerullet serverhistorikk og epokerotasjon:
+usendt lokal logg blir ny hendelse i riktig epoke, mens forkastet lokal redigering
+ikke lastes opp igjen. Harness bekrefter opprydding og gjenoppretter testportene.
+Ingen servermigrasjoner ble endret i denne runden; tidligere SQL-testresultater
+over er historiske, ikke en ny full SQL-kjøring. `git diff --check` bestod.
+
+Arkitekturreview: View viser state; ViewModel eier bekreftelser og kontekst;
+injisert repository/actor eier IO-koordinering; SQLite eier atomisk valg og
+domene/outbox. Ingen domene-IO i View/AppState, ingen nye retry-timere eller
+ordinære appskrivere. Debug velger eksisterende integrationTesting-policy
+bare ved HTTP loopback; standarden er localOnly og Release komponerer ikke
+v2-transport. Ingen arkitekturavvik funnet i dette avgrensede scope.
+
+## Ordinær matlogging og aktivering – 17. november 2026
+
+På `codex/supabase-log-restore` bestod 66 domenetester i åtte målrettede suiter
+etter siste lagringsendring: `CloudLogActivationTests` (6),
+`CloudLogRepositoryTests` (2), `CloudLogViewModelTests` (9),
+`CloudLogReviewTests` (8), `CloudLogBootstrapTests` (7), `CloudLogSyncTests` (3),
+`HealthExportMigrationTests` (1) og `MatLoggTests` (30). Kjørt med samme
+QA-simulator/DerivedData og xcodebuild-oppsett som ovenfor.
+
+Nye kontroller dekker ordinær create/edit/delete uten ekstra v1-logghendelse,
+atomisk batch-rollback ved manglende matvaregrunnlag, bevart aktivering og
+stabile hendelser ved gjenåpnet SQLite, fortsatt lokal bruk med synk av,
+sletteintensjon ved reaktivering, standard localOnly selv med lagret aktivt
+valg, kontoisolert produktvisning og angre med ny ID etter server-tombstone.
+Omstart med avbrutt bootstrap blokkerer ikke videre synk for en allerede aktiv
+konto. Avslåing under pågående synk undertrykker det forsinkede resultatet.
+Skjema 12–13, reset og kontosletting inngår i de berørte migrasjonskontrollene.
+
+Den innloggede UI-testen bestod på vanlige skjermer med syntetisk konto,
+disponibel SQLite/defaults og simulert transport: avbrutt/bekreftet aktivering,
+endring 100 → 150 g i loggredigereren, ny registrering via Søk, sveipesletting
+og bekreftet deaktivering. Fixture `--cloud-log-ui-qa` finnes bare i Debug og
+bruker ikke vanlig appdatabase, ekte konto eller ekte server. Resultat:
+`build/cloud-restore-qa/Logs/Test/Test-MatLogg-2026.11.17_16-26-42-+0100.xcresult`.
+Skjermbildet er inspisert. Separat Profil-test for avslått flagg/lokal profil
+med største tekststørrelse bestod også etter overgangen til felles ViewModel.
+
+En tidligere UI-kjøring ble avsluttet av installcoordinationd mens en annen
+testkjøring installerte samme app. Kjøringene ble deretter serialisert;
+innlogget UI-test bestod uten kodeendring for denne avslutningen. En tidligere
+simulatoroppstart feilet med Mach -308 før teststart; simulatoren ble startet
+igjen uten reset. Dette var ikke beståtte kontroller og telles ikke som det.
+
+Arkitekturreview: ordinær skriverute, Health-outbox og v2-event committes samlet
+i SQLite; varsling skjer etter commit. Feature-ViewModel/repository eier synk,
+ikke Views/AppState. Deaktivering ugyldiggjør kjøringen og bevarer recovery;
+ny aktivering krever eksplisitt historikkvalg. Release-policy og serveradgang
+er uendret. Fysisk enhet, native Apple-innlogging, VoiceOver, hosted staging og
+Release-go/no-go er ikke utført. Ingen nye servermigrasjoner i dette steget.
+
+Alle fem lokale Supabase-trinn bestod også på siste kodeversjon med privat
+cache: `build/coverage/live-sync.7c661i36/stage-{1,2,3,4,5}.xcresult`.
+Trinn 3 bruker nå ordinære LocalStore-skriveveier for oppretting, redigering
+og sletting, med to databaser, tapt ACK/restart og konfliktvalg. Etter avslåing
+avvises synk, mens en lokal redigering og sletting bevares. Reaktivering med
+downloadOnly beholder slettingen for gjennomgang; et bekreftet valg konvergerer
+på begge databaser uten v1-loggreplay. Trinn 4–5 kontrollerer fortsatt paginert
+bootstrap og gjenoppretting med rotert epoke. Harness ryddet testkontoer og
+gjenopprettet portverdier. Testserveren stoppes etter denne kjøringen.
+`git diff --check` bestod. Parallelle endringer i logging/navigasjon og øvrige
+QA-filer i arbeidskopien er ikke en del av denne synkleveransen.
+
+## Kontroll etter worktree-isolering – 17. november 2026
+
+Synkarbeidet ligger separat i MatLogg-sync på codex/supabase-log-restore.
+Feature-koden er bevart; UI-testenes selektorer og mellomsteget til Søk er
+tilpasset den opprinnelige navigasjonen. Testen lukker også en synlig
+loggkvittering før den sveiper raden. Ingen produksjonsport, domene- eller
+API-kontrakt ble endret av fordelingen.
+
+Alle 66 målrettede domenetester bestod, og begge UI-testene bestod separat:
+CloudLogActivationUITests/testSignedInActivationOrdinaryEditAndDeactivation
+og ProfileUITests/testCloudDevelopmentEntryRequiresFlagAndLocalAccountCannotTransfer.
+UI-kontrollen brukte en ny iPhone 16-simulator med iOS 18.6. En tidligere
+simulator gjenbrukte en eldre UI-testkjører; fersk installasjon viste de nye
+selektorene og bestod. Den lokale Xcode-scheme-filen er kopiert uten
+miljøvariabler/startargumenter og er fortsatt ignorert av Git. Det er ikke
+kopiert legitimasjon eller startet servere som del av denne oppryddingen.
+
+Menygrenen har eldre databaseskjema. Bruk separate QA-simulatorer og egne
+DerivedData-mapper; ikke nedgrader en eksisterende appdatabase for å veksle gren.
+Fysisk enhet og hosted miljø er ikke verifisert i denne kontrollen.

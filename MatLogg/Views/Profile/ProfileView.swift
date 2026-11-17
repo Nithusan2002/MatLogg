@@ -16,6 +16,16 @@ struct ProfileView: View {
                     profileHeader
                     shortcutCard
                     storageSummary
+                    if FeatureFlags.cloudLogDevelopmentEnabled && !demoMode.isDemo {
+                        NavigationLink {
+                            CloudLogView()
+                        } label: {
+                            ProfileMenuRow(icon: "icloud", title: "Matlogger i skyen", subtitle: "Utviklingstest · Valgfri synk")
+                        }
+                        .buttonStyle(.plain)
+                        .matLoggCardSurface()
+                        .accessibilityIdentifier("profile-cloud-logs")
+                    }
                     #if DEBUG
                     demoControls
                     #endif

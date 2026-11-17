@@ -6,6 +6,7 @@ struct MatLoggApp: App {
         WindowGroup {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--health-history-qa") { HealthHistoryQARoot() }
+            else if ProcessInfo.processInfo.arguments.contains("--cloud-log-ui-qa") { CloudLogQARoot() }
             else if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
             else { DemoAppRoot() }
             #else

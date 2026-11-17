@@ -1,6 +1,13 @@
 import Foundation
 
 enum FeatureFlags {
+    nonisolated static var cloudLogDevelopmentEnabled: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--enable-cloud-log-sync")
+        #else
+        false
+        #endif
+    }
     // Pilot: enable only after custom SMTP and email flows are verified.
     nonisolated static let emailAuthenticationEnabled = false
     // Release exposes sharing settings; each profile must explicitly opt in.

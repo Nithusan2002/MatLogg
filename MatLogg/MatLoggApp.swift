@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct MatLoggContent: View {
     @StateObject private var appState: AppState
@@ -33,6 +34,7 @@ struct MatLoggContent: View {
     @StateObject private var preferencesViewModel: PreferencesViewModel
     @StateObject private var profileExportViewModel: ProfileExportViewModel
     @StateObject private var networkMonitor: NetworkMonitor
+    @StateObject private var cloudLogViewModel: CloudLogViewModel
     @Environment(\.scenePhase) private var scenePhase
     private let foodLogRepository: any FoodLogRepository
     private let foodSearchRepository: any FoodSearchRepository
@@ -44,7 +46,7 @@ struct MatLoggContent: View {
     #endif
     private let isDemo: Bool
 
-    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false, accountRepository: (any AccountAuthRepository)? = nil) {
+    init(databaseService: DatabaseService = DatabaseService(), defaults: UserDefaults = .standard, isDemo: Bool = false, accountRepository: (any AccountAuthRepository)? = nil, cloudRepositoryForQA: (any CloudLogRepository)? = nil) {
         let timing = PerformanceSignposts.begin("Startup.Compose")
         defer { PerformanceSignposts.end(timing) }
         self.isDemo = isDemo
@@ -67,17 +69,27 @@ struct MatLoggContent: View {
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
+        var cloudRepository: (any CloudLogRepository)?
         if let accountRepository {
             authRepository = accountRepository
             syncAPIClient = UnavailableSyncAPIClient()
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--cloud-log-ui-qa") { cloudRepository = cloudRepositoryForQA }
+            #endif
         } else if !isDemo, let configuration = try? SupabaseConfiguration.load() {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
+            #if DEBUG
+            if FeatureFlags.cloudLogDevelopmentEnabled && configuration.isLocalCloudLogTestEnvironment {
+                cloudRepository = databaseService.makeDevelopmentCloudLogRepository(transport: supabaseService.makeCloudLogTransport(), uploadPolicy: .integrationTesting)
+            }
+            #endif
         } else {
             authRepository = UnavailableAccountAuthRepository()
             syncAPIClient = UnavailableSyncAPIClient()
         }
+        _cloudLogViewModel = StateObject(wrappedValue: CloudLogViewModel(repository: cloudRepository))
         let syncEngine = SyncEngine(
             databaseService: databaseService,
             apiService: syncAPIClient,
@@ -198,12 +210,27 @@ struct MatLoggContent: View {
         }
     }
 
-    private var operationalContent: some View {
+    private var cloudLifecycleContent: some View {
         configuredContent
+            .task(id: authViewModel.authenticatedUser?.id) {
+                await cloudLogViewModel.selectOwner(authViewModel.authenticatedUser?.id)
+                await cloudLogViewModel.networkChanged(available: networkMonitor.isConnected == true)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cloudLogNeedsSync).receive(on: DispatchQueue.main)) { _ in
+                Task { await cloudLogViewModel.syncIfEnabled() }
+            }
+            .onChange(of: cloudLogViewModel.mutationRevision) { _, _ in logViewModel.didPersistExternalLog() }
+    }
+
+    private var operationalContent: some View {
+        cloudLifecycleContent
             .onChange(of: waterViewModel.mutationRevision) { _, _ in
                 Task { await appState.refreshSyncStatus() }
             }
-            .onDisappear { appState.updateAuthenticatedUser(nil) }
+            .onDisappear {
+                appState.updateAuthenticatedUser(nil)
+                Task { await cloudLogViewModel.selectOwner(nil) }
+            }
             .onChange(of: authViewModel.currentUser?.id) { _, userId in
                 logViewModel.resetSelectedSummary()
                 progressViewModel.reset()
@@ -271,6 +298,7 @@ struct MatLoggContent: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .background { suspendHealthReads() }
                 if phase == .active {
+                    Task { await cloudLogViewModel.syncIfEnabled() }
                     Task { await appState.triggerSync(reason: .foreground); await healthIntegrationViewModel.refresh() }
                 }
             }
@@ -280,6 +308,7 @@ struct MatLoggContent: View {
             }
             .onChange(of: networkMonitor.isConnected) { _, isConnected in
                 appState.updateNetworkAvailability(isConnected: isConnected)
+                Task { await cloudLogViewModel.networkChanged(available: isConnected == true) }
             }
             .onReceive(NotificationCenter.default.publisher(for: .healthDomainDidChange)) { _ in
                 Task { await healthIntegrationViewModel.refresh() }
@@ -350,6 +379,7 @@ struct MatLoggContent: View {
         .environment(\.productImageRepository, productImageRepository)
         .environment(\.foodSearchRepository, foodSearchRepository)
         .environment(\.foodLogRepository, foodLogRepository)
+        .environmentObject(cloudLogViewModel)
         .environmentObject(healthProfileViewModel)
         .environmentObject(dailyGoalsViewModel)
         .environmentObject(personalDetailsViewModel)

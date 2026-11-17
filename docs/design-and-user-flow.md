@@ -1,6 +1,47 @@
 # Spor Mat – design- og brukerflyt
 
 
+## Aktivering av matloggsynk i lokal QA – 17. november 2026
+
+Denne delen viderefører den manuelle utviklingsflyten nedenfor. Profil →
+Matlogger i skyen viser avslått/aktiv tilstand for innlogget testkonto.
+Avslått: «Aktiver med lokal historikk» eller «Aktiver uten lokal historikk»,
+deretter bekreftelse om matlogger/matvareinformasjon, testmiljø og automatisk
+overføring av nye logger, redigeringer og slettinger. Ingen konto eller bare
+innlogging gir automatisk aktivering. Historikkavvik beholdes for eksplisitt valg.
+
+Aktiv: status, «Synkroniser» for nytt forsøk og «Slå av matloggsynk». Avslåing
+kan bekreftes selv under synk og forklarer at lokale data beholdes, skydata
+ikke slettes og en forespørsel som allerede er sendt kan fullføres. Nye lokale
+endringer beholdes til ny aktivering og gjennomgang. Vanlig logging fungerer
+offline. Forbindelsesfeil vises i skyinnstillingene; lokal lagring bekreftes
+uavhengig av nettverksforsøket. Det brukes native kontroller og eksisterende
+tokens, 44 pt trykkflater og bunnmeny-klaring. Ingen spørreskjema eller nye data.
+
+## Manuell skylagringstest under Profil – 17. november 2026
+
+Utviklingsflyt, ikke Release: Debug med `--enable-cloud-log-sync` viser
+«Matlogger i skyen» utenfor demo. Faktisk overføring krever lokal Supabase
+(HTTP loopback), testkonto og administrativ serveradgang. Kontoen alene gir
+ingen overføring. Skjermen sier tydelig at bare matlogger med matvareinformasjon
+inngår, og at vanlig logging fortsatt er lokal.
+
+Rekkefølge: velg lokal historikk eller bare skyhistorikk → bekreft klargjøring
+→ gjennomgå avvik → bekreft manuell synk. Klargjøring henter hele skyhistorikken
+og kan kølegge valgt lokal historikk; den laster ikke opp. Avvik viser lokal
+og sist hentet skyversjon med navn, mengde/enhet, måltid og tidspunkt.
+Næringsverdier og kilde kan åpnes separat. Brukeren kan velge skyversjonen
+eller eget lokale valg, med en konkret bekreftelse om overskriving/sletting.
+En sky-slettet logg kan bare beholdes som ny logg med ny identitet.
+
+Avbryt gjør ingen endring. Mens en handling pågår er handlingsknappene
+deaktivert og fremdrift vises. Feil gir norsk forklaring og mulighet til nytt
+forsøk. Utdaterte bekreftelser avvises og avvikene oppdateres. Lokal profil og
+manglende testmiljø viser forklaring uten overføringsknapper. Native kontroller,
+semantiske farger/typografi, minst 44 pt trykkflate, Dynamic Type og klaring
+over bunnmenyen gjenbrukes. Ingen ny animasjon eller designsystemvariant.
+
+
 ## Samlet Hjem og dagslogg – 14. november 2026
 
 Denne delen erstatter eldre beskrivelser av en separat dagslogg og «Se dagslogg».

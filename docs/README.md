@@ -1,5 +1,7 @@
 # Spor Mat-dokumentasjon
 
+Godkjent utviklingsscope for skyfunksjon: [skylagring og synk v2](cloud-sync-v2.md).
+
 Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 Dette er inngangen til prosjektets produkt- og tekniske grunnlag. Dokumentene beskriver ønsket retning; gjeldende kode og versjonerte migrasjoner er teknisk sannhetskilde. Under Supabase-cutover er `supabase/` sannhetskilde for ny serverplattform, mens `backend/` beholdes midlertidig fram til godkjent pilot.
