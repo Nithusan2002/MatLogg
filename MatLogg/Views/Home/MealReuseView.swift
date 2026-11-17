@@ -67,7 +67,7 @@ struct MealReuseEditorView: View {
                                     Text(item.name)
                                         .font(AppTypography.bodyEmphasis)
                                     if preferences.showNutritionSource {
-                                        Text("Kilde: \(sourceLabel(item.product.nutritionSource))")
+                                        Text("Kilde: \(item.product.nutritionSource.displayName)")
                                             .font(AppTypography.caption)
                                             .foregroundStyle(AppColors.textSecondary)
                                     }
@@ -142,11 +142,4 @@ struct MealReuseEditorView: View {
         .interactiveDismissDisabled(viewModel.isSaving)
     }
 
-    private func sourceLabel(_ source: NutritionSource) -> String {
-        switch source {
-        case .matvaretabellen: return "Matvaretabellen"
-        case .openFoodFacts: return "Open Food Facts"
-        case .user: return "Brukeroppgitt"
-        }
-    }
 }

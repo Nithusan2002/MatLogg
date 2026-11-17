@@ -154,10 +154,6 @@ struct SaveMealFromLogsView: View {
     private func productName(for log: FoodLog) -> String {
         productNames[log.productId] ?? "Ukjent matvare"
     }
-
-    private func format(_ amount: Float) -> String {
-        amount.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "nb_NO")))
-    }
 }
 
 struct SavedMealsListView: View {
@@ -409,7 +405,7 @@ private struct SavedMealLogContent: View {
                                                     .font(AppTypography.bodyEmphasis)
                                                     .foregroundStyle(AppColors.deepInk)
                                                 if preferences.showNutritionSource {
-                                                    Text("Kilde: \(sourceLabel(item.nutritionSource))")
+                                                    Text("Kilde: \(item.nutritionSource.displayName)")
                                                         .font(AppTypography.caption)
                                                         .foregroundStyle(AppColors.textSecondary)
                                                 }
@@ -809,18 +805,6 @@ struct SavedMealToastView: View {
         .matLoggCardSurface()
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Lukk bekreftelse", onDismiss)
-    }
-}
-
-private func format(_ amount: Float) -> String {
-    amount.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "nb_NO")))
-}
-
-private func sourceLabel(_ source: NutritionSource) -> String {
-    switch source {
-    case .matvaretabellen: return "Matvaretabellen"
-    case .openFoodFacts: return "Open Food Facts"
-    case .user: return "Brukeroppgitt"
     }
 }
 

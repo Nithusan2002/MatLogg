@@ -266,7 +266,7 @@ private struct ProductDetailContent: View {
                                         }
 
                                         Group {
-                                            Text("Næringskilde: \(product.nutritionSource == .matvaretabellen ? "Matvaretabellen" : product.nutritionSource == .openFoodFacts ? "Open Food Facts" : "Brukeroppgitt")")
+                                            Text("Næringskilde: \(product.nutritionSource.displayName)")
                                                 .font(AppTypography.caption)
                                                 .foregroundStyle(AppColors.textSecondary)
                                             if product.imageSource != .none,
