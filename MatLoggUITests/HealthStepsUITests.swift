@@ -150,6 +150,7 @@ final class HealthStepsUITests: XCTestCase {
     }
 
     @MainActor private func openHub(_ app: XCUIApplication) {
+        if app.navigationBars["Apple Helse"].exists { app.closeProfile() }
         XCTAssertTrue(app.buttons["Utvikling"].firstMatch.waitForExistence(timeout: 30))
         app.buttons["Utvikling"].firstMatch.tap()
         XCTAssertTrue(app.buttons["progress-hub-customize"].waitForExistence(timeout: 10))
@@ -165,15 +166,28 @@ final class HealthStepsUITests: XCTestCase {
 
 @MainActor
 extension XCUIApplication {
+    func closeProfile() {
+        let close = buttons["close-profile"]
+        for _ in 0..<4 where !close.exists {
+            navigationBars.firstMatch.buttons.firstMatch.tap()
+        }
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        close.tap()
+        XCTAssertTrue(buttons["tab-log-food"].waitForExistence(timeout: 5))
+    }
+
     func openAppleHealthSettings() {
-        XCTAssertTrue(buttons["Profil"].firstMatch.waitForExistence(timeout: 30))
-        buttons["Profil"].firstMatch.tap()
+        let profile = buttons["open-profile"].firstMatch
+        XCTAssertTrue(profile.waitForExistence(timeout: 30))
+        for _ in 0..<8 where !profile.isHittable { swipeDown() }
+        profile.tap()
         let healthSettings = navigationBars["Apple Helse"]
         if healthSettings.exists { return }
         let healthLink = buttons["profile-apple-health"]
         if !healthLink.exists {
             let settings = buttons["Innstillinger"].firstMatch
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            for _ in 0..<5 where !settings.isHittable { swipeUp() }
             settings.tap()
         }
         XCTAssertTrue(healthLink.waitForExistence(timeout: 5))

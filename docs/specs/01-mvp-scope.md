@@ -1,5 +1,12 @@
 # MatLogg iOS – Spesifikasjon
 
+> Oppdatert navigasjon 17. november 2026: Søk inngår nå i Loggfør, uten egen
+> fane eller valgark før søk. Se [samlet brukerflyt](../design-and-user-flow.md#samlet-søk-og-loggfør--17-november-2026).
+> Loggfør blir åpen etter lagring med lokal kvittering og Angre. Historiske
+> beskrivelser av Søk-fanen og retur til Hjem etter hver vanlig logging erstattes
+> av denne flyten. Første logging i onboarding beholder sin særskilte retur.
+
+
 ## Gjeldende lanseringsscope – 3. oktober 2026
 
 Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,

@@ -27,6 +27,7 @@ final class RepeatFoodUITests: XCTestCase {
         let save = app.buttons["product-log-save"]
         reveal(save, in: app)
         save.tap()
+        app.buttons["logging-done"].tap()
         let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS 'Porsjonstestbrød'"))
         let original = rows.firstMatch
         reveal(original, in: app, towardTop: true)
@@ -34,6 +35,7 @@ final class RepeatFoodUITests: XCTestCase {
         XCTAssertTrue(original.label.contains("1 Polarbrød"))
         openSearch(app)
         // This search presentation focuses the field; submit the empty query to dismiss the keyboard.
+        app.textFields["food-search-field"].tap()
         app.textFields["food-search-field"].typeText("\n")
         let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-recent-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(recent, in: app)
@@ -54,7 +56,8 @@ final class RepeatFoodUITests: XCTestCase {
         history.tap()
         XCTAssertTrue(app.buttons["product-log-save"].waitForExistence(timeout: 5))
         app.buttons["product-detail-close"].tap()
-        app.buttons["food-search-close"].tap()
+        app.buttons["Tøm søket"].tap()
+        app.buttons["food-search-hide-keyboard"].tap()
         let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(repeatButton, in: app)
         XCTAssertTrue(repeatButton.label.contains("37,5 g"))
@@ -79,7 +82,7 @@ final class RepeatFoodUITests: XCTestCase {
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["product-log-save"].exists)
         undo.tap()
-        app.buttons["Lukk"].tap()
+        app.buttons["logging-done"].tap()
         reveal(app.buttons[originalID], in: app, towardTop: true)
         XCTAssertTrue(app.buttons[originalID].label.contains("1 Polarbrød"))
         XCTAssertEqual(rows.count, 2, "Angre skal bare fjerne siste hurtiglogging og bevare de to tidligere registreringene.")
@@ -89,8 +92,6 @@ final class RepeatFoodUITests: XCTestCase {
         let add = app.buttons["tab-log-food"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
-        XCTAssertTrue(app.buttons["Søk etter mat"].waitForExistence(timeout: 5))
-        app.buttons["Søk etter mat"].tap()
         XCTAssertTrue(app.textFields["food-search-field"].waitForExistence(timeout: 8))
     }
 

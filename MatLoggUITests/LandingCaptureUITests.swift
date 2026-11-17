@@ -11,7 +11,7 @@ final class LandingCaptureUITests: XCTestCase {
         app.launchArguments = ["-demoModeActive", "YES", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryM"]
         app.launch()
         XCTAssertTrue(app.buttons["Hjem"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["Profil"].firstMatch.tap()
+        app.buttons["open-profile"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Tilbakestill demodata"].waitForExistence(timeout: 10))
         app.buttons["Tilbakestill demodata"].tap()
         app.buttons["Tilbakestill"].firstMatch.tap()
@@ -19,13 +19,14 @@ final class LandingCaptureUITests: XCTestCase {
         app.buttons["Hjem"].firstMatch.tap()
         capture("home", app)
 
-        app.buttons["Søk"].firstMatch.tap()
+        app.buttons["tab-log-food"].tap()
         XCTAssertTrue(app.buttons["food-search-saved-meals"].waitForExistence(timeout: 10))
         capture("search", app)
         app.buttons["food-search-saved-meals"].tap()
         XCTAssertTrue(app.staticTexts["Yoghurt med havre og bær"].firstMatch.waitForExistence(timeout: 10))
         capture("meals", app)
         app.buttons["Lukk"].firstMatch.tap()
+        if app.buttons["logging-done"].exists { app.buttons["logging-done"].tap() }
         app.buttons["Hjem"].firstMatch.tap()
         app.buttons["Utvikling"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Mat og næring"].firstMatch.waitForExistence(timeout: 10))

@@ -1,5 +1,15 @@
 # Gjeldende prosjektstatus
 
+## Samlet loggføring – 17. november 2026
+
+På `codex/unified-logging`: Loggfør åpner søk direkte med dato/måltid,
+skanning, manuell registrering og valg av nylig brukt, favoritter eller lagrede
+måltider. Egen Søk-fane er fjernet. Utformingen er komprimert etter fysisk skjermgjennomgang: én kontekstrad, søk/Skann, egen manuellrad, samlet gjenbruksvelger og rosa Loggfør-knapper. Lagring beholder arket åpent og viser Angre
+inne i arket. Eksisterende gjenlogging med sist brukte mengde beholdes.
+Ingen database-, backend- eller synkkontraktendring inngår. Ikke produksjonsutrullet.
+Verifiseringsresultater føres i `docs/testing.md` når kjøringen er ferdig.
+
+
 ## Gjeldende lanseringsscope – 3. oktober 2026
 
 Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,
@@ -128,7 +138,8 @@ Se [implementeringsplanen](portion-logging-implementation-plan.md).
   mengder, valgfri kcal per vare, lokal atomisk lagring og angre. Se
   [scope og brukertest](meal-reuse.md).
 
-- SwiftUI-app med fem hovedinnganger: Hjem, Søk, Loggfør, Utvikling og Profil.
+- SwiftUI-app med Hjem og Utvikling som faner og sentrert Loggfør-handling.
+  Profil åpnes i fullskjerm fra personikonet på begge fanene.
 - Hjem prioriterer dagsstatus og måltidskort uten en duplisert generisk
   søk-/skannerad. Søk og skanning er fortsatt tilgjengelig fra den vedvarende
   Loggfør-handlingen og Søk-fanen; legg-til fra måltidskort beholder

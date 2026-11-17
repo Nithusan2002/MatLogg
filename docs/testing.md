@@ -1266,3 +1266,148 @@ MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs bestod på
 /tmp/MatLoggDemoBarcodeFix.log. Testens krav til bilde, riktig produkt og
 lagringskvittering er beholdt. Ingen domeneskriving eller synkendring fra
 rettingen. Buildnummeret er satt til 3 for neste 2.0-kandidat.
+
+## Samlet Søk og Loggfør – 17. november 2026
+
+Lokal verifisering på `codex/unified-logging`, Xcode 27.2, QA-simulatoren
+«Spor Mat Health Release QA» (iOS 18.6, `FACB3CBC-D7A3-46BD-B5FF-5CEE1C50E0D7`).
+
+35 enhetstester i FoodSearchTests, FoodSearchLoadingTests, QuickLogTests og
+LoggingFlowViewModelTests bestod. De dekker blant annet bevart søk/listevalg
+ved ny lasting, nullstilling ved profilbytte, receiptens logg-ID/dato/måltid,
+Angre med feil og nytt forsøk, og forkasting av et gammelt angresvar.
+
+Alle seks målrettede UI-scenarier bestod etter retting, i avgrensede kjøringer:
+
+- `testBottomBarKeepsEveryActionVisibleWithLargestText`
+- `testDailyLogIsDirectAndSavedMealsRemainDiscoverable`
+- `testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu`
+- `testQuickLogManualRegistrationAndDirectHomeEditingKeepPastDate`
+- `testSearchSupportsAccessibilityTextSize`
+- `testUnifiedLoggingSupportsSearchRepeatedLoggingAndUndo`
+
+Kommandoene brukte `xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg`,
+`-destination 'platform=iOS Simulator,id=FACB3CBC-D7A3-46BD-B5FF-5CEE1C50E0D7'`,
+`-parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO` og `-only-testing:` for
+hver suite eller hvert scenario over. Full testpakke og backendtester ble ikke
+kjørt: domenelagring, næringsberegninger, auth og synkkontrakter er uendret.
+
+UI-kjøringen avdekket behov for eksplisitt Lukk i utkastflyten, scrolling til
+bibliotekinngangen og søk foran utkastbanneret ved stor tekst. Returtesten bruker
+en ny lokal QA-profil for å unngå utkast fra tidligere testkjøringer. Skjermbilder
+av start, søketreff, kvittering/Angre og største tekst er gjennomgått. Søk-knappen
+er gjort bredere så etiketten ikke deles midt i ordet.
+
+Kamera/skanning på fysisk iPhone og manuell gjennomgang med VoiceOver gjenstår.
+Produksjonsutrulling inngår ikke. Nye ViewModels bruker eksisterende
+repositorygrenser; arkitekturgjennomgangen fant ingen nye avvik fra
+`docs/architecture-principles.md` eller endring i lokal transaksjonsgrense,
+profilisolasjon eller opplastingspolicy.
+
+### Visuell forbedringsrunde for samlet Loggfør – 17. november 2026
+
+Etter brukerens skjermbilder ble kontekst, søk og gjenbruk komprimert. Syv
+målrettede UI-scenarier bestod på samme iOS 18.6 QA-simulator som over:
+kompakt start med to komplette nylige varer uten rulling, kalenderåpning og retur,
+lagrede måltider, manuell lukking, manuell logging på tidligere dato, største
+tekststørrelse og to registreringer på rad med Angre. Den synlige eksterne
+søkehandlingen kontrolleres både med og uten søketekst; den store søkefirkanten
+finnes ikke i samlet Loggfør. Tastaturets eksplisitte søkehandling gjenbrukes.
+
+Kjøringene brukte `xcodebuild test` med de eksisterende prosjekt-/scheme- og
+simulatorargumentene over, og `-only-testing:MatLoggUITests/MatLoggUITests/`
+med navnene `testCompactLoggingShowsContextAndTwoRecentFoodsWithoutScrolling`,
+`testLoggingCalendarOpensWithoutLeavingTheLoggingSession` samt de fem berørte
+scenarioene fra forrige runde (uten bunnmenytesten, siden menyen ikke ble endret).
+Skjermbilder av start, produktsøk, kalender og største tekst er gjennomgått.
+
+Kun layout, presentasjon og UI-tester ble endret; enhetssuitene og backendtestene
+ble ikke gjentatt. Eksisterende søke-, logg- og persistensmodeller gjenbrukes.
+Diffen er kontrollert mot arkitekturprinsippene, uten nye avvik. Kamera på fysisk
+iPhone og manuell VoiceOver-gjennomgang gjenstår fortsatt.
+
+Trykkflatekontrollen fant først for liten høyde på den native måltidsvelgeren.
+Den bruker nå en native meny med egen 44 pt etikett, og søkefeltet har eksplisitt
+44 pt minimumshøyde i samlet Loggfør. Testen kontrollerer måltid, dato, søk,
+Skann, manuell registrering og gjenbruksvalg. Denne testen, måltidsvalg/logging
+på tidligere dato og største tekststørrelse bestod på nytt etter rettelsen.
+
+### Krasj ved åpning av Loggfør på fysisk iPhone – 17. november 2026
+
+Brukeren rapporterte EXC_BAD_ACCESS ved åpning, med stakk i Swift sin
+metadataoppretting og `FoodSearchContent.searchListContent` ved listehodet.
+Simulatortestene hadde ikke reprodusert enhetsfeilen. Som målrettet tiltak er
+kalender-/måltidskonteksten og søkekontrollene gitt separate AnyView-grenser i
+listehodet, slik at den ytre List-raden ikke bygger inn hele deres sammensatte
+SwiftUI-type. Dette endrer ikke state-eierskap, lagring eller brukerflyt.
+
+Debug-kompilering for `generic/platform=iOS` med `CODE_SIGNING_ALLOWED=NO`
+bestod. `testUnifiedLoggingCanBeOpenedRepeatedlyWithoutCrashing` åpner og
+lukker skjermen fem ganger; den kjøres sammen med kompakt layout og søk/
+flere registreringer/Angre. Den faktiske årsaken og effekten på fysisk iPhone
+må fortsatt bekreftes ved ny kjøring på brukerens telefon; grønn simulator og
+kompilering alene bekrefter ikke at enhetskrasjet er borte.
+
+Etter typegrensene ble treffområdene for datoknappen, søkefeltet og de
+umarkerte gjenbruksvalgene gjort eksplisitte med `contentShape(Rectangle())`.
+Dette bevarer hele kontrollenes minimumshøyde selv når native tilgjengelighets-
+rammer ellers krymper til teksten. Regresjonskontrollen av 44 pt beholdes.
+Gjentatt åpning (fem ganger), søk/flere registreringer/Angre og kalenderåpning
+bestod i simulator; bekreftelse av enhetskrasjet på fysisk iPhone gjenstår.
+
+Den avsluttende kontrollen av kompakt start, alle seks kontrolltypers
+minimumshøyde på 44 pt og to komplette nylige varer uten rulling bestod etter
+at treffområdene ble eksplisitte. Ingen testkrav ble redusert.
+
+Skann-knappens layout ble deretter rettet etter fysisk skjermbilde med manglende
+tekst og vertikal strekking. Eksplisitt ikon/tekst, plain knappestil og 52 pt
+normalhøyde erstatter adaptiv Label. Kompakt UI-test kontrollerer nå høyde og
+liggende proporsjon; denne og testen med tilgjengelighetstekst bestod.
+Simulatorbildet viser «Skann» korrekt. Debug-bygg for generisk iPhone bestod.
+Ny visuell kontroll på fysisk iPhone gjenstår. Endringen er kun presentasjon og
+bevarer arkitekturens avhengighetsretning; ingen domene- eller lagringsendring.
+
+Kalenderpopover ble erstattet med et ugjennomsiktig kalenderark med «Velg dato»
+og «Ferdig». Målrettet UI-test for åpning/lukking og bevart loggføringsøkt
+bestod; eksportert simulatorbilde ble kontrollert visuelt. Arket kan utvides og
+starter i full høyde ved tilgjengelighetstekst. Denne tilpasningen og fysisk
+iPhone er ikke visuelt verifisert i denne kontrollen. Endringen gjelder kun
+presentasjon og endrer ikke datobinding, lagring eller arkitekturgrenser.
+
+Måltidsvelgeren i samlet Loggfør bruker nå main-designets fire kapselknapper,
+korallmarkering og hake. UI-testene for kompakt layout (44 pt og to nylige
+varer uten rulling) og tilgjengelighetstekst bestod. Kompakt simulatorbilde ble
+kontrollert visuelt. Eksisterende tester som brukte den fjernede menyen er
+tilpasset direkte måltidsvalg. Binding og domenelogikk er uendret; ingen nye
+IO-avhengigheter eller arkitekturavvik. Fysisk visuell kontroll gjenstår.
+
+### Sentrert Loggfør og Profil – 17. november 2026
+
+Målrettet `xcodebuild test` på iPhone SE (3. generasjon) med iOS 18.6 kjørte
+sju UI-tester før den siste justeringen av toppfeltet. Fem bestod, blant annet
+sentrering og stor tekst i bunnmenyen, snarveien fra Favoritter, Loggfør med
+Angre og profilnavigasjon med stor tekst. To feilet. UI-testen fant
+Loggfør-knappen i tilgjengelighetstreet under profilpresentasjonen, og
+forventet Hjem-dato gikk tilbake til i dag i testen som vekslet mellom fanene.
+Den valgte Swift Testing-testen ble ikke kjørt av testfilteret. Den siste
+justeringen av toppfeltet ble gjennomgått med `git diff --check`. Fysisk
+VoiceOver og iOS 26-utseendet er ikke verifisert.
+
+## Kontroll etter worktree-isolering – 17. november 2026
+
+Menyarbeidet ble beholdt på codex/unified-logging og synkarbeidet flyttet til
+sin egen worktree, MatLogg-sync, på codex/supabase-log-restore. Delte Profil-
+og dokumentasjonsfiler ble fordelt uten å endre menyfunksjonen. Øvrig QA-arbeid
+ble bevart byte for byte. Ingen commit eller push inngikk i oppryddingen.
+
+Meny-worktreen bestod 65 enhetstester i FoodSearchTests, FoodSearchLoadingTests,
+QuickLogTests, LoggingFlowViewModelTests og MatLoggTests. To UI-tester bestod:
+testBottomBarKeepsEveryActionVisibleWithLargestText og
+testProfileNavigationWithLargeText. Kjøringen brukte iPhone SE (3. generasjon)
+med iOS 18.6 i en egen QA-simulator og DerivedData build/worktree-menu-qa.
+Denne kontrollen dekker isoleringen; tidligere dokumenterte, øvrige UI-funn
+fra menyarbeidet er ikke utbedret som del av oppryddingen.
+
+Meny- og synkgrenene bruker ulike lokale databaseskjemaer. Separate simulatorer
+ble brukt, uten reset eller nedgradering av eksisterende appdata. Et menybygg
+med eldre skjema må ikke brukes over synkbyggets data uten kompatibilitetsvurdering.

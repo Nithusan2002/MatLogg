@@ -1,5 +1,12 @@
 # MatLogg – Brukerhistorier & Detaljerte Flyter
 
+> Oppdatert navigasjon 17. november 2026: Søk inngår nå i Loggfør, uten egen
+> fane eller valgark før søk. Se [samlet brukerflyt](../design-and-user-flow.md#samlet-søk-og-loggfør--17-november-2026).
+> Loggfør blir åpen etter lagring med lokal kvittering og Angre. Historiske
+> beskrivelser av Søk-fanen og retur til Hjem etter hver vanlig logging erstattes
+> av denne flyten. Første logging i onboarding beholder sin særskilte retur.
+
+
 > **Dokumentstatus:** Detaljert kravunderlag. For gjeldende overordnet
 > informasjonsarkitektur, terminologi og UX-retning, se
 > [`../design-and-user-flow.md`](../design-and-user-flow.md). Kode og

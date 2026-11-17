@@ -1,5 +1,28 @@
 # Spor Mat – designsystem
 
+## Samlet bunnmeny og loggføring – 17. november 2026
+
+Ved vanlig tekststørrelse leses bunnmenyen fra venstre mot høyre med Hjem,
+Loggfør og Utvikling. Ved tilgjengelighetstekst leses Hjem og Utvikling på
+første rad, fulgt av Loggfør i full bredde på neste rad.
+Et stort ark med egen NavigationStack samler loggføringen. En kompakt
+måltidsvelger bruker samme fire kapselknapper som main, med brand/onVibrant og
+hake for valgt måltid, surface/textSecondary ellers. Datoknappen har eget kalenderark.
+Kalenderarket bruker ugjennomsiktig background, native grafisk datovelger,
+tittelen «Velg dato» og «Ferdig». Det starter kompakt og kan utvides; ved
+tilgjengelighetstekst starter det i full høyde og innholdet kan rulles.
+Søkefelt og kompakt Skann-knapp ligger sammen; Registrer manuelt får egen rad.
+Den store separate søkeknappen erstattes av tastaturhandling og en teksthandling
+som bare vises ved søketekst. Gjenbruksvalgene deler én mutedSurface-flate med
+surface-markering av valgt del. Direkte gjenlogging bruker actionText på
+chipFillSelected, som tidligere hurtiglogging. Samlet Loggfør bruker 12 pt
+mellom List-seksjoner og fjerner dupliserte gjenbruksoverskrifter.
+Alle handlinger har minst 44 pt trykkflate. Stor tekst gir stablet layout med
+fulle etiketter, og valgt-status er eksplisitt for VoiceOver. Eksisterende
+semantiske farger, typografi, radius og kvitteringskomponenter gjenbrukes;
+ingen nye tokens innføres.
+
+
 Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 MatLogg bruker et varmt, rolig og kortbasert designsystem som skal gjøre
@@ -297,8 +320,11 @@ Før et nytt token eller en ny delt komponent innføres:
 
 ### Bunnmeny
 
-Bunnmenyen viser Hjem, Søk, Loggfør, Utvikling og Profil. Loggfør er en
-handling som åpner loggingarket og beholder valgt hovedfane. Den korallfargede
+Bunnmenyen fordeler Hjem, Loggfør og Utvikling i tre like brede plasser.
+Loggfør er sentrert på skjermen og åpner loggføringsarket med aktiv fane bevart.
+Personikonet i toppområdet på Hjem og Utvikling har 44 × 44 pt trykkflate og
+VoiceOver-navnet «Åpne profil». Profil bruker fullskjermsvisning med vanlig
+safe area og egen navigasjonsstakk. Den korallfargede
 knappen er 56 pt med diskret kant og myk skygge. Valgt hovedfane markeres med
 `action`, kraftigere tekst og fylt ikon der symbolet har en slik variant.
 På iOS 26 og nyere bruker den egendefinerte bunnmenyen systemets Liquid Glass

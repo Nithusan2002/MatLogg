@@ -414,47 +414,59 @@ struct QuickLogSheet: View {
 
 /// Every entry point keeps the same date and meal context throughout logging.
 struct LoggingFlowView: View {
-    private enum Destination: String, Identifiable {
-        case search, scan, manual
-        var id: String { rawValue }
-    }
-
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var viewModel: QuickLogViewModel
     @EnvironmentObject private var appState: AppState
-    @State private var destination: Destination?
+    @EnvironmentObject private var auth: AuthViewModel
+    @EnvironmentObject private var logs: LogViewModel
+    @EnvironmentObject private var savedMeals: SavedMealsViewModel
+    @StateObject private var flow = LoggingFlowViewModel()
     let onLogComplete: (ReceiptPayload) -> Void
     let onSavedMealLogComplete: () -> Void
     var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
-        QuickLogSheet(
-            onSearch: { destination = .search },
-            onScan: { destination = .scan },
-            onManualAdd: { destination = .manual },
-            onLogComplete: complete,
-            onSavedMealLogComplete: {
-                dismiss()
-                onSavedMealLogComplete()
-            },
-            productSelectionContent: productSelectionContent
-        )
-        .fullScreenCover(item: $destination, onDismiss: viewModel.finishManualCreation) { route in
+        Group {
+            if productSelectionContent == nil {
+                NavigationStack {
+                    FoodSearchView(refreshRevision: flow.revision, isUnifiedLogging: true,
+                        onScan: { flow.destination = .scan },
+                        onLogComplete: complete,
+                        onSavedMealLogComplete: savedMealCompleted)
+                    .navigationTitle("Loggfør")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Ferdig") { dismiss() }
+                                .accessibilityIdentifier("logging-done")
+                                .disabled(flow.isUndoing || savedMeals.isSaving || viewModel.isRepeating)
+                        }
+                    }
+                }
+            } else {
+                // Meal-template editing uses the existing product-selection contract.
+                QuickLogSheet(onSearch: { flow.destination = .search },
+                    onScan: { flow.destination = .scan },
+                    onManualAdd: { flow.destination = .manual },
+                    onLogComplete: complete, onSavedMealLogComplete: savedMealCompleted,
+                    productSelectionContent: productSelectionContent)
+            }
+        }
+        .safeAreaInset(edge: .bottom) { receiptContent }
+        .interactiveDismissDisabled(flow.isUndoing || savedMeals.isSaving || viewModel.isRepeating)
+        .onChange(of: auth.currentUser?.id) { _, _ in flow.reset() }
+        .fullScreenCover(item: $flow.destination, onDismiss: viewModel.finishManualCreation) { route in
             switch route {
             case .search:
-                if productSelectionContent == nil {
-                    RawMaterialsSearchView(onLogComplete: complete)
-                } else {
                 NavigationStack {
-                    FoodSearchView(focusOnAppear: true, onScan: { destination = .scan },
+                    FoodSearchView(focusOnAppear: true, onScan: { flow.destination = .scan },
                         onLogComplete: complete, productSelectionContent: productSelectionContent)
                         .navigationTitle("Søk")
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
-                                Button("Avbryt") { destination = nil }
+                                Button("Avbryt") { flow.destination = nil }
                             }
                         }
-                }
                 }
             case .manual:
                 if productSelectionContent == nil {
@@ -463,8 +475,9 @@ struct LoggingFlowView: View {
                     ManualProductView(barcode: nil, saveProduct: viewModel.saveManual, onSaved: viewModel.manualProductSaved)
                 }
             case .scan:
-                CameraView(onLogComplete: complete, onSearch: { destination = .search },
-                           productSelectionContent: productSelectionContent)
+                CameraView(onLogComplete: complete, onSearch: {
+                    flow.destination = productSelectionContent == nil ? nil : .search
+                }, productSelectionContent: productSelectionContent)
             }
         }
         .sheet(item: $viewModel.selectedManualProduct) { product in
@@ -473,8 +486,46 @@ struct LoggingFlowView: View {
         }
     }
 
+    @ViewBuilder private var receiptContent: some View {
+        if productSelectionContent == nil {
+            VStack(spacing: 4) {
+                if let error = flow.errorMessage { ErrorMessageView(error) }
+                if savedMeals.receipt != nil, let error = savedMeals.errorMessage { ErrorMessageView(error) }
+                if let payload = flow.receipt {
+                    LogToastView(payload: payload, isUndoing: flow.isUndoing,
+                        onUndo: { Task {
+                            await flow.undo(owner: auth.currentUser?.id) { receipt in
+                                guard let owner = auth.currentUser?.id else { return false }
+                                return await logs.undoLatestLog(productId: receipt.product.id,
+                                    mealType: receipt.mealType, amountG: Float(receipt.amountG),
+                                    userId: owner, date: receipt.loggedDate, logID: receipt.logID)
+                            }
+                        } }, onDismiss: flow.dismissReceipt)
+                } else if let receipt = savedMeals.receipt {
+                    SavedMealToastView(receipt: receipt, isUndoing: savedMeals.isSaving,
+                        onUndo: { Task { _ = await savedMeals.undo() } },
+                        onDismiss: savedMeals.dismissReceipt)
+                    .task(id: "\(receipt.logIDs)-\(savedMeals.isSaving)") {
+                        guard !savedMeals.isSaving else { return }
+                        try? await Task.sleep(for: .seconds(UIAccessibility.isVoiceOverRunning ? 8 : 4))
+                        guard !Task.isCancelled, savedMeals.receipt?.logIDs == receipt.logIDs else { return }
+                        savedMeals.dismissReceipt()
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+
     private func complete(_ payload: ReceiptPayload) {
-        dismiss()
+        savedMeals.dismissReceipt()
+        flow.completed(payload)
         onLogComplete(payload)
+    }
+
+    private func savedMealCompleted() {
+        flow.savedMealCompleted()
+        onSavedMealLogComplete()
     }
 }

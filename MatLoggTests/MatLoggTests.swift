@@ -14,8 +14,8 @@ struct MatLoggTests {
     private static let e2eProductId = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
     private static let e2eEventId = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
 
-    @Test func appTabsHaveStableFiveTabOrder() {
-        #expect(AppTab.allCases == [.home, .search, .add, .progress, .profile])
+    @Test func appTabsContainOnlyPersistentDestinations() {
+        #expect(AppTab.allCases == [.home, .progress])
     }
 
     @Test func progressMetricsCalculateWeeklyAverageAndTodaysMeals() {

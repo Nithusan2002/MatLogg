@@ -8,7 +8,7 @@ final class ProfileUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments.append("--skip-auth")
         app.launch()
-        app.buttons["Profil"].tap()
+        app.buttons["open-profile"].tap()
         let details = app.buttons["profile-personal-details"]
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         details.tap()
@@ -38,7 +38,7 @@ final class ProfileUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
-        app.buttons["Profil"].tap()
+        app.buttons["open-profile"].tap()
         app.buttons["profile-personal-details"].tap()
         let height = app.buttons["personal-details-height"]
         for _ in 0..<6 {
@@ -67,7 +67,7 @@ final class ProfileUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
-        app.buttons["Profil"].tap()
+        app.buttons["open-profile"].tap()
         let details = app.buttons["profile-personal-details"]
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         XCTAssertTrue(details.isHittable)

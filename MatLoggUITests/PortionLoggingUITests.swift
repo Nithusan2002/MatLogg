@@ -11,7 +11,6 @@ final class PortionLoggingUITests: XCTestCase {
         let add = app.buttons["tab-log-food"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
-        app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         search.tap()
@@ -52,6 +51,7 @@ final class PortionLoggingUITests: XCTestCase {
         reveal(total, in: app)
         XCTAssertEqual(total.label, originalTotal)
         app.buttons["product-log-save"].tap()
+        app.buttons["logging-done"].tap()
         let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS 'Polarbrød'")).firstMatch
         reveal(row, in: app)
         XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].exists)
@@ -71,7 +71,6 @@ final class PortionLoggingUITests: XCTestCase {
         let add = app.buttons["tab-log-food"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
-        app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         search.tap()
@@ -86,12 +85,14 @@ final class PortionLoggingUITests: XCTestCase {
         reveal(count, in: app)
         count.tap()
         count.typeText("1")
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["food-search-hide-keyboard"].exists { app.buttons["food-search-hide-keyboard"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         reveal(increase, in: app)
         increase.tap()
         XCTAssertTrue(app.staticTexts["portion-total"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["portion-total"].label.contains("2 Polarbrød · 75 g"), app.staticTexts["portion-total"].label)
         app.buttons["product-log-save"].tap()
+        app.buttons["logging-done"].tap()
         let two = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS '2 Polarbrød'")).firstMatch
         reveal(two, in: app)
         let loggedRowID = two.identifier

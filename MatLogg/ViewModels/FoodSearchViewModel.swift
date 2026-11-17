@@ -3,6 +3,13 @@ import Combine
 
 @MainActor
 final class FoodSearchViewModel: ObservableObject {
+    enum ReuseList: String, CaseIterable {
+        case recent = "Nylig brukt"
+        case favorites = "Favoritter"
+        case saved = "Lagrede måltider"
+    }
+    @Published var reuseList = ReuseList.recent
+
     enum Phase { case local, searching, complete, offline, failure }
 
     @Published private(set) var query = ""
@@ -108,6 +115,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func reset(owner: UUID?) {
+        reuseList = .recent
         loadID = UUID()
         resultsID = UUID()
         resultsTask?.cancel()

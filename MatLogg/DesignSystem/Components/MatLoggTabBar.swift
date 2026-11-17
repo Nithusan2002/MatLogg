@@ -6,13 +6,12 @@ struct MatLoggTabBar: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Binding var selection: AppTab
+    let onLogFood: () -> Void
     var diarySelection: MatLoggDiarySelectionPresentation? = nil
 
     private let tabs: [(AppTab, String, String)] = [
         (.home, "Hjem", "house"),
-        (.search, "Søk", "magnifyingglass"),
-        (.progress, "Utvikling", "chart.bar"),
-        (.profile, "Profil", "person")
+        (.progress, "Utvikling", "chart.bar")
     ]
 
     var body: some View {
@@ -26,6 +25,8 @@ struct MatLoggTabBar: View {
                 tabBarContent.transition(.opacity)
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("matlogg-bottom-bar")
         .modifier(MatLoggBottomBarSurface())
     }
 
@@ -37,10 +38,6 @@ struct MatLoggTabBar: View {
                     tabButton(tabs[1])
                 }
                 loggingButton
-                HStack(spacing: 4) {
-                    tabButton(tabs[2])
-                    tabButton(tabs[3])
-                }
             }
             .fixedSize(horizontal: false, vertical: true)
         } else {
@@ -51,10 +48,8 @@ struct MatLoggTabBar: View {
     private var tabButtons: some View {
         HStack(spacing: 4) {
             tabButton(tabs[0])
-            tabButton(tabs[1])
             loggingButton.padding(.top, -4)
-            tabButton(tabs[2])
-            tabButton(tabs[3])
+            tabButton(tabs[1])
         }
         .frame(minHeight: 70)
     }
@@ -63,7 +58,7 @@ struct MatLoggTabBar: View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(HStackLayout(spacing: 8))
             : AnyLayout(VStackLayout(spacing: 4))
-        return Button { selection = .add } label: {
+        return Button(action: onLogFood) {
             layout {
                 Image(systemName: "plus")
                     .font(.system(size: 25, weight: .semibold))
@@ -80,7 +75,7 @@ struct MatLoggTabBar: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .foregroundColor(AppColors.deepInk)
             }
-            .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 56 : 70)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 56 : 70)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -91,7 +86,7 @@ struct MatLoggTabBar: View {
     private func tabButton(_ tab: (AppTab, String, String)) -> some View {
         Button { selection = tab.0 } label: {
             VStack(spacing: 4) {
-                Image(systemName: selection == tab.0 && tab.0 != .search ? "\(tab.2).fill" : tab.2)
+                Image(systemName: selection == tab.0 ? "\(tab.2).fill" : tab.2)
                     .font(.system(size: 18, weight: .medium))
                 Text(tab.1)
                     .font(selection == tab.0 ? AppTypography.captionEmphasis : AppTypography.caption)
@@ -99,7 +94,7 @@ struct MatLoggTabBar: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundColor(selection == tab.0 ? AppColors.action : AppColors.textSecondary)
-            .frame(maxWidth: .infinity, minHeight: 52)
+            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 52)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -198,7 +193,7 @@ struct MatLoggSelectionBar: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 70)
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 70)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("meal-room-selection-bar")
     }
@@ -240,7 +235,7 @@ struct MatLoggSelectionBar: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(AppColors.action)
-        .frame(maxWidth: .infinity, minHeight: 52)
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 52)
         .contentShape(Rectangle())
     }
 }

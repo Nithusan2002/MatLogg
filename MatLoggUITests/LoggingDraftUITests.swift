@@ -29,7 +29,7 @@ final class LoggingDraftUITests: XCTestCase {
             XCTAssertTrue(app.buttons["logging-draft-discard"].waitForNonExistence(timeout: 5))
         }
         app.buttons["tab-log-food"].tap()
-        let manual = app.buttons["quick-log-manual"]
+        let manual = app.buttons["food-search-manual-registration"]
         XCTAssertTrue(manual.waitForExistence(timeout: 8))
         manual.tap()
         let name = app.textFields["Produktnavn"]
@@ -77,9 +77,6 @@ final class LoggingDraftUITests: XCTestCase {
         XCTAssertTrue(resume.isHittable)
         XCTAssertLessThan(resume.frame.maxY, visibleBottom)
         if largeText {
-            let profile = app.buttons["Profil"].firstMatch
-            XCTAssertTrue(profile.isHittable)
-            XCTAssertTrue(app.frame.contains(profile.frame))
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion]) { issue in
                 auditFindings.append("\(issue.auditType): \(issue.element?.debugDescription ?? "unknown element")")
                 return true // Collect all issues, then fail explicitly after exercising the full flow.

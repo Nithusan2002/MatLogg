@@ -1,6 +1,25 @@
 import SwiftUI
 
+struct OpenProfileButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "person.crop.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(AppColors.deepInk)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Åpne profil")
+        .accessibilityIdentifier("open-profile")
+    }
+}
+
 struct ProfileView: View {
+    @Environment(\.dismiss) private var dismiss
+    let onFindFood: () -> Void
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
@@ -12,7 +31,6 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Profil").font(AppTypography.hero).foregroundColor(AppColors.deepInk)
                     profileHeader
                     shortcutCard
                     storageSummary
@@ -21,14 +39,21 @@ struct ProfileView: View {
                     #endif
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.vertical, 12)
             }
-            .matLoggTabBarScrollClearance()
             .background(AppColors.background.ignoresSafeArea())
             .tint(AppColors.action)
-            .toolbar(.hidden, for: .navigationBar)
+            .navigationTitle("Profil")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Lukk") { dismiss() }
+                        .accessibilityIdentifier("close-profile")
+                }
+            }
             .task { await appState.refreshSyncStatus() }
         }
+        .environment(\.matLoggTabBarScrollMargin, 0)
     }
 
     private var demoControls: some View {
@@ -100,7 +125,7 @@ struct ProfileView: View {
             .accessibilityIdentifier("profile-edit-goals")
             .accessibilityHint("Åpner redigering av daglige mål")
             Divider().overlay(AppColors.separator)
-            NavigationLink { ProfileFavoritesView() } label: {
+            NavigationLink { ProfileFavoritesView(onFindFood: onFindFood) } label: {
                 ProfileMenuRow(icon: "heart", title: "Favoritter")
             }
             Divider().overlay(AppColors.separator)

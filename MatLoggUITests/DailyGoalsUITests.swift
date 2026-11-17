@@ -5,21 +5,19 @@ final class DailyGoalsUITests: XCTestCase {
 
     @MainActor
     private func openGoals(_ app: XCUIApplication) {
-        let profile = app.buttons.matching(NSPredicate(format: "label == 'Profil' AND identifier != 'person.crop.circle'")).firstMatch
+        let profile = app.buttons["open-profile"]
         XCTAssertTrue(profile.waitForExistence(timeout: 5))
         profile.tap()
         let goals = app.buttons["profile-edit-goals"]
         XCTAssertTrue(goals.waitForExistence(timeout: 5))
-        scrollAboveTabBar(goals, in: app)
+        revealInProfile(goals, in: app)
         goals.tap()
         XCTAssertTrue(app.navigationBars["Daglige mål"].waitForExistence(timeout: 3))
     }
 
     @MainActor
-    private func scrollAboveTabBar(_ element: XCUIElement, in app: XCUIApplication) {
-        let home = app.buttons["Hjem"].firstMatch
-        XCTAssertTrue(home.exists)
-        let visibleBottom = home.frame.minY - 8
+    private func revealInProfile(_ element: XCUIElement, in app: XCUIApplication) {
+        let visibleBottom = app.frame.maxY - 8
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: min(0.65, (visibleBottom - 8) / app.frame.height)))
         let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.3))
         for _ in 0..<8 {
@@ -132,7 +130,7 @@ final class DailyGoalsUITests: XCTestCase {
         top.lifetime = .keepAlways
         add(top)
         let saveButton = app.buttons["daily-goals-save"]
-        scrollAboveTabBar(saveButton, in: app)
+        revealInProfile(saveButton, in: app)
         let bottom = XCTAttachment(screenshot: app.screenshot())
         bottom.name = "Daglige mål – lagring med stor tekst"
         bottom.lifetime = .keepAlways

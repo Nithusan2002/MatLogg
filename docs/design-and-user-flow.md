@@ -1,5 +1,49 @@
 # Spor Mat – design- og brukerflyt
 
+## Samlet Søk og Loggfør – 17. november 2026
+
+Denne delen erstatter eldre beskrivelser av en separat Søk-fane og Loggfør-valgark.
+Bunnmenyen har tre like brede plasser med Hjem til venstre, Loggfør på
+skjermens midtpunkt og Utvikling til høyre. Loggfør åpner et stort ark og
+beholder aktiv fane. Ved tilgjengelighetstekst ligger Hjem og Utvikling på
+første rad og Loggfør på en egen rad i full bredde.
+
+Personikonet øverst til høyre på Hjem og Utvikling åpner Profil i fullskjerm.
+«Lukk» på profilroten vender tilbake til samme skjerm. Undersider har vanlig
+tilbakeknapp. «Finn matvarer» i Favoritter lukker Profil og åpner Loggfør.
+
+Loggfør viser «Måltid» og dato («I dag» når aktuelt), fulgt av de fire
+måltidsknappene fra main. Valgt måltid har korallfarge og hake; ved
+tilgjengelighetstekst stables knappene. Datoknappen åpner et eget ugjennomsiktig ark
+med norsk kalender, «Velg dato» og «Ferdig». Datovalget gjelder med en gang;
+lukking returnerer til samme loggføringsøkt. Arket kan utvides og bruker full
+høyde ved tilgjengelighetstekst.
+Under ligger et bredt «Søk etter mat»-felt og en kompakt «Skann»-knapp.
+«Registrer manuelt» har egen rad i full bredde. Tastaturet åpnes bare ved
+trykk i søkefeltet. Lokale treff vises under skriving; tastaturets Søk og den
+synlige teksthandlingen «Søk etter produkter» starter eksplisitt eksternt søk.
+Teksthandlingen vises bare når det finnes søketekst. Ingen automatisk ekstern søking.
+
+Uten søk vises én innrammet velger for Nylig brukt (standard), Favoritter og
+Lagrede måltider. Den valgte delen har egen markering. Tomme valg beholdes.
+Nylige varer har navn, sist brukte mengde, pil til mengdevalg og en separat rosa
+Loggfør-knapp for direkte gjenbruk. Lagrede måltider har forhåndsvisning og
+inngang til hele listen. Dupliserte listeoverskrifter vises ikke i samlet Loggfør.
+Søket erstatter gjenbruksinnholdet mens det har tekst; tømming gjenoppretter
+valgt liste. Lokale treff og søket beholdes ved nettfeil.
+
+Kontekst, søk og gjenbruk har kompakte avstander uten å redusere trykkflatene.
+Ved stor tekst stables kontekst og søk/Skann; gjenbruksvelgeren beholder felles
+innramming når den stables. Utkastbanner ligger under primærhandlingene.
+
+Legg til fra et måltidskort beholder valgt dag og måltid. Lagring lukker bare
+produkt-/mengdeflyten; Loggfør forblir åpen med søket og listevalget bevart og en
+lokal kvittering med Angre. Manuell avbryt bevarer eksisterende lokale utkast.
+Ferdig eller lukking går tilbake til underliggende fane. Kvitteringen vises over
+arkets bunn, uten bunnmenyklaring. Dato, måltid, kilde, enhet, lokal lagring og
+synkkontrakt følger eksisterende modeller/repositories. Måltidsmalredigering
+beholder sin særskilte produktvelger; onboarding beholder sin første-logg-flyt.
+
 
 ## Samlet Hjem og dagslogg – 14. november 2026
 
@@ -76,8 +120,9 @@ pressende budskap.
 ### Hjem
 
 Hjem svarer på «Hva har jeg registrert i dag?» og gir rask vei til ny logging.
-Datovelgeren er første element, uten appnavn eller profilknapp over. Profil
-åpnes fra bunnmenyen.
+Hilsenen står til venstre i toppfeltet, med loggstreak og personikon til høyre.
+Datovelgeren ligger på raden under. Ved trang plass kan hilsenen brytes over
+flere linjer og loggstreaken flyttes under hilsenen.
 Datoen kan flyttes én dag om gangen med piler eller velges fra en kalender.
 Kalenderen åpnes som en popover ved datoknappen, med norsk språk og appens
 handlingsfarge. Datovalg oppdaterer dagsoversikten umiddelbart mens kalenderen

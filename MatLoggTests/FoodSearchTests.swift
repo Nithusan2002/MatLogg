@@ -4,6 +4,23 @@ import Testing
 
 @MainActor
 struct FoodSearchTests {
+    @Test func reuseSelectionAndQuerySurviveReloadButResetForAnotherOwner() async {
+        let repository = SearchRepositoryStub()
+        let owner = UUID()
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: owner)
+        vm.reuseList = .favorites
+        vm.setQuery("havre")
+        await vm.load(owner: owner)
+        #expect(vm.query == "havre")
+        #expect(vm.reuseList == .favorites)
+        vm.setQuery("")
+        #expect(vm.reuseList == .favorites)
+        await vm.load(owner: UUID())
+        #expect(vm.query.isEmpty)
+        #expect(vm.reuseList == .recent)
+    }
+
     @Test func historyMatchesAreLimitedPreciseAndResetWithOwnerOrQuery() async {
         let repository = SearchRepositoryStub()
         let foods = [product("Yoghurt vanilje"), product("Yoghurt jordbær"),
