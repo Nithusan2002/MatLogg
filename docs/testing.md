@@ -1286,7 +1286,14 @@ Målrettet kjøring: `xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg
 med installert QA-simulator, `-only-testing:MatLoggTests/<suite>` eller
 `-only-testing:MatLoggUITests/MatLoggUITests/<test>`,
 `-parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO`.
-Bruk en egen QA-profil/simulator; fysisk iPhone og manuell VoiceOver gjenstår.
+Bruk en egen QA-profil/simulator.
+
+På fysisk iPhone 17 med iOS 27.3 bestod begge metadatatestene og
+`testSearchTabSupportsLocalSearchAndProductOpening` samme dag (3 tester,
+0 feil), i separat QA-app med syntetiske/lokale data. Skjermbilder av vanlig
+tekst, Accessibility XXXL og mengdevalg er visuelt gjennomgått; ved største
+tekst kan metadata rulles frem over bunnmenyen. Søk, mengdevalg, favoritt,
+logging og nylig brukt er kontrollert. Manuell VoiceOver gjenstår.
 
 Rå API-svar, detaljerte kjørerapporter og engangs-replay er arkivert utenfor
 repoet og er ikke testavhengigheter. Den offentlige kontrollen ga 17/20
