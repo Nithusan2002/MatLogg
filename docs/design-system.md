@@ -513,3 +513,14 @@ Egne produkter har «Matgruppe (valgfritt)» med «Ikke valgt» som standard, b�
 ved oppretting og i produktkortet. Valget viser en ikonforhåndsvisning, lagres
 lokalt og kan tømmes. Opprettingsutkastet bevarer valget. Produktkortet endrer
 bare matgruppen, ikke næringsdata, bilde, navn eller kilde.
+
+### Identitet og proveniens i søketreff
+
+Søkerader bruker `bodyEmphasis` for navn og `caption` med `textSecondary`
+for merke/pakning, varetype/kilde og næringsgrunnlag. Pakkevare, Generell
+matvare og Egen matvare skilles med tekst, uten nye farger eller merker.
+Ingen fast linjegrense eller ny radhøyde; eksisterende 52 pt minimum,
+thumbnail, indikator og vertikal Dynamic Type-layout beholdes. Ved
+tilgjengelighetstekst står merke, pakning, varetype og kilde på egne linjer
+uten skilletegn som kan bli stående alene. VoiceOver får samlet
+radinnhold. «Pakning» merkes eksplisitt så det ikke forveksles med porsjon.

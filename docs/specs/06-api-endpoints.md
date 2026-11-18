@@ -839,3 +839,13 @@ API Keys:
 • Not used in MVP (JWT only)
 • Rate limiting per user_id from token
 ```
+
+## Aktiv klient: valgfri pakningstekst fra OFF – 18. november 2026
+
+Navnesøk og strekkodeoppslag ber også om OFF-feltet `quantity`. Dette er
+[kildens pakningstekst](https://openfoodfacts.github.io/documentation/docs/Product-Opener/schemas/schemas/product_base/),
+lagret som valgfri lokal `packageQuantityLabel`. Manglende/ugyldig verdi
+utelates uten å forkaste matvaren. Teksten brukes ikke til å utlede
+porsjoner, `nutrition_data_per`, vekt, volum eller tilberedningsform.
+Eksisterende numerisk product_quantity med eksplisitt enhet behandles som før.
+Ingen serverfasade, auth- eller synkkontrakt endres.

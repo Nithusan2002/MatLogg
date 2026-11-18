@@ -165,6 +165,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let nutriScoreInfo: ProductNutriScoreInfo?
     let processingInfo: ProductProcessingInfo?
     let dataQualityWarnings: [String]?
+    /// Source-supplied package text for display only; never a serving or nutrition basis.
+    var packageQuantityLabel: String?
     
     // Local flags
     var isSynced: Bool = true
@@ -206,7 +208,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         fetchedAt: Date? = nil,
         nutriScoreInfo: ProductNutriScoreInfo? = nil,
         processingInfo: ProductProcessingInfo? = nil,
-        dataQualityWarnings: [String]? = nil
+        dataQualityWarnings: [String]? = nil,
+        packageQuantityLabel: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -245,6 +248,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.nutriScoreInfo = nutriScoreInfo
         self.processingInfo = processingInfo
         self.dataQualityWarnings = dataQualityWarnings
+        self.packageQuantityLabel = packageQuantityLabel
     }
 
     /// Stable local identity for read-only catalog rows. Version 8 marks the

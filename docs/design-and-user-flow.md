@@ -191,18 +191,60 @@ Navnesøk kombinerer den lokale Matvaretabellen-katalogen og tilgjengelige lagre
 produkter med Open Food Facts for pakkevarer og merkevarer. Lokale treff vises
 mens brukeren skriver. Eksternt navnesøk starter først ved «Søk» eller innsending
 fra tastaturet. Lokale treff beholdes mens flere produkter hentes og ved nettfeil.
+Serverfeil (HTTP 5xx) forklares som midlertidig utilgjengelig produktdatabase,
+med råd om å prøve igjen om litt. Eksisterende retry og globalt søk beholdes.
 Private produkter fra andre profiler er ikke søkbare.
 
+Navnesøk rangerer etter tekstpresisjon før personlige preferanser: eksakt navn,
+hele navneord (også i annen rekkefølge), hele ord i navn og/eller merke,
+ordprefikser og til slutt øvrige deltreff. Ved søk med flere ord teller
+navn og merke sammen, både for hele ord og ordprefikser. Ved søk med bare ett
+ord foretrekkes navnetreff foran treff kun i merkefeltet, slik at «Jarlsberg»
+prioriterer ost foran pizza som har Jarlsberg i merkelisten.
+Treff tidlig i navnet foretrekkes; merkeord
+som bare finnes i merkefeltet får ingen navneposisjon. Ved generiske søk
+foretrekkes færre overskytende navneord innen samme treffnivå. Ved flerordssøk
+som også matcher merket, gir kortere navn ingen ekstra fordel: korte smaksnavn
+skal ikke vinne bare fordi en beskrivende produkttittel har flere ord. Ved lik tekstpresisjon
+prioriteres favoritter, deretter siste loggføring og stabil navn-/merke-/ID-sortering.
+Eksempel: «melk» prioriterer en egen melk-vare foran melk som ingrediens i en
+bolle og foran «melkesjokolade». Alle søkeord må fortsatt finnes i navn eller
+merke; søket gjetter ikke skrivefeil, synonymer eller tilberedningsform.
+
 Ved aktivt søk vises «Tidligere logget» først, med maksimalt tre ulike produkter
-som matcher alle søkeord i navn eller merke. Treffene følger siste loggføring
+på samme beste tekstpresisjonsnivå som det beste tilgjengelige treffet.
+Et svakere historikktreff kan derfor ikke skyve ned et mer presist nytt treff.
+Innen historikkseksjonen prioriteres favoritter, så siste loggføring
 (`loggedTime`), med produkt-ID som stabil sortering ved likt tidspunkt.
-Grunnlaget er hele den tilgjengelige lokale historikken for aktiv profileier,
-ikke bare de seks nylige varene; framtidige registreringer utelates som i
-«Sist brukt». «Andre treff» beholder vanlig relevanssortering og inkluderer
-historikktreff utenfor de tre øverste. Produkter dedupliseres på ID og strekkode
-på tvers av seksjonene. Uten historikktreff skjules seksjonen og dagens
-resultatoverskrift beholdes. Historikktreff bruker eksisterende produktrader,
-kilde-/enhetsvisning og mengdevalg. Ingen ekstra nettverkskall er nødvendig.
+Grunnlaget er hele den tilgjengelige lokale historikken for aktiv profileier;
+framtidige registreringer utelates. «Andre treff» inneholder resten i vanlig
+relevansrekkefølge, også svakere historikktreff. Produkter dedupliseres på ID
+og strekkode på tvers av seksjonene. Uten kvalifiserte historikktreff skjules
+seksjonen. Kilde, tilberedningsform, næringsverdier og enhet endres ikke.
+Ingen ekstra nettverkskall eller persondata kreves. Globale tilleggstreff bruker
+samme rangering, fortsatt i egen seksjon etter eksisterende treff.
+
+### Gjenkjennelige søketreff – 18. november 2026
+
+Hver rad viser varenavn først, deretter merke og eventuell «Pakning: [kildetekst]».
+Under vises «Pakkevare», «Generell matvare» eller «Egen matvare» sammen med
+næringskilden. Energi per 100 g/ml vises på egen linje; tilberedt næringsgrunnlag
+merkes «tilberedt». «Generell matvare» brukes i stedet for «råvare», fordi
+Matvaretabellen også omfatter tilberedte og bearbeidede matvarer.
+
+Pakningstekst er valgfri identifikasjon, ikke foreslått loggmengde. Bare eksplisitt
+kildetekst eller en tidligere lagret, dokumentert hel pakke med kjent enhet
+brukes. Porsjonsstørrelse, varenavn og næringsgrunnlag brukes ikke til å gjette
+pakningsstørrelse. Manglende pakningsinfo skjules; varer med like navn beholdes
+som egne treff når ID/strekkode er forskjellig. Et ferskt søkesvar kan fylle
+manglende pakningstekst i et eldre treff med offentlig OFF-kilde, uten å endre
+lagrede næringsverdier, egne matvarer eller eksisterende pakningstekst. Dette
+skriver ikke til databasen; eldre offline-cache kan derfor mangle teksten
+fram til vanlig katalogoppdatering. Ingen ekstra oppslag startes for visning.
+
+Teksten får bryte over flere linjer. Raden beholder én samlet tilgjengelig
+knapp med navn, identitet, type, kilde og næringsgrunnlag. Stor tekst bruker
+den eksisterende vertikale varianten; listen kan rulles over bunnmenyen.
 
 Eksternt navnesøk bruker først det norske Open Food Facts-endepunktet. Etter
 søk tilbys «Finner du ikke varen? Søk i hele verden», også uten treff. Globale

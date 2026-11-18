@@ -4,6 +4,37 @@ import Testing
 
 @MainActor
 struct FoodSearchLoadingTests {
+    @Test(arguments: ["catalog", "user", "existing"])
+    func freshPackageLabelOnlyFillsMissingPublicSourceMetadata(mode: String) async throws {
+        let products = LoadingSearchProducts()
+        let remote = CountingNameSearch()
+        let owner = UUID()
+        let stored = Product(name: "Lagret drikk", barcodeEan: "1000000000016",
+            source: mode == "user" ? "user" : "openfoodfacts",
+            caloriesPer100g: 200, proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3,
+            nutritionSource: mode == "user" ? .user : .openFoodFacts,
+            packageQuantityLabel: mode == "existing" ? "750 ml" : nil)
+        products.override = stored
+        remote.result = [Product(name: "Drikk", barcodeEan: "1000000000016", source: "openfoodfacts",
+            caloriesPer100g: 42, proteinGPer100g: 0, carbsGPer100g: 10, fatGPer100g: 0,
+            nutritionSource: .openFoodFacts, nutritionBasis: .per100ml, packageQuantityLabel: "1 l")]
+        let repository = DefaultFoodSearchRepository(products: products, catalog: LoadingCatalog(),
+            remote: remote, recentFoods: products)
+        let result = try #require(try await repository.searchRemote(query: "drikk", owner: owner).first)
+        #expect(result.id == stored.id)
+        #expect(result.name == stored.name)
+        #expect(result.caloriesPer100g == 200)
+        #expect(result.amountUnit == .grams)
+        #expect(result.packageQuantityLabel == (mode == "user" ? nil : mode == "existing" ? "750 ml" : "1 l"))
+        let sections = try await FoodSearchIndex().sections(library: [stored], remote: [result],
+            query: "drikk", loggedProductTimes: [:])
+        #expect(sections.all.first?.packageQuantityLabel == result.packageQuantityLabel)
+        #expect(sections.all.first?.caloriesPer100g == stored.caloriesPer100g)
+        #expect(products.override?.packageQuantityLabel == stored.packageQuantityLabel)
+        #expect(products.catalogWrites == 0)
+        #expect(products.barcodeOwners == [owner])
+    }
+
     @Test func countryAndGlobalSearchHaveSeparateCaches() async throws {
         let products = LoadingSearchProducts()
         let remote = CountingNameSearch()
@@ -172,6 +203,7 @@ private final class LoadingSearchProducts: ProductRepository, RecentFoodReposito
     var localReadCount = 0
     var recentReadCount = 0
     var favoriteReadCount = 0
+    var catalogWrites = 0
     func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product] {
         localReadCount += 1
         return try await withCheckedThrowingContinuation { pending = $0 }
@@ -186,7 +218,7 @@ private final class LoadingSearchProducts: ProductRepository, RecentFoodReposito
         return []
     }
     func saveProduct(_ product: Product, ownerUserId: UUID) async throws {}
-    func cacheCatalogProduct(_ product: Product) async throws {}
+    func cacheCatalogProduct(_ product: Product) async throws { catalogWrites += 1 }
     func getProduct(_ id: UUID) async -> Product? { nil }
     func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async -> Product? {
         barcodeOwners.append(ownerUserId)

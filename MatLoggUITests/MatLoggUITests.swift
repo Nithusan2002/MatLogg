@@ -1260,6 +1260,96 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testSearchDistinguishesPackagesAndGenericFoods() throws {
+        verifySearchMetadata(largeText: false)
+    }
+
+    @MainActor
+    func testSearchMetadataSupportsLargestText() throws {
+        verifySearchMetadata(largeText: true)
+    }
+
+    @MainActor
+    private func verifySearchMetadata(largeText: Bool) {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--search-metadata-qa", "-demoModeActive", "NO",
+            "-UIPreferredContentSizeCategoryName",
+            largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 10))
+        app.buttons["Søk"].tap()
+        let field = app.textFields["food-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("Pakningstest")
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        let list = app.collectionViews.firstMatch
+        attachSearchScreenshot(app, name: "Søkemetadata – start – \(largeText ? "stor" : "vanlig") tekst")
+        var visibleTop: CGFloat { list.frame.minY + 8 }
+        var visibleBottom: CGFloat { min(list.frame.maxY, app.buttons["Hjem"].frame.minY - 16) }
+        func scrollVisibleList(by distance: CGFloat) {
+            // List's frame includes the area covered by the persistent menu.
+            let top = visibleTop + 12
+            let bottom = visibleBottom - 12
+            let movement = min(abs(distance), (bottom - top) * 0.75)
+            let startY = distance > 0 ? bottom : top
+            let endY = distance > 0 ? bottom - movement : top + movement
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: list.frame.midX, dy: startY))
+            let end = origin.withOffset(CGVector(dx: list.frame.midX, dy: endY))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        for expected in ["Pakning: 1 l", "Pakning: 500 ml", "Generell matvare"] {
+            let row = app.buttons.matching(NSPredicate(format:
+                "identifier BEGINSWITH 'food-search-result-' AND label CONTAINS %@", expected)).firstMatch
+            for _ in 0..<12 {
+                if row.exists && row.isHittable {
+                    if !largeText || abs(row.frame.minY - visibleTop) <= 28 { break }
+                    scrollVisibleList(by: row.frame.minY - visibleTop)
+                } else {
+                    scrollVisibleList(by: 200)
+                }
+            }
+            if !row.exists {
+                attachSearchScreenshot(app, name: "Søkemetadata – manglende rad – \(expected)")
+                let tree = XCTAttachment(string: list.debugDescription)
+                tree.name = "Søkemetadata – tilgjengelighetstre etter rulling"
+                tree.lifetime = .keepAlways
+                add(tree)
+            }
+            XCTAssertTrue(row.exists, expected)
+            XCTAssertTrue(row.isHittable, expected)
+            if row.exists {
+                XCTAssertGreaterThanOrEqual(row.frame.minX, app.frame.minX)
+                XCTAssertLessThanOrEqual(row.frame.maxX, app.frame.maxX)
+                if largeText {
+                    XCTAssertLessThanOrEqual(abs(row.frame.minY - visibleTop), 28,
+                        "Navn og pakningsinfo skal være rullet fram over bunnmenyen")
+                }
+                if expected.hasPrefix("Pakning:") {
+                    XCTAssertTrue(row.label.contains("Pakkevare"))
+                    XCTAssertTrue(row.label.contains("Open Food Facts"))
+                    XCTAssertTrue(row.label.contains("per 100 ml"))
+                } else {
+                    XCTAssertTrue(row.label.contains("Matvaretabellen"))
+                    XCTAssertFalse(row.label.contains("Pakning:"))
+                }
+            }
+            attachSearchScreenshot(app, name: "Søkemetadata – \(expected) – \(largeText ? "stor" : "vanlig") tekst")
+            if largeText && row.exists {
+                for _ in 0..<12 {
+                    if row.frame.maxY <= visibleBottom + 12 { break }
+                    scrollVisibleList(by: row.frame.maxY - visibleBottom)
+                }
+                XCTAssertLessThanOrEqual(row.frame.maxY, visibleBottom + 12,
+                    "Kilde og næringsgrunnlag skal kunne rulles fram over bunnmenyen")
+                XCTAssertGreaterThan(row.frame.maxY, visibleTop + 40)
+                attachSearchScreenshot(app, name: "Søkemetadata – kilde og enhet – \(expected) – stor tekst")
+            }
+        }
+    }
+
+    @MainActor
     private func attachSearchScreenshot(_ app: XCUIApplication, name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

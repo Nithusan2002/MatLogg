@@ -522,9 +522,11 @@ Eksportkopier utenfor appen omfattes ikke av lokal sletting.
 ### Søk etter tidligere logget mat (2026-10-09)
 
 Som bruker som søker «yoghurt», skal jeg raskt finne en yoghurt jeg har logget
-tidligere. «Tidligere logget» viser opptil tre søkeordmatchende produkter fra
-hele min lokale logghistorikk, sist logget først. Presise søk som «yoghurt
-jordbær» utelater historikk som ikke matcher. Øvrige produkter, inkludert eldre
+tidligere. «Tidligere logget» viser opptil tre produkter fra hele min lokale
+logghistorikk på beste tilgjengelige tekstpresisjonsnivå. Favoritter prioriteres
+ved lik presisjon, deretter sist logget. Et presist nytt treff skal ikke skyves
+ned av svakere historikktreff. Presise søk som «yoghurt jordbær» utelater
+historikk som ikke matcher. Se [rangeringen i design- og brukerflyten](../design-and-user-flow.md). Øvrige produkter, inkludert eldre
 historikktreff, vises under «Andre treff» uten duplikater. Tomt søk beholder
 favoritter og seks nylige varer. Flyten fungerer offline og åpner vanlig
 produktkort med mengdevalg.

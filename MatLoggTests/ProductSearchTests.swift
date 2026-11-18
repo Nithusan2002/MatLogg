@@ -433,7 +433,8 @@ struct ProductSearchTests {
             carbsGPer100g: 10,
             fatGPer100g: 2,
             nutritionSource: .openFoodFacts,
-            nutritionBasis: .per100ml
+            nutritionBasis: .per100ml,
+            packageQuantityLabel: "1 l"
         )
         let mapping = ProductMatchMapping(
             barcode: "1234567890123",
@@ -461,6 +462,7 @@ struct ProductSearchTests {
         #expect(upgraded.nutritionBasis == .per100g)
         #expect(upgraded.amountUnit == .grams)
         #expect(upgraded.caloriesPer100g == 91.25)
+        #expect(upgraded.packageQuantityLabel == "1 l")
     }
 
     @Test func searchFiltersUnrelatedCatalogRowsAndRanksExactProductFirst() {

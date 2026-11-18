@@ -183,7 +183,8 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         let cached = await products.getProductsByBarcodes(Set(filtered.compactMap(\.barcodeEan)), ownerUserId: owner)
         PerformanceSignposts.end(cacheTiming)
         return filtered.map { product in
-            product.barcodeEan.flatMap { cached[$0] } ?? product
+            guard let stored = product.barcodeEan.flatMap({ cached[$0] }) else { return product }
+            return ProductPackageLabel.fillingMissingValue(in: stored, from: product)
         }
     }
 
@@ -255,23 +256,71 @@ nonisolated enum FoodSearchMatcher {
         return tokens.allSatisfy { searchableText.contains($0) }
     }
 
-    static func sorted(_ products: [Product], query: String) -> [Product] {
-        let normalizedQuery = normalized(query)
-        return products.map { ($0, relevance(of: $0, normalizedQuery: normalizedQuery)) }
-            .sorted { lhs, rhs in
-                if lhs.1 != rhs.1 { return lhs.1 < rhs.1 }
-                return lhs.0.name.localizedCaseInsensitiveCompare(rhs.0.name) == .orderedAscending
-            }.map(\.0)
+    // Text precision always precedes personal preferences. Position separates a food
+    // named in its own right from the same word buried in a recipe's ingredients.
+    struct Relevance: Comparable {
+        let tier: Int
+        let position: Int
+        let extraWords: Int
+
+        static func < (lhs: Self, rhs: Self) -> Bool {
+            if lhs.tier != rhs.tier { return lhs.tier < rhs.tier }
+            if lhs.position != rhs.position { return lhs.position < rhs.position }
+            return lhs.extraWords < rhs.extraWords
+        }
     }
 
-    private static func relevance(of product: Product, normalizedQuery: String) -> Int {
-        let name = normalized(product.name)
-        let brand = normalized(product.brand ?? "")
-        if name == normalizedQuery { return 0 }
-        if name.hasPrefix(normalizedQuery) { return 1 }
-        if brand == normalizedQuery { return 2 }
-        if name.contains(normalizedQuery) { return 3 }
-        return 4
+    static func relevance(name: String, brand: String, normalizedQuery: String) -> Relevance {
+        let tokens = normalizedQuery.split(separator: " ")
+        let words = name.split(separator: " ")
+        let brandWords = brand.split(separator: " ")
+        let combined = words + brandWords
+        func containsAll(_ candidates: [Substring]) -> Bool {
+            tokens.allSatisfy { candidates.contains($0) }
+        }
+        func prefixesMatch(_ candidates: [Substring]) -> Bool {
+            tokens.allSatisfy { token in candidates.contains { $0.hasPrefix(token) } }
+        }
+        let tier: Int
+        if name == normalizedQuery { tier = 0 }
+        else if containsAll(words) && words.count == tokens.count { tier = 1 }
+        else if containsAll(words) { tier = 2 }
+        else if containsAll(combined) { tier = tokens.count > 1 ? 2 : 3 }
+        else if prefixesMatch(words) { tier = 4 }
+        else if prefixesMatch(combined) { tier = tokens.count > 1 ? 4 : 5 }
+        else { tier = 6 }
+        let position = tokens.reduce(0) { total, token in
+            // A brand stored separately has no position in the product name.
+            total + (words.firstIndex { word in
+                word == token || (tier >= 4 && word.hasPrefix(token))
+            } ?? 0)
+        }
+        let queriesBrand = tokens.contains { token in
+            brandWords.contains { $0 == token || (tier >= 4 && $0.hasPrefix(token)) }
+        }
+        // In multiword brand searches, short flavor-only titles should not beat
+        // descriptive titles merely because the provider omitted words from the name.
+        // Single-word brand searches retain name priority (Jarlsberg cheese before pizza).
+        let extraWords = tokens.count > 1 && queriesBrand ? 0 : max(0, words.count - tokens.count)
+        return Relevance(tier: tier, position: position, extraWords: extraWords)
+    }
+
+    static func precedes(_ lhs: Product, _ rhs: Product) -> Bool {
+        let nameOrder = lhs.name.localizedCaseInsensitiveCompare(rhs.name)
+        if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        let brandOrder = (lhs.brand ?? "").localizedCaseInsensitiveCompare(rhs.brand ?? "")
+        if brandOrder != .orderedSame { return brandOrder == .orderedAscending }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    static func sorted(_ products: [Product], query: String) -> [Product] {
+        let normalizedQuery = normalized(query)
+        return products.map {
+            ($0, relevance(name: normalized($0.name), brand: normalized($0.brand ?? ""), normalizedQuery: normalizedQuery))
+        }.sorted {
+            if $0.1 != $1.1 { return $0.1 < $1.1 }
+            return precedes($0.0, $1.0)
+        }.map(\.0)
     }
 
     static func normalized(_ text: String) -> String {
@@ -348,9 +397,22 @@ actor FoodSearchIndex {
     private var fields: [UUID: Fields] = [:]
 
     func sections(library: [Product], remote: [Product], query: String,
-                  loggedProductTimes: [UUID: Date]) throws -> FoodSearchResultSections {
-        let matches = try results(library: library, remote: remote, query: query)
-        let history = Array(matches.filter { loggedProductTimes[$0.id] != nil }.sorted {
+                  loggedProductTimes: [UUID: Date], favoriteIDs: Set<UUID> = []) throws -> FoodSearchResultSections {
+        let matches = try results(library: library, remote: remote, query: query,
+                                  favoriteIDs: favoriteIDs, loggedProductTimes: loggedProductTimes)
+        let normalizedQuery = FoodSearchMatcher.normalized(query)
+        func relevance(_ product: Product) -> FoodSearchMatcher.Relevance {
+            let field = fields[product.id]
+            return FoodSearchMatcher.relevance(name: field?.name ?? "", brand: field?.brand ?? "",
+                                               normalizedQuery: normalizedQuery)
+        }
+        let best = matches.first.map(relevance)
+        // Weaker history remains in other results, so it cannot displace a more
+        // precise unlogged product simply because it was used recently.
+        let history = Array(matches.filter {
+            loggedProductTimes[$0.id] != nil && relevance($0) == best
+        }.sorted {
+            if favoriteIDs.contains($0.id) != favoriteIDs.contains($1.id) { return favoriteIDs.contains($0.id) }
             let left = loggedProductTimes[$0.id] ?? .distantPast
             let right = loggedProductTimes[$1.id] ?? .distantPast
             if left != right { return left > right }
@@ -361,7 +423,8 @@ actor FoodSearchIndex {
         return FoodSearchResultSections(history: history, other: other, all: history + other)
     }
 
-    func results(library: [Product], remote: [Product], query: String) throws -> [Product] {
+    func results(library: [Product], remote: [Product], query: String,
+                 favoriteIDs: Set<UUID> = [], loggedProductTimes: [UUID: Date] = [:]) throws -> [Product] {
         let timing = PerformanceSignposts.begin("Search.Index")
         defer { PerformanceSignposts.end(timing) }
         let normalizedQuery = FoodSearchMatcher.normalized(query)
@@ -380,26 +443,39 @@ actor FoodSearchIndex {
             fields[product.id] = value
             return value
         }
-        var local: [Product] = []
-        for product in library {
+        var matching: [Product] = []
+        for product in library + remote {
             try Task.checkCancellation()
             let field = indexed(product)
-            if tokens.allSatisfy({ field.searchable.contains($0) }) { local.append(product) }
+            if tokens.allSatisfy({ field.searchable.contains($0) }) { matching.append(product) }
         }
-        let ranked = FoodSearchMatcher.unique(local + remote).map { product in
+        // Local rows still own identity and nutrition after deduplication. A fresh
+        // matching public source may contribute only a missing package label.
+        var packageSourcesByID: [UUID: Product] = [:]
+        var packageSourcesByBarcode: [String: Product] = [:]
+        for product in remote where product.packageQuantityLabel != nil {
+            if packageSourcesByID[product.id] == nil { packageSourcesByID[product.id] = product }
+            if let barcode = product.barcodeEan, !barcode.isEmpty, packageSourcesByBarcode[barcode] == nil {
+                packageSourcesByBarcode[barcode] = product
+            }
+        }
+        let ranked = FoodSearchMatcher.unique(matching).map { original in
+            let incoming = packageSourcesByID[original.id]
+                ?? original.barcodeEan.flatMap { packageSourcesByBarcode[$0] }
+            let product = incoming.map { ProductPackageLabel.fillingMissingValue(in: original, from: $0) } ?? original
             let field = indexed(product)
-            let score: Int
-            if field.name == normalizedQuery { score = 0 }
-            else if field.name.hasPrefix(normalizedQuery) { score = 1 }
-            else if field.brand == normalizedQuery { score = 2 }
-            else if field.name.contains(normalizedQuery) { score = 3 }
-            else { score = 4 }
-            return (product, score)
+            return (product, FoodSearchMatcher.relevance(name: field.name, brand: field.brand,
+                                                        normalizedQuery: normalizedQuery))
         }
         try Task.checkCancellation()
         return ranked.sorted {
             if $0.1 != $1.1 { return $0.1 < $1.1 }
-            return $0.0.name.localizedCaseInsensitiveCompare($1.0.name) == .orderedAscending
+            let left = $0.0, right = $1.0
+            if favoriteIDs.contains(left.id) != favoriteIDs.contains(right.id) { return favoriteIDs.contains(left.id) }
+            let leftTime = loggedProductTimes[left.id] ?? .distantPast
+            let rightTime = loggedProductTimes[right.id] ?? .distantPast
+            if leftTime != rightTime { return leftTime > rightTime }
+            return FoodSearchMatcher.precedes(left, right)
         }.map(\.0)
     }
 }

@@ -347,7 +347,8 @@ final class ProductViewModel: ObservableObject {
             fetchedAt: product.fetchedAt,
             nutriScoreInfo: product.nutriScoreInfo,
             processingInfo: product.processingInfo,
-            dataQualityWarnings: product.dataQualityWarnings
+            dataQualityWarnings: product.dataQualityWarnings,
+            packageQuantityLabel: product.packageQuantityLabel
         )
     }
 

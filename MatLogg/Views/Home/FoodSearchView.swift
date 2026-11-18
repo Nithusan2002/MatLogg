@@ -514,13 +514,12 @@ private struct FoodSearchProductRow: View {
     let isPreparing: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var context: String {
-        let source = switch product.nutritionSource {
-        case .matvaretabellen: "Matvaretabellen"
-        case .openFoodFacts: "Open Food Facts"
-        case .user: "Brukeroppgitt"
-        }
-        return "\(NutritionDisplay.wholeCalories(product.caloriesPer100g)) kcal per 100 \(product.amountUnit.rawValue) · \(source)"
+    private let presentation: FoodSearchRowPresentation
+
+    init(product: Product, isPreparing: Bool) {
+        self.product = product
+        self.isPreparing = isPreparing
+        presentation = FoodSearchRowPresentation(product: product)
     }
 
     var body: some View {
@@ -552,10 +551,20 @@ private struct FoodSearchProductRow: View {
     private var labels: some View {
         VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(AppTypography.bodyEmphasis).foregroundColor(AppColors.ink)
-                if let brand = product.brand, !brand.isEmpty {
-                    Text(brand).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                Group {
+                    if dynamicTypeSize.isAccessibilitySize {
+                        if let brand = presentation.brandText { Text(brand) }
+                        if let package = presentation.packageText { Text(package) }
+                        Text(presentation.kindTitle)
+                        Text(presentation.sourceTitle)
+                    } else {
+                        if let identity = presentation.identity { Text(identity) }
+                        Text(presentation.provenance)
+                    }
+                    Text(presentation.nutrition)
                 }
-                Text(context).font(AppTypography.caption).foregroundColor(AppColors.textSecondary)
+                .font(AppTypography.caption)
+                .foregroundColor(AppColors.textSecondary)
             }
             .multilineTextAlignment(.leading)
     }

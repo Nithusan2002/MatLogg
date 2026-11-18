@@ -839,3 +839,24 @@ makroer komme fra `*_prepared_100g` og `nutrition_data_prepared_per` eksplisitt
 være `100g`/`100ml`. Manglende data eller grunnlag avvises. Tilberedte produkter
 får ingen automatisk porsjon fra tørr pakkevekt eller tvetydig `serving_size`.
 Ingen automatisk omregning mellom tørr og tilberedt vekt inngår.
+
+## Lokal pakningsidentitet – 18. november 2026
+
+`Product.packageQuantityLabel: String?` bevarer kort, eksplisitt pakningstekst
+fra Open Food Facts (`quantity`). Feltet er valgfri visningsmetadata og inngår
+ikke i mengdevalg, næringsberegning, gram/ml-grunnlag eller synkhendelser.
+Det serialiseres i eksisterende lokal Product-JSON; eldre JSON uten feltet
+leses som nil. Ingen SQL-migrasjon eller endring av canonical product.upsert
+kreves: ProductSyncPayload er eksplisitt og har ikke dette cachefeltet.
+
+Ugyldig valgfri pakningsmetadata skal ikke avvise en ellers brukbar matvare.
+Visning kan bruke en eksplisitt ServingOption av typen package med kjent
+enhet som eldre-cache-fallback, men aldri en porsjon, en heuristikk eller
+en antatt enhet. Matvaretabellen-oppgradering bevarer pakningsidentiteten
+selv om næringsgrunnlaget endres til per 100 g.
+
+Ved ferskt navnesøk kan en resultatkopi med offentlig OFF-proveniens få
+manglende pakningstekst fra samme ID/strekkode, også etter sammenslåing med
+lokale treff. Næringsverdier, enheter, lokal identitet, brukeroppgitte data og
+allerede dokumentert pakning beholdes. Denne visningsberikelsen skriver
+ikke til cache eller outbox. Eldre offline-cache kan fortsatt mangle teksten.

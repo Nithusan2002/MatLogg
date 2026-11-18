@@ -1266,3 +1266,34 @@ MatLoggUITests/testManualBarcodeFindsLocalDemoProductAndLogs bestod på
 /tmp/MatLoggDemoBarcodeFix.log. Testens krav til bilde, riktig produkt og
 lagringskvittering er beholdt. Ingen domeneskriving eller synkendring fra
 rettingen. Buildnummeret er satt til 3 for neste 2.0-kandidat.
+
+## Matsøk: relevans og pakningsvisning – 18. november 2026
+
+Permanente regresjoner ligger i FoodSearchTests, FoodSearchLoadingTests,
+FoodPackageMetadataTests og ProductSearchTests. De dekker ord-/merketreff,
+favoritter/historikk, profilbytte, cache, deduplisering, valgfri pakningstekst,
+eldre JSON, kilde/enhet og at visningen ikke oppretter synkhendelser.
+20 faste katalogsøk gikk fra 17/20 til 20/20 relevante treff blant de fem første.
+Nye regresjoner fanget feilene før retting og bestod etterpå.
+
+Etter arkivering bestod 38 permanente søke- og metadatatester uten råfilene.
+To UI-tester bestod tidligere på iOS 18.6 QA-simulator:
+`testSearchDistinguishesPackagesAndGenericFoods` og
+`testSearchMetadataSupportsLargestText`. Vanlig tekst og Accessibility XXXL
+er visuelt kontrollert; stor tekst krever rulling på liten skjerm.
+
+Målrettet kjøring: `xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg`
+med installert QA-simulator, `-only-testing:MatLoggTests/<suite>` eller
+`-only-testing:MatLoggUITests/MatLoggUITests/<test>`,
+`-parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO`.
+Bruk en egen QA-profil/simulator; fysisk iPhone og manuell VoiceOver gjenstår.
+
+Rå API-svar, detaljerte kjørerapporter og engangs-replay er arkivert utenfor
+repoet og er ikke testavhengigheter. Den offentlige kontrollen ga 17/20
+kontrollerbare merkevaresøk, alle med relevant produktfamilie i topp fem.
+Ved ny kontroll svarte Sørlandschips; Stabburet makrell og Freia melkesjokolade
+ga fortsatt HTTP 503. Dette må ikke tolkes som manglende varedekning.
+
+Arkitekturkontroll: ingen IO i views, nye IO-grenser, SQL-migrasjoner eller
+canonical synkendringer. Local-first, transaksjonsgrenser, eierskap,
+næringsgrunnlag og localOnly-policy er bevart. Ingen nye arkitekturavvik.

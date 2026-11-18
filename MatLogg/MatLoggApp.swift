@@ -254,6 +254,13 @@ struct MatLoggContent: View {
             }
             .task {
                 #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--search-metadata-qa") {
+                    do {
+                        for product in SearchMetadataQAFixture.products {
+                            try await portionQARepository.cacheCatalogProduct(product)
+                        }
+                    } catch { appState.errorMessage = "Kunne ikke lagre testproduktene lokalt." }
+                }
                 if ProcessInfo.processInfo.arguments.contains("--prepared-nutrition-qa") {
                     do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.preparedProduct) }
                     catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }
