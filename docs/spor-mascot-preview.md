@@ -1,20 +1,26 @@
 # Spor-maskot – isolert iOS-prøve
 
 Intern Debug-QA, implementert 22. november 2026. Ingen plassering i den vanlige
-appen eller produksjonsutrulling er valgt. Fysisk iPhone-testing er utsatt etter
-brukerens ønske; simulatoren er første kontrollmiljø.
+appen eller produksjonsutrulling er valgt. Simulatoren er kontrollert; fysisk
+iPhone-testing gjenstår.
 
 ## Starte prøven
 
-Bygg med `Config/SporMascotQA.xcconfig`, som gir separat appidentitet
-`com.nithusan.MatLogg.mascotqa`, og start med `--spor-mascot-qa`.
+I Xcode: velg det delte schemet **Spor Maskot QA**, velg iPhone eller
+simulator som destinasjon, og trykk ▶️ (⌘R). Det åpner maskoten direkte.
+Schemet bruker `Debug-SporMascotQA`, `Config/SporMascotQA.xcconfig` og
+startargumentet `--spor-mascot-qa`. Appen heter «Spor Maskot QA» og har
+separat appidentitet `com.nithusan.MatLogg.mascotqa`. QA-konfigurasjonen
+bruker en tom entitlement-fil siden prøven ikke bruker HealthKit eller
+Apple-innlogging. Det vanlige MatLogg-schemet er uendret. QA-schemet har
+ingen Profile-/Archive-handling.
 Dette velger QA-roten før `DemoAppRoot`/`MatLoggContent` initialiseres.
 QA-roten bruker ingen database, konto, HealthKit eller nettverk.
 
 ```sh
-xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg -configuration Debug \
+xcodebuild test -project MatLogg.xcodeproj -scheme "Spor Maskot QA" \
   -destination 'platform=iOS Simulator,id=<QA-simulator-ID>' \
-  -derivedDataPath /tmp/MatLoggMascotQA -xcconfig Config/SporMascotQA.xcconfig \
+  -derivedDataPath /tmp/MatLoggMascotQA \
   -only-testing:MatLoggTests/SporMascotPreviewTests \
   -only-testing:MatLoggUITests/SporMascotPreviewUITests \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO
@@ -67,7 +73,8 @@ avviker noe fra Blender-renderen. Kildemodellen endres ikke av eksporten.
 ## Isolasjon og arkitektur
 
 Koden er avgrenset med `DEBUG && SPOR_MASCOT_QA`. Ressurskopieringen krever
-både Debug, `SPOR_MASCOT_QA=YES` og den samsvarende kompileringsbetingelsen.
+både Debug/Debug-SporMascotQA, `SPOR_MASCOT_QA=YES` og den samsvarende
+kompileringsbetingelsen.
 Vanlige bygg fjerner eventuell gammel QA-ressursmappe fra eget byggprodukt.
 Blender-/GIF-filer er utenfor appens synkroniserte mappe og pakkes ikke.
 
@@ -93,6 +100,12 @@ Vanlig Release uten QA-xcconfig bestod; den genererte appen inneholder verken
 QA-ressursmappe, maskot-USDZ-filer eller QA-inngangens binærkjennetegn.
 `bash scripts/verify-spor-qa-packaging.sh` kontrollerer også vanlig Debug,
 Release med QA-variabel satt og manglende kompileringsbetingelse.
+
+Det delte QA-schemet er bygget for `generic/platform=iOS` med eksisterende
+utviklingssignering. Bygget bestod; appidentitet, alle fem QA-ressurser og
+kodesignatur er kontrollert. Schemet starter med maskotargumentet aktivert.
+Vanlige Debug-/Release-konfigurasjoner er bevart, og pakkingstesten bestod
+også med `Debug-SporMascotQA`. Ingen installasjon på fysisk iPhone er utført.
 
 Innlasting og eksportert blunk er observert i RealityKit i simulatoren.
 Deployment target er fortsatt iOS 17, men ingen iOS 17-runtime er installert:

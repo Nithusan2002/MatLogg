@@ -3,7 +3,11 @@ set -eu
 
 # This path is exclusively a generated resource folder inside the build product.
 destination="${TARGET_BUILD_DIR:?}/${UNLOCALIZED_RESOURCES_FOLDER_PATH:?}/SporMascotQA"
-if [ "${CONFIGURATION:-}" != "Debug" ] || [ "${SPOR_MASCOT_QA:-NO}" != "YES" ]; then
+case "${CONFIGURATION:-}" in
+    Debug|Debug-SporMascotQA) qa_configuration=YES ;;
+    *) qa_configuration=NO ;;
+esac
+if [ "$qa_configuration" != "YES" ] || [ "${SPOR_MASCOT_QA:-NO}" != "YES" ]; then
     if [ -d "$destination" ]; then rm -rf "$destination"; fi
     exit 0
 fi

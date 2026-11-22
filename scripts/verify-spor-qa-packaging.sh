@@ -7,7 +7,7 @@ export SRCROOT="$repo_root" TARGET_BUILD_DIR="$scratch" UNLOCALIZED_RESOURCES_FO
 script="$repo_root/scripts/copy-spor-qa-assets.sh"
 destination="$scratch/Probe.app/SporMascotQA"
 
-CONFIGURATION=Debug SPOR_MASCOT_QA=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG SPOR_MASCOT_QA' /bin/sh "$script"
+CONFIGURATION=Debug-SporMascotQA SPOR_MASCOT_QA=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG SPOR_MASCOT_QA' /bin/sh "$script"
 for name in manifest.json poster.png spor-idle.usdz spor-greeting.usdz spor-walk.usdz; do
     cmp "$repo_root/qa-assets/spor/$name" "$destination/$name"
 done
@@ -21,4 +21,4 @@ if CONFIGURATION=Debug SPOR_MASCOT_QA=YES SWIFT_ACTIVE_COMPILATION_CONDITIONS=DE
     exit 1
 fi
 test ! -e "$destination"
-echo 'SPOR_PACKAGING_OK: QA copies, normal Debug cleans stale files, Release excludes, missing compile condition fails.'
+echo 'SPOR_PACKAGING_OK: QA scheme copies, legacy Debug opt-in copies, normal Debug cleans stale files, Release excludes, missing compile condition fails.'

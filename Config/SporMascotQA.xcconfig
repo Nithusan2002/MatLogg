@@ -3,3 +3,4 @@ SPOR_MASCOT_QA = YES
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) SPOR_MASCOT_QA
 PRODUCT_BUNDLE_IDENTIFIER = com.nithusan.MatLogg.mascotqa
 INFOPLIST_KEY_CFBundleDisplayName = Spor Maskot QA
+CODE_SIGN_ENTITLEMENTS = Config/SporMascotQA.entitlements

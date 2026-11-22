@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="2700" version="1.7">
+   <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES" buildArchitectures="Automatic">
+      <BuildActionEntries>
+         <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="NO" buildForArchiving="NO" buildForAnalyzing="YES">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8276A8DB2F21635F00FD2BF4" BuildableName="MatLogg.app" BlueprintName="MatLogg" ReferencedContainer="container:MatLogg.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction buildConfiguration="Debug-SporMascotQA" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES" shouldAutocreateTestPlan="YES">
+      <Testables>
+         <TestableReference skipped="NO" parallelizable="YES">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8276A8E82F21636100FD2BF4" BuildableName="MatLoggTests.xctest" ReferencedContainer="container:MatLogg.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference skipped="NO" parallelizable="YES">
+            <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8276A8F22F21636100FD2BF4" BuildableName="MatLoggUITests.xctest" ReferencedContainer="container:MatLogg.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction buildConfiguration="Debug-SporMascotQA" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES" queueDebuggingEnabled="No">
+      <BuildableProductRunnable runnableDebuggingMode="0">
+         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="8276A8DB2F21635F00FD2BF4" BuildableName="MatLogg.app" BlueprintName="MatLogg" ReferencedContainer="container:MatLogg.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument argument="--spor-mascot-qa" isEnabled="YES" />
+      </CommandLineArguments>
+   </LaunchAction>
+   <AnalyzeAction buildConfiguration="Debug-SporMascotQA">
+   </AnalyzeAction>
+</Scheme>
