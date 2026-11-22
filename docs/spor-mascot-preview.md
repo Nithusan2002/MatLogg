@@ -77,6 +77,14 @@ både Debug/Debug-SporMascotQA, `SPOR_MASCOT_QA=YES` og den samsvarende
 kompileringsbetingelsen.
 Vanlige bygg fjerner eventuell gammel QA-ressursmappe fra eget byggprodukt.
 Blender-/GIF-filer er utenfor appens synkroniserte mappe og pakkes ikke.
+Byggesteget deklarerer både QA-mappen og hver av de fem utdatafilene:
+Xcodes sandbox gir bare tilgang til selve stien når en mappe deklareres.
+Pakkingstesten kjører også kopiering, overskriving og opprydding under
+slike sandbox-regler, med kanonisk `/private/tmp`-sti. Testen reproduserte
+`manifest.json: Operation not permitted` før fillisten ble rettet og bestod
+etterpå. Tidligere bygg under `/tmp` fanget ikke denne begrensningen.
+Nytt iPhone-bygg i den samme DerivedData-mappen som Xcode-feilen bestod
+med sandbox aktivert; alle fem ressurser ble kontrollert i appen.
 
 ViewModel eier feature-state og bruker et injisert repository og avspillings-
 grensesnitt. Repositoryet skjuler filoppslag; RealityKit-controlleren eier
