@@ -4,14 +4,24 @@ import SwiftUI
 struct MatLoggApp: App {
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--health-history-qa") { HealthHistoryQARoot() }
-            else if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
-            else { DemoAppRoot() }
+            #if DEBUG && SPOR_MASCOT_QA
+            if ProcessInfo.processInfo.arguments.contains("--spor-mascot-qa") {
+                SporMascotQARoot()
+            } else { regularRoot }
             #else
-            DemoAppRoot()
+            regularRoot
             #endif
         }
+    }
+
+    @ViewBuilder private var regularRoot: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--health-history-qa") { HealthHistoryQARoot() }
+        else if ProcessInfo.processInfo.arguments.contains("--local-link-qa") { LocalDataLinkQARoot() }
+        else { DemoAppRoot() }
+        #else
+        DemoAppRoot()
+        #endif
     }
 }
 

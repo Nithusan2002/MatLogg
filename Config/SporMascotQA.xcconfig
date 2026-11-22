@@ -1,0 +1,5 @@
+// Opt-in Debug-only QA app. No production credentials or data dependencies.
+SPOR_MASCOT_QA = YES
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) SPOR_MASCOT_QA
+PRODUCT_BUNDLE_IDENTIFIER = com.nithusan.MatLogg.mascotqa
+INFOPLIST_KEY_CFBundleDisplayName = Spor Maskot QA

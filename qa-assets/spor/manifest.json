@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "clips": {
+    "idle": { "file": "spor-idle.usdz", "duration": 6.0 },
+    "greeting": { "file": "spor-greeting.usdz", "duration": 6.0 },
+    "walk": { "file": "spor-walk.usdz", "duration": 2.0 }
+  }
+}

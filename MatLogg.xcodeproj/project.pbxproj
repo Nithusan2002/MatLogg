@@ -119,6 +119,7 @@
 				8276A8D82F21635F00FD2BF4 /* Sources */,
 				8276A8D92F21635F00FD2BF4 /* Frameworks */,
 				8276A8DA2F21635F00FD2BF4 /* Resources */,
+				A80000000000000000000001 /* Copy Spor QA Assets */,
 			);
 			buildRules = (
 			);
@@ -256,6 +257,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A80000000000000000000001 /* Copy Spor QA Assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = (
+				"$(SRCROOT)/scripts/copy-spor-qa-assets.sh",
+				"$(SRCROOT)/qa-assets/spor/manifest.json",
+				"$(SRCROOT)/qa-assets/spor/poster.png",
+				"$(SRCROOT)/qa-assets/spor/spor-idle.usdz",
+				"$(SRCROOT)/qa-assets/spor/spor-greeting.usdz",
+				"$(SRCROOT)/qa-assets/spor/spor-walk.usdz",
+			);
+			name = "Copy Spor QA Assets";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SporMascotQA");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$SRCROOT/scripts/copy-spor-qa-assets.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8276A8D82F21635F00FD2BF4 /* Sources */ = {
