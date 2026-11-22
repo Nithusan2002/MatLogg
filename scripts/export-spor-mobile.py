@@ -5,10 +5,11 @@ Blender --background docs/assets/brand/3d/spor-mascot-v8.blend
   --clip idle [--ascii]
 """
 import argparse
+import math
 from pathlib import Path
 import sys
 import bpy
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output-dir', type=Path, required=True)
@@ -59,6 +60,57 @@ skin.select_set(True)
 bpy.context.view_layer.objects.active = skin
 bpy.ops.object.modifier_move_to_index(modifier=decimate.name, index=0)
 bpy.ops.object.modifier_apply(modifier=decimate.name)
+if args.clip == 'greeting':
+    # The welded arm's blended body/arm weights squash its tip in USD skinning.
+    # Reconstruct this arm as a rounded, rigidly skinned flipper in the export
+    # copy. Its hidden proximal end overlaps the torso at the existing pivot.
+    arm_group = skin.vertex_groups['Arm.R']
+    body_group = skin.vertex_groups['Kropp']
+    for vertex in skin.data.vertices:
+        x, y, z = vertex.co
+        if x <= 0 or not 1.08 < z < 2.15:
+            continue
+        # Restore the original analytical torso beneath the welded flipper.
+        c = max(-1, min(1, (z - 1.73) / 1.10))
+        radius = 1.12 * max(0, 1 - c * c) ** 0.34 * (1 - 0.25 * c)
+        center = 0.18 * max(0, min(1, (z - 0.63) / 2.20)) ** 2
+        ratio = math.hypot((x - center) / radius, y / (0.71 * radius))
+        if ratio > 1:
+            vertex.co.x = center + (x - center) / ratio
+            vertex.co.y = y / ratio
+        if any(group.group == arm_group.index for group in vertex.groups):
+            arm_group.remove([vertex.index])
+            body_group.add([vertex.index], 1, 'REPLACE')
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=16, location=(1.20, -0.04, 1.65))
+    hand = bpy.context.object
+    hand.name = 'SPOR • rund mobilarm for hilsen'
+    hand.scale = (0.22, 0.21, 0.43)
+    hand.rotation_euler[1] = -0.36
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    hand.parent = skin
+    hand.data.materials.append(skin.data.materials[0])
+    for polygon in hand.data.polygons:
+        polygon.use_smooth = True
+    group = hand.vertex_groups.new(name='Arm.R')
+    group.add(list(range(len(hand.data.vertices))), 1, 'REPLACE')
+    modifier = hand.modifiers.new('Hilsen • bevar rund hånd', 'ARMATURE')
+    modifier.object = rig
+
+    def smooth(a, b, value):
+        t = max(0, min(1, (value - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+
+    # Lift the flipper above the shoulder, then make two small, soft waves.
+    bone = rig.pose.bones['Arm.R']
+    axis = bone.bone.matrix_local.to_3x3().inverted() @ Vector((0, 1, 0))
+    for frame in range(s.frame_start, s.frame_end + 1):
+        s.frame_set(frame)
+        envelope = smooth(19, 45, frame) * (1 - smooth(98, 126, frame))
+        wave = 0.10 * math.sin(math.tau * (frame - 45) / 28)
+        wave *= smooth(45, 54, frame) * (1 - smooth(88, 98, frame))
+        bone.rotation_quaternion = Quaternion(axis, (-1.95 + wave) * envelope)
+        bone.keyframe_insert('rotation_quaternion', frame=frame)
+    s.frame_set(1)
 for obj in [skin] + list(skin.children):
     # Small mobile PBR materials; procedural grain stays in the source model.
     for slot in obj.material_slots:

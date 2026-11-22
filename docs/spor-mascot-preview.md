@@ -1,8 +1,8 @@
 # Spor-maskot – isolert iOS-prøve
 
 Intern Debug-QA, implementert 22. november 2026. Ingen plassering i den vanlige
-appen eller produksjonsutrulling er valgt. Simulatoren er kontrollert; fysisk
-iPhone-testing gjenstår.
+appen eller produksjonsutrulling er valgt. Simulatoren er tidligere kontrollert;
+fysisk vurdering av den siste hilsenen gjenstår.
 
 ## Starte prøven
 
@@ -45,8 +45,8 @@ bare sammen med den særskilte QA-koden.
 ## Ressurser og eksport
 
 `qa-assets/spor/` inneholder bare de tre valgte USDZ-filene, et lite manifest
-og et reservebilde. Hvert klipp har 18 978 trekanter; de tre USDZ-filene er
-samlet 1 739 697 bytes. Originalen er
+og et reservebilde. Hvile/gange har 18 978 trekanter, hilsen har 19 698;
+de tre USDZ-filene er samlet 1 753 756 bytes. Originalen er
 `docs/assets/brand/3d/spor-mascot-v8.blend`. Eksporter fra denne med
 `scripts/export-spor-mobile.py`, én prosess om gangen:
 
@@ -66,6 +66,15 @@ til USD; runtime kjører ikke Blender-drivere. Den svært lille animerte
 beinskaleringen bevares ikke av installert eksportør. Eksportkopien bruker
 derfor en tilsvarende liten vertikal kroppsbevegelse som pust i hvile/hilsen.
 Gange eksporteres uten fremdrift i Root, slik at figuren blir i modellområdet.
+
+Hilsenen har en egen rund mobilarm med full vekt til skulderleddet. Den
+sammenhengende modellens blandede kropp-/armvekter klemte hånda flat ved
+løft i RealityKit (reprodusert i iPhone-opptak). Eksportkopien gjenoppretter
+kroppsflaten under armen og lar den runde armen overlappe ved skulderen.
+Armen løftes tydelig og gjør to små vink; klippet er fortsatt seks sekunder.
+Dette gjelder bare hilsenen. Hvile, gange og V8-kildefilen er uendret.
+Kontroll av kantlengder gjennom hele klippet viste maksimalt 0,5 % endring
+fra pustebevegelsen; hånda klemmes ikke lenger av blandede vekter.
 
 Dette er en mobilkandidat: overflate, skygger og skulder-/ankeldeformasjoner
 avviker noe fra Blender-renderen. Kildemodellen endres ikke av eksporten.
@@ -113,12 +122,21 @@ Det delte QA-schemet er bygget for `generic/platform=iOS` med eksisterende
 utviklingssignering. Bygget bestod; appidentitet, alle fem QA-ressurser og
 kodesignatur er kontrollert. Schemet starter med maskotargumentet aktivert.
 Vanlige Debug-/Release-konfigurasjoner er bevart, og pakkingstesten bestod
-også med `Debug-SporMascotQA`. Ingen installasjon på fysisk iPhone er utført.
+også med `Debug-SporMascotQA`. Etter håndrettelsen bestod iPhone-bygget
+på nytt, og den oppdaterte QA-appen ble installert på den tilkoblede iPhonen.
 
-Innlasting og eksportert blunk er observert i RealityKit i simulatoren.
+Den oppdaterte hilsenen er i tillegg lastet i RealityKit på macOS og
+kontrollert ved 0, 1, 1,8, 2,5, 3,5, 4,5 og 5,99 sekunder med appens
+kameravinkel. Varigheten er seks sekunder, og hele hånda er synlig.
+Bilder og kontrollskript ligger i `/tmp/spor-recording-review`, utenfor
+repoet. iOS 18.6-runtime er ikke lenger installert, så den siste
+ressursendringen er ikke kontrollert i iOS-simulator.
+
+Innlasting og eksportert blunk er tidligere observert i RealityKit i simulatoren.
 Deployment target er fortsatt iOS 17, men ingen iOS 17-runtime er installert:
-visuell animasjonskompatibilitet der er ikke verifisert. Fysisk iPhone,
-VoiceOver med faktisk opplesning, kaldstart/FPS/minne og lengre avspilling
+visuell animasjonskompatibilitet der er ikke verifisert. Visuell vurdering av
+siste hilsen på iPhone, VoiceOver med faktisk opplesning, kaldstart/FPS/minne
+og lengre avspilling
 er fortsatt åpne. Ingen ytelsesmål eller produksjonsklarhet er godkjent.
 
 Skills: product-review, product-design, ios-swiftui, qa-release.
