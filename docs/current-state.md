@@ -6,6 +6,9 @@ Teknisk gjeld er utbedret i kodekandidat `b9b8eb7`, basert på main `85755ea`:
 feilformidlende historikklesing, bevart innhold ved oppdateringsfeil, retry i
 måltidsrommet, samlet kamerafil og delt Xcode-scheme. Denne kontrollen gjelder
 committen, uten parallelle arbeidskopiendringer.
+Oppfølging på fysisk iPhone 17 / iOS 27.3 bestod 41 målrettede tester og
+tre UI-tester med separat QA-identitet. Manuell VoiceOver, faktisk
+kameradeteksjon og visuell feil/retry er fortsatt åpne kontroller.
 Resultater og åpne porter finnes øverst i [produksjonsberedskap](production-readiness.md).
 Historiske beskrivelser og testresultater nedenfor er ikke verifisert på nytt
 av denne avgrensede kontrollen. Legacy beholdes etter eksisterende policy;

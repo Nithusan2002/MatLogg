@@ -11,15 +11,18 @@ ikke automatisk portene for denne kandidaten.
 | --- | --- |
 | Lagrings-/ViewModel-regresjoner | 25 tester bestod på macOS med faktiske Swift-kilder i midlertidig harness: HistoryReadFailureTests, HistoryReadViewModelTests (uten iOS-only test) og MealReuseTests. Tre lagringsregresjoner feilet før rettelsen med sju feilutslag. |
 | Kompilering av iOS og tester | Bestått `xcodebuild build-for-testing`, Debug, generic iOS Simulator, Xcode 27.2. App, unit- og UI-targeter kompilert; dette er ikke en testkjøring. |
-| iOS-kjøring og visuell QA | Åpen: ingen tilgjengelig simulatorruntime. Kjør de berørte suitene og kontroller feil/retry, største tekst og VoiceOver. Kameraet må smoke-testes etter filflytting. |
+| iOS-kjøring og visuell QA | 41/41 tester i fem berørte suiter bestod på fysisk iPhone 17 / iOS 27.3. Tre UI-tester bestod: manuell strekkode med største tekst, lokalt treff/logging og måltidsredigering på tidligere dag med omstart. Skjermbilder gjennomgått. Manuell VoiceOver, visuell feil/retry og faktisk kameradeteksjon gjenstår. |
 | Lokal lagringspolicy | Kodekontroll: localOnly og backendSyncEnabled=false er bevart. Skjema og domene-/eventtransaksjoner er uendret. |
 | Kandidat-CI | Ikke kjørt på GitHub for denne lokale committen. Delt scheme er nå med i repoet; historisk CI er ikke kandidatbevis. |
 | Konto og eksterne integrasjoner | Ikke testet på nytt. Fysisk Apple-innlogging, kontosletting og relevante integrasjoner må være verifisert for valgt releasekandidat. |
 | Release/TestFlight og personvern | Åpen kandidatport. Ingen ny signert Release, distribusjon eller avklaring av de øvrige konto-/personvernportene inngår her. |
 | Gjenoppretting | Ingen ny gjenopprettingstest. JSON kan fortsatt ikke importeres. Skybackup/restore vurderes separat ved framtidig skyscope. |
 
-**Go for videre intern QA; no-go for produksjonsutrulling.**
+**Go for lokal sammenslåing av denne utbedringen og videre intern QA; no-go for produksjonsutrulling.**
 Kandidatkontrollen gjelder teknisk gjeld og erstatter ikke aktive releasekrav.
+Fysisk kontroll brukte separat «MatLogg QA»-app med egne bundle-ID-er,
+syntetiske/disponible testdata og uendret localOnly-policy. Vanlig app ble ikke
+installert over. Kodekandidaten er uendret; oppfølgingen endrer bare dokumentasjon.
 Se [utbedringsplanen](plans/technical-debt-remediation.md) og
 [testoppskriften](testing.md#historikklesing--teknisk-gjeld-25-november-2026).
 

@@ -1345,3 +1345,41 @@ xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
 Kontroller også første lesefeil, bevart innhold ved retry-feil, vellykket
 retry og bruker-/datobytte i måltidsrommet, med stor tekst og VoiceOver.
 Kjør relevant kamera-smoke på fysisk QA-enhet. Disse kontrollene er ikke kjørt.
+
+### Fysisk oppfølging – 25. november 2026
+
+Samme kodekandidat `b9b8eb7` er nå kjørt på brukerautorisert fysisk iPhone 17,
+iOS 27.3, med Xcode 27.2. Separat «MatLogg QA»-app og testkjører brukte
+`com.nithusan.MatLogg.qa20261014.$(TARGET_NAME)`, etter prosjektets eksisterende
+QA-oppsett. Vanlig app/datacontainer ble ikke brukt. Telefonen måtte låses
+opp før Xcode kunne starte testene.
+
+- **41/41 tester bestod, ingen skippet:** HistoryReadFailureTests (4),
+  HistoryReadViewModelTests (6, inkludert faktisk DatabaseService-grense),
+  MealReuseTests, RenderPresentationTests og MealBatchStorageTests.
+- **3/3 UI-tester bestod:** testManualBarcodeEntryWithoutCameraValidatesAndCancels,
+  testManualBarcodeFindsLocalDemoProductAndLogs og
+  testMealRoomLogsAndEditsFoodForSelectedPastDay. Siste test bekreftet bevart
+  logg-ID, dato og flytting til Lunsj etter omstart. Første test brukte største
+  tilgjengelighetstekst og kontrollerte tastaturlukking, validering og avbryt.
+- Resultatpakker: `/tmp/MatLoggDebtPhysicalQA-unit-20261125.xcresult` og
+  `/tmp/MatLoggDebtPhysicalQA-ui-20261125.xcresult`. Xcodes summary bekrefter
+  41/41 og 3/3 uten feil eller skips. Rå logger og eksporterte skjermbilder
+  beholdes utenfor repoet; disse lokale filene er ikke varige CI-artifacts.
+- Skjermbilder av validering med stor tekst og måltidslisten er gjennomgått.
+  De viser scrollposisjonen i flytene, ikke en komplett visuell skjermdekning.
+  Manuell VoiceOver, visuell feil/retry og faktisk kameradeteksjon av en fysisk
+  strekkode er ikke verifisert av disse testene.
+
+Kjøringen brukte `xcodebuild test`, scheme MatLogg, fysisk iOS-destinasjon,
+`-xcconfig /tmp/MatLoggDebtPhysicalQA.xcconfig`,
+`-derivedDataPath /tmp/MatLoggDebtPhysicalQA`, de fem eksplisitte
+`-only-testing:MatLoggTests/<suite>`-valgene, `-parallel-testing-enabled NO`
+og `-allowProvisioningUpdates`. UI-kjøringen brukte `test-without-building`
+med samme konfigurasjon og de tre eksplisitte testvalgene. Ingen native
+HealthKit-test, kontoinnlogging, produksjonsdeploy eller synkaktivering inngikk.
+
+Arkitekturkontroll: denne oppfølgingen endrer bare dokumentasjon. Kandidatens
+avhengighetsretning, transaksjonsgrenser, eierskap og localOnly er uendret.
+Go for lokal sammenslåing av utbedringen; øvrige releaseporter står åpne.
+Skills: ios-swiftui og qa-release.

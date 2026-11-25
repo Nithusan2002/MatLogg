@@ -150,8 +150,8 @@ Kodekandidat: `b9b8eb7`, på `codex/technical-debt-remediation`, basert på `857
 
 | Tiltak | Resultat | Videre arbeid |
 | --- | --- | --- |
-| 1. Lesefeil | Throwing `loadAllLogs`/`loadLogs` sjekker prepare, step og dekoding. Dagsoversikt bruker throwing `loadSummaries`; eksport, gjenbruk, kopiering og angre stopper ved lesefeil. Oppdateringsfeil beholder samme brukers/dags innhold; bruker-/datobytte nullstiller. Måltidsrommet viser feil og retry. | Kjør iOS-regresjonene og visuell kontroll. Eldre ikke-kastende API-er er beholdt for kompatibilitet og er fortsatt gjeld; nye produksjonskall skal bruke throwing-metodene. |
-| 2. Kandidatbevis | Én navngitt kodecommit, målrettede resultater og åpne porter er samlet i produksjonsberedskap. Delt `MatLogg`-scheme er lagt til for rene checkouts og CI. | Simulator-/enhetskjøring og releaseporter står åpne. Ingen produksjonsgodkjenning. |
+| 1. Lesefeil | Throwing `loadAllLogs`/`loadLogs` sjekker prepare, step og dekoding. Dagsoversikt bruker throwing `loadSummaries`; eksport, gjenbruk, kopiering og angre stopper ved lesefeil. Oppdateringsfeil beholder samme brukers/dags innhold; bruker-/datobytte nullstiller. Måltidsrommet viser feil og retry. | iOS-regresjonene er grønne på fysisk enhet; manuell VoiceOver og visuell feil/retry gjenstår. Eldre ikke-kastende API-er er beholdt for kompatibilitet og er fortsatt gjeld; nye produksjonskall skal bruke throwing-metodene. |
+| 2. Kandidatbevis | Én navngitt kodecommit, målrettede resultater og åpne porter er samlet i produksjonsberedskap. Delt `MatLogg`-scheme er lagt til for rene checkouts og CI. | 41 enhetstester og tre UI-tester er grønne på fysisk iPhone. Øvrige releaseporter står åpne. Ingen produksjonsgodkjenning. |
 | 3. Filansvar | Kamera, scanner-wrapper og private scannerkomponenter er flyttet samlet fra HomeView til CameraView. Kroppene er kontrollert identiske mot main. HomeView reduseres fra 2427 til 1514 linjer. | LocalStore, APIService og Models deles bare ved konkrete senere endringer/testbehov. Ingen stor refaktorering er startet. |
 | 4. Legacy | Kode- og CI-avhengigheter er avklart nedenfor. Eksisterende behold-policy videreføres. | Separat godkjenning før avvikling eller større kodefjerning. |
 
@@ -204,3 +204,13 @@ eller reaktivering av gammel transport inngår i tiltaket.
    og gjenopprettingsmåte. Innhent godkjenning før sletting eller tilgangsendring.
 
 Dette er en reviewbar avviklingsforberedelse, ikke en avviklingsgodkjenning.
+
+### Fysisk verifisering gjennomført
+
+25. november bestod kodekandidat `b9b8eb7` 41 målrettede tester i fem suiter
+og tre UI-tester på iPhone 17 / iOS 27.3, i separat QA-app. Dette lukker det
+opprinnelige hullet for iOS-runtime i de berørte suitene. UI dekker kamera-
+inngang/manuell strekkode, største tekst og måltidsredigering med omstart.
+Skjermbilder er gjennomgått. Manuell VoiceOver, faktisk kameradeteksjon og
+visuell feil/retry står fortsatt åpne. Resultater og avgrensning finnes i
+`docs/testing.md`. Go for lokal sammenslåing av tiltaket; ingen releasegodkjenning.
