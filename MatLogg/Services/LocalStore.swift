@@ -359,12 +359,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             sqlite3_finalize(stmt)
         }
     }
-    
-    func getLatestGoal(userId: UUID) throws -> Goal? {
-        try readRows(sql: "SELECT json FROM goals WHERE userId = ? ORDER BY createdDate DESC LIMIT 1;", values: [.text(userId.uuidString)]) { try $0.decode(Goal.self) }.first
-    }
 
-    
     // MARK: - Logs
     
     func saveLog(_ log: FoodLog) throws {
@@ -440,66 +435,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try requireDone(sqlite3_step(stmt))
     }
 
-    func loadAllLogs(userId: UUID) throws -> [FoodLog] {
-        try readRows(sql: "SELECT json FROM logs WHERE userId = ? ORDER BY loggedTime DESC;", values: [.text(userId.uuidString)]) { try $0.decode(FoodLog.self) }
-    }
-
-
-    func loadLogs(userId: UUID, from start: Date, before end: Date) throws -> [FoodLog] {
-        try readRows(sql: "SELECT json FROM logs WHERE userId = ? AND loggedDate >= ? AND loggedDate < ? ORDER BY loggedTime DESC;", values: [.text(userId.uuidString), .number(start.timeIntervalSince1970), .number(end.timeIntervalSince1970)]) { try $0.decode(FoodLog.self) }
-    }
-
-
     /// Compact, owner-scoped metadata for every previously logged searchable product.
-    func getLoggedProductTimes(owner: UUID, before: Date) throws -> [UUID: Date] {
-        let rows = try readRows(sql: "SELECT l.productId, MAX(l.loggedTime) FROM logs l JOIN products p ON p.id = l.productId WHERE l.userId = ? AND l.loggedDate <= ? AND l.loggedTime <= ? AND (p.storageKind = 'catalog' OR p.ownerUserId = ?) GROUP BY l.productId;", values: [.text(owner.uuidString), .number(Calendar.current.startOfDay(for: before).timeIntervalSince1970), .number(before.timeIntervalSince1970), .text(owner.uuidString)]) { row in
-            (try row.uuid(0), Date(timeIntervalSince1970: try row.number(1)))
-        }
-        return Dictionary(uniqueKeysWithValues: rows)
-    }
-
-
-    func getRecentFoods(owner: UUID, before: Date, limit: Int) throws -> [RecentFood] {
-        guard limit > 0 else { return [] }
-        let sql = """
-        WITH ranked AS (
-            SELECT json, productId, loggedTime, id, json_extract(json, '$.createdAt') AS createdAt,
-                   ROW_NUMBER() OVER (PARTITION BY productId ORDER BY loggedTime DESC, json_extract(json, '$.createdAt') DESC, id DESC) AS rank
-            FROM logs WHERE userId = ? AND loggedDate <= ? AND loggedTime <= ?
-        )
-        SELECT p.json, r.json FROM ranked r JOIN products p ON p.id = r.productId
-        WHERE r.rank = 1 AND (p.storageKind = 'catalog' OR p.ownerUserId = ?)
-        ORDER BY r.loggedTime DESC, r.createdAt DESC, r.id DESC LIMIT ?;
-        """
-        return try readRows(sql: sql, values: [.text(owner.uuidString), .number(Calendar.current.startOfDay(for: before).timeIntervalSince1970), .number(before.timeIntervalSince1970), .text(owner.uuidString), .integer(min(limit, 100))]) { row in
-            let log = try row.decode(FoodLog.self, column: 1)
-            guard log.userId == owner else { throw LocalStoreError.ownershipMismatch }
-            return RecentFood(product: try row.decode(Product.self), log: log)
-        }
-    }
-
-
-    func loadLoggingDates(userId: UUID) throws -> [Date] {
-        try readRows(sql: "SELECT DISTINCT loggedDate FROM logs WHERE userId = ?;", values: [.text(userId.uuidString)]) { Date(timeIntervalSince1970: try $0.number(0)) }
-    }
-
-
-    func loadSummary(userId: UUID, date: Date) throws -> DailySummary {
-        guard let summary = try loadSummaries(userId: userId, dates: [date]).first else {
-            throw LocalStoreError.invalidStoredData("Kunne ikke lese dagsoversikten.")
-        }
-        return summary
-    }
-
-    func loadSummaries(userId: UUID, dates: [Date]) throws -> [DailySummary] {
-        let calendar = Calendar.current
-        let days = dates.map { calendar.startOfDay(for: $0) }
-        guard let first = days.min(), let last = days.max(),
-              let end = calendar.date(byAdding: .day, value: 1, to: last) else { return [] }
-        let logs = try loadLogs(userId: userId, from: first, before: end)
-        return DailySummary.summaries(userId: userId, dates: dates, logs: logs, calendar: calendar)
-    }
-
 
     // MARK: - Water
 
@@ -531,11 +467,6 @@ nonisolated final class LocalStore: @unchecked Sendable {
             guard sqlite3_changes(db) == 1 else { throw LocalStoreError.invalidStoredData("Vannregistreringen finnes ikke for denne brukeren") }
         }
     }
-
-    func getWaterGlasses(userId: UUID) throws -> [WaterGlass] {
-        try readRows(sql: "SELECT json FROM water_logs WHERE userId = ?;", values: [.text(userId.uuidString)]) { try $0.decode(WaterGlass.self) }.sorted { $0.createdAt < $1.createdAt }
-    }
-
 
     // MARK: - Saved Meals
 
@@ -583,11 +514,6 @@ nonisolated final class LocalStore: @unchecked Sendable {
             try requireDone(sqlite3_step(stmt))
         }
     }
-
-    func loadSavedMeals(userId: UUID) throws -> [SavedMeal] {
-        try readRows(sql: "SELECT json FROM saved_meals WHERE userId = ? ORDER BY updatedAt DESC;", values: [.text(userId.uuidString)]) { try $0.decode(SavedMeal.self) }
-    }
-
 
     // MARK: - Products
     
@@ -638,49 +564,6 @@ nonisolated final class LocalStore: @unchecked Sendable {
     }
     
     /// Shared catalog rows and only the active owner's private products.
-    func getSearchableProducts(ownerUserId: UUID?) throws -> [Product] {
-        try readRows(sql: "SELECT json FROM products WHERE storageKind = 'catalog' OR ownerUserId = ? ORDER BY CASE WHEN storageKind = 'user' THEN 0 ELSE 1 END;", values: [.text(ownerUserId?.uuidString ?? "")]) { try $0.decode(Product.self) }
-    }
-
-
-    func getProduct(_ id: UUID) throws -> Product? {
-        try readRows(sql: "SELECT json FROM products WHERE id = ? LIMIT 1;", values: [.text(id.uuidString)]) { try $0.decode(Product.self) }.first
-    }
-
-
-    func getProducts(_ ids: Set<UUID>) throws -> [UUID: Product] {
-        guard !ids.isEmpty else { return [:] }
-        let ordered = ids.sorted { $0.uuidString < $1.uuidString }
-        let queries = stride(from: 0, to: ordered.count, by: 400).map { start in
-            let batch = Array(ordered[start..<min(start + 400, ordered.count)])
-            let placeholders = Array(repeating: "?", count: batch.count).joined(separator: ",")
-            return SQLiteReadQuery(sql: "SELECT id, json FROM products WHERE id IN (\(placeholders));", values: batch.map { .text($0.uuidString) })
-        }
-        let rows = try readRows(queries: queries) { row in
-            (try row.uuid(0), try row.decode(Product.self, column: 1))
-        }
-        return Dictionary(uniqueKeysWithValues: rows)
-    }
-
-    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) throws -> Product? {
-        try readRows(sql: "SELECT json FROM products WHERE barcode = ? AND (storageKind = 'catalog' OR ownerUserId = ?) ORDER BY CASE WHEN ownerUserId = ? THEN 0 ELSE 1 END LIMIT 1;", values: [.text(barcode), .text(ownerUserId?.uuidString ?? ""), .text(ownerUserId?.uuidString ?? "")]) { try $0.decode(Product.self) }.first
-    }
-    
-
-    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) throws -> [String: Product] {
-        let requested = barcodes.sorted()
-        let queries = stride(from: 0, to: requested.count, by: 400).map { start in
-            let batch = Array(requested[start..<min(start + 400, requested.count)])
-            let placeholders = Array(repeating: "?", count: batch.count).joined(separator: ",")
-            return SQLiteReadQuery(sql: "SELECT barcode, json FROM products WHERE barcode IN (\(placeholders)) AND (storageKind = 'catalog' OR ownerUserId = ?) ORDER BY CASE WHEN ownerUserId = ? THEN 0 ELSE 1 END;", values: batch.map { .text($0) } + [.text(ownerUserId?.uuidString ?? ""), .text(ownerUserId?.uuidString ?? "")])
-        }
-        let rows = try readRows(queries: queries) { row in
-            (try row.text(0), try row.decode(Product.self, column: 1))
-        }
-        var result: [String: Product] = [:]
-        for (barcode, product) in rows where result[barcode] == nil { result[barcode] = product }
-        return result
-    }
 
     // MARK: - Favorites
     
@@ -715,18 +598,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             sqlite3_finalize(stmt)
         }
     }
-    
-    func isFavorite(userId: UUID, productId: UUID) throws -> Bool {
-        try !readRows(sql: "SELECT id FROM favorites WHERE userId = ? AND productId = ? LIMIT 1;", values: [.text(userId.uuidString), .text(productId.uuidString)]) { try $0.uuid(0) }.isEmpty
-    }
-    
-        
-    func getFavorites(userId: UUID, kind: ProductKind? = nil) throws -> [Product] {
-        let products = try readRows(sql: "SELECT p.json FROM favorites f JOIN products p ON p.id = f.productId WHERE f.userId = ?;", values: [.text(userId.uuidString)]) { try $0.decode(Product.self) }
-        return products.filter { kind == nil || $0.kind == kind }
-    }
 
-    
     // MARK: - Scans
     
     func saveScanHistory(userId: UUID, productId: UUID) throws {
@@ -742,20 +614,7 @@ nonisolated final class LocalStore: @unchecked Sendable {
             try requireDone(sqlite3_step(stmt))
         }
     }
-    
 
-    func getRecentScans(userId: UUID, limit: Int) throws -> [ScanHistory] {
-        try loadRecentScans(userId: userId, limit: limit)
-    }
-
-
-    func loadRecentScans(userId: UUID, limit: Int) throws -> [ScanHistory] {
-        try readRows(sql: "SELECT id, userId, productId, scannedAt FROM scans WHERE userId = ? ORDER BY scannedAt DESC LIMIT ?;", values: [.text(userId.uuidString), .integer(max(0, limit))]) { row in
-            ScanHistory(id: try row.uuid(0), userId: try row.uuid(1), productId: try row.uuid(2), scannedAt: Date(timeIntervalSince1970: try row.number(3)))
-        }
-    }
-
-    
     // MARK: - Weight
     
     func saveWeightEntry(_ input: WeightEntry) throws {
@@ -806,20 +665,8 @@ nonisolated final class LocalStore: @unchecked Sendable {
             try enqueueSyncEventLocked(ownerUserId: ownerUserId, type: .weightDelete, entityId: id.uuidString, payload: payload)
         }
     }
-    
-    func getWeightEntries(userId: UUID) throws -> [WeightEntry] {
-        try readRows(sql: "SELECT json FROM weights WHERE userId = ? ORDER BY date ASC;", values: [.text(userId.uuidString)]) { try $0.decode(WeightEntry.self) }
-    }
-
 
     // MARK: - Recent Products
-
-    func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) throws -> [Product] {
-        guard limit > 0 else { return [] }
-        let products = try readRows(sql: "SELECT p.json FROM logs l JOIN products p ON p.id = l.productId WHERE l.userId = ? GROUP BY p.id ORDER BY MAX(l.loggedTime) DESC;", values: [.text(userId.uuidString)]) { try $0.decode(Product.self) }
-        return Array(products.filter { kind == nil || $0.kind == kind }.prefix(limit))
-    }
-
 
     // MARK: - Match Mappings & Cache
 
@@ -835,12 +682,6 @@ nonisolated final class LocalStore: @unchecked Sendable {
             try requireDone(sqlite3_step(stmt))
         }
     }
-    
-    
-    func getMatchMapping(for barcode: String) throws -> ProductMatchMapping? {
-        try readRows(sql: "SELECT json FROM match_mappings WHERE barcode = ? LIMIT 1;", values: [.text(barcode)]) { try $0.decode(ProductMatchMapping.self) }.first
-    }
-    
 
     func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) throws {
         let data = try encoder.encode(items)
@@ -852,16 +693,6 @@ nonisolated final class LocalStore: @unchecked Sendable {
             bindBlob(stmt, index: 2, data: data)
             try requireDone(sqlite3_step(stmt))
         }
-    }
-
-    func getMatvaretabellenCache(maxAgeDays: Int) throws -> [MatvaretabellenProduct]? {
-        let rows: [[MatvaretabellenProduct]?] = try readRows(sql: "SELECT updatedAt, json FROM matvare_cache WHERE id = 1 LIMIT 1;", values: []) { row in
-            let updated = Date(timeIntervalSince1970: try row.number(0))
-            guard let age = Calendar.current.dateComponents([.day], from: updated, to: Date()).day,
-                  age <= maxAgeDays else { return nil }
-            return try row.decode([MatvaretabellenProduct].self, column: 1)
-        }
-        return rows.first ?? nil
     }
 
     // MARK: - Sync Queue
