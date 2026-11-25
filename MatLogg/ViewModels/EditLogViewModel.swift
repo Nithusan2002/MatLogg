@@ -52,31 +52,44 @@ final class EditLogViewModel: ObservableObject {
         }
     }
 
+    private var favoriteReadRequest = UUID()
+
     func loadFavorite(owner: UUID?) async {
-        guard owner == original.userId, let favorites, !isChangingFavorite else { return }
-        isFavorite = nil
-        let saved: Bool
-        do { saved = try await favorites.isFavorite(userId: original.userId, productId: original.productId) }
-        catch {
-            guard !Task.isCancelled else { return }
-            favoriteError = "Kunne ikke hente favorittstatus. Prøv igjen."
+        let request = UUID()
+        favoriteReadRequest = request
+        guard owner == original.userId, let favorites else {
+            isFavorite = nil
+            favoriteError = nil
             return
         }
-        guard !Task.isCancelled else { return }
-        isFavorite = saved
+        guard !isChangingFavorite else { return }
+        favoriteError = nil
+        do {
+            let saved = try await favorites.isFavorite(userId: original.userId, productId: original.productId)
+            guard favoriteReadRequest == request, !Task.isCancelled else { return }
+            isFavorite = saved
+        } catch {
+            guard favoriteReadRequest == request, !Task.isCancelled else { return }
+            favoriteError = "Kunne ikke hente favorittstatus. Prøv igjen."
+        }
     }
 
     func toggleFavorite(owner: UUID?) async -> Bool {
-        guard owner == original.userId, let favorites, isFavorite != nil,
+        guard owner == original.userId, let favorites, isFavorite != nil, favoriteError == nil,
               !isChangingFavorite, !isSaving else { return false }
+        let request = UUID()
+        favoriteReadRequest = request
         isChangingFavorite = true
         favoriteError = nil
         defer { isChangingFavorite = false }
         do {
             try await favorites.toggleFavorite(userId: original.userId, productId: original.productId)
-            isFavorite = try await favorites.isFavorite(userId: original.userId, productId: original.productId)
+            let saved = try await favorites.isFavorite(userId: original.userId, productId: original.productId)
+            guard favoriteReadRequest == request, !Task.isCancelled else { return false }
+            isFavorite = saved
             return true
         } catch {
+            guard favoriteReadRequest == request, !Task.isCancelled else { return false }
             favoriteError = "Kunne ikke oppdatere favoritt. Prøv igjen."
             return false
         }

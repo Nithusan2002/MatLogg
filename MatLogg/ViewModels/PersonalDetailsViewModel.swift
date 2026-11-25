@@ -77,6 +77,7 @@ final class PersonalDetailsViewModel: ObservableObject {
                                       gender: gender == .ikkeOppgi ? nil : gender,
                                       activityLevel: activity == .ikkeOppgi ? nil : activity)
         do {
+            _ = try store.load(userId: userId)
             try store.save(details, userId: userId)
             onSaved(details)
             return true

@@ -14,6 +14,12 @@ struct DomainReadFlowTests {
         let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
         #expect(throws: Error.self) { try store.load(userId: owner) }
         #expect(defaults.data(forKey: "personalDetails.\(owner)") == corrupt)
+        let editor = PersonalDetailsViewModel(store: store)
+        editor.begin(details: .empty, userId: owner)
+        editor.displayName = "QA"
+        #expect(editor.save() == false)
+        #expect(defaults.data(forKey: "personalDetails.\(owner)") == corrupt)
+        #expect(editor.displayName == "QA")
         #expect(try store.load(userId: UUID()).weightKg == nil)
     }
 
@@ -83,6 +89,24 @@ struct DomainReadFlowTests {
         }
     }
 
+    @Test func editorFavoriteFailurePreservesSnapshotAndRetryClearsError() async {
+        let owner = UUID(), repository = DomainFavoriteRepository()
+        let log = FoodLog(userId: owner, productId: UUID(), mealType: "frokost", amountG: 100,
+                          loggedDate: Date(), calories: 100, proteinG: 1, carbsG: 2, fatG: 3)
+        let model = EditLogViewModel(log: log, favorites: repository)
+        await model.loadFavorite(owner: owner)
+        #expect(model.isFavorite == true)
+        repository.fails = true
+        await model.loadFavorite(owner: owner)
+        #expect(model.isFavorite == true && model.favoriteError != nil)
+        #expect(await model.toggleFavorite(owner: owner) == false)
+        repository.fails = false
+        await model.loadFavorite(owner: owner)
+        #expect(model.favoriteError == nil)
+        await model.loadFavorite(owner: nil)
+        #expect(model.isFavorite == nil)
+    }
+
     private func withStore(_ body: (LocalStore, URL) async throws -> Void) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -119,4 +143,14 @@ private final class DomainHealthRepository: HealthProfileRepository {
 private struct DomainDetailsStore: PersonalDetailsStore {
     func load(userId: UUID) -> PersonalDetails { .empty }
     func save(_ details: PersonalDetails, userId: UUID) throws {}
+}
+
+@MainActor
+private final class DomainFavoriteRepository: ProductFavoriteRepository {
+    var fails = false
+    func isFavorite(userId: UUID, productId: UUID) async throws -> Bool {
+        if fails { throw DatabaseServiceError.unavailable }
+        return true
+    }
+    func toggleFavorite(userId: UUID, productId: UUID) async throws {}
 }

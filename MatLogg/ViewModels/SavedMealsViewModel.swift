@@ -158,7 +158,6 @@ final class SavedMealsViewModel: ObservableObject {
         let request = UUID()
         sourceID = request
         isLoadingSource = true
-        sourceProductNames = [:]
         defer { if sourceID == request { isLoadingSource = false } }
         let products: [UUID: Product]
         do { products = try await foodLogRepository.getProducts(Set(logs.filter { $0.userId == userId }.map(\.productId))) }

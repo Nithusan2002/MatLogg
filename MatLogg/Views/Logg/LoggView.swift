@@ -608,6 +608,10 @@ struct EditLogView: View {
                     ErrorMessageView(error)
                         .font(AppTypography.caption)
                         .padding(.horizontal, 16)
+                    Button("Prøv igjen") {
+                        Task { await model.loadFavorite(owner: authViewModel.currentUser?.id) }
+                    }
+                    .frame(minHeight: 44)
                 }
 
                 ScrollView {
@@ -705,7 +709,7 @@ struct EditLogView: View {
                 .background(AppColors.mutedSurface, in: Circle())
         }
         .buttonStyle(.plain)
-        .disabled(model.isFavorite == nil || model.isChangingFavorite || model.isSaving)
+        .disabled(model.isFavorite == nil || model.favoriteError != nil || model.isChangingFavorite || model.isSaving)
         .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
         .accessibilityIdentifier("log-editor-favorite")
     }

@@ -7,6 +7,7 @@ final class HealthProfileViewModel: ObservableObject {
     @Published private(set) var personalDetails: PersonalDetails
     @Published private(set) var weightEntries: [WeightEntry] = []
     @Published private(set) var isLoadingWeights = true
+    @Published private(set) var personalDetailsLoadError: String?
     @Published private(set) var goalLoadError: String?
     @Published private(set) var weightLoadError: String?
     @Published private(set) var errorMessage: String?
@@ -57,9 +58,11 @@ final class HealthProfileViewModel: ObservableObject {
         activeUserId = userId
         let request = UUID()
         goalRequestID = request
+        personalDetailsLoadError = nil
         do { personalDetails = try personalDetailsStore.load(userId: userId) }
         catch {
-            goalLoadError = "Kunne ikke hente personlige opplysninger. Prøv igjen."
+            personalDetailsLoadError = "Kunne ikke hente personlige opplysninger. Prøv igjen."
+            goalLoadError = personalDetailsLoadError
             return
         }
         goalLoadError = nil
@@ -110,6 +113,7 @@ final class HealthProfileViewModel: ObservableObject {
         }
         errorMessage = nil
         do {
+            _ = try personalDetailsStore.load(userId: activeUserId)
             try personalDetailsStore.save(details, userId: activeUserId)
             personalDetails = details
             return true
@@ -179,6 +183,7 @@ final class HealthProfileViewModel: ObservableObject {
         personalDetails = .empty
         weightEntries = []
         errorMessage = nil
+        personalDetailsLoadError = nil
         goalLoadError = nil
         weightLoadError = nil
     }
