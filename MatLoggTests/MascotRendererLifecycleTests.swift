@@ -34,4 +34,47 @@ import UIKit
             #expect(controller.host.subviews.isEmpty)
         }
     }
+
+    @Test func durationMismatchDoesNotCreateRenderer() async throws {
+        let url = try #require(Bundle.main.url(forResource: "spor-greeting", withExtension: "usdz"))
+        var creations = 0
+        let controller = RealityKitMascotController(makeRenderer: {
+            creations += 1
+            return ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
+        })
+        do {
+            try await controller.prepare(MascotAsset(url: url, duration: 5))
+            Issue.record("Mismatched animation duration should be rejected")
+        } catch {
+            #expect(error is MascotAssetError)
+            #expect(creations == 0)
+        }
+    }
+
+    @Test func validRendererDetachesAndReusesWithCorrectSize() async throws {
+        let url = try #require(Bundle.main.url(forResource: "spor-greeting", withExtension: "usdz"))
+        var renderer: ARView?
+        var creations = 0
+        let controller = RealityKitMascotController(loops: false, makeRenderer: {
+            creations += 1
+            let result = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
+            renderer = result
+            return result
+        })
+        try await controller.prepare(MascotAsset(url: url, duration: 6))
+        let surface = try #require(renderer)
+        #expect(surface.superview == nil)
+        controller.host.frame = CGRect(x: 0, y: 0, width: 180, height: 180)
+        controller.resume(playing: true)
+        #expect(surface.superview === controller.host)
+        #expect(surface.frame == controller.host.bounds)
+        controller.suspend()
+        #expect(surface.superview == nil)
+        controller.host.frame = CGRect(x: 0, y: 0, width: 260, height: 220)
+        controller.resume(playing: false)
+        #expect(surface.superview === controller.host)
+        #expect(surface.frame == controller.host.bounds)
+        #expect(creations == 1)
+        controller.suspend()
+    }
 }

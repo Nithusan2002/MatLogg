@@ -591,9 +591,11 @@ er aktivert etter fysisk iPhone 17-kontroll av utsatt rendereroppretting.
 Hjem-hilsenen har lokal dagsgrense og sperres bak onboarding og overliggende
 loggførings-/kameraflyt. Reduser bevegelse gir stillbilde.
 
-Ti målrettede enhetstester og fem UI-kontroller bestod på fysisk enhet.
-Regresjonskontrollen verifiserer synlig maskot under introduksjonen; vinking
-er også inspisert i skjermbildet. Lys/mørk modus og største tekst er kontrollert.
+Utvidet kontroll: 22 ulike enhetstester og seks UI-kontroller bestod på fysisk
+enhet over kjøringer med Reduser bevegelse både av og på. Release-bygg og
+bundlekontroll bestod.
+Regresjonskontrollene verifiserer faktisk bevegelse, overgang til stillbilde,
+stopp ved navigasjon/bakgrunn og dagsgrense etter omstart. Lys/mørk modus og største tekst er kontrollert.
 Manuell VoiceOver-lytting og målt energibruk er ikke verifisert. Ingen
 produksjonsutrulling er utført. Se
 [implementeringsplan og QA-status](plans/spor-mascot-app-integration.md).

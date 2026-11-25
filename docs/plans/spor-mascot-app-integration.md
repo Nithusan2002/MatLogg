@@ -123,9 +123,39 @@ Rå resultater og bilder beholdes utenfor repoet, blant annet
 auto-lås er fjernet fra siste QA-kandidat. Kandidaten er bygget fra en
 arbeidskopi med annet pågående arbeid; commit avgrenses til maskotfilene.
 
-Manuell VoiceOver-lytting, målt energibruk og ny Release-optimeringskontroll
-av den siste rettelsen er ikke utført. Ingen produksjonsutrulling anbefales
-uten relevante releasekontroller og separat go/no-go.
+Manuell VoiceOver-lytting og målt energibruk er ikke utført. Release-bygg av
+rettelsen er kontrollert i den utvidede QA-runden nedenfor. Produksjonsutrulling
+krever fortsatt relevante releasekontroller og separat go/no-go.
 
 Skills brukt: product-review og product-design ved plan/design,
 ios-swiftui og qa-release ved implementering og fysisk kontroll.
+
+## Utvidet QA – 25. november 2026
+
+Ingen nye appfeil ble funnet og ingen produksjonskode ble endret i denne runden.
+Nye regresjonstester er lagt til i repoet; rå bilder og logger ligger i `/tmp`.
+
+- 22 ulike enhetstester ble kontrollert på fysisk iPhone 17: eksisterende
+  dagsgrense/lagring, sene og overlappende svar, stopp under lasting/klargjøring,
+  kansellert avspilling, avbrutt intro, neste dag, feilressurs og feil varighet,
+  rendererens frakobling/gjenbruk/størrelse samt presentasjonsgating.
+- Systeminnstillingen Reduser bevegelse ble testet på den faktiske telefonen.
+  I første kjøring var én betinget test hoppet over fordi innstillingen var av.
+  Etter at brukeren slo den på, bestod alle tre presentasjonstestene, inkludert
+  null ressursoppslag, null rendereroppretting og ingen brukt dagshilsen.
+- Seks UI-tester bestod. De sammenligner faktiske bilder under avspilling:
+  intro beveger seg i både lys og mørk modus og blir deretter stillestående;
+  sidebytte og bakgrunn stopper introen; Hjem beveger seg ved første start og
+  forblir stille etter omstart, fanebytte og bakgrunn samme dag. I tillegg
+  består den opprinnelige kontrollen av at figuren ikke blir usynlig.
+- 15 av logikktestene bestod også separat på Mac med falske IO-grenser.
+- Usignert Release-bygg bestod. Bundlekontroll viste bare hilseklippet,
+  ingen QA-mappe, Blender-kilder, testbundler eller Debug-maskotstartargument.
+  `DomainUploadPolicy.localOnly` og avslått backend-synk er bevart.
+- Testene kompilerer for fysisk iOS. QA-appidentitet og tomme entitlements er
+  separate; vanlig Spor Mat og ekte matlogger ble ikke endret.
+
+Resultater: `/tmp/spor-extended-device-ready.xcresult`,
+`/tmp/spor-extended-reduced-motion.xcresult` og
+`/tmp/spor-release-extended.log`. Telefonens Reduser bevegelse stod på ved slutt.
+Disse kontrollene erstatter ikke manuell VoiceOver-lytting eller energimåling.
