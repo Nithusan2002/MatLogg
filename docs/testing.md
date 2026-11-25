@@ -1304,3 +1304,44 @@ ga fortsatt HTTP 503. Dette må ikke tolkes som manglende varedekning.
 Arkitekturkontroll: ingen IO i views, nye IO-grenser, SQL-migrasjoner eller
 canonical synkendringer. Local-first, transaksjonsgrenser, eierskap,
 næringsgrunnlag og localOnly-policy er bevart. Ingen nye arkitekturavvik.
+
+## Historikklesing – teknisk gjeld, 25. november 2026
+
+Kodekandidat `b9b8eb7`: 25 målrettede tester bestod i en midlertidig macOS
+SwiftPM-harness med prosjektets faktiske Swift-kilder, Swift 5-språkmodus,
+MainActor-isolasjon for app-kildene og NonisolatedNonsendingByDefault.
+Harnessen tok med LocalStore, modeller og berørte ViewModels; urelaterte
+hjelpetyper ble hentet fra prosjektets egne deklarasjoner.
+Ni nye tester og 16 eksisterende MealReuseTests ble kjørt. Den ekstra
+`unavailableDatabasePropagatesThroughRepository` er iOS-only og ble kun
+kompilert i Xcode. Resultatene er ikke en iOS-runtime-, full app- eller UI-kontroll.
+
+Baseline ble kjørt med main-versjonen av LocalStore og navneadaptere til de
+nye load-metodene: tre feiltester ga sju forventede feilutslag; normal
+lesing bestod. Etter retting bestod alle fire lagringstestene. Midlertidig
+harness og rå logger ligger utenfor repoet under `/tmp/matlogg-debt-*` og er
+ikke varige releasebevis.
+
+`xcodebuild build-for-testing -project MatLogg.xcodeproj -scheme MatLogg
+-destination 'generic/platform=iOS Simulator' -derivedDataPath
+/tmp/matlogg-debt-build CODE_SIGNING_ALLOWED=NO` bestod med Xcode 27.2 for
+appen og begge testtargetene. Kompilering ble brukt fordi ingen tilgjengelig
+iOS-simulatorruntime var installert. Kamerauttrekkingens kodekropper ble
+sammenlignet med main og var identiske. `git diff --check` bestod.
+
+Neste målrettede runtime-kontroll på dedikert QA-simulator:
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -destination 'platform=iOS Simulator,name=<QA-simulator>' \
+  -only-testing:MatLoggTests/HistoryReadFailureTests \
+  -only-testing:MatLoggTests/HistoryReadViewModelTests \
+  -only-testing:MatLoggTests/MealReuseTests \
+  -only-testing:MatLoggTests/RenderPresentationTests \
+  -only-testing:MatLoggTests/MealBatchStorageTests \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+```
+
+Kontroller også første lesefeil, bevart innhold ved retry-feil, vellykket
+retry og bruker-/datobytte i måltidsrommet, med stor tekst og VoiceOver.
+Kjør relevant kamera-smoke på fysisk QA-enhet. Disse kontrollene er ikke kjørt.

@@ -1,5 +1,18 @@
 # Gjeldende prosjektstatus
 
+## Avgrenset kodekontroll – 25. november 2026
+
+Teknisk gjeld er utbedret i kodekandidat `b9b8eb7`, basert på main `85755ea`:
+feilformidlende historikklesing, bevart innhold ved oppdateringsfeil, retry i
+måltidsrommet, samlet kamerafil og delt Xcode-scheme. Denne kontrollen gjelder
+committen, uten parallelle arbeidskopiendringer.
+Resultater og åpne porter finnes øverst i [produksjonsberedskap](production-readiness.md).
+Historiske beskrivelser og testresultater nedenfor er ikke verifisert på nytt
+av denne avgrensede kontrollen. Legacy beholdes etter eksisterende policy;
+[utbedringsplanen](plans/technical-debt-remediation.md) beskriver avhengigheter
+og videre avviklingskriterier.
+
+
 ## Gjeldende lanseringsscope – 3. oktober 2026
 
 Første lansering lagrer domenedata bare på enheten: matlogger, vann, mål,

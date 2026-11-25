@@ -1129,3 +1129,20 @@ Kansellerte ubekreftede revisjoner mister fingeravtrykket slik at historikken
 kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
 klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
 native historikk-QA kreves før funksjonen sendes til testerne.
+
+## 2026-11-25 – Eksplisitte feil ved historikklesing
+
+**Beslutning:** Aktive historikk-, eksport-, gjenbruks-, kopierings- og
+angreflyter bruker throwing lesemetoder. SQL-/dekodingsfeil skal ikke bli
+et tomt eller delvis ernæringsresultat. Samme brukers/dags innhold beholdes
+ved oppdateringsfeil; endret kontekst tømmer innholdet. Eldre ikke-kastende
+API-er beholdes som kompatibilitetsgjeld, ikke som mønster for ny kode.
+
+**Begrunnelse:** En tom logg er et gyldig domeneresultat og må kunne skilles
+fra feil. Lagrings- og ViewModel-grensene gjør feilsituasjonene testbare.
+
+**Konsekvens:** Kodekandidat `b9b8eb7` bevarer local-first, transaksjoner,
+eierskap og avslått synk. Ingen skjema-/synkkontraktsendring. Legacy-backend
+beholdes etter tidligere cutoverbeslutning; avhengigheter og foreslåtte
+kriterier for separat avvikling er samlet i utbedringsplanen. Ingen ny
+produksjons- eller synkaktiveringsgodkjenning.
