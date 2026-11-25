@@ -10,6 +10,7 @@ final class SavedMealItemsViewModel: ObservableObject {
     @Published var removed = Set<UUID>() {
         didSet { if oldValue != removed { visibleItems = sortedItems.filter { !removed.contains($0.id) } } }
     }
+    @Published private(set) var imageLoadError: String?
     @Published private(set) var imageProducts: [UUID: Product] = [:]
     private let repository: (any FoodLogRepository)?
     private var imageRequestID = UUID()
@@ -27,6 +28,7 @@ final class SavedMealItemsViewModel: ObservableObject {
     func update(_ meal: SavedMeal) {
         guard meal.items != self.meal.items else { self.meal = meal; return }
         imageRequestID = UUID()
+        imageLoadError = nil
         imageProducts = [:]
         self.meal = meal
         let items = meal.items.sorted { $0.sortIndex < $1.sortIndex }
@@ -39,7 +41,14 @@ final class SavedMealItemsViewModel: ObservableObject {
         guard let repository else { return }
         let requestID = UUID()
         imageRequestID = requestID
-        let products = await repository.getProducts(Set(sortedItems.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await repository.getProducts(Set(sortedItems.map(\.productId))) }
+        catch {
+            guard imageRequestID == requestID, !Task.isCancelled else { return }
+            imageLoadError = "Kunne ikke hente produktbilder."
+            return
+        }
+        imageLoadError = nil
         guard imageRequestID == requestID, !Task.isCancelled else { return }
         imageProducts = products
     }

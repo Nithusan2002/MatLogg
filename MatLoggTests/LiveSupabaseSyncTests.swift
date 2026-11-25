@@ -21,7 +21,7 @@ struct LiveSupabaseSyncTests {
         try store.saveLog(log)
         let queued = store.fetchPendingEvents(ownerUserId: owner, limit: 50)
         #expect(queued.count == 2)
-        #expect(store.getAllLogs(userId: owner).map(\.id) == [log.id])
+        #expect(try store.loadAllLogs(userId: owner).map(\.id) == [log.id])
         #expect(try await context.rows(client, table: "food_logs", owner: owner).isEmpty)
 
         let checkpoint = LiveSyncCheckpoint(owner: owner, logID: log.id, eventIDs: queued.map(\.eventId),
@@ -58,7 +58,7 @@ struct LiveSupabaseSyncTests {
         #expect(recovered.map(\.eventId) == checkpoint.eventIDs)
         #expect(recovered.map(\.payload) == checkpoint.payloads)
         #expect(recovered.allSatisfy { $0.status == .pending && $0.attemptCount == 1 })
-        #expect(store.getAllLogs(userId: owner).map(\.id) == [checkpoint.logID])
+        #expect(try store.loadAllLogs(userId: owner).map(\.id) == [checkpoint.logID])
         let engine = SyncEngine(databaseService: DatabaseService(store: store), apiService: service,
                                 syncEnabled: { true }, uploadPolicy: .integrationTesting)
         engine.updateActiveOwner(owner)
@@ -75,7 +75,7 @@ struct LiveSupabaseSyncTests {
         #expect(Set(inbox.compactMap { ($0["event_id"] as? String).flatMap(UUID.init(uuidString:)) }) == Set(checkpoint.eventIDs))
         let reopened = try LocalStore(databaseURL: context.databaseURL)
         #expect(reopened.syncQueueStatus().unsyncedCount == 0)
-        #expect(reopened.getAllLogs(userId: owner).map(\.id) == [checkpoint.logID])
+        #expect(try reopened.loadAllLogs(userId: owner).map(\.id) == [checkpoint.logID])
         try FileManager.default.removeItem(at: context.directory)
     }
 }

@@ -4,6 +4,7 @@ import Combine
 @MainActor
 final class ProfileFavoritesViewModel: ObservableObject {
     @Published private(set) var products: [Product] = []
+    @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = true
     private let repository: any ProductRepository
     private var requestId = UUID()
@@ -14,13 +15,23 @@ final class ProfileFavoritesViewModel: ObservableObject {
     func load(userId: UUID?) async {
         let request = UUID()
         requestId = request
+        errorMessage = nil
         if owner != userId {
             products = []
             isLoading = true
             owner = userId
         }
         guard let userId else { products = []; isLoading = false; return }
-        let result = await repository.getFavorites(userId: userId, kind: nil)
+        errorMessage = nil
+        isLoading = true
+        defer { if requestId == request { isLoading = false } }
+        let result: [Product]
+        do { result = try await repository.getFavorites(userId: userId, kind: nil) }
+        catch {
+            guard requestId == request, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente favoritter. Prøv igjen."
+            return
+        }
         guard requestId == request, !Task.isCancelled else { return }
         products = result
         isLoading = false

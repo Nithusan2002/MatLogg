@@ -29,7 +29,7 @@ struct AutomaticSyncRetryTests {
         #expect(harness.stub.requests.count == 1)
         #expect(store.syncQueueStatus().unsyncedCount == 1)
         #expect(store.failedSyncCount() == 0)
-        #expect(store.getAllLogs(userId: owner).map(\.id) == [log.id])
+        #expect(try store.loadAllLogs(userId: owner).map(\.id) == [log.id])
         let retryDate = try #require(store.nextPendingRetryDate(ownerUserId: owner))
         #expect(retryDate.timeIntervalSinceNow > 9)
         #expect(store.fetchPendingEvents(ownerUserId: owner, limit: 50).isEmpty)
@@ -54,7 +54,7 @@ struct AutomaticSyncRetryTests {
         #expect(store.syncQueueStatus().unsyncedCount == 0)
         let reopened = try LocalStore(databaseURL: directory.appendingPathComponent("retry.sqlite"))
         #expect(reopened.syncQueueStatus().unsyncedCount == 0)
-        #expect(reopened.getAllLogs(userId: owner).count == 1)
-        #expect(reopened.getAllLogs(userId: owner).first?.calories == log.calories)
+        #expect(try reopened.loadAllLogs(userId: owner).count == 1)
+        #expect(try reopened.loadAllLogs(userId: owner).first?.calories == log.calories)
     }
 }

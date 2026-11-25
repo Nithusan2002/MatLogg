@@ -441,7 +441,7 @@ struct FoodSearchTests {
         try store.saveProduct(foreign, ownerUserId: other)
         try store.cacheCatalogProduct(shared)
         let count = store.pendingSyncCount()
-        #expect(Set(try store.getSearchableProducts(ownerUserId: owner).map(\.id)) == [own.id, shared.id])
+        #expect(try Set(store.getSearchableProducts(ownerUserId: owner).map(\.id)) == [own.id, shared.id])
         #expect(try store.getSearchableProducts(ownerUserId: nil).map(\.id) == [shared.id])
         #expect(store.pendingSyncCount() == count)
     }
@@ -466,7 +466,7 @@ struct FoodSearchTests {
         #expect(raw.amountUnit == .grams)
         let count = store.pendingSyncCount()
         try await repository.prepare(raw, owner: owner)
-        #expect(store.getProduct(raw.id)?.id == raw.id)
+        #expect(try store.getProduct(raw.id)?.id == raw.id)
         #expect(store.pendingSyncCount() == count)
         let manual = product("Manuell testvare")
         try await repository.saveManual(manual, owner: owner)

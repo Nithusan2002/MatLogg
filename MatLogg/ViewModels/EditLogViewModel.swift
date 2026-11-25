@@ -55,7 +55,13 @@ final class EditLogViewModel: ObservableObject {
     func loadFavorite(owner: UUID?) async {
         guard owner == original.userId, let favorites, !isChangingFavorite else { return }
         isFavorite = nil
-        let saved = await favorites.isFavorite(userId: original.userId, productId: original.productId)
+        let saved: Bool
+        do { saved = try await favorites.isFavorite(userId: original.userId, productId: original.productId) }
+        catch {
+            guard !Task.isCancelled else { return }
+            favoriteError = "Kunne ikke hente favorittstatus. Prøv igjen."
+            return
+        }
         guard !Task.isCancelled else { return }
         isFavorite = saved
     }
@@ -68,7 +74,7 @@ final class EditLogViewModel: ObservableObject {
         defer { isChangingFavorite = false }
         do {
             try await favorites.toggleFavorite(userId: original.userId, productId: original.productId)
-            isFavorite = await favorites.isFavorite(userId: original.userId, productId: original.productId)
+            isFavorite = try await favorites.isFavorite(userId: original.userId, productId: original.productId)
             return true
         } catch {
             favoriteError = "Kunne ikke oppdatere favoritt. Prøv igjen."

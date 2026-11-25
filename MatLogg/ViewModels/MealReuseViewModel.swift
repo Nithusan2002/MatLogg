@@ -114,7 +114,13 @@ final class MealReuseViewModel: ObservableObject {
             errorMessage = "Kunne ikke hente registreringene. Prøv igjen."
             return
         }
-        let products = await repository.getProducts(Set(logs.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await repository.getProducts(Set(logs.map(\.productId))) }
+        catch {
+            guard loadID == requestID, contextID == context, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return
+        }
         guard loadID == requestID, contextID == context,
               calendar.isDate(targetDay, inSameDayAs: now()), !Task.isCancelled else { return }
         let calendar = calendar

@@ -15,7 +15,19 @@ struct DailyGoalsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                if !viewModel.hasGoal {
+                if let error = healthProfile.goalLoadError {
+                    ErrorMessageView(error)
+                    Button("Prøv igjen") {
+                        Task {
+                            guard let owner = auth.currentUser?.id else { return }
+                            await healthProfile.loadGoal(userId: owner)
+                            guard healthProfile.goalLoadError == nil else { return }
+                            viewModel.begin(goal: healthProfile.currentGoal, userId: owner)
+                        }
+                    }
+                    .frame(minHeight: 44)
+                }
+                if !viewModel.hasGoal && healthProfile.goalLoadError == nil {
                     Text("Fyll inn egne mål eller beregn et veiledende forslag.")
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -27,12 +39,14 @@ struct DailyGoalsView: View {
                         goalField("Fett", unit: "g/dag", field: .fat, text: $viewModel.fat)
                     }
                 }
+                .disabled(healthProfile.goalLoadError != nil)
                 Button("Beregn nytt forslag") {
                     focusedField = nil
                     showSuggestion = true
                 }
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("daily-goals-suggest")
+                .disabled(healthProfile.goalLoadError != nil)
                 if let error = viewModel.errorMessage {
                     ErrorMessageView(error)
                         .accessibilityIdentifier("daily-goals-error")
@@ -46,6 +60,7 @@ struct DailyGoalsView: View {
                     }
                 }
                 .accessibilityIdentifier("daily-goals-save")
+                .disabled(healthProfile.goalLoadError != nil)
                 Text("Lagres på enheten, også uten nett. Målene er veiledende.")
                     .font(AppTypography.caption)
                     .foregroundStyle(AppColors.textSecondary)

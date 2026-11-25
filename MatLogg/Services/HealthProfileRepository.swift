@@ -2,19 +2,19 @@ import Foundation
 
 protocol GoalRepository {
     func saveGoal(_ goal: Goal) async throws
-    func latestGoal(userId: UUID) async -> Goal?
+    func latestGoal(userId: UUID) async throws -> Goal?
 }
 
 protocol HealthProfileRepository: GoalRepository {
     func saveWeightEntry(_ entry: WeightEntry) async throws
     func deleteWeightEntry(_ id: UUID) async throws
-    func getWeightEntries(userId: UUID) async -> [WeightEntry]
+    func getWeightEntries(userId: UUID) async throws -> [WeightEntry]
 }
 
 extension DatabaseService: HealthProfileRepository {}
 
 protocol PersonalDetailsStore {
-    func load(userId: UUID) -> PersonalDetails
+    func load(userId: UUID) throws -> PersonalDetails
     func save(_ details: PersonalDetails, userId: UUID) throws
     var hasUnassignedLegacyDetails: Bool { get }
     func recoverLegacyDetails(userId: UUID) throws -> PersonalDetails?
@@ -30,12 +30,12 @@ struct UserDefaultsPersonalDetailsStore: PersonalDetailsStore {
     private let legacyOwnerKey = "personalDetails.legacyOwnerId"
 
     var hasUnassignedLegacyDetails: Bool {
-        defaults.string(forKey: legacyOwnerKey) == nil && legacyDetails != nil
+        defaults.string(forKey: legacyOwnerKey) == nil && defaults.data(forKey: legacyKey) != nil
     }
 
-    private var legacyDetails: PersonalDetails? {
+    private func loadLegacyDetails() throws -> PersonalDetails? {
         guard let data = defaults.data(forKey: legacyKey) else { return nil }
-        return try? JSONDecoder().decode(PersonalDetails.self, from: data)
+        return try JSONDecoder().decode(PersonalDetails.self, from: data)
     }
 
     /// Only an explicit recovery action establishes ownership of pre-profile data.
@@ -47,7 +47,7 @@ struct UserDefaultsPersonalDetailsStore: PersonalDetailsStore {
 
     private func migrateLegacyDetails(userId: UUID) throws -> PersonalDetails? {
         guard defaults.string(forKey: legacyOwnerKey) == userId.uuidString,
-              let legacy = legacyDetails else { return nil }
+              let legacy = try loadLegacyDetails() else { return nil }
         let existing = defaults.data(forKey: scopedKey(userId))
         // Preserve undecodable scoped data instead of silently overwriting it.
         let current = try existing.map { try JSONDecoder().decode(PersonalDetails.self, from: $0) } ?? .empty
@@ -61,11 +61,10 @@ struct UserDefaultsPersonalDetailsStore: PersonalDetailsStore {
     }
     var defaults: UserDefaults = .standard
 
-    func load(userId: UUID) -> PersonalDetails {
-        if let migrated = try? migrateLegacyDetails(userId: userId) { return migrated }
-        guard let data = defaults.data(forKey: scopedKey(userId)),
-              let details = try? JSONDecoder().decode(PersonalDetails.self, from: data) else { return .empty }
-        return details
+    func load(userId: UUID) throws -> PersonalDetails {
+        if let migrated = try migrateLegacyDetails(userId: userId) { return migrated }
+        guard let data = defaults.data(forKey: scopedKey(userId)) else { return .empty }
+        return try JSONDecoder().decode(PersonalDetails.self, from: data)
     }
 
     func save(_ details: PersonalDetails, userId: UUID) throws {

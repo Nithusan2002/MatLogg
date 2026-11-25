@@ -134,12 +134,8 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.saveGoal(goal) }
     }
     
-    func getLatestGoal(userId: UUID, completion: @escaping (Goal?) -> Void) {
-        Task { completion(await latestGoal(userId: userId)) }
-    }
-
-    func latestGoal(userId: UUID) async -> Goal? {
-        await performIfAvailable { $0?.getLatestGoal(userId: userId) }
+    func latestGoal(userId: UUID) async throws -> Goal? {
+        try await perform { try $0.getLatestGoal(userId: userId) }
     }
     
     func saveLogs(_ logs: [FoodLog]) async throws {
@@ -170,14 +166,6 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.loadLogs(userId: userId, from: start, before: end) }
     }
 
-    func getAllLogs(userId: UUID) async -> [FoodLog] {
-        await performIfAvailable { $0?.getAllLogs(userId: userId) ?? [] }
-    }
-
-    func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog] {
-        await performIfAvailable { $0?.getLogs(userId: userId, from: start, before: end) ?? [] }
-    }
-
     func getLoggedProductTimes(owner: UUID, before: Date) async throws -> [UUID: Date] {
         try await perform { try $0.getLoggedProductTimes(owner: owner, before: before) }
     }
@@ -197,25 +185,11 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
     func loadScanHistory(userId: UUID) async throws -> ScanHistorySnapshot {
         try await perform { store in
             let scans = try store.loadRecentScans(userId: userId, limit: 15)
-            return ScanHistorySnapshot(scans: scans, products: store.getProducts(Set(scans.map(\.productId))))
+            return ScanHistorySnapshot(scans: scans, products: try store.getProducts(Set(scans.map(\.productId))))
         }
     }
 
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
-        await performIfAvailable { $0?.getSummary(userId: userId, date: date) ?? DailySummary(
-            date: date,
-            totalCalories: 0,
-            totalProtein: 0,
-            totalCarbs: 0,
-            totalFat: 0,
-            logs: []
-        ) }
-    }
     
-    func getTodaysSummary(userId: UUID) async -> DailySummary {
-        await getSummary(userId: userId, date: Date())
-    }
-
     func saveSavedMeal(_ meal: SavedMeal) async throws {
         try await perform { try $0.saveSavedMeal(meal) }
     }
@@ -224,9 +198,6 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.deleteSavedMeal(id, userId: userId) }
     }
 
-    func getSavedMeals(userId: UUID) async -> [SavedMeal] {
-        await performIfAvailable { $0?.getSavedMeals(userId: userId) ?? [] }
-    }
     
     func saveProduct(_ product: Product, ownerUserId: UUID) async throws {
         try await perform { try $0.saveProduct(product, ownerUserId: ownerUserId) }
@@ -236,44 +207,44 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.cacheCatalogProduct(product) }
     }
     
-    func getProduct(_ id: UUID) async -> Product? {
-        await performIfAvailable { $0?.getProduct(id) }
+    func getProduct(_ id: UUID) async throws -> Product? {
+        try await perform { try $0.getProduct(id) }
     }
 
-    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
-        await performIfAvailable { $0?.getProducts(ids) ?? [:] }
+    func getProducts(_ ids: Set<UUID>) async throws -> [UUID: Product] {
+        try await perform { try $0.getProducts(ids) }
     }
     
-    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async -> Product? {
-        await performIfAvailable { $0?.getProductByBarcode(barcode, ownerUserId: ownerUserId) }
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async throws -> Product? {
+        try await perform { try $0.getProductByBarcode(barcode, ownerUserId: ownerUserId) }
     }
     
-    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async -> [String: Product] {
-        await performIfAvailable { $0?.getProductsByBarcodes(barcodes, ownerUserId: ownerUserId) ?? [:] }
+    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async throws -> [String: Product] {
+        try await perform { try $0.getProductsByBarcodes(barcodes, ownerUserId: ownerUserId) }
     }
 
-    func saveMatchMapping(_ mapping: ProductMatchMapping) async {
-        await performIfAvailable { $0?.saveMatchMapping(mapping) }
+    func saveMatchMapping(_ mapping: ProductMatchMapping) async throws {
+        try await perform { try $0.saveMatchMapping(mapping) }
     }
     
-    func getMatchMapping(for barcode: String) async -> ProductMatchMapping? {
-        await performIfAvailable { $0?.getMatchMapping(for: barcode) }
+    func getMatchMapping(for barcode: String) async throws -> ProductMatchMapping? {
+        try await perform { try $0.getMatchMapping(for: barcode) }
     }
     
     func toggleFavorite(userId: UUID, productId: UUID) async throws {
         try await perform { try $0.toggleFavorite(userId: userId, productId: productId) }
     }
     
-    func isFavorite(userId: UUID, productId: UUID) async -> Bool {
-        await performIfAvailable { $0?.isFavorite(userId: userId, productId: productId) ?? false }
+    func isFavorite(userId: UUID, productId: UUID) async throws -> Bool {
+        try await perform { try $0.isFavorite(userId: userId, productId: productId) }
     }
     
     func saveScanHistory(userId: UUID, productId: UUID) async throws {
         try await perform { try $0.saveScanHistory(userId: userId, productId: productId) }
     }
     
-    func getRecentScans(userId: UUID, limit: Int = 15) async -> [ScanHistory] {
-        await performIfAvailable { $0?.getRecentScans(userId: userId, limit: limit) ?? [] }
+    func getRecentScans(userId: UUID, limit: Int = 15) async throws -> [ScanHistory] {
+        try await perform { try $0.getRecentScans(userId: userId, limit: limit) }
     }
     
     func saveWeightEntry(_ entry: WeightEntry) async throws {
@@ -284,28 +255,28 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.deleteWeightEntry(id) }
     }
     
-    func getWeightEntries(userId: UUID) async -> [WeightEntry] {
-        await performIfAvailable { $0?.getWeightEntries(userId: userId) ?? [] }
+    func getWeightEntries(userId: UUID) async throws -> [WeightEntry] {
+        try await perform { try $0.getWeightEntries(userId: userId) }
     }
     
     func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product] {
         try await perform { try $0.getSearchableProducts(ownerUserId: ownerUserId) }
     }
 
-    func getFavorites(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
-        await performIfAvailable { $0?.getFavorites(userId: userId, kind: kind) ?? [] }
+    func getFavorites(userId: UUID, kind: ProductKind? = nil) async throws -> [Product] {
+        try await perform { try $0.getFavorites(userId: userId, kind: kind) }
     }
     
-    func getRecentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
-        await performIfAvailable { $0?.getRecentProducts(userId: userId, kind: kind, limit: limit) ?? [] }
+    func getRecentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async throws -> [Product] {
+        try await perform { try $0.getRecentProducts(userId: userId, kind: kind, limit: limit) }
     }
     
-    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async {
-        await performIfAvailable { $0?.saveMatvaretabellenCache(items) }
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async throws {
+        try await perform { try $0.saveMatvaretabellenCache(items) }
     }
     
-    func getMatvaretabellenCache(maxAgeDays: Int) async -> [MatvaretabellenProduct]? {
-        await performIfAvailable { $0?.getMatvaretabellenCache(maxAgeDays: maxAgeDays) }
+    func getMatvaretabellenCache(maxAgeDays: Int) async throws -> [MatvaretabellenProduct]? {
+        try await perform { try $0.getMatvaretabellenCache(maxAgeDays: maxAgeDays) }
     }
     
     func pendingSyncCount() async -> Int {

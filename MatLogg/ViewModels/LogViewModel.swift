@@ -181,11 +181,13 @@ final class LogViewModel: ObservableObject {
     func loadMealProductImages(for logs: [FoodLog]) async {
         let requestID = UUID()
         imageProductsRequestID = requestID
-        mealProductBrands = [:]
-        mealProductImageURLs = [:]
-        mealProductImageData = [:]
-        mealProductFoodGroups = [:]
-        let products = await repository.getProducts(Set(logs.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await repository.getProducts(Set(logs.map(\.productId))) }
+        catch {
+            guard imageProductsRequestID == requestID, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return
+        }
         guard imageProductsRequestID == requestID else { return }
         mealProductBrands = products.compactMapValues(\.brand)
         mealProductImageData = products.compactMapValues(\.localImageData)
@@ -195,8 +197,8 @@ final class LogViewModel: ObservableObject {
         }
     }
 
-    func productNames(for logs: [FoodLog]) async -> [UUID: String] {
-        let products = await repository.getProducts(Set(logs.map(\.productId)))
+    func productNames(for logs: [FoodLog]) async throws -> [UUID: String] {
+        let products = try await repository.getProducts(Set(logs.map(\.productId)))
         return products.mapValues(\.name)
     }
 
@@ -241,7 +243,13 @@ final class LogViewModel: ObservableObject {
             return
         }
         let yesterday = previousDate == nil ? nil : summaries.dropFirst().first
-        let products = await repository.getProducts(Set(selected.logs.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await repository.getProducts(Set(selected.logs.map(\.productId))) }
+        catch {
+            guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
+            summaryErrorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return
+        }
 
         guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
         selectedSummary = selected

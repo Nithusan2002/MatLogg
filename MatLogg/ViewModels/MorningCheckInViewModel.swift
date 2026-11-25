@@ -38,7 +38,15 @@ final class MorningCheckInViewModel: ObservableObject {
         status = userId.map { store.status(userId: $0, day: newDay) } ?? nil
         guard let userId else { isLoading = false; return }
         isLoading = true
-        let entries = await repository.getWeightEntries(userId: userId)
+        let entries: [WeightEntry]
+        do { entries = try await repository.getWeightEntries(userId: userId) }
+        catch {
+            guard requestID == request, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente vekten. Prøv igjen."
+            isLoading = false
+            return
+        }
+        errorMessage = nil
         guard requestID == request else { return }
         entry = entries.last { $0.userId == userId && Calendar.current.isDate($0.date, inSameDayAs: newDay) }
         isLoading = false

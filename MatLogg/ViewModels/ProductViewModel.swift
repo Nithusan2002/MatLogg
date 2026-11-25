@@ -73,20 +73,20 @@ final class ProductViewModel: ObservableObject {
         self.nameSearchService = nameSearchService
     }
 
-    func product(id: UUID) async -> Product? {
-        await repository.getProduct(id)
+    func product(id: UUID) async throws -> Product? {
+        try await repository.getProduct(id)
     }
 
-    func products(ids: Set<UUID>) async -> [UUID: Product] {
-        await repository.getProducts(ids)
+    func products(ids: Set<UUID>) async throws -> [UUID: Product] {
+        try await repository.getProducts(ids)
     }
 
     func saveManualProduct(_ product: Product, ownerUserId: UUID) async throws {
         try await repository.saveProduct(product, ownerUserId: ownerUserId)
     }
 
-    func cachedProduct(barcode: String, ownerUserId: UUID?) async -> Product? {
-        await repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
+    func cachedProduct(barcode: String, ownerUserId: UUID?) async throws -> Product? {
+        try await repository.getProductByBarcode(barcode, ownerUserId: ownerUserId)
     }
 
     func lookupBarcode(from scannedCode: ScannedBarcode) throws -> String {
@@ -144,7 +144,7 @@ final class ProductViewModel: ObservableObject {
         }
         do {
             let product: Product
-            let cached = await barcodeRepository.cached(barcode: barcode, owner: ownerUserId)
+            let cached = try await barcodeRepository.cached(barcode: barcode, owner: ownerUserId)
             guard scanRequestID == requestID, !Task.isCancelled else { return }
             if let cached {
                 product = cached
@@ -175,8 +175,8 @@ final class ProductViewModel: ObservableObject {
         }
     }
 
-    func recentScans(userId: UUID, limit: Int = 15) async -> [ScanHistory] {
-        await repository.getRecentScans(userId: userId, limit: limit)
+    func recentScans(userId: UUID, limit: Int = 15) async throws -> [ScanHistory] {
+        try await repository.getRecentScans(userId: userId, limit: limit)
     }
 
     @discardableResult
@@ -191,12 +191,12 @@ final class ProductViewModel: ObservableObject {
         }
     }
 
-    func recentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async -> [Product] {
-        await repository.getRecentProducts(userId: userId, kind: kind, limit: limit)
+    func recentProducts(userId: UUID, kind: ProductKind? = nil, limit: Int = 10) async throws -> [Product] {
+        try await repository.getRecentProducts(userId: userId, kind: kind, limit: limit)
     }
 
-    func favoriteProducts(userId: UUID, kind: ProductKind? = nil) async -> [Product] {
-        await repository.getFavorites(userId: userId, kind: kind)
+    func favoriteProducts(userId: UUID, kind: ProductKind? = nil) async throws -> [Product] {
+        try await repository.getFavorites(userId: userId, kind: kind)
     }
 
     @discardableResult
@@ -211,21 +211,23 @@ final class ProductViewModel: ObservableObject {
         }
     }
 
-    func isFavorite(_ product: Product, userId: UUID) async -> Bool {
-        await repository.isFavorite(userId: userId, productId: product.id)
+    func isFavorite(_ product: Product, userId: UUID) async throws -> Bool {
+        try await repository.isFavorite(userId: userId, productId: product.id)
     }
 
-    func rawFoodSuggestions() async -> [MatvaretabellenProduct] {
-        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365) {
+    // This is a rebuildable cache: a read failure falls back to the bundled catalogue,
+    // whose error is propagated. Failure to cache a successful catalogue read is optional.
+    func rawFoodSuggestions() async throws -> [MatvaretabellenProduct] {
+        if let cached = try? await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             return cached
         }
-        let items = (try? await catalogService.fetchCommonFoods()) ?? []
-        await repository.saveMatvaretabellenCache(items)
+        let items = try await catalogService.fetchCommonFoods()
+        try? await repository.saveMatvaretabellenCache(items)
         return items
     }
 
-    func searchRawFoods(query: String) async -> [MatvaretabellenProduct] {
-        (try? await searchRawFoodsWithStatus(query: query).items) ?? []
+    func searchRawFoods(query: String) async throws -> [MatvaretabellenProduct] {
+        try await searchRawFoodsWithStatus(query: query).items
     }
 
     func searchRawFoodsWithStatus(query: String) async throws -> RawFoodSearchOutcome {
@@ -234,7 +236,7 @@ final class ProductViewModel: ObservableObject {
             return RawFoodSearchOutcome(items: [], source: .localCache)
         }
 
-        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
+        if let cached = try? await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             let filtered = try await BackgroundWork.run {
                 cached.filter { Self.searchMatches(query: trimmed, name: $0.name, brand: $0.brand) }
             }
@@ -260,7 +262,7 @@ final class ProductViewModel: ObservableObject {
         var usedRemoteSource = false
         var firstError: Error?
 
-        if let cached = await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
+        if let cached = try? await repository.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
             let cachedMatches = try await Self.rawProducts(cached, query: trimmed)
             products.append(contentsOf: cachedMatches)
             if cachedMatches.isEmpty {
@@ -295,7 +297,7 @@ final class ProductViewModel: ObservableObject {
             throw firstError
         }
 
-        let cachedByBarcode = await repository.getProductsByBarcodes(Set(products.compactMap(\.barcodeEan)), ownerUserId: ownerUserId)
+        let cachedByBarcode = try await repository.getProductsByBarcodes(Set(products.compactMap(\.barcodeEan)), ownerUserId: ownerUserId)
         products = products.map { product in product.barcodeEan.flatMap { cachedByBarcode[$0] } ?? product }
         let input = products
         let sorted = try await BackgroundWork.run {

@@ -78,12 +78,19 @@ private struct ProductDetailContent: View {
                             .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(isFavorite ? "Fjern fra favoritter" : "Legg til favoritt")
-                    .disabled(detailModel.isChangingFavorite)
+                    .disabled(detailModel.isChangingFavorite || detailModel.favoriteError != nil)
                 }
                 .padding()
 
                 ScrollView {
                     VStack(spacing: 12) {
+                        if let error = detailModel.favoriteError {
+                            ErrorMessageView(error)
+                            Button("Prøv igjen") {
+                                Task { await detailModel.loadFavorite(owner: authViewModel.currentUser?.id) }
+                            }
+                            .frame(minHeight: 44)
+                        }
                         // Product Hero
                         heroView
                             .onTapGesture {

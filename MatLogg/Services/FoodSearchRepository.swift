@@ -124,7 +124,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
 
     func loadQuickChoices(owner: UUID?) async throws -> FoodSearchLibrary {
         let recent = if let owner { try await recentFoods.getRecentFoods(owner: owner, before: Date(), limit: 6) } else { [RecentFood]() }
-        let favorites = if let owner { await products.getFavorites(userId: owner, kind: nil) } else { [Product]() }
+        let favorites = if let owner { try await products.getFavorites(userId: owner, kind: nil) } else { [Product]() }
         return FoodSearchLibrary(products: [], recent: recent.map(\.product), favorites: favorites,
                                  suggestions: [], recentFoods: recent)
     }
@@ -144,7 +144,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         do {
             raw = try await catalogItems
         } catch {
-            if let cached = await products.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
+            if let cached = try? await products.getMatvaretabellenCache(maxAgeDays: 365), !cached.isEmpty {
                 raw = cached
             } else if !local.products.isEmpty {
                 raw = []
@@ -180,7 +180,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
             return result.filter { FoodSearchMatcher.matches(query: query, name: $0.name, brand: $0.brand) }
         }
         let cacheTiming = PerformanceSignposts.begin("Search.RemoteCache")
-        let cached = await products.getProductsByBarcodes(Set(filtered.compactMap(\.barcodeEan)), ownerUserId: owner)
+        let cached = try await products.getProductsByBarcodes(Set(filtered.compactMap(\.barcodeEan)), ownerUserId: owner)
         PerformanceSignposts.end(cacheTiming)
         return filtered.map { product in
             guard let stored = product.barcodeEan.flatMap({ cached[$0] }) else { return product }
@@ -221,7 +221,7 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
 
     func prepare(_ product: Product, owner: UUID) async throws {
         // Existing owner rows must not be converted into shared catalog cache.
-        if product.source != "user", await products.getProduct(product.id) == nil {
+        if product.source != "user", try await products.getProduct(product.id) == nil {
             try await products.cacheCatalogProduct(product)
         }
     }

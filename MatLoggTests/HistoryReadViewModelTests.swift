@@ -82,7 +82,6 @@ struct HistoryReadViewModelTests {
         #expect(repo.writes == 0)
     }
 
-    #if os(iOS)
     @Test func unavailableDatabasePropagatesThroughRepository() async {
         let repository: any FoodLogRepository = DatabaseService(storeResult: .failure(HistoryReadTestError.unavailable))
         await #expect(throws: DatabaseServiceError.self) { try await repository.loadAllLogs(userId: UUID()) }
@@ -90,7 +89,6 @@ struct HistoryReadViewModelTests {
             try await repository.loadLogs(userId: UUID(), from: .distantPast, before: .distantFuture)
         }
     }
-    #endif
 
     private func log(owner: UUID, date: Date, productId: UUID = UUID()) -> FoodLog {
         FoodLog(userId: owner, productId: productId, mealType: "frokost", amountG: 100,
@@ -116,11 +114,10 @@ private final class HistoryReadRepository: FoodLogRepository {
         if suspends { return try await withCheckedThrowingContinuation { pending.append($0) } }
         return DailySummary.summaries(userId: userId, dates: dates, logs: try await loadAllLogs(userId: userId))
     }
-    func getAllLogs(userId: UUID) async -> [FoodLog] { logs }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         DailySummary.summaries(userId: userId, dates: [date], logs: logs)[0]
     }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { await getSummary(userId: userId, date: Date()) }
     func getProduct(_ id: UUID) async -> Product? { products[id] }
     func saveLog(_ log: FoodLog) async throws { writes += 1 }
     func saveLogs(_ logs: [FoodLog]) async throws { writes += 1 }

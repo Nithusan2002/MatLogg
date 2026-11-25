@@ -72,11 +72,11 @@ struct LoggingDraftTests {
         #expect(store.pendingSyncCount() == 1)
         let reopened = try LocalStore(databaseURL: path)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId)?.amountText == "50,0")
-        #expect(reopened.getProduct(food.id)?.name == "Testmat")
+        #expect(try reopened.getProduct(food.id)?.name == "Testmat")
         let entry = log(draft)
         try reopened.completeLoggingDraft(draft, log: entry)
         try reopened.completeLoggingDraft(draft, log: entry)
-        #expect(reopened.getAllLogs(userId: draft.userId).count == 1)
+        #expect(try reopened.loadAllLogs(userId: draft.userId).count == 1)
         #expect(reopened.pendingSyncCount() == 2)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId) == nil)
         #expect(throws: (any Error).self) { try reopened.updateLoggingDraft(draft) }
@@ -106,12 +106,12 @@ struct LoggingDraftTests {
         draft.revision += 1; draft.step = .amount; draft.product = product(draft)
         #expect(throws: (any Error).self) { try store.advanceLoggingDraft(draft, product: product(draft)) }
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .product)
-        #expect(store.getProduct(draft.productId) == nil)
+        #expect(try store.getProduct(draft.productId) == nil)
         try #require(sqlite3_exec(db, "DROP TRIGGER fail_event;", nil, nil, nil) == SQLITE_OK)
         try store.advanceLoggingDraft(draft, product: product(draft))
         try #require(sqlite3_exec(db, "CREATE TRIGGER fail_event BEFORE INSERT ON sync_queue BEGIN SELECT RAISE(ABORT, 'test'); END;", nil, nil, nil) == SQLITE_OK)
         #expect(throws: (any Error).self) { try store.completeLoggingDraft(draft, log: log(draft)) }
-        #expect(store.getAllLogs(userId: draft.userId).isEmpty)
+        #expect(try store.loadAllLogs(userId: draft.userId).isEmpty)
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .amount)
         #expect(store.pendingSyncCount() == 1)
     }
@@ -201,7 +201,7 @@ struct LoggingDraftTests {
         let receipt = try #require(await third.complete())
         #expect(receipt.ownerID == owner)
         #expect(receipt.loggedDate == Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1000)))
-        #expect(store.getAllLogs(userId: owner).count == 1)
+        #expect(try store.loadAllLogs(userId: owner).count == 1)
         await third.load(owner: UUID())
         #expect(third.draft == nil)
     }
