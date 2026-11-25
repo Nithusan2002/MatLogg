@@ -6,6 +6,8 @@ protocol FoodLogRepository {
     func saveLog(_ log: FoodLog) async throws
     func deleteLog(_ id: UUID) async throws
     func loadLoggingDates(userId: UUID) async throws -> [Date]
+    func loadAllLogs(userId: UUID) async throws -> [FoodLog]
+    func loadLogs(userId: UUID, from start: Date, before end: Date) async throws -> [FoodLog]
     func getAllLogs(userId: UUID) async -> [FoodLog]
     func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog]
     func getSummary(userId: UUID, date: Date) async -> DailySummary
@@ -16,8 +18,17 @@ protocol FoodLogRepository {
 }
 
 extension FoodLogRepository {
+    // Compatibility defaults for repositories predating explicit read failures.
+    func loadAllLogs(userId: UUID) async throws -> [FoodLog] {
+        await getAllLogs(userId: userId)
+    }
+
+    func loadLogs(userId: UUID, from start: Date, before end: Date) async throws -> [FoodLog] {
+        try await loadAllLogs(userId: userId).filter { $0.loggedDate >= start && $0.loggedDate < end }
+    }
+
     func loadLoggingDates(userId: UUID) async throws -> [Date] {
-        await getAllLogs(userId: userId).filter { $0.userId == userId }.map(\.loggedDate)
+        try await loadAllLogs(userId: userId).filter { $0.userId == userId }.map(\.loggedDate)
     }
 
     func getLogs(userId: UUID, from start: Date, before end: Date) async -> [FoodLog] {
@@ -25,7 +36,7 @@ extension FoodLogRepository {
     }
 
     func loadSummaries(userId: UUID, dates: [Date]) async throws -> [DailySummary] {
-        let logs = await getAllLogs(userId: userId)
+        let logs = try await loadAllLogs(userId: userId)
         return DailySummary.summaries(userId: userId, dates: dates, logs: logs)
     }
 

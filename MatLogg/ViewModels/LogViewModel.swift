@@ -16,6 +16,7 @@ struct DayCopyReceipt: Identifiable {
 @MainActor
 final class LogViewModel: ObservableObject {
     @Published private(set) var todaysSummary = DailySummary.empty(for: Date())
+    @Published private(set) var summaryErrorMessage: String?
     @Published private(set) var isSummaryLoading = true
     @Published private(set) var selectedDay = SelectedDayPresentation.empty
     @Published private(set) var selectedSummary: DailySummary?
@@ -137,6 +138,7 @@ final class LogViewModel: ObservableObject {
         mealProductImageData = [:]
         mealProductFoodGroups = [:]
         isSummaryLoading = true
+        summaryErrorMessage = nil
     }
 
     init(repository: any FoodLogRepository) {
@@ -148,13 +150,26 @@ final class LogViewModel: ObservableObject {
     func loadTodaysSummary(userId: UUID) async {
         let requestID = UUID()
         todayRequestID = requestID
-        let summary = await repository.getTodaysSummary(userId: userId)
+        let summary: DailySummary
+        do {
+            guard let loaded = try await repository.loadSummaries(userId: userId, dates: [Date()]).first else {
+                throw DatabaseServiceError.unavailable
+            }
+            summary = loaded
+        } catch {
+            guard todayRequestID == requestID, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente dagsoversikten. Prøv igjen."
+            return
+        }
         guard todayRequestID == requestID, !Task.isCancelled else { return }
         todaysSummary = summary
     }
 
-    func fetchSummary(userId: UUID, date: Date) async -> DailySummary {
-        await repository.getSummary(userId: userId, date: date)
+    func fetchSummary(userId: UUID, date: Date) async throws -> DailySummary {
+        guard let summary = try await repository.loadSummaries(userId: userId, dates: [date]).first else {
+            throw DatabaseServiceError.unavailable
+        }
+        return summary
     }
 
     @Published private(set) var mealProductBrands: [UUID: String] = [:]
@@ -193,6 +208,7 @@ final class LogViewModel: ObservableObject {
         let requestID = UUID()
         activeSummaryRequestID = requestID
         isSummaryLoading = true
+        summaryErrorMessage = nil
         defer {
             if activeSummaryRequestID == requestID { isSummaryLoading = false }
         }
@@ -209,15 +225,23 @@ final class LogViewModel: ObservableObject {
             return
         }
 
-        let selected = await repository.getSummary(userId: userId, date: date)
-        let products = await repository.getProducts(Set(selected.logs.map(\.productId)))
-        let yesterday: DailySummary?
-        if calendar.isDateInToday(date),
-           let previousDate = calendar.date(byAdding: .day, value: -1, to: date) {
-            yesterday = await repository.getSummary(userId: userId, date: previousDate)
-        } else {
-            yesterday = nil
+        let previousDate = calendar.isDateInToday(date)
+            ? calendar.date(byAdding: .day, value: -1, to: date) : nil
+        let summaries: [DailySummary]
+        do {
+            summaries = try await repository.loadSummaries(userId: userId, dates: [date] + (previousDate.map { [$0] } ?? []))
+        } catch {
+            guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
+            summaryErrorMessage = "Kunne ikke hente måltidene. Prøv igjen."
+            return
         }
+        guard let selected = summaries.first else {
+            guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
+            summaryErrorMessage = "Kunne ikke hente måltidene. Prøv igjen."
+            return
+        }
+        let yesterday = previousDate == nil ? nil : summaries.dropFirst().first
+        let products = await repository.getProducts(Set(selected.logs.map(\.productId)))
 
         guard activeSummaryRequestID == requestID, !Task.isCancelled else { return }
         selectedSummary = selected
@@ -307,7 +331,12 @@ final class LogViewModel: ObservableObject {
         date: Date = Date(),
         logID: UUID? = nil
     ) async -> Bool {
-        let logs = await repository.getAllLogs(userId: userId)
+        let logs: [FoodLog]
+        do { logs = try await repository.loadAllLogs(userId: userId) }
+        catch {
+            errorMessage = "Kunne ikke angre logging. Prøv igjen."
+            return false
+        }
         let day = Calendar.current.startOfDay(for: date)
         let latest = logs
             .filter {
@@ -376,7 +405,17 @@ final class LogViewModel: ObservableObject {
         defer { isCopyingOrUndoing = false }
         dismissCopyReceipt()
         let context = copyContextRevision
-        let sourceSummary = await repository.getSummary(userId: userId, date: sourceDate)
+        let sourceSummary: DailySummary
+        do {
+            guard let summary = try await repository.loadSummaries(userId: userId, dates: [sourceDate]).first else {
+                throw DatabaseServiceError.unavailable
+            }
+            sourceSummary = summary
+        } catch {
+            guard context == copyContextRevision, !Task.isCancelled else { return false }
+            errorMessage = "Kunne ikke hente registreringene som skal kopieres. Prøv igjen."
+            return false
+        }
         guard context == copyContextRevision, !Task.isCancelled else { return false }
         guard sourceSummary.logs.allSatisfy({ $0.userId == userId }) else {
             errorMessage = "Kunne ikke kopiere logging: Loggen tilhører en annen bruker."

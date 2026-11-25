@@ -258,7 +258,7 @@ private struct LoggContent: View {
         let groups = groupedLogs
         let logs = screen.presentation.mealLogs
         let hasCurrentSummary = screen.summary.map { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) } == true
-        let loading = screen.isLoading || !hasCurrentSummary
+        let loading = screen.isLoading || (!hasCurrentSummary && screen.errorMessage == nil)
         return ScrollViewReader { proxy in
             List {
                 Section {
@@ -309,6 +309,14 @@ private struct LoggContent: View {
                     ProgressView("Henter måltider …")
                         .frame(maxWidth: .infinity, minHeight: 96)
                         .listRowBackground(AppColors.background)
+                }
+                if let error = screen.errorMessage {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(error).foregroundStyle(AppColors.textSecondary)
+                        Button("Prøv igjen") { Task { await loadSelectedSummary() } }
+                            .frame(minHeight: 44)
+                    }
+                    .listRowBackground(AppColors.background)
                 }
                 if hasCurrentSummary {
                     ForEach(groups, id: \.mealType) { group in

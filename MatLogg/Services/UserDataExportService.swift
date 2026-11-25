@@ -69,7 +69,9 @@ final class UserDataExportService: UserDataExporting {
     }
 
     func export(for user: User) async -> URL? {
-        let logs = await logRepository.getAllLogs(userId: user.id)
+        let logs: [FoodLog]
+        do { logs = try await logRepository.loadAllLogs(userId: user.id) }
+        catch { return nil }
         let savedMeals = await savedMealRepository.getSavedMeals(userId: user.id)
         let water: [WaterGlass]
         do { water = try await waterRepository.getWaterGlasses(userId: user.id) }

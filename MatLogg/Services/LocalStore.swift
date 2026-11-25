@@ -440,48 +440,65 @@ nonisolated final class LocalStore: @unchecked Sendable {
         try requireDone(sqlite3_step(stmt))
     }
 
+    // Compatibility for older callers. New history reads must use the throwing load APIs.
     func getAllLogs(userId: UUID) -> [FoodLog] {
-        queue.sync {
+        (try? loadAllLogs(userId: userId)) ?? []
+    }
+
+    func getLogs(userId: UUID, from start: Date, before end: Date) -> [FoodLog] {
+        (try? loadLogs(userId: userId, from: start, before: end)) ?? []
+    }
+
+    func loadAllLogs(userId: UUID) throws -> [FoodLog] {
+        try queue.sync {
             let sql = """
             SELECT json FROM logs
             WHERE userId = ?
             ORDER BY loggedTime DESC;
             """
             var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
             sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
             defer { sqlite3_finalize(stmt) }
             var results: [FoodLog] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                if let data = readBlob(stmt, index: 0),
-                   let log = decode(FoodLog.self, from: data, entity: "food_log") {
-                    results.append(log)
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                guard let data = readBlob(stmt, index: 0),
+                      let log = decode(FoodLog.self, from: data, entity: "food_log") else {
+                    throw LocalStoreError.invalidStoredData("Kunne ikke lese lagret matlogg.")
                 }
+                results.append(log)
+                step = sqlite3_step(stmt)
             }
+            guard step == SQLITE_DONE else { throw databaseError() }
             return results
         }
     }
 
-    func getLogs(userId: UUID, from start: Date, before end: Date) -> [FoodLog] {
-        queue.sync {
+    func loadLogs(userId: UUID, from start: Date, before end: Date) throws -> [FoodLog] {
+        try queue.sync {
             let sql = """
             SELECT json FROM logs
             WHERE userId = ? AND loggedDate >= ? AND loggedDate < ?
             ORDER BY loggedTime DESC;
             """
             var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { throw databaseError() }
             sqlite3_bind_text(stmt, 1, userId.uuidString, -1, SQLITE_TRANSIENT)
             sqlite3_bind_double(stmt, 2, start.timeIntervalSince1970)
             sqlite3_bind_double(stmt, 3, end.timeIntervalSince1970)
             defer { sqlite3_finalize(stmt) }
             var results: [FoodLog] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                if let data = readBlob(stmt, index: 0),
-                   let log = decode(FoodLog.self, from: data, entity: "food_log") {
-                    results.append(log)
+            var step = sqlite3_step(stmt)
+            while step == SQLITE_ROW {
+                guard let data = readBlob(stmt, index: 0),
+                      let log = decode(FoodLog.self, from: data, entity: "food_log") else {
+                    throw LocalStoreError.invalidStoredData("Kunne ikke lese lagret matlogg.")
                 }
+                results.append(log)
+                step = sqlite3_step(stmt)
             }
+            guard step == SQLITE_DONE else { throw databaseError() }
             return results
         }
     }
@@ -593,8 +610,11 @@ nonisolated final class LocalStore: @unchecked Sendable {
             var result: [FoodLog] = []
             var step = sqlite3_step(stmt)
             while step == SQLITE_ROW {
-                if let data = readBlob(stmt, index: 0),
-                   let log = decode(FoodLog.self, from: data, entity: "food_log") { result.append(log) }
+                guard let data = readBlob(stmt, index: 0),
+                      let log = decode(FoodLog.self, from: data, entity: "food_log") else {
+                    throw LocalStoreError.invalidStoredData("Kunne ikke lese lagret matlogg.")
+                }
+                result.append(log)
                 step = sqlite3_step(stmt)
             }
             guard step == SQLITE_DONE else { throw databaseError() }

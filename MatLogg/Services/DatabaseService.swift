@@ -162,6 +162,14 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.loadLoggingDates(userId: userId) }
     }
 
+    func loadAllLogs(userId: UUID) async throws -> [FoodLog] {
+        try await perform { try $0.loadAllLogs(userId: userId) }
+    }
+
+    func loadLogs(userId: UUID, from start: Date, before end: Date) async throws -> [FoodLog] {
+        try await perform { try $0.loadLogs(userId: userId, from: start, before: end) }
+    }
+
     func getAllLogs(userId: UUID) async -> [FoodLog] {
         await performIfAvailable { $0?.getAllLogs(userId: userId) ?? [] }
     }
