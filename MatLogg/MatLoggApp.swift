@@ -178,7 +178,20 @@ struct MatLoggContent: View {
         let timing = PerformanceSignposts.begin("UI.RootBody")
         defer { PerformanceSignposts.end(timing) }
         return rootContent
+            .environment(\.sporCompanionFactory, sporCompanionFactory)
             .preferredColorScheme(preferencesViewModel.appearance.colorScheme)
+    }
+
+    private var sporCompanionFactory: SporCompanionFactory? {
+        guard FeatureFlags.sporMascotAnimationEnabled else { return nil }
+        return SporCompanionFactory {
+            let controller = RealityKitMascotController(loops: false)
+            let model = SporCompanionViewModel(player: controller,
+                assets: SporGreetingAssetRepository(url: Bundle.main.url(
+                    forResource: "spor-greeting", withExtension: "usdz")),
+                preferences: SporGreetingPreferences(defaults: .standard))
+            return SporCompanionSession(controller: controller, model: model)
+        }
     }
 
     @ViewBuilder

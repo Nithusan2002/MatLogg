@@ -1,14 +1,12 @@
 import SwiftUI
 
-/// Bundled photographs, available without network access.
+/// Bundled Spor artwork; the ordinary first-log flow is preserved.
 struct OnboardingIllustration: View {
     let page: FirstLoggingFlowViewModel.IntroPage
-
     var body: some View {
-        Image(page == .logging ? "OnboardingBreakfast" : "OnboardingMeal")
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        SporCompanionView(context: .introduction, eligible: page == .logging)
+            .frame(maxWidth: 260)
+            .frame(height: 220)
             .accessibilityHidden(true)
     }
 }

@@ -1167,3 +1167,23 @@ Resultatet skiller overførte fra ventende verdier. Retry bruker eksisterende
 «Prøv igjen». Å lukke skjermen angrer ikke kølegging; allerede delte verdier
 kan slettes med eksisterende profilomfattende Helse-sletting. Ingen ny
 batch-angreknapp eller automatisk historikk ved aktivering.
+
+## Spor-maskot – 25. november 2026
+
+Den eksisterende tosiders introduksjonen beholder handlinger og tekster, med
+Spor som illustrasjon. Første side kan spille en kort hilsen én gang per
+visningslevetid. Hjem viser en liten Spor ved hilsenen, uten nytt kort.
+Andre datoer bruker stillfigur. Tomme favoritter og lagrede måltider beholder
+forklaringer og handlinger med Spor over teksten.
+
+Hjem-hilsen kan starte én gang per lokal kalenderdag, bare på dagens dato og
+når Hjem er valgt uten onboarding eller overliggende loggførings-/kameraflyt.
+Siste faktiske start lagres per installasjon, separat fra domenedata og synkkø.
+Introen teller ikke som Hjem-hilsen. Bakgrunn og navigasjon bort stopper
+avspillingen; retur samme dag gjentar den ikke. Reduser bevegelse og feil gir
+stillbilde. Ingen konto/nettverk eller ernæringsstyrte reaksjoner introduseres.
+
+Fysisk kontroll avdekket først en tom 3D-flate ved tidlig rendereroppretting.
+Utsatt oppretting etter gyldig ressurslasting gjenopprettet synlig vinking på
+iPhone 17. Animasjonen er aktivert på maskotbranchen; se
+[plan og kontrollstatus](plans/spor-mascot-app-integration.md).

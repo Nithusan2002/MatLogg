@@ -180,7 +180,10 @@ struct SavedMealsListView: View {
                     }
                 } else if viewModel.meals.isEmpty {
                     ContentUnavailableView {
+                        VStack(spacing: 12) {
+                        SporIllustration().frame(width: 120, height: 120)
                         Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
+                    }
                     } description: {
                         Text("På Hjem velger du ••• ved Måltider → Lagre som måltid.")
                     }

@@ -18,7 +18,10 @@ struct ProfileFavoritesView: View {
                     .accessibilityIdentifier("favorites-loading")
             } else if viewModel.products.isEmpty {
                 ContentUnavailableView {
-                    Label("Ingen favoritter ennå", systemImage: "heart")
+                    VStack(spacing: 12) {
+                        SporIllustration().frame(width: 120, height: 120)
+                        Label("Ingen favoritter ennå", systemImage: "heart")
+                    }
                 } description: {
                     Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
                 } actions: {

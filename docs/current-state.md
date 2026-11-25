@@ -582,3 +582,18 @@ Fysisk QA 16. november: native historikkeksport, datoer, verdier, gjentatt
 overføring uten nye UUID-er og sletting av alle egne testposter bestod på
 iPhone 17 / iOS 27.3 i isolert QA-app. UI-flyten bestod også på telefonen.
 Se testing.md for resultater; nytt TestFlight-bygg er fortsatt ikke verifisert.
+
+### Spor-integrasjon på maskotbranchen – 25. november 2026
+
+Spor er integrert i introduksjonen, Hjem og tomme favoritter/lagrede måltider.
+Stillbilde er reserve; ett bundlet hilseklipp brukes i vanlig app. Animasjonen
+er aktivert etter fysisk iPhone 17-kontroll av utsatt rendereroppretting.
+Hjem-hilsenen har lokal dagsgrense og sperres bak onboarding og overliggende
+loggførings-/kameraflyt. Reduser bevegelse gir stillbilde.
+
+Ti målrettede enhetstester og fem UI-kontroller bestod på fysisk enhet.
+Regresjonskontrollen verifiserer synlig maskot under introduksjonen; vinking
+er også inspisert i skjermbildet. Lys/mørk modus og største tekst er kontrollert.
+Manuell VoiceOver-lytting og målt energibruk er ikke verifisert. Ingen
+produksjonsutrulling er utført. Se
+[implementeringsplan og QA-status](plans/spor-mascot-app-integration.md).

@@ -58,7 +58,9 @@ private struct HomeNavigationContent: View {
                 onLogComplete: { payload in
                     Task { await loadTodaysSummary() }
                     receiptPayload = payload
-                }
+                },
+                allowsMascotGreeting: !navigation.isOnboarding && navigation.selectedTab == .home
+                    && !showAddActions && !showScanCamera && !showRawMaterials
             )
                 .tabItem { EmptyView() }
                 .tag(AppTab.home)
@@ -295,13 +297,15 @@ struct HomeTabView: View {
     let onOpenQuickLog: () -> Void
     let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    var allowsMascotGreeting = true
 
     var body: some View {
         if let repository {
             HomeTabContent(repository: repository, appState: appState, logViewModel: logViewModel,
                 authViewModel: authViewModel, savedMealsViewModel: savedMealsViewModel,
                 healthProfileViewModel: healthProfileViewModel, preferencesViewModel: preferencesViewModel,
-                onOpenQuickLog: onOpenQuickLog, onDeleteComplete: onDeleteComplete, onLogComplete: onLogComplete)
+                onOpenQuickLog: onOpenQuickLog, onDeleteComplete: onDeleteComplete, onLogComplete: onLogComplete,
+                allowsMascotGreeting: allowsMascotGreeting)
         } else {
             ContentUnavailableView("Oversikt er utilgjengelig", systemImage: "fork.knife")
         }
@@ -322,6 +326,7 @@ private struct HomeTabContent: View {
     let onOpenQuickLog: () -> Void
     let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
+    let allowsMascotGreeting: Bool
     @State private var isPullRefreshing = false
     @StateObject private var overviewModel: HomeOverviewViewModel
     private var selectedSummary: DailySummary? {
@@ -344,7 +349,7 @@ private struct HomeTabContent: View {
          authViewModel: AuthViewModel, savedMealsViewModel: SavedMealsViewModel,
          healthProfileViewModel: HealthProfileViewModel, preferencesViewModel: PreferencesViewModel,
          onOpenQuickLog: @escaping () -> Void, onDeleteComplete: @escaping () -> Void,
-         onLogComplete: @escaping (ReceiptPayload) -> Void) {
+         onLogComplete: @escaping (ReceiptPayload) -> Void, allowsMascotGreeting: Bool) {
         self.appState = appState
         self.logViewModel = logViewModel
         self.authViewModel = authViewModel
@@ -354,6 +359,7 @@ private struct HomeTabContent: View {
         self.onOpenQuickLog = onOpenQuickLog
         self.onDeleteComplete = onDeleteComplete
         self.onLogComplete = onLogComplete
+        self.allowsMascotGreeting = allowsMascotGreeting
         _copyPresentation = StateObject(wrappedValue: DayCopyReceiptViewModel(logs: logViewModel))
         _selection = StateObject(wrappedValue: LogScreenViewModel(logs: logViewModel,
             appState: appState, auth: authViewModel, savedMeals: savedMealsViewModel))
@@ -584,16 +590,27 @@ private struct HomeTabContent: View {
             }
 
 
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        homeHeadingText(at: context.date).fixedSize()
-                        Spacer(minLength: 0)
-                        loggingStreakBadge
+            HStack(alignment: .center, spacing: 12) {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            homeHeadingText(at: context.date).fixedSize()
+                            Spacer(minLength: 0)
+                            loggingStreakBadge
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            homeHeadingText(at: context.date)
+                            loggingStreakBadge
+                        }
                     }
-                    VStack(alignment: .leading, spacing: 8) {
-                        homeHeadingText(at: context.date)
-                        loggingStreakBadge
+                }
+                if !dynamicTypeSize.isAccessibilitySize {
+                    ViewThatFits(in: .horizontal) {
+                        SporCompanionView(context: .home,
+                            eligible: Calendar.current.isDateInToday(selectedDate)
+                                && allowsMascotGreeting)
+                            .frame(width: 72, height: 72)
+                        Color.clear.frame(width: 0, height: 0)
                     }
                 }
             }

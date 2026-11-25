@@ -1129,3 +1129,35 @@ Kansellerte ubekreftede revisjoner mister fingeravtrykket slik at historikken
 kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
 klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
 native historikk-QA kreves før funksjonen sendes til testerne.
+
+## 2026-11-25 – Avgrenset Spor-integrasjon på maskotbranchen
+
+Brukeren ba om implementering av maskotplanen på
+`codex/spor-mascot-iphone-preview`. Førsteversjonen omfatter eksisterende
+introduksjon, Hjem-hilsen og tomme favoritter/lagrede måltider. Stillbilde er
+standard og reserve; bare hilseklippet inkluderes i vanlig appbygg.
+Ingen ernæringsstyrte reaksjoner, profilfunksjon, analyse eller backendendring.
+En installasjonslokal dato begrenser Hjem-hilsenen; datoen er separat fra
+profildata og synkkø. Produksjonsutrulling og fysisk QA er ikke godkjent her.
+
+## 2026-11-25 – Statisk Spor etter fysisk QA
+
+Den planlagte reservevarianten tas i bruk: integrert hilsen tegnet en tom
+flate på fysisk iPhone 17, selv om klippet startet. Stillbilder og navigasjon
+fungerte, og den separate maskotprøven viste hilsenen. App-roten holder derfor
+`sporMascotAnimationEnabled = false` og oppretter ingen integrert renderer.
+Renderfeilen må løses og verifiseres fysisk før aktivering. Ingen endring i
+brukerdata, autentisering eller produksjonsutrulling.
+
+## 2026-11-25 – Gjenaktivert Spor-hilsen etter utsatt rendereroppretting
+
+Minimal visning med samme komponent og modell viste korrekt vinking på fysisk
+iPhone 17. Den integrerte feilen forsvant da ARView ble opprettet først etter
+gyldig modelllasting, i stedet for i controller-init for forhåndslastede sider.
+Bakgrunnsfarge og inaktiv presentasjon oppretter ikke renderer. Denne grensen
+er injiserbar og dekket av enhetstester. Hjem-hilsen sperres i tillegg bak
+onboarding og overliggende loggførings-/kameraflyt.
+
+Ti målrettede enhetstester og fem UI-kontroller bestod på fysisk enhet.
+`sporMascotAnimationEnabled` er derfor aktivert igjen på maskotbranchen.
+Ingen endring i domene-/synkdata og ingen produksjonsutrulling.

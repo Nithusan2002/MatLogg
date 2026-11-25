@@ -1,25 +1,31 @@
-#if DEBUG && SPOR_MASCOT_QA
 import Combine
 import RealityKit
 import UIKit
 
 @MainActor final class RealityKitMascotController: MascotPlaying {
-    let view: ARView
+    private var view: ARView?
+    private let makeRenderer: @MainActor () -> ARView
+    private var backgroundColor = UIColor.clear
     let host = UIView()
+    #if DEBUG && SPOR_MASCOT_QA
     let poster: UIImage?
+    #endif
     private let anchor = AnchorEntity(world: .zero)
     private var model: Entity?
     private var animation: AnimationResource?
     private var playback: AnimationPlaybackController?
     private var generation = UUID()
+    private let loops: Bool
 
-    init() {
+    init(loops: Bool = true, makeRenderer: @escaping @MainActor () -> ARView = {
+        ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
+    }) {
+        self.loops = loops
+        self.makeRenderer = makeRenderer
+        #if DEBUG && SPOR_MASCOT_QA
         poster = Bundle.main.url(forResource: "poster", withExtension: "png", subdirectory: "SporMascotQA")
             .flatMap { UIImage(contentsOfFile: $0.path) }
-        view = ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
-        view.isAccessibilityElement = false
-        view.accessibilityElementsHidden = true
-        view.renderOptions.insert([.disableMotionBlur, .disableDepthOfField])
+        #endif
         let camera = PerspectiveCamera()
         camera.camera.fieldOfViewInDegrees = 32
         // Reserve room for the raised flipper, not just the rest-pose bounds.
@@ -33,8 +39,18 @@ import UIKit
         fill.light.intensity = 800
         fill.look(at: .zero, from: [-2, 1, 3], relativeTo: nil)
         anchor.addChild(fill)
-        view.scene.addAnchor(anchor)
-        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    }
+
+    private func prepareRenderer() {
+        guard view == nil else { return }
+        let renderer = makeRenderer()
+        renderer.isAccessibilityElement = false
+        renderer.accessibilityElementsHidden = true
+        renderer.renderOptions.insert([.disableMotionBlur, .disableDepthOfField])
+        renderer.environment.background = .color(backgroundColor)
+        renderer.scene.addAnchor(anchor)
+        renderer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view = renderer
     }
 
     func prepare(_ asset: MascotAsset) async throws {
@@ -58,12 +74,14 @@ import UIKit
         playback = nil
         model?.removeFromParent()
         model = entity
-        animation = clip.repeat()
+        animation = loops ? clip.repeat() : clip
+        prepareRenderer()
         anchor.addChild(entity)
-        playback = entity.playAnimation(clip.repeat(), startsPaused: true)
+        playback = entity.playAnimation(loops ? clip.repeat() : clip, startsPaused: true)
     }
 
     func resume(playing: Bool) {
+        guard let view else { return }
         if view.superview == nil {
             view.frame = host.bounds
             host.addSubview(view)
@@ -73,7 +91,7 @@ import UIKit
     func suspend() {
         playback?.pause()
         // Detach the render surface while inactive; there is no AR session.
-        view.removeFromSuperview()
+        view?.removeFromSuperview()
     }
     func restart(playing: Bool) {
         guard let model, let animation else { return }
@@ -82,7 +100,7 @@ import UIKit
     }
     func setBackground(_ color: UIColor) {
         host.backgroundColor = color
-        view.environment.background = .color(color)
+        backgroundColor = color
+        view?.environment.background = .color(color)
     }
 }
-#endif

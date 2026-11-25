@@ -524,3 +524,20 @@ thumbnail, indikator og vertikal Dynamic Type-layout beholdes. Ved
 tilgjengelighetstekst står merke, pakning, varetype og kilde på egne linjer
 uten skilletegn som kan bli stående alene. VoiceOver får samlet
 radinnhold. «Pakning» merkes eksplisitt så det ikke forveksles med porsjon.
+
+## Spor i appen – 25. november 2026
+
+Spor vises i den eksisterende introduksjonen, ved Hjem-hilsenen og i tomme
+favoritter/lagrede måltider. `SporIllustration` bruker transparent V8-artwork,
+er dekorativ og skjult for VoiceOver. Eksisterende tokens og handlinger beholdes.
+Hjem viser en 72 pt illustrasjonsflate, skjult ved tilgjengelighetsstørrelser.
+
+Introduksjonen kan spille én kort hilsen. Hjem kan spille én hilsen per lokal
+kalenderdag når dagens oversikt er synlig. Andre datoer, Reduser bevegelse,
+lastingsfeil og avslått animasjonsflagg gir stillbilde. Ingen hvile-/gangsløyfe
+brukes i vanlig app, og uttrykket påvirkes ikke av ernæringsdata eller mål.
+
+`sporMascotAnimationEnabled` er aktivert etter fysisk iPhone-kontroll av
+utsatt rendereroppretting. Ingen ARView opprettes av forhåndslastede/inaktive
+maskotvisninger eller av bakgrunnsfargeoppdatering. Ingen produksjonsutrulling
+er utført. Se [plan og kontrollstatus](plans/spor-mascot-app-integration.md).

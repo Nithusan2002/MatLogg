@@ -1,4 +1,3 @@
-#if DEBUG && SPOR_MASCOT_QA
 import Foundation
 
 nonisolated enum MascotClip: String, CaseIterable, Identifiable, Sendable {
@@ -54,4 +53,3 @@ nonisolated struct BundledMascotAssetRepository: MascotAssetProviding {
     func suspend()
     func restart(playing: Bool)
 }
-#endif
