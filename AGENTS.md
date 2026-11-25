@@ -14,6 +14,9 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Views skal ikke utføre domenelogikk eller IO. ViewModels eier feature-state og brukerhandlinger; repositories skjuler datakilder; services håndterer avgrenset infrastruktur.
 - `AppState` skal bare koordinere appomfattende state og skal ikke være permanent hjem for featurelogikk, domeneregler eller IO.
 - Sett sammen avhengigheter ved app-roten. Bruk små protokoller og injeksjon ved IO-grenser slik at ViewModels kan testes uten ekte database eller nettverk.
+- Skill vellykket tomt resultat og manglende valgfri rad fra lagrings-/dekodingsfeil. Nye og endrede domene-lesinger skal formidle feil gjennom repository; ikke bruk `try?`, tomme lister, nullverdier eller kompatibilitetsmetoder til å skjule feil. Se «Lokal lesing og feiltilstander» i `docs/architecture-principles.md`.
+- Ved oppdateringsfeil beholdes sist lastede data bare for samme profil og kontekst, med tydelig feil og retry. Profil-/datobytte skal ikke vise forrige konteksts data; eldre asynkrone svar skal heller ikke publisere feil i nyere kontekst.
+- Del store filer etter ansvar når det gir konkret vedlikeholdsverdi. Bevar eierskap til SQLite-tilkobling, kø og transaksjoner; domene, synkhendelse og eventuell Helse-outbox skal fortsatt skrives atomisk. Skill mekanisk flytting fra feilretting.
 - Bevar local-first. Domenedata og tilhørende synkhendelse skal skrives atomisk lokalt.
 - Alle synkhendelser skal ha stabil event-ID, canonical type og eksplisitt schema-versjon. Klient og backend skal følge `docs/sync-contract-v1.md` og endres samlet ved kontraktsendringer.
 - Backend skal validere input, hente identitet fra token, autorisere mot ressursens eier og skrive inbox/domenedata atomisk.
@@ -31,6 +34,7 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Alle `ScrollView`, `List` og `Form` som vises under den vedvarende bunnmenyen skal bruke `matLoggTabBarScrollClearance()`; ikke-scrollbare faneskjermer skal også holde bunntilknyttet innhold over menyen. Dette gjelder nye skjermer som pushes i en fanes `NavigationStack`, men ikke sheets, fullskjermsvisninger, innlogging eller onboarding.
 - Verifiser proporsjonalt med risiko. Kjør som standard bare den minste målrettede kontrollen som gir reell trygghet; ikke kjør full testpakke eller full build uten konkret grunn. Verifisering kan hoppes over for dokumentasjon, tekst og åpenbart risikofrie endringer. Logikk, lagring, synk, backend, personvern og autentisering skal fortsatt ha relevant målrettet verifisering. Oppgi alltid hva som ble kjørt, eller hvorfor verifisering ble hoppet over.
 - Oppdater relevante docs når API-kontrakter, synkformat eller scope endres. Før større tekniske og produktmessige beslutninger i `docs/decisions.md`.
+- Ny serverfunksjonalitet hører til Supabase. Legacy beholdes etter eksisterende cutoverkrav i `backend/README.md`; ikke svekk CI eller fjern gamle klient-/serverdeler uten å avklare aktive og delte avhengigheter. Planlagt avvikling er ikke gjennomført avvikling.
 
 ## Tokenøkonomi
 
@@ -88,6 +92,7 @@ Bruk relevante skills fra `.agents/skills/` for arbeidsområdet. Disse er først
 - Fastsett ut fra oppgaven hva som viser at den er ferdig før implementering: ønsket adferd og minste relevante kontroll. Bruk eksisterende tester og kommandoer i `docs/testing.md` og fag-skills. Små, tydelige oppgaver trenger ikke egen planfil.
 - Ved bugfix, bruk en reproduksjon eller regresjonstest når praktisk, og kontroller at den fanger feilen før rettelsen og består etterpå. Ikke svekk tester for å få grønt resultat.
 - Bruk dedikerte QA-miljøer ved tester som endrer data. Bekreft lokal/disponibel database før reset eller migrering; ikke anta at miljøvariabler peker lokalt. Respekter grensene nedenfor.
+- På fysisk iPhone skal tester som skriver data bruke separat QA-app med egne bundle-ID-er og isolert datacontainer/nøkkelring. Knytt resultater til kodecommit og eventuelle ucommittede endringer, miljø og faktisk kontroll. Kompilering, macOS-harness, iOS-runtime, UI og manuell VoiceOver er ulike bevis; historiske grønne tester verifiserer ikke ny kode.
 - Gjennomgå egen diff for utilsiktede endringer, arkitekturbrudd og relevante feilmoduser før ferdigmelding. Oppgi faktisk resultat og verifiseringshull; en foreslått kommando er ikke en utført kontroll.
 
 ## Stopp før

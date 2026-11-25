@@ -29,3 +29,13 @@ deno test --allow-env 'supabase/functions/tests/<testfil>.ts'
 ```
 
 Velg eksisterende funksjon/testfil for berørt adferd. Ved database-/RLS-endring: `npm run supabase:lint` og `npm run supabase:test` mot lokal Supabase. Reset er ikke en standardkontroll; bruk bare en bekreftet disponibel lokal database. Legacy-kommandoer fra `backend/`: `npm test`, eventuelt `npm run build`; integrasjonstester krever bekreftet testdatabase, se `docs/testing.md`.
+
+## Legacy og kontraktsvedlikehold
+
+Ny serverfunksjonalitet hører til Supabase. Før legacy-opprydding, kontroller
+aktive klienter/drift og delte typer i blant annet APIService, SupabaseService
+og SyncEngine; produktkatalog og lokal AuthService er ikke automatisk legacy.
+Behold cutoverkravene i `backend/README.md` og eksisterende CI-/sikkerhetsporter
+inntil eksplisitt beslutning endrer dem. Større avvikling skal ha konkret
+filliste, bevarte tester, deployavhengigheter og arkiv-/gjenopprettingsmåte før
+avklaring. Dokumenterte planer er ikke bevis på gjennomført avvikling.

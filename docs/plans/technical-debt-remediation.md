@@ -1,5 +1,8 @@
 # Utbedringsplan for teknisk gjeld
 
+**Gjeldende arbeid:** Runde 2 er startet etter brukerens nye beskjed
+25. november. Resultater føres når kontrollene er fullført.
+
 Dato: 25. november 2026. Status: første gjennomføring ferdig; åpne porter er spesifisert nedenfor.
 Grunnlag: statisk gjennomgang av lokal `main`, commit `85755ea` fra 21. november.
 `origin/main` pekte på samme commit ved kontroll, men ble ikke hentet på nytt.
@@ -214,3 +217,167 @@ inngang/manuell strekkode, største tekst og måltidsredigering med omstart.
 Skjermbilder er gjennomgått. Manuell VoiceOver, faktisk kameradeteksjon og
 visuell feil/retry står fortsatt åpne. Resultater og avgrensning finnes i
 `docs/testing.md`. Go for lokal sammenslåing av tiltaket; ingen releasegodkjenning.
+
+## Runde 2 – fullføre de fire gjenværende punktene
+
+**Status: startet etter brukerens beskjed «Start runde 2».** Grunnlag: lokal `main` `14e861a`.
+Arbeidsbranch `codex/technical-debt-followup` er opprettet fra denne committen.
+Planen ble først skrevet uten implementering. Gjennomføringen er nå startet.
+Tidligere resultater over gjelder runde 1.
+
+Målet er å fjerne feilskjulende kompatibilitet, få konsistent feilhåndtering i
+berørte lokale dataflyter, avgrense LocalStore sitt ansvar og gjøre legacy-
+backendens videre levetid til et konkret, etterprøvbart valg.
+
+### 1. Fjern gamle historikkgrensesnitt — først
+
+**Berørte områder:** FoodLogRepository, SavedMealRepository, DatabaseService,
+LocalStore, berørte kallere og testdobler. Anslag: 1–2 arbeidsdager.
+
+- Behold én feilformidlende vei for all historikk, perioder, oppsummeringer
+  og lagrede måltider. Avvikle ikke-kastende `getAllLogs`, `getLogs`,
+  `getSummary`, `getTodaysSummary` og `getSavedMeals` i produksjonsgrensesnittene.
+- Fjern standardimplementasjoner som lar en throwing-metode falle tilbake
+  til en ikke-kastende lesing. Avledede standardmetoder kan beholdes når
+  de bruker feilformidlende kilder og lar feilen gå videre.
+- Avstem alle kallere og testdobler med kontrakten. Happy-path-tester kan
+  bli throwing; ikke erstatt forventede feil med `try?`, `try!` eller tomme
+  resultater for å få kompileringen grønn.
+- Bevar forskjellen mellom gyldig tomt resultat, manglende valgfri rad og
+  mislykket lesing. Et manglende forventet oppsummeringsresultat er en feil,
+  ikke et nytt nullinntak.
+
+**Ferdig når:** søk i produksjonskoden ikke finner de gamle grensesnittene
+eller kompatibilitetsfallbackene; berørte kallere kompilerer og testene viser
+at feil går hele veien fra LocalStore til repository og ViewModel/eksport.
+
+**Verifisering:** HistoryReadFailureTests, HistoryReadViewModelTests,
+MealReuseTests, RenderPresentationTests, SavedMealsTests og relevante
+lagrings-/eksporttester. Kjør bare de suitene endringen faktisk berører.
+
+### 2. Utbedre øvrig feilskjuling i berørte lokale dataflyter
+
+**Berørte områder:** repository-kontrakter, DatabaseService, LocalStore,
+eksport, søk/matching, favoritter, mål/vekt og berørte ViewModels.
+Anslag: 3–6 arbeidsdager, delt i små endringer etter dataområde.
+
+Før implementering lages en kort, avgrenset oversikt over de aktuelle
+metodene og deres kallere. Følgende funn er allerede bekreftet i kode:
+
+| Område | Problem og ønsket resultat |
+| --- | --- |
+| Mål og vekt | `getLatestGoal`/`latestGoal` og `getWeightEntries` kan skjule SQL-/dekodingsfeil som ingen mål eller tom vekthistorikk. Innfør feilformidlende kontrakter og bevar sist lastede data for samme profil. |
+| Lagrede måltider | `loadSavedMeals` sjekker SQL-feil, men hopper over rader som ikke kan dekodes. Avvis lesingen som ufullstendig framfor å presentere en redusert samling som komplett. |
+| Produkter og favoritter | Gå gjennom enkelt-/batchoppslag, strekkodeoppslag, favorittstatus, favorittliste og nylige produkter. Skille fravær fra lagerfeil; et batchoppslag skal ikke gi et tilsynelatende vellykket delresultat ved SQL-/dekodingsfeil. |
+| Skannehistorikk og matching | Kontroller prepare, bind, step og dekoding. Bevar eksisterende resultater ved oppdateringsfeil. En brukerbekreftet matching skal ikke forsvinne eller erstattes på grunn av en skjult lesefeil. |
+| Eksport | Samle alle feilrelevante kilder gjennom throwing-grenser: matlogger, lagrede måltider, mål, vekt, favoritter og øvrige eksporterte opplysninger. Ikke opprett en tilsynelatende komplett eksport når en nødvendig kilde feiler. |
+| Personlige detaljer | Vurder de berørte `PersonalDetailsStore.load`-/migreringskallene, som kan gi `.empty` ved dekodingsfeil. Bevar kildedata og skill «ikke utfylt» fra «kunne ikke leses». Ingen ny gjetting av målgrunnlag. |
+| Gjenoppbyggbar katalogcache | Best-effort er bare tillatt når en uttrykkelig, testet fallback finnes, for eksempel den medfølgende Matvaretabellen. Ikke overfør denne policyen til brukerdata. Dokumenter fravær, utløp og feil som separate interne utfall. |
+
+Arbeidsmåte per dataområde:
+
+1. Skriv en regresjon for faktisk feilskjuling, og bekreft feil før retting.
+2. Gjør SQLite-resultatene og kontrakten eksplisitte; unngå rå SQL-feil eller
+   personinnhold i brukerrettet tekst/diagnostikk.
+3. La ViewModel eie loading/feil/retry. Oppdateringsfeil beholder samme
+   konteksts data; profil-/datobytte fjerner gamle data. Utdaterte asynkrone
+   svar skal ikke publisere innhold eller feil i en nyere kontekst.
+4. Bevar data ved feil. Ingen automatisk reset, sletting av korrupte rader
+   eller ny ernæringsverdi som erstatning for det som ikke kunne leses.
+
+**Ferdig når:** de navngitte dataflytene enten formidler feil eller har en
+konkret, testet cachefallback. Ingen nødvendig eksportkilde skjuler feil;
+tester dekker tomt lager, manglende rad, SQL-feil, korrupt rad, retry og
+profilbytte der dette er relevant. Eventuelle funn utenfor omfanget føres
+eksplisitt videre; de regnes ikke som løst av denne runden.
+
+**Verifisering:** nye feiltester ved SQLite-/repositorygrensen og målrettede
+eksisterende tester for HealthProfile, ProfileExport, SavedMeals, Barcode,
+FoodSearch, favoritter og personlige detaljer, etter faktisk berørt kode.
+Bruk disponibel lokal database og separat QA-app. Ingen ekte Helse-data trengs.
+
+### 3. Del LocalStore etter ansvar uten å splitte transaksjoner
+
+**Avhengighet:** punkt 1 og de aktuelle delene av punkt 2 skal være grønne
+før kode flyttes. Anslag: 2–4 arbeidsdager for en første sammenhengende oppdeling.
+
+- Skill ut kontrollert lesing og relevante domeneområder, eksempelvis
+  historikk, produkter og mål/vekt, i små filer med tydelig ansvar.
+- Samle duplisert håndtering av statements, bindings, stepping og dekoding
+  når det gir en enklere, testbar feilgrense. Gjenbruk eksisterende mekanismer
+  framfor å innføre et generelt persistensrammeverk.
+- LocalStore beholder eierskapet til tilkobling, seriell kø, migrasjoner og
+  transaksjoner. Ikke gjør databasepekeren eller transaksjonsmekanismen bredt
+  tilgjengelig bare for å få filoppdelingen til å kompilere.
+- Domeneendring, synkhendelse og eventuell Helse-outbox skal fortsatt være
+  i samme eksisterende transaksjon. Ingen ny database, skjemaendring,
+  kømodell eller actor-modell inngår i en ren filoppdeling.
+- Hold feilretting og mekanisk flytting i separate, reviewbare endringer,
+  slik at atferdsendringene kan vurderes uavhengig av flyttingen.
+
+**Ferdig når:** ansvarsområdene er tydelige og transaksjons-/IO-grensene er
+bevart. Linjetall alene er ikke et ferdigkriterium. Gjennomgå spesielt
+deadlock/reentrancy, statement-opprydding og feil under rollback.
+
+**Verifisering:** berørte lagringstester, migrerings-/gjenåpningstester og
+atomisitetsregresjoner for domene + synkkø + Helse-outbox. En flytting alene
+skal ikke kreve nye ernærings- eller datakontrakter.
+
+### 4. Avklar legacy-backendens levetid og vedlikeholdsgrense
+
+**Omfang:** backend/README, relevante CI-/deployreferanser, appens transport-
+avhengigheter og beslutningsloggen. Anslag: 1–2 arbeidsdager for en konkret
+beslutningspakke; selve avviklingen estimeres etter valgt omfang.
+
+- Fastslå hvilke legacy-avhengigheter som bare finnes i kildekode/test/CI,
+  og hvilke som eventuelt fortsatt brukes av distribuerte klienter eller
+  drift. Ukjent faktisk drift skal føres som ukjent, ikke som ingen bruk.
+- Dokumenter aktive delte typer i APIService/SupabaseService/SyncEngine og
+  en trygg flytterekkefølge før gamle klientmetoder kan fjernes. Produktkatalog
+  og lokal AuthService skal ikke feilaktig tas med som gammel serverkode.
+- Konkretiser behold-alternativet: sikkerhet, nødvendige avhengighetsoppdateringer
+  og eksisterende tester; ny serverfunksjonalitet hører til Supabase. Ikke
+  skru av CI eller svekk eksisterende porter som del av oppryddingen.
+- Lever et avviklingsalternativ med eksakt filliste, CI-/deployendringer,
+  bevaring av relevante tester, arkivpunkt og gjenopprettingsmåte.
+- Avstem opprinnelige cutoverkrav med lokal lansering. Backup-/skykrav skal
+  ikke fjernes eller anses oppfylt uten en eksplisitt beslutning.
+
+**Ferdig når:** gjeldende vedlikeholdsgrense og hvert avviklingsvilkår har
+status, dokumentert bevis eller konkret manglende avklaring. Brukeren får et
+ferdig beslutningsgrunnlag før eventuell kode-/driftsavvikling godkjennes.
+Det er ikke et ferdigkriterium at backend-mappen nødvendigvis slettes.
+
+**Stoppgrense:** ingen større legacy-sletting, tilgangsendring eller endring
+av produksjonsdrift uten egen avklaring, jf. prosjektets «Stopp før» og
+backend/README. En slik avklaring gjelder den konkrete avviklingspakken,
+ikke tillatelse til rutinemessige lokale rettelser.
+
+### Rekkefølge, kvalitetsporter og estimat
+
+1. Punkt 1: én canonical feilformidlende kontrakt.
+2. Punkt 2: små feilrettinger per dataområde, med regresjoner før retting.
+3. Punkt 3: mekanisk oppdeling etter at de berørte feilbanene er grønne.
+4. Punkt 4: ferdigstill beslutningspakken; behold-policy gjelder inntil annet
+   er avklart. Dette analysearbeidet kan gjøres uavhengig av kodeendringene.
+5. Egenreview mot architecture-principles: avhengighetsretning, local-first,
+   atomiske transaksjoner, eierskap, kilde/enhet og testbare IO-grenser.
+6. Kjør berørte suiter på QA-iPhone. Bruk tidligere autorisert separate
+   QA-identitet og syntetiske data; telefonen må være tilkoblet og ulåst.
+   Full suite kjøres bare ved konkret behov fra endringen eller CI-porten.
+7. Knytt resultatene til ny kodecommit og oppdater eksisterende kandidatoversikt.
+   Ny kontrakt/refaktorering trenger egne bevis; runde 1-resultater gjenbrukes
+   ikke som om de verifiserer ny kode.
+
+Samlet grovestimat: **7–14 arbeidsdager**, uten venting på enhet, eksterne
+driftsopplysninger eller avviklingsbeslutning. Estimatet strammes inn etter
+kallergjennomgangen i punkt 1–2. Ingen produksjonsutrulling eller synkaktivering
+inngår. Manuell VoiceOver, faktisk kameradeteksjon og visuell feil/retry fra
+første runde beholdes som egne åpne kontroller.
+
+**Skills ved gjennomføring:** offline-sync → backend-api → ios-swiftui og
+nutrition-privacy, deretter qa-release. Product-design leses før eventuell
+endret feiltekst eller retry-presentasjon. Product-review kreves hvis arbeidet
+avdekker behov for endret produktscope; det tas ikke inn som skjult refaktorering.
+
+**Gjennomføring er autorisert; særskilte stoppgrenser for avvikling og produksjon gjelder fortsatt.**

@@ -14,3 +14,14 @@ Ved kontraktsendringer, vurder bakoverkompatibilitet, utrullekkefølge, ukjent e
 Test minst den berørte happy pathen og relevante feilmoduser: gjentatt levering, offline→online, avbrutt in-flight, valideringsfeil og retry/backoff. Oppdater både dokumentert format og begge sider av kontrakten når de påvirkes.
 
 Finn målrettede testkommandoer i `docs/testing.md` og `ios-swiftui`/`backend-api` etter hvilken side som endres. Ved kontraktsendring skal relevante tester på begge sider kjøres; grønne klienttester alene bekrefter ikke kompatibilitet.
+
+## Lokal lesing og oppdeling
+
+Følg «Lokal lesing og feiltilstander» og «Ansvarsdeling og kontrollert
+refaktorering» i `docs/architecture-principles.md`. Nye/endrede domene-lesinger
+skal skille tomt/fravær fra SQL-/dekodingsfeil, kontrollere prepare/bind/step
+og avvise misvisende delresultater. Standardmetoder og kompatibilitetslag må
+bevare feilkontrakten. Cachefallback krever dokumentert, testet alternativ kilde.
+Ved oppdeling beholder LocalStore eierskap til tilkobling/kø/transaksjoner;
+bevar atomisk domene-, synk- og eventuell Helse-outbox-skriving. Verifiser berørte
+feilbaner, opprydding og rollback uten å endre skjema eller eventformat implisitt.

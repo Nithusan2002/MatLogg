@@ -17,3 +17,14 @@ For release, fastsett først hva som endres og distribueres:
 For begge: kontroller hemmeligheter og logging i berørt omfang, og at personvern-/App Store-tekst samsvarer med faktisk adferd. Bruk `docs/production-readiness.md` for øvrige releaseporter. Skill blocker fra oppfølging.
 
 Lever verifiseringsresultat, ikke bare sjekkliste: kommandoer/testmiljø, pass/fail, kjente hull, rollback eller avbøtende tiltak og tydelig go/no-go-anbefaling. Ikke godkjenn produksjon på antakelser.
+
+## Bevis for den faktiske kandidaten
+
+Knytt resultatet til kodecommit, eventuelle lokale endringer, scheme/
+konfigurasjon og plattform/OS. Skill kompilering, macOS-harness, iOS-runtime,
+UI-smoke og manuell kontroll; historiske grønne tester verifiserer ikke ny kode.
+Ved endrede lesegrenser, velg relevante feiltester fra `docs/testing.md`,
+inkludert avvisning av delresultat og retry/kontekstvern. Bruk separate QA-
+identiteter ved fysisk testing som skriver data. Behold tester og korte
+resultatreferanser i repoet, rå logger og store QA-artifacts utenfor.
+Skill lokal sammenslåing fra godkjenning av pilot, produksjon eller synkaktivering.

@@ -4,6 +4,23 @@ MatLogg bruker risikobasert testing. Datatap, feil ernæringsberegning,
 auth/eierskap, synk/idempotens, sletting og personvernvalg prioriteres foran ren
 visuell dekning.
 
+## Varige krav til lese- og kandidatverifisering
+
+Bruk feilkontrakten i [arkitekturprinsippene](architecture-principles.md).
+Ved endrede lesegrenser velges målrettede kontroller for tomt lager, manglende
+valgfri rad, SQL-/dekodingsfeil og avvisning av delresultater. Test også at
+retry kan lykkes, samme konteksts innhold beholdes ved oppdateringsfeil, og
+profil-/datobytte samt utdaterte svar ikke viser feil data. Omfanget følger
+endringen; listen er ikke krav om full suite for hver rettelse.
+
+Registrer kodecommit, eventuelle lokale endringer, scheme/konfigurasjon,
+plattform/OS og faktisk resultat. Skill build-for-testing, macOS-harness,
+iOS-runtime, UI-smoke og manuell tilgjengelighetskontroll. Historiske tester
+gjelder sitt opprinnelige scope. Fysisk QA som skriver data bruker egne
+bundle-ID-er og isolert datacontainer/nøkkelring med syntetiske testdata.
+Rå logger, store snapshots, skjermbilder og xcresult-pakker holdes utenfor
+repoet; behold regresjonstestene og korte, kandidatbundne resultatreferanser her.
+
 ## Måling av testdekning
 
 Kjør fra repo-roten med Deno 2.5.4 og en dedikert QA-simulator:

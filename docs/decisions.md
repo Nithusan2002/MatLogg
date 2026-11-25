@@ -2,6 +2,18 @@
 
 Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datakontrakter eller drift. Hold hvert innslag kort: dato, beslutning, begrunnelse og konsekvens.
 
+## 2026-11-25 – Viderefør praksis for lesefeil og teknisk gjeld
+
+**Beslutning:** Feilformidlende domene-lesing, eksplisitt cachefallback,
+kontekstvern ved retry, bevart transaksjonseierskap ved filoppdeling og
+kandidatbundne QA-bevis gjøres til varige krav i arkitekturprinsippene,
+AGENTS.md og relevante prosjekt-skills.
+
+**Konsekvens:** Kravene gjelder ny og endret kode. Eksisterende avvik skal
+ikke kopieres videre eller omtales som løst bare fordi reglene er skrevet.
+Runde 2 i utbedringsplanen er fortsatt ikke startet, etter brukerens instruks.
+Legacy beholdes etter eksisterende cutoverkrav; ingen avvikling godkjennes her.
+
 ## 2026-09-28 – Supabase erstatter egen auth- og synkbackend
 
 **Beslutning:** Supabase Auth, PostgreSQL, RLS og Edge Functions overtar konto,

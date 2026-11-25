@@ -25,3 +25,13 @@ xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
 ```
 
 Se `docs/testing.md` for UI-testenes miljøkrav og flere testvalg. Ved synlige UI-endringer, inspiser berørt skjerm i simulator når mulig, inkludert relevante tekststørrelser og bunnmeny-klaring. Rapporter hvis visuell kontroll ikke kunne utføres.
+
+## Lesefeil og kontekst
+
+Følg feilkontrakten i `docs/architecture-principles.md`. ViewModel eier
+loading/feil/retry; vellykket tomtilstand må skilles fra lesefeil. Behold
+sist lastede data bare for samme profil/kontekst og vis feilstatus. Tøm gammel
+kontekst ved profil-/datobytte. Request-ID/kansellering skal beskytte både
+suksess- og feilsvar. Test første feil, refresh-feil, retry og utdaterte svar
+der dette berøres. Ved autorisert fysisk testing brukes separat QA-app med
+isolert lager/nøkkelring; UI-tester erstatter ikke manuell VoiceOver.
