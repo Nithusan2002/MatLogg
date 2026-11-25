@@ -556,6 +556,12 @@ private struct HomeTabContent: View {
             : AnyLayout(HStackLayout())
     }
 
+    private var greetingLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+    }
+
     private var overviewHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(spacing: 4) {
@@ -590,7 +596,7 @@ private struct HomeTabContent: View {
             }
 
 
-            HStack(alignment: .center, spacing: 12) {
+            greetingLayout {
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -604,15 +610,10 @@ private struct HomeTabContent: View {
                         }
                     }
                 }
-                if !dynamicTypeSize.isAccessibilitySize {
-                    ViewThatFits(in: .horizontal) {
-                        SporCompanionView(context: .home,
-                            eligible: Calendar.current.isDateInToday(selectedDate)
-                                && allowsMascotGreeting)
-                            .frame(width: 72, height: 72)
-                        Color.clear.frame(width: 0, height: 0)
-                    }
-                }
+                SporCompanionView(context: .home,
+                    eligible: Calendar.current.isDateInToday(selectedDate) && allowsMascotGreeting,
+                    isInteractive: true)
+                    .frame(width: 72, height: 72)
             }
 
             DailyStatusCard(

@@ -1187,3 +1187,18 @@ Fysisk kontroll avdekket først en tom 3D-flate ved tidlig rendereroppretting.
 Utsatt oppretting etter gyldig ressurslasting gjenopprettet synlig vinking på
 iPhone 17. Animasjonen er aktivert på maskotbranchen; se
 [plan og kontrollstatus](plans/spor-mascot-app-integration.md).
+
+### Trykkhilsen på Hjem – 25. november 2026
+
+På dagens Hjem kan brukeren trykke på Spor for én kort hilsen. Automatiske
+hilsener beholder dagsgrensen; manuelle trykk bruker ikke opp eller endrer den.
+Trykk ignoreres mens en hilsen lastes eller spilles. Etterpå kan brukeren trykke
+igjen. Navigasjon bort, bakgrunn og overliggende flyt stopper avspillingen.
+
+Reduser bevegelse sperrer fortsatt automatisk avspilling. Den eksplisitte
+handlingen «La Spor vinke» kan spille en hilsen også med innstillingen på,
+som et bevisst valg om å spille animasjonen. VoiceOver leser knappen og
+status «Klar», «Laster» eller «Vinker». Andre illustrasjoner er dekorative.
+Ved tilgjengelighetsstørrelser legges figuren på egen rad under hilsenen,
+slik at 72 pt-knappen er tilgjengelig uten å klemme teksten. Andre datoer,
+lastingsfeil eller deaktivert maskotfunksjon beholder stillbilde.

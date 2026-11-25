@@ -530,11 +530,14 @@ radinnhold. «Pakning» merkes eksplisitt så det ikke forveksles med porsjon.
 Spor vises i den eksisterende introduksjonen, ved Hjem-hilsenen og i tomme
 favoritter/lagrede måltider. `SporIllustration` bruker transparent V8-artwork,
 er dekorativ og skjult for VoiceOver. Eksisterende tokens og handlinger beholdes.
-Hjem viser en 72 pt illustrasjonsflate, skjult ved tilgjengelighetsstørrelser.
+Hjem viser en 72 pt flate. På dagens Hjem er den en knapp: «La Spor vinke».
+Ved tilgjengelighetsstørrelser står den på egen rad under hilsenen.
 
 Introduksjonen kan spille én kort hilsen. Hjem kan spille én hilsen per lokal
-kalenderdag når dagens oversikt er synlig. Andre datoer, Reduser bevegelse,
-lastingsfeil og avslått animasjonsflagg gir stillbilde. Ingen hvile-/gangsløyfe
+kalenderdag når dagens oversikt er synlig. Et eksplisitt trykk kan spille én
+hilsen om gangen uten å endre dagsgrensen, også med Reduser bevegelse på.
+Innstillingen sperrer automatisk avspilling. Andre datoer, lastingsfeil og
+avslått animasjonsflagg gir stillbilde. Ingen hvile-/gangsløyfe
 brukes i vanlig app, og uttrykket påvirkes ikke av ernæringsdata eller mål.
 
 `sporMascotAnimationEnabled` er aktivert etter fysisk iPhone-kontroll av

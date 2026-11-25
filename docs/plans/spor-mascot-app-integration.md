@@ -159,3 +159,41 @@ Resultater: `/tmp/spor-extended-device-ready.xcresult`,
 `/tmp/spor-extended-reduced-motion.xcresult` og
 `/tmp/spor-release-extended.log`. Telefonens Reduser bevegelse stod på ved slutt.
 Disse kontrollene erstatter ikke manuell VoiceOver-lytting eller energimåling.
+
+## Trykkhilsen – 25. november 2026
+
+Ny avgrensning: på dagens Hjem er Spor en navngitt knapp med minst 44 pt
+trykkflate (faktisk 72 pt). Trykk spiller én hilsen; ekstra trykk under lasting
+eller avspilling ignoreres. Manuell hilsen har ingen dagsgrense og endrer ikke
+lagret dato for automatisk hilsen. Andre flater/datoer beholdes som før.
+
+Reduser bevegelse slår av automatiske hilsener, men et bevisst trykk på
+«La Spor vinke» kan spille animasjonen. VoiceOver får navn, hint og status.
+Ved stor tekst legges knappen på egen rad. Navigasjon/bakgrunn stopper den.
+Manuell oppgave, busy-state, avbrudd og dato-policy eies av ViewModel;
+renderer/repository og domenelagring er uendret. Ingen arkitekturavvik.
+
+Kontrollstatus for trykkhilsen:
+
+- 22 isolerte logikktester bestod på Mac, inkludert sju nye tester av manuell
+  dagsgrense, raske trykk, busy-state, feil og avbrutt lasting.
+- På iPhone bestod 28 enhetstester; den eksisterende systemavhengige testen
+  av Reduser bevegelse ble hoppet over fordi innstillingen var av.
+- To UI-kontroller bestod for trykk, gjentatt avspilling, ignorering av ekstra
+  trykk, stopp etter bakgrunn og største tekststørrelse. To regresjonskontroller
+  av automatisk bevegelse og dagsgrense etter omstart bestod også.
+- Release-bygg bestod. Den siste knappestiljusteringen er etter dette
+  kompilert i QA-bygget; ingen produksjonsutrulling er utført.
+- Visuell kontroll fant at vanlig deaktivert knappestil dempet maskotfargene
+  under avspilling. En egen ren knappestil bevarer artwork uten slik demping.
+  En fargeregresjonsassert er lagt til; siste fysiske kontroll av denne
+  justeringen er ikke kjørt.
+- Brukeren ba om å utsette de resterende fysiske kontrollene til før PR mot
+  main. Gjenstår: trykkhilsen med systemets Reduser bevegelse på, og siste
+  visuelle/fargemessige kontroll av normal/stor tekst. Tidligere manuell
+  VoiceOver-/energikontroll er fortsatt ikke utført.
+
+Rå resultater ligger utenfor repoet, blant annet
+`/tmp/spor-tap-device-paired.xcresult`,
+`/tmp/spor-tap-automatic-regression.xcresult` og `/tmp/spor-tap-first-captures/`.
+Ingen nye appressurser eller rå QA-filer er lagt til i repoet.

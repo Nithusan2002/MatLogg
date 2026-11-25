@@ -1161,3 +1161,13 @@ onboarding og overliggende loggførings-/kameraflyt.
 Ti målrettede enhetstester og fem UI-kontroller bestod på fysisk enhet.
 `sporMascotAnimationEnabled` er derfor aktivert igjen på maskotbranchen.
 Ingen endring i domene-/synkdata og ingen produksjonsutrulling.
+
+## 2026-11-25 – Brukerinitiert Spor-hilsen på dagens Hjem
+
+Brukeren ba om vinking ved trykk. Figuren på dagens Hjem er derfor en eksplisitt
+knapp, med én hilsen om gangen og uten kø eller endring av automatisk dagsgrense.
+Reduser bevegelse sperrer fortsatt automatisk hilsen, mens den navngitte
+handlingen «La Spor vinke» kan spilles bevisst av brukeren. Ved stor tekst
+beholdes knappen på egen rad. Ingen nye persondata, analyse eller synkhendelser.
+Feature-ViewModel eier manuell oppgave og avbryter den ved stopp; views sender
+brukerintensjon. Ingen endring i transaksjonsgrenser, eierskap eller local-first.

@@ -3,7 +3,10 @@ import Foundation
 
 @MainActor final class SporCompanionViewModel: ObservableObject {
     enum Context { case introduction, home }
+    enum Trigger { case automatic, userInitiated }
     @Published private(set) var isPlaying = false
+    @Published private(set) var isLoading = false
+    var isBusy: Bool { isLoading || isPlaying }
     private let player: any MascotPlaying
     private let assets: any MascotAssetProviding
     private let preferences: any SporGreetingStoring
@@ -11,6 +14,7 @@ import Foundation
     private let calendar: () -> Calendar
     private var request = UUID()
     private var introduced = false
+    private var manualTask: Task<Void, Never>?
 
     init(player: any MascotPlaying, assets: any MascotAssetProviding,
          preferences: any SporGreetingStoring, now: @escaping () -> Date = Date.init,
@@ -22,21 +26,43 @@ import Foundation
         self.calendar = calendar
     }
 
-    func greet(context: Context) async {
-        stop()
+    func waveOnTap() {
+        guard !isBusy else { return }
+        manualTask?.cancel()
+        manualTask = Task { [weak self] in
+            await self?.greet(context: .home, trigger: .userInitiated)
+        }
+    }
+
+    func greet(context: Context, trigger: Trigger = .automatic) async {
+        guard !Task.isCancelled else { return }
+        if trigger == .userInitiated, isBusy { return }
+        if trigger == .automatic {
+            manualTask?.cancel()
+            manualTask = nil
+        }
+        resetPlayback()
         let id = request
-        guard context == .home
-            ? SporGreetingPolicy.allows(now: now(), last: preferences.lastHomeGreeting, calendar: calendar())
-            : !introduced else { return }
+        if trigger == .automatic {
+            guard context == .home
+                ? SporGreetingPolicy.allows(now: now(), last: preferences.lastHomeGreeting, calendar: calendar())
+                : !introduced else { return }
+        }
+        isLoading = true
         do {
             let asset = try await assets.asset(for: .greeting)
-            guard id == request, !Task.isCancelled else { return }
+            guard id == request else { return }
+            try Task.checkCancellation()
             try await player.prepare(asset)
-            guard id == request, !Task.isCancelled else { return }
+            guard id == request else { return }
+            try Task.checkCancellation()
             player.resume(playing: true)
+            isLoading = false
             isPlaying = true
-            if context == .home { preferences.lastHomeGreeting = now() }
-            else { introduced = true }
+            if trigger == .automatic {
+                if context == .home { preferences.lastHomeGreeting = now() }
+                else { introduced = true }
+            }
             try await Task.sleep(for: .seconds(asset.duration))
             guard id == request else { return }
             stop()
@@ -47,8 +73,15 @@ import Foundation
     }
 
     func stop() {
+        manualTask?.cancel()
+        manualTask = nil
+        resetPlayback()
+    }
+
+    private func resetPlayback() {
         request = UUID()
         isPlaying = false
+        isLoading = false
         player.suspend()
     }
 }

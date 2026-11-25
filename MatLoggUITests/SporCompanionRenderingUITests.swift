@@ -134,6 +134,90 @@ final class SporCompanionRenderingUITests: XCTestCase {
         XCTAssertLessThan(try changedPixels(stillAgain, afterBackground, region: .home), 20)
     }
 
+    @MainActor
+    func testHomeTapWavesAgainAndStopsAfterBackground() throws {
+        let app = try qaApplication(requiresMotion: false)
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", "light",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        let button = app.buttons["spor-wave-button"]
+        waitForWaveReady(button)
+        XCTAssertEqual(button.label, "La Spor vinke")
+        button.tap()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertFalse(button.isEnabled)
+        XCTAssertEqual(button.value as? String, "Vinker")
+        let first = app.screenshot()
+        Thread.sleep(forTimeInterval: 1)
+        let second = app.screenshot()
+        try assertArtworkKeepsColor(first, button: button, app: app)
+        keep(first, "Home – tapped greeting frame 1")
+        keep(second, "Home – tapped greeting frame 2")
+        XCTAssertGreaterThan(try changedPixels(first, second, region: .home), 40)
+        // Raw coordinates exercise ignored touches on the disabled control.
+        for _ in 0..<3 { button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
+        waitForWaveReady(button)
+        let settled = app.screenshot()
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertLessThan(try changedPixels(settled, app.screenshot(), region: .home), 20)
+        button.tap()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(button.value as? String, "Vinker")
+        let again = app.screenshot()
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertGreaterThan(try changedPixels(again, app.screenshot(), region: .home), 40)
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        waitForWaveReady(button)
+        let afterBackground = app.screenshot()
+        Thread.sleep(forTimeInterval: 1)
+        XCTAssertLessThan(try changedPixels(afterBackground, app.screenshot(), region: .home), 20)
+    }
+
+    @MainActor
+    func testHomeTapIsAvailableAtLargestText() throws {
+        let app = try qaApplication(requiresMotion: false)
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", "dark",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let button = app.buttons["spor-wave-button"]
+        waitForWaveReady(button)
+        XCTAssertTrue(button.isHittable)
+        XCTAssertTrue(app.frame.contains(button.frame))
+        XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+        XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+        XCTAssertTrue(app.buttons["tab-log-food"].isHittable)
+        button.tap()
+        Thread.sleep(forTimeInterval: 0.5)
+        XCTAssertEqual(button.value as? String, "Vinker")
+        let screenshot = app.screenshot()
+        try assertArtworkKeepsColor(screenshot, button: button, app: app)
+        keep(screenshot, "Home – tap greeting with largest text")
+        app.buttons["Søk"].firstMatch.tap()
+        app.buttons["Hjem"].firstMatch.tap()
+        waitForWaveReady(button)
+    }
+
+    @MainActor private func assertArtworkKeepsColor(_ screenshot: XCUIScreenshot,
+                                                    button: XCUIElement, app: XCUIApplication) throws {
+        let source = try XCTUnwrap(screenshot.image.cgImage)
+        let scale = CGFloat(source.width) / app.frame.width
+        let frame = button.frame
+        let region = CGRect(x: frame.minX * scale, y: frame.minY * scale,
+                            width: frame.width * scale, height: frame.height * scale)
+        XCTAssertGreaterThan(try coralPixels(in: screenshot.image, region: region), 1_000,
+                             "Disabling repeated input must not fade the mascot during its greeting")
+    }
+
+    @MainActor private func waitForWaveReady(_ button: XCUIElement) {
+        XCTAssertTrue(button.waitForExistence(timeout: 20))
+        for _ in 0..<18 {
+            if button.isEnabled { return }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        XCTFail("Spor should become available after one greeting")
+    }
+
     @MainActor private func qaApplication(requiresMotion: Bool) throws -> XCUIApplication {
         guard ProcessInfo.processInfo.environment["SPOR_QA_APP_BUNDLE_ID"]
                 == "com.nithusan.MatLogg.spor-integration-qa" else {
@@ -188,9 +272,9 @@ final class SporCompanionRenderingUITests: XCTestCase {
     }
 
     /// Only inspect the illustration area, excluding the pink action button.
-    private func coralPixels(in image: UIImage) throws -> Int {
+    private func coralPixels(in image: UIImage, region requestedRegion: CGRect? = nil) throws -> Int {
         let source = try XCTUnwrap(image.cgImage)
-        let region = CGRect(x: 0, y: CGFloat(source.height) * 0.15,
+        let region = requestedRegion ?? CGRect(x: 0, y: CGFloat(source.height) * 0.15,
                             width: CGFloat(source.width), height: CGFloat(source.height) * 0.28)
         let crop = try XCTUnwrap(source.cropping(to: region))
         let width = crop.width, height = crop.height

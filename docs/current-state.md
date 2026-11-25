@@ -589,7 +589,9 @@ Spor er integrert i introduksjonen, Hjem og tomme favoritter/lagrede måltider.
 Stillbilde er reserve; ett bundlet hilseklipp brukes i vanlig app. Animasjonen
 er aktivert etter fysisk iPhone 17-kontroll av utsatt rendereroppretting.
 Hjem-hilsenen har lokal dagsgrense og sperres bak onboarding og overliggende
-loggførings-/kameraflyt. Reduser bevegelse gir stillbilde.
+loggførings-/kameraflyt. Reduser bevegelse sperrer automatisk hilsen.
+En ny eksplisitt trykkhilsen på dagens Hjem kan spilles også med innstillingen
+på, uten å endre automatisk dagsgrense. Knappen beholdes på egen rad ved stor tekst.
 
 Utvidet kontroll: 22 ulike enhetstester og seks UI-kontroller bestod på fysisk
 enhet over kjøringer med Reduser bevegelse både av og på. Release-bygg og
@@ -599,3 +601,10 @@ stopp ved navigasjon/bakgrunn og dagsgrense etter omstart. Lys/mørk modus og st
 Manuell VoiceOver-lytting og målt energibruk er ikke verifisert. Ingen
 produksjonsutrulling er utført. Se
 [implementeringsplan og QA-status](plans/spor-mascot-app-integration.md).
+
+Trykkhilsen: 22 isolerte logikktester og usignert Release-bygg bestod.
+På iPhone bestod 28 enhetstester (én modusavhengig test ble hoppet over),
+to trykk-/stor-tekst-kontroller og to kontroller av automatisk hilsen/dagsgrense.
+En siste knappestiljustering hindrer demping av maskotfargene mens input er
+sperret; fysisk fargekontroll og trykkhilsen med Reduser bevegelse på er etter
+brukerens ønske utsatt til før PR mot main. Vanlig app/data er ikke endret.
