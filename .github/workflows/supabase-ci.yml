@@ -73,9 +73,21 @@ jobs:
         with:
           name: ios-unit-test-coverage
           path: build/coverage/
+  ios-ui:
+    name: iOS UI smoke
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create dedicated QA simulator
+        run: |
+          qa_simulator_id=$(bash scripts/create-qa-simulator.sh)
+          echo "MATLOGG_QA_SIMULATOR_ID=$qa_simulator_id" >> "$GITHUB_ENV"
       - name: Test logging, editing, deletion and persistence
         run: >-
-          xcodebuild test-without-building -project MatLogg.xcodeproj -scheme MatLogg
+          xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg
           -destination "platform=iOS Simulator,id=${MATLOGG_QA_SIMULATOR_ID}"
           -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch
           -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay
