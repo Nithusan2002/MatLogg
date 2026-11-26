@@ -4,6 +4,53 @@ Denne NestJS/Prisma-backenden beholdes midlertidig for sammenligning og trygg
 cutover. Ny serverutvikling skjer i `../supabase/`. Ikke fjern denne mappen før
 fysisk iPhone, staging, backup/restore og intern TestFlight-pilot er godkjent.
 
+## Vedlikeholdsgrense og avviklingsvilkår
+
+Legacy vedlikeholdes som referanse: sikkerhetsrettelser, nødvendige oppdateringer
+av støttede avhengigheter/runtime og bevaring av eksisterende tester. Ny
+serverfunksjonalitet utvikles i Supabase. Backend-CI beholdes med samme porter.
+Ved neste cutovervurdering skal statusen under oppdateres; alder alene utløser
+ikke automatisk sletting eller stenging.
+
+Kodegjennomgang 25. november 2026, basert på `14e861a`:
+
+| Avhengighet/vilkår | Status og neste handling |
+| --- | --- |
+| Vanlig appoppstart | MatLoggApp og AuthViewModel sin standardinitializer velger SupabaseService eller eksplisitt utilgjengelig konto. De bruker ikke automatisk gammel HTTP-backend. |
+| Legacy-klientvalg | AuthRepository.swift beholder AuthAPIClient og LegacyAccountAuthRepository; AuthViewModel har fortsatt `init(apiClient:sessionStore:)`. Kontroller kallere og distribuerte klienter før disse fjernes. Ingen auth-endring inngår i gjeldende opprydding. |
+| Delte typer | SupabaseService og SyncEngine bruker APIService.UploadResult, RejectedEvent og APIError. Flytt nødvendige felles typer med kontraktstester før eventuell fjerning av gammel transport. |
+| Aktiv katalog og lokalt konto-/profillager | APIService brukes også til produktkatalog; AuthService og deler av AuthRepository.swift inneholder aktive lokale/felles kontrakter. Disse filene skal ikke slettes samlet som «legacy». |
+| Drift og eldre distribuerte klienter | Ikke bekreftet. Base-URL `https://api.matlogg.app/v1` i kildekode beviser verken aktiv eller avsluttet drift. Innhent eier-/deployopplysninger og klientstatus før avvikling. |
+| Cutoverbevis | Fysisk QA av avgrensede lokale flyter er dokumentert i docs/testing.md. Dette bekrefter ikke alle opprinnelige staging-, backup/restore- og TestFlight-portene. Se docs/production-readiness.md for kandidatbundet status. Eventuell endring av skyspesifikke vilkår krever eksplisitt beslutning. |
+
+En separat avviklingspakke skal behandle følgende konkrete deler:
+
+1. **Serverkilder:** alle versjonerte filer under `backend/`, inkludert
+   `src/`, `prisma/`, `test/`, package-/lockfiler, Dockerfile, docker-compose.yml
+   og byggeverktøy. Fastsett listen fra `git ls-files backend` på den faktiske
+   avviklingscommitten, og registrer den siste committen som bevarer innholdet.
+2. **CI/drift:** `.github/workflows/backend-ci.yml` og eventuelle faktiske
+   deployjobber/tjenester identifisert i driftskontrollen. Bevar Supabase-CI,
+   secret scanning og testbevis som fortsatt gjelder aktiv plattform.
+3. **Klienttransport, som egen endring:** vurder APIService sine signupEmail,
+   loginEmail, loginApple, revokeRefreshToken, deleteAccount og uploadEvents,
+   LegacyAccountAuthRepository og den tilhørende AuthViewModel-initializeren.
+   Bevar AuthTokens, lokale sesjons-/profilkontrakter og øvrige delte typer
+   så lenge de har aktive kallere. Auth-/tilgangsendringer må avklares særskilt.
+4. **Tester og dokumentasjon:** kartlegg hvilke kontrakt-/sikkerhetsregresjoner
+   som allerede dekkes på Supabase, og flytt nødvendige manglende kontroller
+   før gamle tester fjernes. Oppdater docs/README, current-state, decisions
+   og berørte spesifikasjoner samtidig med en godkjent avvikling.
+
+Gjenoppretting av kilder/CI skal kunne skje fra det registrerte arkivpunktet.
+Dette gjenoppretter ikke en database eller driftstjeneste; eventuell operativ
+rollback krever egen verifisert oppskrift og skal ikke reaktivere gammel auth
+automatisk. Før pakken er godkjent beholdes eksisterende drift, kode og porter.
+
+**Beslutning i gjeldende runde:** viderefør referansevedlikehold og fullfør
+beslutningsgrunnlaget. Større sletting, endring av auth/tilgang og produksjons-
+avvikling er fortsatt avklaringspunkter, ikke godkjente implementeringstiltak.
+
 Backenden bygges og kjøres på Node.js 24 LTS. Eldre lokale Node-versjoner er
 ikke en støttet produksjonsruntime.
 

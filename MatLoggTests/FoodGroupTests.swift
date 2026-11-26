@@ -30,7 +30,7 @@ struct FoodGroupTests {
         ]
         for (id, expected) in cases {
             let item = try #require(catalog.first { $0.id == id }, "Missing catalog ID: \(id)")
-            #expect(FoodSearchCatalog.product(item).foodGroup == expected, "\(item.name)")
+            #expect(try FoodSearchCatalog.product(item).foodGroup == expected, "\(item.name)")
         }
     }
 
@@ -93,13 +93,13 @@ struct FoodGroupTests {
             #expect(restored.selectedFoodGroup == .bread)
             let product = try #require(await restored.save())
             let reopened = try LocalStore(databaseURL: url)
-            #expect(reopened.getProduct(product.id)?.foodGroup == .bread)
+            #expect(try reopened.getProduct(product.id)?.foodGroup == .bread)
             let initial = try #require(reopened.fetchPendingEvents(limit: 20).first)
             let initialPayload = try #require(JSONSerialization.jsonObject(with: initial.payload) as? [String: Any])
             #expect(initialPayload["selectedFoodGroup"] as? String == "bread")
             restored.selectedFoodGroup = nil
             _ = try #require(await restored.save())
-            #expect(store.getProduct(product.id)?.selectedFoodGroup == nil)
+            #expect(try store.getProduct(product.id)?.selectedFoodGroup == nil)
             #expect(store.pendingSyncCount() == 2)
             #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == [initial.eventId])
             store.markEventsAcked([initial.eventId])
@@ -109,7 +109,7 @@ struct FoodGroupTests {
             let payload = try #require(JSONSerialization.jsonObject(with: cleared.payload) as? [String: Any])
             #expect(payload["selectedFoodGroup"] is NSNull)
             #expect(payload["localImageData"] == nil)
-            #expect(store.getProduct(product.id)?.caloriesPer100g == 100)
+            #expect(try store.getProduct(product.id)?.caloriesPer100g == 100)
         }
     }
 
@@ -125,11 +125,11 @@ struct FoodGroupTests {
                                                 metadataRepository: DatabaseService(store: store))
             await model.updateFoodGroup(.dairy, owner: UUID())
             #expect(model.foodGroupError != nil)
-            #expect(store.getProduct(original.id)?.selectedFoodGroup == nil)
+            #expect(try store.getProduct(original.id)?.selectedFoodGroup == nil)
             #expect(store.pendingSyncCount() == 1)
             await model.updateFoodGroup(.dairy, owner: owner)
             #expect(model.foodGroupError == nil)
-            let saved = try #require(store.getProduct(original.id))
+            let saved = try #require(try store.getProduct(original.id))
             #expect(saved.foodGroup == .dairy)
             #expect(saved.caloriesPer100g == original.caloriesPer100g)
             #expect(saved.category == original.category)

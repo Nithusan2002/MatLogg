@@ -7,6 +7,9 @@ final class HealthProfileViewModel: ObservableObject {
     @Published private(set) var personalDetails: PersonalDetails
     @Published private(set) var weightEntries: [WeightEntry] = []
     @Published private(set) var isLoadingWeights = true
+    @Published private(set) var personalDetailsLoadError: String?
+    @Published private(set) var goalLoadError: String?
+    @Published private(set) var weightLoadError: String?
     @Published private(set) var errorMessage: String?
 
     private let repository: any HealthProfileRepository
@@ -51,18 +54,31 @@ final class HealthProfileViewModel: ObservableObject {
     }
 
     func loadGoal(userId: UUID) async {
-        if activeUserId != userId { currentGoal = nil }
+        if activeUserId != userId { currentGoal = nil; personalDetails = .empty }
         activeUserId = userId
         let request = UUID()
         goalRequestID = request
-        personalDetails = personalDetailsStore.load(userId: userId)
-        let loaded = await repository.latestGoal(userId: userId)
+        personalDetailsLoadError = nil
+        do { personalDetails = try personalDetailsStore.load(userId: userId) }
+        catch {
+            personalDetailsLoadError = "Kunne ikke hente personlige opplysninger. Prøv igjen."
+            goalLoadError = personalDetailsLoadError
+            return
+        }
+        goalLoadError = nil
+        let loaded: Goal?
+        do { loaded = try await repository.latestGoal(userId: userId) }
+        catch {
+            guard goalRequestID == request, activeUserId == userId, !Task.isCancelled else { return }
+            goalLoadError = "Kunne ikke hente mål. Prøv igjen."
+            return
+        }
         guard goalRequestID == request, activeUserId == userId, !Task.isCancelled else { return }
         currentGoal = loaded
     }
 
     func useDevelopmentGoalIfMissing(userId: UUID) {
-        guard currentGoal == nil else { return }
+        guard currentGoal == nil, goalLoadError == nil else { return }
         currentGoal = Goal(
             userId: userId,
             goalType: "maintain",
@@ -97,6 +113,7 @@ final class HealthProfileViewModel: ObservableObject {
         }
         errorMessage = nil
         do {
+            _ = try personalDetailsStore.load(userId: activeUserId)
             try personalDetailsStore.save(details, userId: activeUserId)
             personalDetails = details
             return true
@@ -113,7 +130,14 @@ final class HealthProfileViewModel: ObservableObject {
         weightRequestID = request
         isLoadingWeights = true
         defer { if weightRequestID == request { isLoadingWeights = false } }
-        let loaded = await repository.getWeightEntries(userId: userId)
+        weightLoadError = nil
+        let loaded: [WeightEntry]
+        do { loaded = try await repository.getWeightEntries(userId: userId) }
+        catch {
+            guard weightRequestID == request, weightOwner == userId, !Task.isCancelled else { return }
+            weightLoadError = "Kunne ikke hente vekthistorikken. Prøv igjen."
+            return
+        }
         guard weightRequestID == request, !Task.isCancelled else { return }
         weightEntries = loaded
     }
@@ -159,5 +183,8 @@ final class HealthProfileViewModel: ObservableObject {
         personalDetails = .empty
         weightEntries = []
         errorMessage = nil
+        personalDetailsLoadError = nil
+        goalLoadError = nil
+        weightLoadError = nil
     }
 }

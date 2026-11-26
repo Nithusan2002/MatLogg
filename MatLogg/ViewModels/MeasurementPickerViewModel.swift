@@ -28,6 +28,7 @@ final class MeasurementPickerViewModel: ObservableObject {
     let measurement: PersonalMeasurement
     @Published var text: String {
         didSet {
+            guard text != oldValue else { return }
             selectedTick = tick(for: parsedValue ?? measurement.startingValue)
             error = nil
         }

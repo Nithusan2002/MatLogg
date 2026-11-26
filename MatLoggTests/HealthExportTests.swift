@@ -104,16 +104,16 @@ struct HealthExportTests {
             try store.setHealthSettings(settings(), owner: owner)
             let model = LogViewModel(repository: DatabaseService(store: store))
             #expect(await model.logFood(product: product, amountG: 100, mealType: "lunsj", userId: owner, date: today))
-            let original = try #require(store.getAllLogs(userId: owner).first)
+            let original = try #require(try store.loadAllLogs(userId: owner).first)
             try store.cacheCatalogProduct(Product(id: id, name: "Oppdatert katalog", caloriesPer100g: 900,
                 proteinGPer100g: 9, carbsGPer100g: 9, fatGPer100g: 9, nutritionSource: .user))
             #expect(await model.updateLog(original, amountG: 50, mealType: "lunsj", userId: owner))
             #expect(await model.copyLogs(from: today, to: yesterday, userId: owner))
-            let copy = try #require(store.getAllLogs(userId: owner).first { Calendar.current.isDate($0.loggedDate, inSameDayAs: yesterday) })
+            let copy = try #require(try store.loadAllLogs(userId: owner).first { Calendar.current.isDate($0.loggedDate, inSameDayAs: yesterday) })
             #expect(copy.nutritionSource == .openFoodFacts && copy.calories == 50)
             #expect(await model.deleteWithUndo(copy, userId: owner))
             #expect(await model.undoDeletion(userId: owner))
-            #expect(store.getAllLogs(userId: owner).allSatisfy { $0.nutritionSource == .openFoodFacts })
+            #expect(try store.loadAllLogs(userId: owner).allSatisfy { $0.nutritionSource == .openFoodFacts })
             #expect(try store.healthExports(owner: owner).filter { !$0.isDeletion }.allSatisfy { $0.nutritionSource == .openFoodFacts })
         }
     }
@@ -172,7 +172,7 @@ struct HealthExportTests {
                 try store.saveLogs([log(owner: owner), log(owner: owner, calories: -.infinity)])
                 Issue.record("Invalid sample should fail the whole transaction")
             } catch {}
-            #expect(store.getAllLogs(userId: owner).isEmpty)
+            #expect(try store.loadAllLogs(userId: owner).isEmpty)
             #expect(try store.healthExports(owner: owner).isEmpty)
             #expect(store.fetchPendingEvents(ownerUserId: owner, limit: 50).isEmpty)
         }
@@ -186,7 +186,7 @@ struct HealthExportTests {
             try store.saveWeightEntry(WeightEntry(userId: owner, date: day, weightKg: 71.5))
             let second = try #require(store.healthExports(owner: owner).first)
             #expect(first.id == second.id && second.revision == 2 && second.value == 71.5)
-            let weight = try #require(store.getWeightEntries(userId: owner).first)
+            let weight = try #require(try store.getWeightEntries(userId: owner).first)
             try store.deleteWeightEntry(weight.id)
             #expect(try store.healthExports(owner: owner).first?.isDeletion == true)
         }
@@ -290,7 +290,7 @@ struct HealthExportTests {
             let syncBefore = store.fetchPendingEvents(ownerUserId: owner, limit: 100).map(\.eventId)
             let snapshotEncoder = JSONEncoder()
             snapshotEncoder.outputFormatting = [.sortedKeys]
-            let original = try snapshotEncoder.encode(store.getAllLogs(userId: owner))
+            let original = try snapshotEncoder.encode(try store.loadAllLogs(userId: owner))
             try store.setHealthSettings(settings(), owner: owner)
             let request = HealthHistoryRequest(start: day, end: end, nutrition: true, weight: true)
             let preview = try store.previewHealthHistory(owner: owner, request: request)
@@ -302,7 +302,7 @@ struct HealthExportTests {
             #expect(records.first { $0.kind == .weight }?.value == 72)
             #expect(try store.healthExports(owner: other).isEmpty)
             #expect(store.fetchPendingEvents(ownerUserId: owner, limit: 100).map(\.eventId) == syncBefore)
-            #expect(try snapshotEncoder.encode(store.getAllLogs(userId: owner)) == original)
+            #expect(try snapshotEncoder.encode(store.loadAllLogs(userId: owner)) == original)
         }
     }
 
@@ -366,7 +366,7 @@ struct HealthExportTests {
             #expect(sqlite3_exec(db, "CREATE TRIGGER fail_history BEFORE INSERT ON health_exports WHEN NEW.id LIKE '%.protein' BEGIN SELECT RAISE(ABORT, 'QA failure'); END;", nil, nil, nil) == SQLITE_OK)
             do { _ = try store.queueHealthHistory(owner: owner, preview: preview); Issue.record("Expected rollback") } catch {}
             #expect(try store.healthExports(owner: owner).isEmpty)
-            #expect(store.getAllLogs(userId: owner).count == 1)
+            #expect(try store.loadAllLogs(userId: owner).count == 1)
         }
     }
 
@@ -518,7 +518,7 @@ struct HealthExportMigrationTests {
         sqlite3_close(database)
         let upgraded = try LocalStore(databaseURL: url)
         #expect(upgraded.schemaVersion() == 9)
-        #expect(upgraded.getWeightEntries(userId: owner).count == 1)
+        #expect(try upgraded.getWeightEntries(userId: owner).count == 1)
         #expect(try upgraded.healthExports(owner: owner).isEmpty)
         #expect(try !upgraded.healthSettings(owner: owner).isConnected)
     }

@@ -19,14 +19,14 @@ struct BusinessRuleTests {
                                   fatGPer100g: 4, nutritionBasis: basis)
             #expect(await vm.logFood(product: product, amountG: 37.5,
                                      mealType: "frokost", userId: user.id))
-            let log = try #require(store.getAllLogs(userId: user.id).first { $0.productId == product.id })
+            let log = try #require(try store.loadAllLogs(userId: user.id).first { $0.productId == product.id })
             #expect(log.amountUnit == product.amountUnit)
             #expect(log.calories == 90 && log.proteinG == 3)
             #expect(log.carbsG == 7.5 && log.fatG == 1.5)
             #expect(await vm.updateLog(log, amountG: 75, mealType: "lunsj", userId: user.id))
         }
         let reopened = try LocalStore(databaseURL: url)
-        let logs = reopened.getAllLogs(userId: user.id)
+        let logs = try reopened.loadAllLogs(userId: user.id)
         #expect(logs.count == 2)
         for log in logs {
             #expect(log.amountG == 75 && log.calories == 180)
@@ -236,9 +236,8 @@ private final class BusinessRuleFoodLogRepositorySpy: FoodLogRepository {
     func saveLogs(_ logs: [FoodLog]) async throws { savedLogs.append(contentsOf: logs) }
     func deleteLog(_ id: UUID) async throws {}
     func deleteLogs(_ ids: [UUID]) async throws {}
-    func getTodaysSummary(userId: UUID) async -> DailySummary { emptySummary() }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary { emptySummary(date: date) }
-    func getAllLogs(userId: UUID) async -> [FoodLog] { savedLogs }
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary { emptySummary(date: date) }
+    func loadAllLogs(userId: UUID) async -> [FoodLog] { savedLogs }
     func getProduct(_ id: UUID) -> Product? { nil }
     func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] { [:] }
 

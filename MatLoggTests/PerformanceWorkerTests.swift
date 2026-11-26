@@ -52,10 +52,10 @@ struct PerformanceWorkerTests {
         try store.saveLogs([included, log(owner: owner, date: start.addingTimeInterval(-1)),
                             log(owner: owner, date: end), log(owner: other, date: start)])
         let count = store.pendingSyncCount()
-        let loaded = await database.getLogs(userId: owner, from: start, before: end)
+        let loaded = try await database.loadLogs(userId: owner, from: start, before: end)
         #expect(loaded.map(\.id) == [included.id])
         #expect(store.pendingSyncCount() == count)
-        #expect(await database.getProduct(food.id)?.id == food.id)
+        #expect(try await database.getProduct(food.id)?.id == food.id)
     }
     @Test func startupWaitsForDatabaseAndPublishesControlledFailure() async throws {
         let suite = "startup-\(UUID())"
@@ -98,10 +98,10 @@ struct PerformanceWorkerTests {
         try store.saveProduct(foreign, ownerUserId: other)
         let codes: Set<String> = ["1234567890123", "9999999999999", "missing"]
         let count = store.pendingSyncCount()
-        let owned = await database.getProductsByBarcodes(codes, ownerUserId: owner)
+        let owned = try await database.getProductsByBarcodes(codes, ownerUserId: owner)
         #expect(owned.count == 1)
         #expect(owned["1234567890123"]?.id == own.id)
-        let catalog = await database.getProductsByBarcodes(codes, ownerUserId: nil)
+        let catalog = try await database.getProductsByBarcodes(codes, ownerUserId: nil)
         #expect(catalog.count == 1)
         #expect(catalog["1234567890123"]?.id == shared.id)
         #expect(store.pendingSyncCount() == count)

@@ -21,8 +21,8 @@ struct BarcodeCatalogStorageTests {
             #expect(store.fetchPendingEvents(limit: 20).isEmpty)
         }
         let reopened = try LocalStore(databaseURL: url)
-        #expect(reopened.getProduct(item.id)?.processingInfo == info)
-        #expect(reopened.getProduct(item.id)?.nutriScoreInfo == item.nutriScoreInfo)
+        #expect(try reopened.getProduct(item.id)?.processingInfo == info)
+        #expect(try reopened.getProduct(item.id)?.nutriScoreInfo == item.nutriScoreInfo)
     }
 
     @Test func catalogRefreshKeepsHistoricNutritionAndDoesNotQueueProductEvents() throws {
@@ -35,13 +35,13 @@ struct BarcodeCatalogStorageTests {
             try store.saveLog(log)
             let events = store.fetchPendingEvents(limit: 20)
             try store.cacheCatalogProduct(product(calories: 200))
-            let stored = try #require(store.getAllLogs(userId: owner).first)
+            let stored = try #require(try store.loadAllLogs(userId: owner).first)
             #expect(stored.calories == 150)
             #expect(stored.proteinG == 6)
             #expect(stored.carbsG == 27)
             #expect(stored.fatG == 4.5)
             #expect(stored.resolvedAmountUnit == .grams)
-            #expect(store.getProduct(original.id)?.caloriesPer100g == 200)
+            #expect(try store.getProduct(original.id)?.caloriesPer100g == 200)
             #expect(Set(store.fetchPendingEvents(limit: 20).map(\.eventId)) == Set(events.map(\.eventId)))
             #expect(events.allSatisfy { $0.type == "log.upsert" })
         }
@@ -54,9 +54,9 @@ struct BarcodeCatalogStorageTests {
             try store.saveProduct(own, ownerUserId: owner)
             let events = store.fetchPendingEvents(limit: 20)
             #expect(throws: LocalStoreError.self) { try store.cacheCatalogProduct(product(calories: 200)) }
-            #expect(store.getProductByBarcode("1234567890123", ownerUserId: owner)?.caloriesPer100g == 123)
-            #expect(store.getProductByBarcode("1234567890123", ownerUserId: UUID()) == nil)
-            #expect(store.getProductByBarcode("1234567890123", ownerUserId: nil) == nil)
+            #expect(try store.getProductByBarcode("1234567890123", ownerUserId: owner)?.caloriesPer100g == 123)
+            #expect(try store.getProductByBarcode("1234567890123", ownerUserId: UUID()) == nil)
+            #expect(try store.getProductByBarcode("1234567890123", ownerUserId: nil) == nil)
             #expect(Set(store.fetchPendingEvents(limit: 20).map(\.eventId)) == Set(events.map(\.eventId)))
         }
     }
@@ -68,8 +68,8 @@ struct BarcodeCatalogStorageTests {
                               caloriesPer100g: 123, proteinGPer100g: 4, carbsGPer100g: 18, fatGPer100g: 3)
             try store.saveProduct(own, ownerUserId: owner)
             try store.cacheCatalogProduct(product(calories: 200))
-            #expect(store.getProductByBarcode("1234567890123", ownerUserId: owner)?.id == own.id)
-            #expect(store.getProductByBarcode("1234567890123", ownerUserId: nil)?.caloriesPer100g == 200)
+            #expect(try store.getProductByBarcode("1234567890123", ownerUserId: owner)?.id == own.id)
+            #expect(try store.getProductByBarcode("1234567890123", ownerUserId: nil)?.caloriesPer100g == 200)
         }
     }
 

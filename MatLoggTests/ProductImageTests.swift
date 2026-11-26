@@ -29,7 +29,7 @@ struct ProductImageTests {
         let bytes = try #require(product.localImageData)
         #expect(product.imageSource == .user)
         let reopened = try LocalStore(databaseURL: databaseURL)
-        #expect(reopened.getProduct(product.id)?.localImageData == bytes)
+        #expect(try reopened.getProduct(product.id)?.localImageData == bytes)
         let events = reopened.fetchPendingEvents(limit: 10)
         #expect(events.count == 1)
         let json = try #require(JSONSerialization.jsonObject(with: events[0].payload) as? [String: Any])

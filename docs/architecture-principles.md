@@ -74,6 +74,49 @@ domenelogikk som permanent plasseres i `AppState`.
 - Nye eller endrede runtime-grenser skal testes med ugyldig konfigurasjon og
   manglende data. Tester skal verifisere kontrollert feil, ikke prosesskrasj.
 
+## Lokal lesing og feiltilstander
+
+Dette er krav til nye og endrede grenser. Eldre avvik er teknisk gjeld,
+ikke godkjente mønstre. Kravene betyr ikke at alle eksisterende leseflyter
+allerede er utbedret; faktisk status føres i current-state og utbedringsplanen.
+
+- Skill vellykket tom samling, manglende valgfri rad og mislykket lesing.
+  Domene-lesinger formidler feil gjennom LocalStore/service → repository →
+  ViewModel eller eksport, normalt med `throws` eller et eksplisitt typet utfall.
+- Standardimplementasjoner og kompatibilitetslag skal bevare denne kontrakten.
+  En throwing-metode som faller tilbake til en feilskjulende lesing er ikke
+  en feilformidlende grense. Ikke innfør nye kall til eldre slike metoder.
+- Kontroller SQLite prepare, bindings og stepping. En fler-radslesing er først
+  vellykket når den avsluttes med SQLITE_DONE. Dekodingsfeil i nødvendige
+  domenerader skal ikke gi et tilsynelatende komplett delresultat eller lavere
+  ernæringssummer. Bevar originaldata; ikke slett eller reset som automatisk recovery.
+- `try?`, `?? []`, `?? 0`, `nil` eller `.empty` skal ikke skjule feil i nødvendige
+  datakilder. Eksport skal feile kontrollert hvis en nødvendig kilde ikke kan
+  leses; manglende næringsdata erstattes ikke med gjetninger.
+- Best-effort tillates for gjenoppbyggbar cache bare når alternativ kilde,
+  feilutfall og brukeradferd er dokumentert og testet. Cachepolicy skal ikke
+  brukes for å skjule feil i brukerdata eller brukerbekreftet matching.
+- ViewModel eier lasting, feil og retry. Ved oppdateringsfeil kan sist lastede
+  data beholdes for samme profil og kontekst, med tydelig feilstatus. Ved
+  profil-/datobytte tømmes gammel kontekst. Request-ID/kansellering skal beskytte
+  både suksess- og feilpublisering mot utdaterte svar.
+- Diagnostikk skal være nyttig uten domeneinnhold, personopplysninger eller
+  rå SQL-/dekodingsdetaljer i brukerrettet tekst.
+
+## Ansvarsdeling og kontrollert refaktorering
+
+- Del store filer etter sammenhengende ansvar og konkrete endrings-/testbehov,
+  ikke etter en vilkårlig linjegrense. Skill mekanisk flytting fra feilretting
+  i reviewbare endringer og verifiser at flyttingen bevarer adferden.
+- LocalStore eier SQLite-tilkobling, seriell kø, migrasjoner og transaksjoner.
+  En filoppdeling skal ikke eksponere databasepekeren bredt, opprette parallelle
+  lagre eller splitte atomisk domene-/synk-/Helse-outbox-skriving. Vurder
+  reentrancy/deadlock, statement-opprydding og rollback ved berørte endringer.
+- Ny serverfunksjonalitet legges i Supabase. Før legacy avvikles, avklar aktive
+  klienter/drift, delte transporttyper, tester og deploy-/CI-avhengigheter.
+  Behold cutoverkravene i backend/README til en eksplisitt beslutning endrer dem;
+  ukjent drift er ikke bevis på at en tjeneste er ubrukt.
+
 ## Local-first og synk
 
 - En brukerhandling lagres lokalt før nettverksforsøk og skal fungere offline.
@@ -105,6 +148,14 @@ domenelogikk som permanent plasseres i `AppState`.
   lag introduseres.
 - Nye IO-avhengigheter skal kunne erstattes i tester.
 - Test minst berørt happy path og risikorelevante feilmoduser.
+- For endrede lesegrenser: test gyldig tomt resultat, kildefeil og korrupt rad,
+  samt delresultat, retry, kontekstbytte og utdaterte svar der det er relevant.
+  Kontroller regresjonen før retting når praktisk; ikke svekk assertions.
+- Knytt testbevis til kodecommit, eventuelle lokale endringer og testmiljø.
+  Skill kompilering fra utførte tester og automatisk kontroll fra manuell QA.
+  Bruk syntetiske data og separat QA-identitet på fysisk enhet. Hold rå logger,
+  resultatpakker og store QA-artifacts utenfor repoet; dokumenter kort resultat
+  og nødvendige referanser. Lokal sammenslåing er ikke en releasegodkjenning.
 - Oppdater kontrakt og begge sider samtidig når synkformatet endres.
 - Dokumenter større avvik og varige valg i `docs/decisions.md`.
 - Rapporter alltid hva som ble verifisert, og hva som ikke kunne verifiseres.

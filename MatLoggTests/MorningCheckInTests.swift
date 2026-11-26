@@ -80,10 +80,10 @@ struct MorningCheckInTests {
         await vm.load(userId: owner, date: Date())
         vm.weightText = "70,2"
         #expect(await vm.finish())
-        let first = try #require(await database.getWeightEntries(userId: owner).first)
+        let first = try #require(try await database.getWeightEntries(userId: owner).first)
         vm.weightText = "70,3"
         #expect(await vm.finish())
-        let entries = await database.getWeightEntries(userId: owner)
+        let entries = try await database.getWeightEntries(userId: owner)
         #expect(entries.count == 1)
         #expect(entries.first?.id == first.id)
         #expect(entries.first?.weightKg == 70.3)
@@ -111,7 +111,7 @@ struct MorningCheckInTests {
         defaults.set(true, forKey: otherUseKey)
         defaults.set(true, forKey: "hapticsFeedbackEnabled")
         try await database.deleteLocalData(ownerId: owner)
-        #expect(await database.getWeightEntries(userId: owner).isEmpty)
+        #expect(try await database.getWeightEntries(userId: owner).isEmpty)
         #expect(defaults.object(forKey: UserDefaultsMorningCheckInStore.key(owner)) == nil)
         #expect(defaults.object(forKey: ownerAmountKey) == nil)
         #expect(defaults.object(forKey: ownerAmountKey + ".portion") == nil)

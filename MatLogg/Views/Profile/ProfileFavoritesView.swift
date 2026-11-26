@@ -10,12 +10,22 @@ struct ProfileFavoritesView: View {
 
     var body: some View {
         Group {
-            if viewModel.isLoading {
+            if viewModel.isLoading && viewModel.products.isEmpty {
                 ProgressView("Henter favoritter …")
                     .font(AppTypography.body)
                     .foregroundColor(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier("favorites-loading")
+            } else if viewModel.products.isEmpty, let error = viewModel.errorMessage {
+                VStack(spacing: 12) {
+                    ErrorMessageView(error)
+                        .accessibilityIdentifier("favorites-read-error")
+                    Button("Prøv igjen") { Task { await loadFavorites() } }
+                        .accessibilityIdentifier("favorites-retry")
+                        .frame(minHeight: 44)
+                }
+                .padding(20)
+                .safeAreaPadding(.bottom, bottomMargin)
             } else if viewModel.products.isEmpty {
                 ContentUnavailableView {
                     VStack(spacing: 12) {
@@ -35,6 +45,13 @@ struct ProfileFavoritesView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
+                        if let error = viewModel.errorMessage {
+                            ErrorMessageView(error)
+                        .accessibilityIdentifier("favorites-read-error")
+                            Button("Prøv igjen") { Task { await loadFavorites() } }
+                        .accessibilityIdentifier("favorites-retry")
+                                .frame(minHeight: 44)
+                        }
                         ForEach(viewModel.products) { product in
                             Button {
                                 selectedProduct = product

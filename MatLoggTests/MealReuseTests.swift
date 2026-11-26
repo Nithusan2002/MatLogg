@@ -54,7 +54,7 @@ struct MealReuseTests {
     @Test func dismissingReceiptKeepsLoggedMealAndDoesNotReappearOnReload() async throws {
         let f = Fixture()
         await f.load()
-        #expect(await f.vm.log(try #require(f.vm.suggestions.first)))
+        #expect(try await f.vm.log(#require(f.vm.suggestions.first)))
         let receipt = try #require(f.vm.receipt)
         let storedIDs = Set(f.repo.logs.map(\.id))
         f.vm.dismissReceipt(id: UUID())
@@ -93,7 +93,7 @@ struct MealReuseTests {
         f.repo.logs = [f.log(amount: 500, unit: .milliliters)]
         await f.load()
 
-        #expect(await f.vm.log(try #require(f.vm.suggestions.first)))
+        #expect(try await f.vm.log(#require(f.vm.suggestions.first)))
         #expect(try #require(f.repo.saved.first).resolvedAmountUnit == .milliliters)
     }
 
@@ -174,7 +174,7 @@ struct MealReuseTests {
     @Test func failedUndoRetainsReceiptForRetry() async throws {
         let f = Fixture()
         await f.load()
-        #expect(await f.vm.log(try #require(f.vm.suggestions.first)))
+        #expect(try await f.vm.log(#require(f.vm.suggestions.first)))
         let ids = f.vm.receipt?.logIDs
         f.repo.failDelete = true
         #expect(await f.vm.undo() == false)
@@ -306,14 +306,13 @@ private final class MealReuseRepositorySpy: FoodLogRepository {
     }
     func saveLog(_ log: FoodLog) async throws { try await saveLogs([log]) }
     func deleteLog(_ id: UUID) async throws { try await deleteLogs([id]) }
-    func getAllLogs(userId: UUID) async -> [FoodLog] {
+    func loadAllLogs(userId: UUID) async -> [FoodLog] {
         if suspendRead { await withCheckedContinuation { readContinuation = $0 } }
         // Deliberately unfiltered to verify the feature's ownership guard.
         return logs
     }
     func getProduct(_ id: UUID) -> Product? { products[id] }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         DailySummary(date: date, totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
     }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { await getSummary(userId: userId, date: Date()) }
 }

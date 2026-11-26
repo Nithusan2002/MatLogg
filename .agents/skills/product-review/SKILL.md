@@ -10,3 +10,5 @@ Start med relevante deler av `docs/product-brief.md`, `docs/design-and-user-flow
 Avklar problemet, målgruppen, ønsket utfall og om endringen er MVP, senere roadmap eller nytt scope. Identifiser minste sammenhengende løsning, berørte flyter, data som må samles inn, offline-adferd og målbar ferdigdefinisjon.
 
 Skill eksplisitte krav fra antakelser. Ikke gjør en idé til permanent arkitektur før behovet krever det. Lever anbefalt scope, akseptansekriterier, avgrensninger, avhengigheter og åpne beslutninger. Ved scope-endring skal relevant spesifikasjon oppdateres sammen med implementasjonen.
+
+Tilpass vurderingen til risiko og omfang. Gjenbruk avklarte krav fra oppgaven; ikke start en ny avklaringsrunde eller opprett en egen plan/rapport når scope allerede er tydelig.

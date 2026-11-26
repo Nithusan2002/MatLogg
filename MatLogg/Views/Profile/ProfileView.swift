@@ -92,7 +92,7 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: "target",
                     title: "Daglige mål",
-                    subtitle: healthProfileViewModel.currentGoal.map {
+                    subtitle: healthProfileViewModel.goalLoadError ?? healthProfileViewModel.currentGoal.map {
                         "\($0.dailyCalories.formatted(.number.locale(Locale(identifier: "nb_NO")))) kcal per dag"
                     } ?? "Valgfritt · Sett opp mål"
                 )

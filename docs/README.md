@@ -10,6 +10,10 @@ Start produkt- og designarbeid med [produktbriefen](product-brief.md),
 filene under `specs/` utdyper krav og historikk og skal oppdateres ved konflikt.
 
 Start tekniske endringer med [arkitekturprinsippene](architecture-principles.md). For synk gjelder også [synkkontrakt v1](sync-contract-v1.md).
+Arkitekturprinsippene omfatter også feilformidlende lesing, cachefallback,
+retry/kontekstvern og trygg oppdeling av persistens. Dette er krav til ny og
+endret kode; [utbedringsplanen](plans/technical-debt-remediation.md) skiller
+utførte tiltak fra planlagt gjeld. Planstatus er ikke implementasjonsbevis.
 Produkt- og UX-adferd uten nett er definert i
 [offline-adferd og synkstatus](offline-behavior.md).
 
@@ -48,6 +52,7 @@ Faktiske dataflyter og åpne funn er samlet i
 - iOS-oppstart og dependency composition: `MatLogg/MatLoggApp.swift` og `MatLogg/App/AppState.swift`
 - Intern maskot-QA (isolert Debug): [Spor på iPhone](spor-mascot-preview.md)
 - Lokal lagring og synkkø: `MatLogg/Services/LocalStore.swift` og `MatLogg/Services/SyncEngine.swift`
+- Domene-lesing: `LocalStore+History.swift`, `LocalStore+Products.swift` og `LocalStore+Profiles.swift` under `MatLogg/Services/`; kontrollert SQLite-lesing i `SQLiteReadStatement.swift`
 - Eksterne produktkall: `MatLogg/Services/APIService.swift`
 - Konto-/synktransport: `MatLogg/Services/SupabaseService.swift` (domeneopplasting sperres av `DomainUploadPolicy.localOnly`)
 - Supabase-kontrakt og Edge Functions: `supabase/functions/`

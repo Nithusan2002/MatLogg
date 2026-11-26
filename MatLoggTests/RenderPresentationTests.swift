@@ -196,11 +196,10 @@ struct RenderPresentationTests {
 private final class RenderLogRepository: FoodLogRepository {
     var logs: [FoodLog] = []
     var products: [UUID: Product] = [:]
-    func getAllLogs(userId: UUID) async -> [FoodLog] { logs.filter { $0.userId == userId } }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+    func loadAllLogs(userId: UUID) async -> [FoodLog] { logs.filter { $0.userId == userId } }
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         DailySummary.summaries(userId: userId, dates: [date], logs: logs)[0]
     }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { await getSummary(userId: userId, date: Date()) }
     func getProduct(_ id: UUID) async -> Product? { products[id] }
     func saveLogs(_ logs: [FoodLog]) async throws {}
     func deleteLogs(_ ids: [UUID]) async throws {}

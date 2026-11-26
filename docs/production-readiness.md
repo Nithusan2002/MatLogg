@@ -1,5 +1,51 @@
 # Produksjonsberedskap
 
+## Aktiv oppfølging – runde 2, 26. november 2026
+
+Kodekandidat **`91e3a01`**, basert på `14e861a`. Fysisk oppfølging av runde 2
+er gjennomført på separat QA-app. Eldre resultater nedenfor gjelder sitt omfang.
+
+| Port | Resultat for runde 2 |
+| --- | --- |
+| iOS-runtime | 277/277 tester i 26 målrettede suiter bestod på iPhone 17 / iOS 27.3, ingen hoppet over. Signert Debug-kandidat, Xcode 27.2. Omfatter lesefeil, cachefallback, eksportavvisning, profil-/retryvern, migrering, atomisk rollback og målefelt. |
+| UI og visuell kontroll | Ni distinkte UI-tester bestod over målrettede kjøringer. Favorittfeil/retry, mål, profil og høydevelger ved største tekst; logging, favoritter, omstart, vekt og målevalidering/avbryt. Første målefelttest feilet; regresjon/rettelse og testbetjening er dokumentert i testing.md. |
+| Kilde-/arkitekturkontroll | Privat db/kø og transaksjoner bevart, uendret migrasjon/synkformat og localOnly. Validering forblir i ViewModel. Legacy-CI har bare kommentarer med identisk kjørbar konfigurasjon. |
+| Release, konto og drift | Fortsatt separate porter etter gjeldende releasepolicy. Ingen produksjons-/synk-/avviklingsgodkjenning. Faktisk gammel backenddrift er ikke verifisert. |
+
+**Go for lokal sammenslåing til main innen dette scopet.** Ingen push eller
+produksjonsutrulling inngår. Manuell VoiceOver, faktisk kameradeteksjon og
+øvrige tidligere åpne kontroller er fortsatt egne porter. Native HealthKit-
+skriving er ikke aktivert i denne kjøringen. Se docs/testing.md for kildekandidater,
+resultatpakker og avgrensninger.
+
+
+## Kandidatkontroll – teknisk gjeld, 25. november 2026
+
+Kontrollert kode: **`b9b8eb7`**, basert på `main` `85755ea`.
+Dette er en lokal kodekandidat, ikke en distribuert Release-/TestFlight-build.
+Eldre daterte resultater nedenfor gjelder sitt opprinnelige omfang og lukker
+ikke automatisk portene for denne kandidaten.
+
+| Port | Status og bevis for kandidaten |
+| --- | --- |
+| Lagrings-/ViewModel-regresjoner | 25 tester bestod på macOS med faktiske Swift-kilder i midlertidig harness: HistoryReadFailureTests, HistoryReadViewModelTests (uten iOS-only test) og MealReuseTests. Tre lagringsregresjoner feilet før rettelsen med sju feilutslag. |
+| Kompilering av iOS og tester | Bestått `xcodebuild build-for-testing`, Debug, generic iOS Simulator, Xcode 27.2. App, unit- og UI-targeter kompilert; dette er ikke en testkjøring. |
+| iOS-kjøring og visuell QA | 41/41 tester i fem berørte suiter bestod på fysisk iPhone 17 / iOS 27.3. Tre UI-tester bestod: manuell strekkode med største tekst, lokalt treff/logging og måltidsredigering på tidligere dag med omstart. Skjermbilder gjennomgått. Manuell VoiceOver, visuell feil/retry og faktisk kameradeteksjon gjenstår. |
+| Lokal lagringspolicy | Kodekontroll: localOnly og backendSyncEnabled=false er bevart. Skjema og domene-/eventtransaksjoner er uendret. |
+| Kandidat-CI | Ikke kjørt på GitHub for denne lokale committen. Delt scheme er nå med i repoet; historisk CI er ikke kandidatbevis. |
+| Konto og eksterne integrasjoner | Ikke testet på nytt. Fysisk Apple-innlogging, kontosletting og relevante integrasjoner må være verifisert for valgt releasekandidat. |
+| Release/TestFlight og personvern | Åpen kandidatport. Ingen ny signert Release, distribusjon eller avklaring av de øvrige konto-/personvernportene inngår her. |
+| Gjenoppretting | Ingen ny gjenopprettingstest. JSON kan fortsatt ikke importeres. Skybackup/restore vurderes separat ved framtidig skyscope. |
+
+**Go for lokal sammenslåing av denne utbedringen og videre intern QA; no-go for produksjonsutrulling.**
+Kandidatkontrollen gjelder teknisk gjeld og erstatter ikke aktive releasekrav.
+Fysisk kontroll brukte separat «MatLogg QA»-app med egne bundle-ID-er,
+syntetiske/disponible testdata og uendret localOnly-policy. Vanlig app ble ikke
+installert over. Kodekandidaten er uendret; oppfølgingen endrer bare dokumentasjon.
+Se [utbedringsplanen](plans/technical-debt-remediation.md) og
+[testoppskriften](testing.md#historikklesing--teknisk-gjeld-25-november-2026).
+
+
 ## Aktiv releaseport: lokal app med valgfri konto
 
 Lanseringsvalget 3. oktober 2026 er lokale domenedata uten opplasting.

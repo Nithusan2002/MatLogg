@@ -5,6 +5,22 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct ProductSearchTests {
+    @Test func cacheFailureUsesBundledSourceAndItsFailureStillPropagates() async throws {
+        let repository = ProductRepositorySpy(product: nil)
+        repository.tableCacheError = DatabaseServiceError.unavailable
+        let catalog = RecordingFallbackCatalog()
+        let model = ProductViewModel(repository: repository, catalogService: catalog,
+            barcodeService: BarcodeServiceSpy(result: .failure(TestBarcodeError.offline)),
+            nameSearchService: ProductNameSearchServiceStub())
+        #expect(try await model.rawFoodSuggestions().count == 1)
+        #expect(catalog.reads == 1)
+        catalog.fails = true
+        await #expect(throws: TestBarcodeError.self) { try await model.rawFoodSuggestions() }
+        #expect(catalog.reads == 2)
+        #expect(BarcodeLookupFailure.classify(DatabaseServiceError.unavailable) == .storageFailure)
+        #expect(BarcodeLookupFailure.classify(LocalStoreError.sqlite("qa")) == .storageFailure)
+    }
+
     @Test func structuredFoodCategoriesSurviveParsingAndMissingTagsStayCompatible() async throws {
         SearchURLProtocolStub.handler = { request in
             #expect(request.url?.query?.contains("categories_tags") == true)
@@ -177,7 +193,7 @@ struct ProductSearchTests {
         #expect(repository.cachedProducts.map(\.name) == ["Oppdatert"])
     }
 
-    @Test func failedBarcodeRefreshUsesRetryBackoffAndKeepsCachedSnapshot() async {
+    @Test func failedBarcodeRefreshUsesRetryBackoffAndKeepsCachedSnapshot() async throws {
         let now = Date(timeIntervalSince1970: 2_000_000_000)
         let cached = makeCachedBarcodeProduct(name: "Behold meg", fetchedAt: nil)
         let repository = ProductRepositorySpy(product: cached)
@@ -194,7 +210,7 @@ struct ProductSearchTests {
         #expect(first == nil)
         #expect(second == nil)
         #expect(await barcodeService.callCount == 1)
-        #expect(repository.getProductByBarcode("1234567890123", ownerUserId: nil)?.name == "Behold meg")
+        #expect(try repository.getProductByBarcode("1234567890123", ownerUserId: nil)?.name == "Behold meg")
         #expect(repository.cachedProducts.isEmpty)
     }
 
@@ -263,7 +279,7 @@ struct ProductSearchTests {
         #expect(remote.callCount == 0)
     }
 
-    @Test func changedUnitDoesNotReinterpretAmountOnOpenProductCard() async {
+    @Test func changedUnitDoesNotReinterpretAmountOnOpenProductCard() async throws {
         let cached = makeCachedBarcodeProduct(name: "Gram", fetchedAt: nil)
         let updated = Product(id: cached.id, name: "Milliliter", barcodeEan: cached.barcodeEan,
                               source: "openfoodfacts", caloriesPer100g: 100, proteinGPer100g: 4,
@@ -275,7 +291,7 @@ struct ProductSearchTests {
         await model.refresh(manually: true)
         #expect(model.product.amountUnit == .grams)
         #expect(model.refreshMessage?.contains("måleenhet") == true)
-        #expect(products.getProduct(cached.id)?.amountUnit == .milliliters)
+        #expect(try products.getProduct(cached.id)?.amountUnit == .milliliters)
     }
 
     @Test func refreshNeverReturnsAnotherOwnersPrivateSnapshot() async throws {
@@ -885,6 +901,7 @@ private final class ProductRepositorySpy: ProductRepository {
     private var product: Product?
     private(set) var cachedProducts: [Product] = []
     var cacheError: Error?
+    var tableCacheError: Error?
 
     init(product: Product?) {
         self.product = product
@@ -914,8 +931,13 @@ private final class ProductRepositorySpy: ProductRepository {
     func getRecentScans(userId: UUID, limit: Int) async -> [ScanHistory] { [] }
     func getFavorites(userId: UUID, kind: ProductKind?) async -> [Product] { [] }
     func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) async -> [Product] { [] }
-    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) {}
-    func getMatvaretabellenCache(maxAgeDays: Int) -> [MatvaretabellenProduct]? { nil }
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) throws {
+        if let tableCacheError { throw tableCacheError }
+    }
+    func getMatvaretabellenCache(maxAgeDays: Int) throws -> [MatvaretabellenProduct]? {
+        if let tableCacheError { throw tableCacheError }
+        return nil
+    }
 }
 
 private final class SearchURLProtocolStub: URLProtocol, @unchecked Sendable {
@@ -938,4 +960,20 @@ private final class SearchURLProtocolStub: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+@MainActor
+private final class RecordingFallbackCatalog: ProductCatalogService {
+    var reads = 0
+    var fails = false
+    func fetchCommonFoods() async throws -> [MatvaretabellenProduct] {
+        reads += 1
+        if fails { throw TestBarcodeError.offline }
+        return [MatvaretabellenProduct(id: "qa", name: "QA", brand: nil, category: nil,
+            caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3,
+            sugarGPer100g: nil, fiberGPer100g: nil, sodiumMgPer100g: nil)]
+    }
+    func searchProducts(query: String) async throws -> [MatvaretabellenProduct] {
+        try await fetchCommonFoods()
+    }
 }

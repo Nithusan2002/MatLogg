@@ -27,9 +27,11 @@ enum BarcodeLookupFailure: Error, Equatable {
 
     static func classify(_ error: Error) -> Self {
         if let failure = error as? Self { return failure }
-        if let localError = error as? LocalStoreError, case .ownershipMismatch = localError {
-            return .protectedProduct
+        if let localError = error as? LocalStoreError {
+            if case .ownershipMismatch = localError { return .protectedProduct }
+            return .storageFailure
         }
+        if error is DatabaseServiceError { return .storageFailure }
         guard let apiError = error as? APIService.APIError else { return .unavailable }
         switch apiError {
         case .serverError(404): return .notFound
@@ -70,7 +72,7 @@ enum BarcodeLookupFailure: Error, Equatable {
 
 @MainActor
 protocol BarcodeLookupRepository {
-    func cached(barcode: String, owner: UUID?) async -> Product?
+    func cached(barcode: String, owner: UUID?) async throws -> Product?
     func fetch(barcode: String) async throws -> Product
     func refresh(_ product: Product, manually: Bool) async throws -> Product?
 }
@@ -94,13 +96,13 @@ final class DefaultBarcodeLookupRepository: BarcodeLookupRepository {
         self.now = now
     }
 
-    func cached(barcode: String, owner: UUID?) async -> Product? {
-        await products.getProductByBarcode(barcode, ownerUserId: owner)
+    func cached(barcode: String, owner: UUID?) async throws -> Product? {
+        try await products.getProductByBarcode(barcode, ownerUserId: owner)
     }
 
     func refresh(_ product: Product, manually: Bool) async throws -> Product? {
         guard product.canRefreshCatalogData, let barcode = product.barcodeEan else { return nil }
-        let current = await products.getProductByBarcode(barcode, ownerUserId: nil) ?? product
+        let current = try await products.getProductByBarcode(barcode, ownerUserId: nil) ?? product
         guard current.canRefreshCatalogData else {
             if manually { throw BarcodeLookupFailure.protectedProduct }
             return nil
@@ -119,7 +121,7 @@ final class DefaultBarcodeLookupRepository: BarcodeLookupRepository {
         }
         let task = Task<Product, Error> { [remote, products] in
             let product = try await remote.searchProductByBarcodeOpenFoodFacts(barcode)
-            if let stored = await products.getProduct(product.id), !stored.canRefreshCatalogData {
+            if let stored = try await products.getProduct(product.id), !stored.canRefreshCatalogData {
                 throw BarcodeLookupFailure.protectedProduct
             }
             do {
@@ -168,7 +170,7 @@ final class DemoBarcodeLookupRepository: BarcodeLookupRepository {
         if catalog == nil { catalog = try await loadCatalog() }
         return catalog?.first { $0.barcodeEan == barcode }
     }
-    func cached(barcode: String, owner: UUID?) async -> Product? { try? await product(barcode: barcode) }
+    func cached(barcode: String, owner: UUID?) async throws -> Product? { try await product(barcode: barcode) }
     func fetch(barcode: String) async throws -> Product {
         guard let product = try await product(barcode: barcode) else { throw BarcodeLookupFailure.notFound }
         return product

@@ -394,15 +394,14 @@ private final class SavedMealsRepositorySpy: SavedMealRepository, FoodLogReposit
     func deleteSavedMeal(_ id: UUID, userId: UUID) async throws {
         savedMeals.removeAll { $0.id == id && $0.userId == userId }
     }
-    func getSavedMeals(userId: UUID) async -> [SavedMeal] { savedMeals.filter { $0.userId == userId } }
+    func loadSavedMeals(userId: UUID) async -> [SavedMeal] { savedMeals.filter { $0.userId == userId } }
     func saveLogs(_ logs: [FoodLog]) async throws { savedLogs.append(contentsOf: logs); self.logs.append(contentsOf: logs) }
     func deleteLogs(_ ids: [UUID]) async throws { deletedLogIDs.append(contentsOf: ids); logs.removeAll { ids.contains($0.id) } }
     func saveLog(_ log: FoodLog) async throws { try await saveLogs([log]) }
     func deleteLog(_ id: UUID) async throws { try await deleteLogs([id]) }
-    func getAllLogs(userId: UUID) async -> [FoodLog] { logs.filter { $0.userId == userId } }
+    func loadAllLogs(userId: UUID) async -> [FoodLog] { logs.filter { $0.userId == userId } }
     func getProduct(_ id: UUID) -> Product? { products[id] }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         DailySummary(date: date, totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0, logs: [])
     }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { await getSummary(userId: userId, date: Date()) }
 }

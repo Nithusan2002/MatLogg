@@ -69,16 +69,27 @@ final class UserDataExportService: UserDataExporting {
     }
 
     func export(for user: User) async -> URL? {
-        let logs = await logRepository.getAllLogs(userId: user.id)
-        let savedMeals = await savedMealRepository.getSavedMeals(userId: user.id)
+        let logs: [FoodLog]
+        do { logs = try await logRepository.loadAllLogs(userId: user.id) }
+        catch { return nil }
+        let savedMeals: [SavedMeal]
+        do { savedMeals = try await savedMealRepository.loadSavedMeals(userId: user.id) }
+        catch { return nil }
         let water: [WaterGlass]
         do { water = try await waterRepository.getWaterGlasses(userId: user.id) }
         catch { return nil }
-        let goal = await healthRepository.latestGoal(userId: user.id)
-        let weights = await healthRepository.getWeightEntries(userId: user.id)
-        let favorites = await productRepository.getFavorites(userId: user.id, kind: nil)
-        let details = personalDetailsStore.load(userId: user.id)
-        guard let records = try? await profileDataRepository.exportProfileRecords(ownerId: user.id) else { return nil }
+        let goal: Goal?
+        let weights: [WeightEntry]
+        let favorites: [Product]
+        let details: PersonalDetails
+        let records: [String: [Data]]
+        do {
+            goal = try await healthRepository.latestGoal(userId: user.id)
+            weights = try await healthRepository.getWeightEntries(userId: user.id)
+            favorites = try await productRepository.getFavorites(userId: user.id, kind: nil)
+            details = try personalDetailsStore.load(userId: user.id)
+            records = try await profileDataRepository.exportProfileRecords(ownerId: user.id)
+        } catch { return nil }
         return try? await BackgroundWork.run {
             Self.writeExport(user: user, logs: logs, savedMeals: savedMeals, water: water,
                              goal: goal, weights: weights, favorites: favorites, details: details, records: records)

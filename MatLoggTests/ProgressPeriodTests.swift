@@ -257,10 +257,9 @@ private final class PeriodRepository: FoodLogRepository {
     func deleteLogs(_ ids: [UUID]) async throws {}
     func saveLog(_ log: FoodLog) async throws {}
     func deleteLog(_ id: UUID) async throws {}
-    func getAllLogs(userId: UUID) async -> [FoodLog] { [] }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+    func loadAllLogs(userId: UUID) async -> [FoodLog] { [] }
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         DailySummary.summaries(userId: userId, dates: [date], logs: [], calendar: calendar)[0]
     }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { await getSummary(userId: userId, date: Date()) }
     func getProduct(_ id: UUID) async -> Product? { nil }
 }

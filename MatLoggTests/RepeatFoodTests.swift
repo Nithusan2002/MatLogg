@@ -28,7 +28,7 @@ struct RepeatFoodTests {
             #expect(rows.map(\.id) == [item.id, second.id])
             let times = try await database.getLoggedProductTimes(owner: owner, before: now)
             #expect(Set(times.keys) == [item.id, second.id])
-            #expect(abs(try #require(times[item.id]).timeIntervalSince(time)) < 0.000001)
+            #expect(try abs(#require(times[item.id]).timeIntervalSince(time)) < 0.000001)
             #expect(rows.first?.log.id == latest.id)
             #expect(rows.first?.log.amountG == 150)
             #expect(try await database.getRecentFoods(owner: owner, before: now, limit: 1).count == 1)
@@ -58,7 +58,7 @@ struct RepeatFoodTests {
             #expect(Calendar.current.isDate(repeated.loggedDate, inSameDayAs: date))
             #expect(repeated.loggedTime >= start)
             #expect(abs(repeated.calories - 246.9) < 0.001) // source snapshot deliberately has 10 kcal
-            #expect(store.getAllLogs(userId: owner).first(where: { $0.id == source.id })?.calories == 10)
+            #expect(try store.loadAllLogs(userId: owner).first(where: { $0.id == source.id })?.calories == 10)
             let identical = log(item, owner: owner, amount: repeated.amountG, date: date,
                                 time: repeated.loggedTime.addingTimeInterval(1), meal: "middag")
             try store.saveLog(identical)
@@ -67,7 +67,7 @@ struct RepeatFoodTests {
                 userId: UUID(), date: date, logID: repeated.id)))
             #expect(await vm.undoLatestLog(productId: item.id, mealType: "middag", amountG: repeated.amountG,
                 userId: owner, date: date, logID: repeated.id))
-            #expect(Set(store.getAllLogs(userId: owner).map(\.id)) == [source.id, identical.id])
+            #expect(try Set(store.loadAllLogs(userId: owner).map(\.id)) == [source.id, identical.id])
             #expect(!(await vm.undoLatestLog(productId: item.id, mealType: "middag", amountG: repeated.amountG,
                 userId: owner, date: date, logID: repeated.id)))
             let ready = store.fetchPendingEvents(limit: 20)
@@ -122,11 +122,11 @@ struct RepeatFoodTests {
             await #expect(throws: (any Error).self) {
                 try await repository.logAgain(food, owner: owner, mealType: "frokost", date: Date())
             }
-            #expect(store.getAllLogs(userId: owner).map(\.id) == [source.id])
+            #expect(try store.loadAllLogs(userId: owner).map(\.id) == [source.id])
             #expect(store.pendingSyncCount() == 1)
             try sql("DROP TRIGGER fail_repeat;", url: url)
             _ = try await repository.logAgain(food, owner: owner, mealType: "frokost", date: Date())
-            #expect(store.getAllLogs(userId: owner).count == 2)
+            #expect(try store.loadAllLogs(userId: owner).count == 2)
             #expect(store.pendingSyncCount() == 2)
             await #expect(throws: (any Error).self) {
                 try await repository.logAgain(food, owner: UUID(), mealType: "frokost", date: Date())
@@ -191,12 +191,12 @@ struct RepeatFoodTests {
             #expect(library.recent.count == 6)
             #expect(!library.recent.contains { $0.id == old.id })
             #expect(library.loggedProductTimes.count == 8)
-            #expect(abs(try #require(library.loggedProductTimes[old.id]).timeIntervalSince(latest.loggedTime)) < 0.001)
+            #expect(try abs(#require(library.loggedProductTimes[old.id]).timeIntervalSince(latest.loggedTime)) < 0.001)
             #expect(library.loggedProductTimes[foreign.id] == nil && library.loggedProductTimes[future.id] == nil)
             #expect(store.pendingSyncCount() == pending)
             try store.deleteLog(latest.id)
             let reloaded = try await repository.loadLocalLibrary(owner: owner)
-            #expect(abs(try #require(reloaded.loggedProductTimes[old.id]).timeIntervalSince(original.loggedTime)) < 0.001)
+            #expect(try abs(#require(reloaded.loggedProductTimes[old.id]).timeIntervalSince(original.loggedTime)) < 0.001)
             try store.deleteLog(original.id)
             #expect(try await repository.loadLocalLibrary(owner: owner).loggedProductTimes[old.id] == nil)
             #expect(try await repository.loadLocalLibrary(owner: other).loggedProductTimes.keys.sorted { $0.uuidString < $1.uuidString } == [foreign.id])
