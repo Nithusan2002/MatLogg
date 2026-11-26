@@ -13,6 +13,8 @@ Ved kontraktsendringer, vurder bakoverkompatibilitet, utrullekkefølge, ukjent e
 
 Test minst den berørte happy pathen og relevante feilmoduser: gjentatt levering, offline→online, avbrutt in-flight, valideringsfeil og retry/backoff. Oppdater både dokumentert format og begge sider av kontrakten når de påvirkes.
 
+Ved en rent lokal lagringsendring trenger du ikke backend-api eller serverkontroller når transport, server og synkkontrakt er uberørt.
+
 Finn målrettede testkommandoer i `docs/testing.md` og `ios-swiftui`/`backend-api` etter hvilken side som endres. Ved kontraktsendring skal relevante tester på begge sider kjøres; grønne klienttester alene bekrefter ikke kompatibilitet.
 
 ## Lokal lesing og oppdeling

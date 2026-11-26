@@ -10,16 +10,9 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 
 ## Arkitekturkrav
 
-- Følg pragmatisk MVVM i iOS-klienten: `View → ViewModel → Repository → Service/local store/API`.
-- Views skal ikke utføre domenelogikk eller IO. ViewModels eier feature-state og brukerhandlinger; repositories skjuler datakilder; services håndterer avgrenset infrastruktur.
-- `AppState` skal bare koordinere appomfattende state og skal ikke være permanent hjem for featurelogikk, domeneregler eller IO.
-- Sett sammen avhengigheter ved app-roten. Bruk små protokoller og injeksjon ved IO-grenser slik at ViewModels kan testes uten ekte database eller nettverk.
-- Skill vellykket tomt resultat og manglende valgfri rad fra lagrings-/dekodingsfeil. Nye og endrede domene-lesinger skal formidle feil gjennom repository; ikke bruk `try?`, tomme lister, nullverdier eller kompatibilitetsmetoder til å skjule feil. Se «Lokal lesing og feiltilstander» i `docs/architecture-principles.md`.
-- Ved oppdateringsfeil beholdes sist lastede data bare for samme profil og kontekst, med tydelig feil og retry. Profil-/datobytte skal ikke vise forrige konteksts data; eldre asynkrone svar skal heller ikke publisere feil i nyere kontekst.
-- Del store filer etter ansvar når det gir konkret vedlikeholdsverdi. Bevar eierskap til SQLite-tilkobling, kø og transaksjoner; domene, synkhendelse og eventuell Helse-outbox skal fortsatt skrives atomisk. Skill mekanisk flytting fra feilretting.
-- Bevar local-first. Domenedata og tilhørende synkhendelse skal skrives atomisk lokalt.
-- Alle synkhendelser skal ha stabil event-ID, canonical type og eksplisitt schema-versjon. Klient og backend skal følge `docs/sync-contract-v1.md` og endres samlet ved kontraktsendringer.
-- Backend skal validere input, hente identitet fra token, autorisere mot ressursens eier og skrive inbox/domenedata atomisk.
+Detaljkrav til MVVM, avhengighetsretning, state, IO, transaksjoner, eierskap og testbarhet finnes i `docs/architecture-principles.md`; ikke kopier reglene til nye instruksjonsfiler. Kravene til lesefeil, retry og kontekstvern samt kontrollert filoppdeling står i «Lokal lesing og feiltilstander» og «Ansvarsdeling og kontrollert refaktorering» i samme dokument.
+
+- Bevar local-first. Klient og backend skal følge `docs/sync-contract-v1.md` og endres samlet ved kontraktsendringer.
 - Produksjonssynk skal forbli deaktivert til relevante kontrakt-, retry-, idempotens-, eierskaps- og integrasjonstester er grønne.
 - `DomainUploadPolicy.localOnly` sperrer domeneopplasting og retry-timere uavhengig av backendflagget. Kontokobling åpner ikke opplasting. Framtidig skyfunksjon krever eget brukervalg, historikkvalg og serverautorisasjon samt avklart behandlingsgrunnlag; grønne tester alene åpner ikke synk.
 
@@ -44,7 +37,6 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 - Samle uavhengige søk og kontroller i færrest mulig verktøykall.
 - Ikke bruk nettsøk eller underagenter med mindre brukeren eller en gjeldende overordnet instruksjon krever det.
 - Gjør rimelige, reversible antakelser fremfor å starte unødvendige avklaringsrunder. Oppgi viktige antakelser kort.
-- Sluttrapporter skal som standard være korte og bare dekke endringer, verifisering og gjenværende risiko. Ikke gjengi kode eller full diff uten forespørsel.
 - Ikke opprett ekstra dokumentasjon, planer eller oppsummeringer med mindre de er påkrevd eller har varig verdi.
 
 ## Prosjektkart
@@ -66,7 +58,9 @@ Les `docs/README.md` og relevante spesifikasjoner før produktmessige eller arki
 
 ## Skills
 
-Bruk relevante skills fra `.agents/skills/` for arbeidsområdet. Disse er førstevalg for MatLogg; last andre skills bare når oppgaven krever en konkret kapasitet som prosjektets skills ikke dekker.
+Bruk relevante skills fra `.agents/skills/` for arbeidsområdet. Disse er førstevalg for MatLogg; last andre skills bare når oppgaven krever en konkret kapasitet som prosjektets skills ikke dekker. Generelle pluginforslag er ikke grunn til å laste en overlappende skill.
+
+Velg skills etter lagene og risikoene som faktisk berøres. Les hver skill og uendret kilde én gang per oppgave, og gjenbruk konteksten mellom arbeidsfasene. En skill er faglig veiledning, ikke en egen agent eller et krav om en separat rapport.
 
 | Arbeid | Påkrevd skill |
 | --- | --- |
@@ -83,7 +77,8 @@ Bruk relevante skills fra `.agents/skills/` for arbeidsområdet. Disse er først
 ## Arbeidsrekkefølge
 
 - Ny brukerfunksjon: produktvurdering → produktdesign → iOS/UX → backend/synk ved behov → implementering → QA.
-- Data- eller synkendring: offline-sync → backend-api → kompatibilitetsvurdering → implementering → QA.
+- Lokal lagring: offline-sync → ios-swiftui ved klientendring → implementering → målrettet verifisering.
+- Synkformat eller backenddata: offline-sync ved lokal kø/kontrakt → backend-api → kompatibilitetsvurdering → implementering → QA.
 - Release: relevante fag-skills → qa-release → eksplisitt go/no-go.
 
 ## Autonomi og verifisering
@@ -103,4 +98,4 @@ Forklar konsekvensene og be om avklaring før destruktive datamigrasjoner, slett
 
 Før en kodeendring regnes som ferdig, kontroller den eksplisitt mot `docs/architecture-principles.md`, inkludert avhengighetsretning, local-first, transaksjonsgrenser, eierskap og testbarhet der punktene er relevante.
 
-Rapporter kort: hva som ble endret, berørte filer, skills brukt, verifisering, antakelser, arkitekturavvik og gjenværende risiko eller neste steg.
+Rapporter kort hva som ble endret (med berørte filer), hvilke skills som ble brukt og faktisk verifisering. Ta bare med antakelser, arkitekturavvik og gjenværende risiko/neste steg når de er relevante. Ikke gjengi kode eller full diff uten forespørsel.
