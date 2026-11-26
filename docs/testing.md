@@ -1554,3 +1554,33 @@ Manuell VoiceOver, faktisk kameradeteksjon og separat release-go/no-go gjenstår
 Ingen backenddeploy, auth-endring, legacyavvikling eller opplasting inngår.
 Skills brukt: offline-sync, backend-api, ios-swiftui, nutrition-privacy,
 product-design og qa-release.
+
+
+## IN2000 — fysisk QA 26. november 2026
+
+Kandidat: main `068f24d` + lokale endringer i LoggingDraftTests og
+IN2000-plandokumentene. Xcode 27.0; iPhone 17 / iOS 27.3 (24C5049f).
+Separat QA-identitet fra `/tmp/MatLoggDebtPhysicalQA.xcconfig`:
+`com.nithusan.MatLogg.qa20261014.MatLogg`. Ingen ordinære appdata endret.
+
+- `LoggingDraftTests`: 13 testmetoder bestod, 14 parameteriserte utførelser,
+  null feil. Inkluderer nye kontroller for forsinket resultat/feil etter
+  profilbytte og samtidige innganger med eksplisitt retry.
+  Resultat: `/tmp/MatLoggIN2000-unit-20261126.xcresult`.
+- `DomainReadFailureUITests/testFavoritesReadFailureShowsErrorAndRetryRecoversWithLargeText`:
+  bestod fysisk. Resultat: `/tmp/MatLoggIN2000-ui-20261126.xcresult`.
+- `LoggingDraftUITests/testRecoveryWithLargestTextAndAccessibilityAudit`:
+  feilet under feltinntasting/fokus, før gjenopprettingskontrollen. Opptaket
+  viste sveipeskriving når testens scroll traff tastaturet. Forsøksvise,
+  avgrensede testjusteringer av scrolling/fokus løste ikke hele testen;
+  et siste forsøk stoppet ved hittability under opprydding av QA-utkast.
+  Forsøksendringene i UI-testen er fjernet; produksjonskode er urørt.
+  Retestresultater: `/tmp/MatLoggIN2000-ui-retry-20261126.xcresult`,
+  `...-ui-final-20261126.xcresult`, `...-ui-form-20261126.xcresult`,
+  `...-ui-center-20261126.xcresult`, `...-ui-focus-20261126.xcresult`.
+  Dette dokumenterer en ustabil automatisert kontroll, ikke at hele
+  gjenopprettingsflyten eller tilgjengeligheten er bekreftet.
+
+Neste steg: gjennomfør utkastflyten manuelt ved største tekst på QA-appen,
+og avklar faktisk feltbetjening før UI-testen endres videre. Manuell VoiceOver
+og brukertesting med deltakere gjenstår. Ingen commit/push eller releasegodkjenning.

@@ -249,3 +249,87 @@ struct LoggingDraftTests {
     }
 
 }
+
+
+/// Controlled repository responses exercise ordering without timing-dependent sleeps.
+@MainActor
+private final class DeferredDraftRepository: FoodLoggingDraftRepository {
+    var loads: [UUID: Int] = [:]
+    var pending: [UUID: CheckedContinuation<FoodLoggingDraft?, Error>] = [:]
+
+    func loadLoggingDraft(owner: UUID) async throws -> FoodLoggingDraft? {
+        loads[owner, default: 0] += 1
+        return try await withCheckedThrowingContinuation { pending[owner] = $0 }
+    }
+    func resolve(_ owner: UUID, result: Result<FoodLoggingDraft?, Error>) {
+        pending.removeValue(forKey: owner)?.resume(with: result)
+    }
+    func waitForLoad(_ owner: UUID) async throws {
+        for _ in 0..<1_000 {
+            if pending[owner] != nil { return }
+            await Task.yield()
+        }
+        try #require(pending[owner] != nil, "Expected repository request")
+    }
+    func createLoggingDraft(_ draft: FoodLoggingDraft) async throws { throw LoggingDraftError.unavailable }
+    func updateLoggingDraft(_ draft: FoodLoggingDraft) async throws { throw LoggingDraftError.unavailable }
+    func discardLoggingDraft(id: UUID, owner: UUID) async throws { throw LoggingDraftError.unavailable }
+    func advanceLoggingDraft(_ draft: FoodLoggingDraft, product: Product) async throws { throw LoggingDraftError.unavailable }
+    func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) async throws { throw LoggingDraftError.unavailable }
+}
+
+extension LoggingDraftTests {
+    @MainActor @Test(arguments: [false, true])
+    func lateLoadCannotReplaceNewProfileOrPublishOldFailure(fails: Bool) async throws {
+        let repository = DeferredDraftRepository()
+        let model = FoodLoggingDraftViewModel(repository: repository)
+        let oldOwner = UUID(), newOwner = UUID()
+        let old = Task { await model.load(owner: oldOwner) }
+        try await repository.waitForLoad(oldOwner)
+        let current = Task { await model.load(owner: newOwner) }
+        try await repository.waitForLoad(newOwner)
+        let expected = FoodLoggingDraft(userId: newOwner, mealType: "lunsj", date: Date())
+        repository.resolve(newOwner, result: .success(expected))
+        await current.value
+        repository.resolve(oldOwner, result: fails ? .failure(LoggingDraftError.unavailable) :
+            .success(FoodLoggingDraft(userId: oldOwner, mealType: "middag", date: Date())))
+        await old.value
+        #expect(model.draft?.id == expected.id)
+        #expect(model.isLoaded)
+        #expect(model.errorMessage == nil)
+    }
+
+    @MainActor @Test
+    func concurrentEntryPointsShareFailedLoadAndExplicitRetryRecovers() async throws {
+        let repository = DeferredDraftRepository()
+        let model = FoodLoggingDraftViewModel(repository: repository)
+        let owner = UUID()
+        let first = Task { await model.load(owner: owner) }
+        try await repository.waitForLoad(owner)
+        var secondEntered = false
+        let second = Task {
+            secondEntered = true
+            await model.load(owner: owner)
+        }
+        // MainActor reaches the suspended load before this task can observe the flag.
+        for _ in 0..<1_000 {
+            if secondEntered { break }
+            await Task.yield()
+        }
+        #expect(secondEntered)
+        repository.resolve(owner, result: .failure(LoggingDraftError.unavailable))
+        await first.value
+        await second.value
+        #expect(repository.loads[owner] == 1)
+        #expect(!model.isLoaded)
+        #expect(model.errorMessage != nil)
+        let retry = Task { await model.load(owner: owner) }
+        try await repository.waitForLoad(owner)
+        repository.resolve(owner, result: .success(nil))
+        await retry.value
+        #expect(repository.loads[owner] == 2)
+        #expect(model.isLoaded)
+        #expect(model.draft == nil)
+        #expect(model.errorMessage == nil)
+    }
+}
