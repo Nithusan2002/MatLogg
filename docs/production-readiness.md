@@ -1,5 +1,25 @@
 # Produksjonsberedskap
 
+## Aktiv oppfølging – runde 2, 25. november 2026
+
+Kodekandidat **`c86bb83`** på `codex/technical-debt-followup`, basert på `14e861a`.
+Dette er ny kode etter den fysisk verifiserte første runden. Resultatene for
+`b9b8eb7` nedenfor er historiske og verifiserer ikke denne kandidaten.
+
+| Port | Resultat for runde 2 |
+| --- | --- |
+| Målrettet lokal runtime | 72 tester i ti suiter bestod i midlertidig macOS-harness med faktiske lagrings-, repository-, eksport- og ViewModel-kilder. Omfatter kildefeil, korrupte rader, eksportavvisning, 405-produkters batch, cacheutfall, profil-/retryvern, migrering og atomisk rollback. Ikke full app-/iOS-dekning. |
+| iOS-kompilering | Signert build-for-testing bestod, Xcode 27.2, Debug, generic iOS, separat MatLogg QA-identitet. App og begge testtargeter er kompilert. |
+| iOS-runtime og visuell kontroll | Åpen. Telefonen var utilgjengelig og ingen simulatorruntime fantes. Kjør berørte suiter på QA-iPhone og kontroller profil, mål/vekt, favoritter og retry før sammenslåing. |
+| Kilde-/arkitekturkontroll | 23 byte-identiske metoder ved filflytting, privat db/kø, uendret migrasjon/synkformat og localOnly. Legacy-CI har bare nye kommentarer, med identisk kjørbar konfigurasjon. |
+| Release, konto og drift | Fortsatt åpne porter etter gjeldende releasepolicy. Ingen ny produksjons-/synk-/avviklingsgodkjenning. Faktisk gammel backenddrift er ikke verifisert. |
+
+**Go for kodegjennomgang og videre QA; avvent sammenslåing til main og
+produksjonsrelease til relevant iOS-verifisering er fullført.** Manuell
+VoiceOver, faktisk kameradeteksjon og øvrige tidligere åpne kontroller er
+fortsatt egne porter. Se docs/testing.md for utførte kontroller og neste kjøring.
+
+
 ## Kandidatkontroll – teknisk gjeld, 25. november 2026
 
 Kontrollert kode: **`b9b8eb7`**, basert på `main` `85755ea`.

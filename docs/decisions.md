@@ -1158,3 +1158,23 @@ eierskap og avslått synk. Ingen skjema-/synkkontraktsendring. Legacy-backend
 beholdes etter tidligere cutoverbeslutning; avhengigheter og foreslåtte
 kriterier for separat avvikling er samlet i utbedringsplanen. Ingen ny
 produksjons- eller synkaktiveringsgodkjenning.
+
+## 2026-11-25 – Runde 2: én lesekontrakt og avgrenset LocalStore
+
+**Beslutning:** Fjern de ikke-kastende historikk-/måltidsgrensesnittene og la
+berørte domene-repositories formidle lese-/dekodingsfeil. Nødvendige
+rader/kilder skal ikke gi delsummer eller en tilsynelatende komplett eksport.
+Uleselige personopplysninger skal bevares også når et redigeringsskjema lagres.
+Kun gjenoppbyggbar katalogcache bruker eksplisitt best-effort-fallback.
+
+**Struktur:** LocalStore eier fortsatt privat tilkobling, kø og transaksjoner;
+23 lesemetoder fordeles på History/Products/Profiles, med felles kontrollert
+SQLiteReadStatement. Flyttingen holdes separat fra feilrettingen.
+
+**Legacy:** Viderefør referansevedlikehold etter eksisterende cutoverkrav,
+med konkret avviklingspakke i backend/README. Ingen CI-port svekkes og ingen
+auth-/produksjonsavvikling er godkjent. Ukjent drift må avklares før sletting.
+
+**Status:** Runde 2 ble startet etter brukerens nye instruks. Kodekandidat
+`c86bb83` er lokalt implementert og avventer iOS-/visuell QA. Se kandidatoversikten
+for faktisk testomfang; historiske runde 1-resultater lukker ikke nye porter.

@@ -1400,3 +1400,105 @@ Arkitekturkontroll: denne oppfølgingen endrer bare dokumentasjon. Kandidatens
 avhengighetsretning, transaksjonsgrenser, eierskap og localOnly er uendret.
 Go for lokal sammenslåing av utbedringen; øvrige releaseporter står åpne.
 Skills: ios-swiftui og qa-release.
+
+## Runde 2 – lesefeil og ansvarsdeling, 25. november 2026
+
+Kodekandidat **`c86bb83`**, basert på `14e861a`, på
+`codex/technical-debt-followup`. Ingen ny iOS-runtimekjøring er bekreftet.
+
+**Utført og bestått:**
+
+- **72 tester i ti suiter** i midlertidig macOS SwiftPM-harness med faktiske
+  modeller, LocalStore og de tre uttrukne filene, SQLiteReadStatement,
+  DatabaseService, nødvendige repository-kontrakter, eksport og berørte
+  ViewModels. Swift 5-språkmodus, MainActor-isolasjon og
+  NonisolatedNonsendingByDefault brukes; dette er ikke iOS-appens runtime.
+- Hele HistoryReadFailureTests, HistoryReadViewModelTests, DomainReadFailureTests,
+  DomainReadFlowTests, MealReuseTests, MealBatchStorageTests, SavedMealStorageTests,
+  DailyGoalsTests og HealthExportMigrationTests. Den tiende suiten består av
+  ti uendrede, lokale lagringsregresjoner hentet fra HealthExportTests:
+  optInDoesNotExportHistoryOrOtherOwners,
+  editUsesStableIdentityAndOldAcknowledgementCannotLoseNewEdit,
+  deletionAndUndoReuseIdentitiesWithIncreasingRevisions,
+  failingMealRollsBackDomainSyncAndHealthTogether,
+  sameDayWeightEditKeepsExportIdentity,
+  historyUsesSelectedOwnerDatesAndDoesNotChangeDomainOrSync,
+  repeatedHistoryKeepsPendingAndCompletedIdentitiesAndEvents,
+  historyRejectsChangedOrDeletedEntriesAndRevokedChoices,
+  historyBatchRollsBackOnDatabaseFailure og
+  canceledUnconfirmedRevisionCanBeExportedFromHistoryAgain.
+- Nye lagerregresjoner ble kontrollert mot `14e861a` før retting: tolv
+  forventede feilutslag for manglende tabeller og korrupte nødvendige rader.
+  Baseline bruker disponibelt lager; testfixture for saved_meals inkluderer
+  påkrevd navn, slik at fixturefeil ikke telles som funn.
+- **Signert iOS build-for-testing bestod** etter siste kodeendring, med Xcode
+  27.2, Debug, generic iOS, separat QA-xcconfig og derived data under
+  `/tmp/MatLoggDebtPhysicalQA`. App og begge testtargeter er kompilert. Dette
+  inkluderer den nye katalogfallback-testen i ProductSearchTests, som ikke
+  er kjørt i macOS-utvalget.
+- 23 flyttede metodekropper ble sammenlignet byte-identisk før/etter uttrekking.
+  db/kø er fortsatt private. Legacy-CI er identisk når bare kommentarer fjernes.
+  Ingen migrasjon, backend-implementering eller synkpolicy er endret.
+
+Harness, manifest og rå logger ligger utenfor repoet under
+`/tmp/matlogg-debt-core`, `/tmp/matlogg-r2-final-core.log` og
+`/tmp/matlogg-r2-final-device-build.log`. Midlertidig harness utelater urelaterte
+konformanser til nettverks-/katalogklasser den ikke laster; den er ikke full
+appdekning, CI eller et varig releaseartifact. Regresjonene som skal vedlikeholdes
+finnes i MatLoggTests. Ingen ekte bruker-, konto- eller Helse-data er brukt.
+
+**Åpent:** iPhonen var utilgjengelig for Xcode; `simctl list runtimes` viste
+heller ingen installert runtime. Fysisk iOS-/UI-kjøring, visuell kontroll av
+feil/retry, stor tekst og VoiceOver for de endrede skjermene gjenstår.
+Fysiske 41+3-resultater fra runde 1 gjelder ikke ny kode.
+
+Når QA-iPhonen er tilkoblet og ulåst, kjør følgende berørte suiter i separat
+QA-app. Bredden skyldes endringer i delte repository-kontrakter, lagerlesing og
+migrerte testdobler; dette er ikke en full backend-/releasekjøring.
+
+```bash
+xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+  -xcconfig /tmp/MatLoggDebtPhysicalQA.xcconfig \
+  -destination 'platform=iOS,id=<QA-iPhone-UDID>' \
+  -derivedDataPath /tmp/MatLoggDebtPhysicalQA \
+  -only-testing:MatLoggTests/DomainReadFailureTests \
+  -only-testing:MatLoggTests/DomainReadFlowTests \
+  -only-testing:MatLoggTests/HistoryReadFailureTests \
+  -only-testing:MatLoggTests/HistoryReadViewModelTests \
+  -only-testing:MatLoggTests/DailyGoalsTests \
+  -only-testing:MatLoggTests/ProfileTests \
+  -only-testing:MatLoggTests/HealthProfileViewModelTests \
+  -only-testing:MatLoggTests/LogViewModelTests \
+  -only-testing:MatLoggTests/HomeOverviewViewModelTests \
+  -only-testing:MatLoggTests/FoodSearchTests \
+  -only-testing:MatLoggTests/FoodSearchLoadingTests \
+  -only-testing:MatLoggTests/ProductSearchTests \
+  -only-testing:MatLoggTests/BarcodeCatalogStorageTests \
+  -only-testing:MatLoggTests/LoadingStateTests \
+  -only-testing:MatLoggTests/SavedMealsTests \
+  -only-testing:MatLoggTests/SavedMealStorageTests \
+  -only-testing:MatLoggTests/MealReuseTests \
+  -only-testing:MatLoggTests/MealBatchStorageTests \
+  -only-testing:MatLoggTests/HealthExportTests \
+  -only-testing:MatLoggTests/HealthExportMigrationTests \
+  -only-testing:MatLoggTests/PortionLoggingTests \
+  -only-testing:MatLoggTests/LoggingDraftTests \
+  -only-testing:MatLoggTests/RenderPresentationTests \
+  -only-testing:MatLoggTests/PerformanceWorkerTests \
+  -only-testing:MatLoggTests/WaterLoggingTests \
+  -parallel-testing-enabled NO -allowProvisioningUpdates
+```
+
+QA-xcconfig skal opprettes/gjenbrukes med egne bundle-ID-er som beskrevet i
+fysisk QA-oppskrift over; den midlertidige filstien er ikke en del av repoet.
+Kjør relevante UI-smoker for profil/mål/vekt, favoritter, logging og omstart
+etterpå. Kontroller at lesefeil ikke blir en tomtilstand, at gammel konteksts
+innhold forsvinner ved profilbytte, og at retry bevarer brukerens redigering
+eller sperrer redigering inntil nødvendig kilde kan leses.
+
+Arkitekturkontroll: ingen IO er flyttet til views. Repository-feil håndteres i
+ViewModels; views viser feil og sender retry-intensjon. Ingen schema-/event-
+endring, endret ernæringsgrunnlag eller opplasting. Lokal domene-/synk-/Helse-
+outbox-transaksjon er bevart og rollback-/gjenåpningstestene består.
+Skills: offline-sync, backend-api, ios-swiftui, nutrition-privacy, product-design
+og qa-release. Backend-build/-tester er ikke kjørt for README-/kommentarendringer.

@@ -5,7 +5,7 @@ description: Utform og endre MatLoggs lokale lagring, synkkø, event-format, ret
 
 # Offline-first og synk
 
-Velg kontekst etter endringen: Ved lokal lagring/kø, les berørte deler av `LocalStore.swift` og `SyncEngine.swift` samt relevante tester. Ved transport/backend, les `SupabaseService.swift`, `sync-events` og berørte SQL/RPC-er. Ved event-format eller kompatibilitet, les `docs/sync-contract-v1.md` og relevant del av `docs/specs/05-data-model-sync.md` og `docs/specs/07-edge-cases.md`. Les legacy-backendens sync-modul bare ved kompatibilitetsarbeid i `backend/`.
+Velg kontekst etter endringen: Ved lokal lagring/kø, les berørte deler av `LocalStore.swift`, `LocalStore+History.swift`, `LocalStore+Products.swift`, `LocalStore+Profiles.swift`, `SQLiteReadStatement.swift` og `SyncEngine.swift` samt relevante tester. Ved transport/backend, les `SupabaseService.swift`, `sync-events` og berørte SQL/RPC-er. Ved event-format eller kompatibilitet, les `docs/sync-contract-v1.md` og relevant del av `docs/specs/05-data-model-sync.md` og `docs/specs/07-edge-cases.md`. Les legacy-backendens sync-modul bare ved kompatibilitetsarbeid i `backend/`.
 
 Lokale brukerhandlinger skal lagres atomisk før nettverksforsøk. Hver hendelse skal ha stabil unik ID, eksplisitt type og schema-versjon. Retry må være trygg: backend skal deduplisere på event-ID, og klienten skal ikke miste en hendelse ved timeout eller prosessavbrudd.
 

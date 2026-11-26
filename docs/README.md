@@ -51,6 +51,7 @@ Faktiske dataflyter og åpne funn er samlet i
 - Build, test og release-gates: [testveiledningen](testing.md)
 - iOS-oppstart og dependency composition: `MatLogg/MatLoggApp.swift` og `MatLogg/App/AppState.swift`
 - Lokal lagring og synkkø: `MatLogg/Services/LocalStore.swift` og `MatLogg/Services/SyncEngine.swift`
+- Domene-lesing: `LocalStore+History.swift`, `LocalStore+Products.swift` og `LocalStore+Profiles.swift` under `MatLogg/Services/`; kontrollert SQLite-lesing i `SQLiteReadStatement.swift`
 - Eksterne produktkall: `MatLogg/Services/APIService.swift`
 - Konto-/synktransport: `MatLogg/Services/SupabaseService.swift` (domeneopplasting sperres av `DomainUploadPolicy.localOnly`)
 - Supabase-kontrakt og Edge Functions: `supabase/functions/`

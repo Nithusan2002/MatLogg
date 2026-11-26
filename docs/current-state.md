@@ -1,5 +1,32 @@
 # Gjeldende prosjektstatus
 
+## Runde 2 – lokal kodekandidat 25. november 2026
+
+Kodekandidat **`c86bb83`**, på `codex/technical-debt-followup`, basert på
+`main` `14e861a`. Runde 2 er ikke slått sammen eller distribuert.
+
+- Gamle ikke-kastende historikk-/måltidsgrensesnitt og feilskjulende defaults
+  er fjernet. Mål, vekt, produkter, favoritter, skanning og matching formidler
+  lesefeil gjennom repositories; eksport stopper ved feil i nødvendige kilder.
+- Uleselige personopplysninger bevares og kan ikke overskrives fra en tom
+  redigeringsfallback. Feil/retry og samme profils sist lastede innhold
+  håndteres i berørte ViewModels/skjermer.
+- 23 lesemetoder er flyttet til LocalStore+History/Products/Profiles.
+  SQLiteReadStatement kontrollerer prepare, binding, step og dekoding;
+  LocalStore beholder privat tilkobling, seriell kø og transaksjoner.
+- **72 målrettede tester i ti suiter bestod på macOS med faktiske kilder.**
+  Signert iOS build-for-testing bestod for app og testtargeter. iPhonen var
+  utilgjengelig, og ingen simulatorruntime var installert; ingen ny iOS-
+  testkjøring eller visuell QA er bekreftet for denne kandidaten.
+- Legacy beholdes med eksplisitt vedlikeholdsgrense og konkret avviklingspakke
+  i backend/README.md. CI-portene er uendret; faktisk drift/eldre klientbruk
+  må avklares før avvikling.
+
+Ingen skjema-/synkkontraktsendring eller aktivering av opplasting inngår.
+Se [planens resultat](plans/technical-debt-remediation.md#runde-2--gjennomføringsstatus)
+og [testavgrensningen](testing.md#runde-2--lesefeil-og-ansvarsdeling-25-november-2026).
+
+
 ## Avgrenset kodekontroll – 25. november 2026
 
 Teknisk gjeld er utbedret i kodekandidat `b9b8eb7`, basert på main `85755ea`:
