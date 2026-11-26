@@ -967,6 +967,36 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testProfileSavedMealsReturnsWithoutChangingDateWithLargestText() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let previousDay = app.buttons["Forrige dag"]
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 10))
+        previousDay.tap()
+        let selectedDate = app.buttons["day-navigation-date"].label
+        app.buttons["Profil"].firstMatch.tap()
+        let library = app.buttons["profile-saved-meals"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        for _ in 0..<8 {
+            if library.isHittable && library.frame.maxY < app.frame.height - 130 { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(library.isHittable)
+        library.tap()
+        let navigationBar = app.navigationBars["Lagrede måltider"]
+        XCTAssertTrue(navigationBar.waitForExistence(timeout: 5))
+        XCTAssertFalse(navigationBar.buttons["Lukk"].exists)
+        let back = navigationBar.buttons.firstMatch
+        XCTAssertTrue(back.isHittable)
+        back.tap()
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        app.buttons["Hjem"].firstMatch.tap()
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, selectedDate)
+    }
+
+    @MainActor
     func testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu() throws {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth"]

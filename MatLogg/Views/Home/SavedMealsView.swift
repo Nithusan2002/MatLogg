@@ -163,96 +163,134 @@ struct SavedMealsListView: View {
     @State private var selectedMeal: SavedMeal?
     @State private var editingMeal: SavedMeal?
     @State private var deleteCandidate: SavedMeal?
+    var isPresentedAsSheet = true
     let onLogged: () -> Void
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isLoading && viewModel.meals.isEmpty {
-                    ProgressView("Henter lagrede måltider …")
-                } else if let error = viewModel.loadError, viewModel.meals.isEmpty {
-                    ContentUnavailableView {
-                        Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
-                    } description: {
+        if isPresentedAsSheet {
+            NavigationStack { libraryContent }
+        } else {
+            libraryContent
+        }
+    }
+
+    private var libraryContent: some View {
+        Group {
+            if viewModel.meals.isEmpty {
+                ScrollView {
+                    emptyContent
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                }
+                .modifier(LibraryScrollClearance(isPresentedAsSheet: isPresentedAsSheet))
+            } else {
+                List {
+                    if let error = viewModel.loadError {
                         ErrorMessageView(error)
-                    } actions: {
                         Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
                     }
-                } else if viewModel.meals.isEmpty {
-                    ContentUnavailableView {
-                        Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
-                    } description: {
-                        Text("På Hjem velger du ••• ved Måltider → Lagre som måltid.")
-                    }
-                } else {
-                    List {
-                        if let error = viewModel.loadError {
-                            ErrorMessageView(error)
-                            Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
+                    ForEach(viewModel.meals) { meal in
+                        Button { selectedMeal = meal } label: {
+                            SavedMealRow(meal: meal)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
-                        ForEach(viewModel.meals) { meal in
-                            Button { selectedMeal = meal } label: {
-                                SavedMealRow(meal: meal)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("saved-meal-open-\(meal.id)")
-                            .listRowBackground(AppColors.background)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button("Slett", role: .destructive) { deleteCandidate = meal }
-                                Button("Rediger") { editingMeal = meal }.tint(AppColors.action)
-                            }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("saved-meal-open-\(meal.id)")
+                        .listRowBackground(AppColors.background)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("Slett", role: .destructive) { deleteCandidate = meal }
+                            Button("Rediger") { editingMeal = meal }.tint(AppColors.action)
                         }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .refreshable { await viewModel.load(userId: authViewModel.currentUser?.id) }
+                }
+                .modifier(LibraryScrollClearance(isPresentedAsSheet: isPresentedAsSheet))
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .refreshable { await viewModel.load(userId: authViewModel.currentUser?.id) }
+            }
+        }
+        .background(AppColors.background)
+        .navigationTitle("Lagrede måltider")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(AppColors.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            if viewModel.showsLoadingFeedback && !viewModel.meals.isEmpty {
+                ToolbarItem(placement: .topBarLeading) {
+                    ActivityIndicatorSlot(isActive: true, label: "Oppdaterer måltider")
                 }
             }
-            .background(AppColors.background)
-            .navigationTitle("Lagrede måltider")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(AppColors.background, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                if viewModel.showsLoadingFeedback && !viewModel.meals.isEmpty {
-                    ToolbarItem(placement: .topBarLeading) {
-                        ActivityIndicatorSlot(isActive: true, label: "Oppdaterer måltider")
-                    }
-                }
+            if isPresentedAsSheet {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Lukk") { dismiss() }
                         .frame(minWidth: 44, minHeight: 44)
                 }
             }
-            .task(id: authViewModel.currentUser?.id) {
-                await viewModel.load(userId: authViewModel.currentUser?.id)
+        }
+        .task(id: authViewModel.currentUser?.id) {
+            await viewModel.load(userId: authViewModel.currentUser?.id)
+        }
+        .sheet(item: $selectedMeal) { meal in
+            SavedMealLogView(meal: meal) {
+                selectedMeal = nil
+                if isPresentedAsSheet { dismiss() }
+                onLogged()
             }
-            .sheet(item: $selectedMeal) { meal in
-                SavedMealLogView(meal: meal) {
-                    selectedMeal = nil
-                    dismiss()
-                    onLogged()
+        }
+        .sheet(item: $editingMeal) { meal in
+            SavedMealLogView(meal: meal, startsEditing: true, onLogged: onLogged)
+        }
+        .alert("Slette \(deleteCandidate?.name ?? "måltidet")?", isPresented: Binding(
+            get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } }
+        )) {
+            Button("Slett", role: .destructive) {
+                guard let meal = deleteCandidate else { return }
+                Task {
+                    _ = await viewModel.delete(meal)
+                    deleteCandidate = nil
                 }
             }
-            .sheet(item: $editingMeal) { meal in
-                SavedMealLogView(meal: meal, startsEditing: true, onLogged: onLogged)
+            Button("Avbryt", role: .cancel) { deleteCandidate = nil }
+        } message: {
+            Text("Tidligere loggføringer blir ikke slettet.")
+        }
+    }
+
+    @ViewBuilder
+    private var emptyContent: some View {
+        if viewModel.isLoading {
+            ProgressView("Henter lagrede måltider …")
+        } else if let error = viewModel.loadError {
+            ContentUnavailableView {
+                Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
+            } description: {
+                ErrorMessageView(error)
+            } actions: {
+                Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
+                    .accessibilityIdentifier("saved-meals-retry")
             }
-            .alert("Slette \(deleteCandidate?.name ?? "måltidet")?", isPresented: Binding(
-                get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } }
-            )) {
-                Button("Slett", role: .destructive) {
-                    guard let meal = deleteCandidate else { return }
-                    Task {
-                        _ = await viewModel.delete(meal)
-                        deleteCandidate = nil
-                    }
-                }
-                Button("Avbryt", role: .cancel) { deleteCandidate = nil }
-            } message: {
-                Text("Tidligere loggføringer blir ikke slettet.")
+            .accessibilityIdentifier("saved-meals-read-error")
+        } else {
+            ContentUnavailableView {
+                Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
+            } description: {
+                Text("På Hjem velger du ••• ved Måltider → Lagre som måltid.")
             }
+            .accessibilityIdentifier("saved-meals-empty-state")
+        }
+    }
+}
+
+private struct LibraryScrollClearance: ViewModifier {
+    let isPresentedAsSheet: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isPresentedAsSheet {
+            content
+        } else {
+            content.matLoggTabBarScrollClearance()
         }
     }
 }
