@@ -5,7 +5,11 @@ protocol ProductFavoriteRepository {
     func isFavorite(userId: UUID, productId: UUID) async throws -> Bool
 }
 
-protocol ProductRepository: ProductFavoriteRepository {
+protocol FavoriteListRepository {
+    func getFavorites(userId: UUID, kind: ProductKind?) async throws -> [Product]
+}
+
+protocol ProductRepository: ProductFavoriteRepository, FavoriteListRepository {
     func saveProduct(_ product: Product, ownerUserId: UUID) async throws
     func cacheCatalogProduct(_ product: Product) async throws
     func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product]
@@ -17,7 +21,6 @@ protocol ProductRepository: ProductFavoriteRepository {
     func getMatchMapping(for barcode: String) async throws -> ProductMatchMapping?
     func saveScanHistory(userId: UUID, productId: UUID) async throws
     func getRecentScans(userId: UUID, limit: Int) async throws -> [ScanHistory]
-    func getFavorites(userId: UUID, kind: ProductKind?) async throws -> [Product]
     func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) async throws -> [Product]
     func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async throws
     func getMatvaretabellenCache(maxAgeDays: Int) async throws -> [MatvaretabellenProduct]?

@@ -6,11 +6,11 @@ final class ProfileFavoritesViewModel: ObservableObject {
     @Published private(set) var products: [Product] = []
     @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = true
-    private let repository: any ProductRepository
+    private let repository: any FavoriteListRepository
     private var requestId = UUID()
     private var owner: UUID?
 
-    init(repository: any ProductRepository) { self.repository = repository }
+    init(repository: any FavoriteListRepository) { self.repository = repository }
 
     func load(userId: UUID?) async {
         let request = UUID()

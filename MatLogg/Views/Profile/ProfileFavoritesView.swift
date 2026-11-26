@@ -19,7 +19,9 @@ struct ProfileFavoritesView: View {
             } else if viewModel.products.isEmpty, let error = viewModel.errorMessage {
                 VStack(spacing: 12) {
                     ErrorMessageView(error)
+                        .accessibilityIdentifier("favorites-read-error")
                     Button("Prøv igjen") { Task { await loadFavorites() } }
+                        .accessibilityIdentifier("favorites-retry")
                         .frame(minHeight: 44)
                 }
                 .padding(20)
@@ -42,7 +44,9 @@ struct ProfileFavoritesView: View {
                     LazyVStack(spacing: 12) {
                         if let error = viewModel.errorMessage {
                             ErrorMessageView(error)
+                        .accessibilityIdentifier("favorites-read-error")
                             Button("Prøv igjen") { Task { await loadFavorites() } }
+                        .accessibilityIdentifier("favorites-retry")
                                 .frame(minHeight: 44)
                         }
                         ForEach(viewModel.products) { product in
