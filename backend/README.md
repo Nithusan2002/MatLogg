@@ -176,3 +176,35 @@ curl -X POST http://localhost:4000/v1/sync/events \
 ## Env
 
 Se `.env.example`.
+
+## Beslutningsgrunnlag kontrollert 26. november 2026
+
+Anbefaling: behold avgrenset referansevedlikehold inntil faktisk drift og
+eldre klienter er avklart. Denne gjennomgangen godkjenner ingen avvikling.
+Grunnlag: lokal main `068f24d`; ingen forespørsler er sendt til produksjon.
+
+- AuthViewModel sin standardinitializer velger SupabaseService eller
+  UnavailableAccountAuthRepository. Legacy-initializere finnes fortsatt.
+- APIService inneholder fremdeles gammel konto-/synktransport, men også
+  produktkatalog. SupabaseService og SyncEngine bruker fortsatt UploadResult,
+  RejectedEvent og APIError derfra. En samlet filsletting ville ramme aktiv kode.
+- Backend CI bygger, tester og kjører migreringer i testmiljø. Ingen
+  produksjonsdeploy er definert i denne workflowen. Dockerfile kjører
+  migrering ved oppstart; det er ikke bevis for at containeren er i drift.
+- `git ls-files backend` viser 52 versjonerte filer på denne kandidaten.
+  Eksakt avviklingsliste må tas fra godkjent avviklingskandidat, ikke fra
+  lokale node_modules eller generert dist.
+
+Følgende eksterne opplysninger mangler før anbefalingen kan endres:
+
+| Avklaring | Nødvendig bevis / neste handling |
+| --- | --- |
+| Hvem drifter eventuell gammel API-tjeneste, og hvor? | Navngitt tjeneste-/deployeier, aktiv konfigurasjon og siste deploy. Fravær av deploy i repoet er utilstrekkelig. |
+| Bruker distribuerte klientversjoner gammel API? | Versjonsoversikt og aggregert trafikk for relevante ruter, uten tokens/persondata. En kildekode-URL beviser ikke trafikk. |
+| Kan eventuell database/tjeneste gjenopprettes? | Verifisert backup-/restore- og rollback-oppskrift før stenging. Kildearkiv er ikke databaserestore. |
+| Hvilke opprinnelige cutoverporter gjelder fortsatt? | Kandidatbundet staging-/pilot-/backupstatus eller eksplisitt beslutning om endret scope. Lokal lansering opphever ikke krav automatisk. |
+
+Når disse foreligger: oppdater tabellen, velg behold/migrer/avvikle og
+utarbeid den konkrete avviklingspakken beskrevet ovenfor før godkjenning.
+Den separate lokale avhengighetsplanen under docs/plans er et eget arbeid;
+parser-, Zod- eller Nest-migrering inngår ikke i denne avviklingsvurderingen.
