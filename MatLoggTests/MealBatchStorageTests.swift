@@ -30,7 +30,7 @@ struct MealBatchStorageTests {
         queue.resume()
         try await save.value
         #expect(try await database.loadAllLogs(userId: owner).count == 2)
-        #expect(await database.pendingSyncCount() == 2)
+        #expect(try await database.pendingSyncCount() == 2)
         #expect(store.fetchPendingEvents(limit: 10).allSatisfy { $0.type == "log.upsert" && $0.schemaVersion == 1 })
     }
 
@@ -52,11 +52,11 @@ struct MealBatchStorageTests {
             #expect(error is LocalStoreError)
         }
         #expect(try await database.loadAllLogs(userId: owner).isEmpty)
-        #expect(await database.pendingSyncCount() == 0)
+        #expect(try await database.pendingSyncCount() == 0)
         try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
         try await database.saveLogs(logs)
         #expect(try await database.loadAllLogs(userId: owner).count == 2)
-        #expect(await database.pendingSyncCount() == 2)
+        #expect(try await database.pendingSyncCount() == 2)
     }
 
     @Test func savesMealAndUndoWithCanonicalEvents() throws {
@@ -75,7 +75,7 @@ struct MealBatchStorageTests {
 
             try store.deleteLogs(logs.map(\.id))
             #expect(try store.loadAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 4)
+            #expect(try store.pendingSyncCount() == 4)
             #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == created.map(\.eventId))
             store.markEventsAcked(created.map(\.eventId))
             let deleted = store.fetchPendingEvents(limit: 20)
@@ -93,12 +93,12 @@ struct MealBatchStorageTests {
             try installEventFailure(url, entityId: logs[1].id, type: "log.upsert")
             #expect(throws: (any Error).self) { try store.saveLogs(logs) }
             #expect(try store.loadAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
 
             try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
             try store.saveLogs(logs)
             #expect(try store.loadAllLogs(userId: userId).count == 2)
-            #expect(store.pendingSyncCount() == 2)
+            #expect(try store.pendingSyncCount() == 2)
         }
     }
 
@@ -116,7 +116,7 @@ struct MealBatchStorageTests {
             try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
             try store.deleteLogs(logs.map(\.id))
             #expect(try store.loadAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 4)
+            #expect(try store.pendingSyncCount() == 4)
         }
     }
 
@@ -124,7 +124,7 @@ struct MealBatchStorageTests {
         try withStore { store, _ in
             try store.saveLogs([])
             try store.deleteLogs([])
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 

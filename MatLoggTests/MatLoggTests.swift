@@ -385,7 +385,7 @@ struct MatLoggTests {
         try store.cacheCatalogProduct(product)
 
         #expect(try store.getProductByBarcode(barcode, ownerUserId: nil)?.id == product.id)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
     }
 
     @Test func userProductsAreOwnerScopedClaimedAndDeletedWithProfileData() throws {
@@ -442,7 +442,7 @@ struct MatLoggTests {
         #expect(products.count == 1)
         #expect(products[requested.id]?.name == requested.name)
         #expect(products[omitted.id] == nil)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
     }
 
     @Test func localDatabaseUsesLatestFormalSchemaVersion() async {
@@ -522,7 +522,7 @@ struct MatLoggTests {
 
         let store = try LocalStore(databaseURL: url)
         #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
-        #expect(store.quarantinedSyncCount() == 1)
+        #expect(try store.quarantinedSyncCount() == 1)
         #expect(store.fetchPendingEvents(ownerUserId: UUID(), limit: 10).isEmpty)
 
         db = nil
@@ -744,13 +744,13 @@ struct MatLoggTests {
         let product = Product(name: "Slettes", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
         try store.saveProduct(product, ownerUserId: userId)
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2000, proteinTargetG: 100, carbsTargetG: 200, fatTargetG: 60))
-        #expect(store.pendingSyncCount() > 0)
+        #expect(try store.pendingSyncCount() > 0)
 
         try store.resetAllData()
 
         #expect(try store.getProduct(product.id) == nil)
         #expect(try store.getLatestGoal(userId: userId) == nil)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
     }
 }
 
@@ -999,7 +999,7 @@ struct LogViewModelTests {
         try store.saveLogs([restored])
         let reopened = try LocalStore(databaseURL: url)
         #expect(try reopened.loadAllLogs(userId: owner).map(\.id) == [restored.id])
-        #expect(reopened.pendingSyncCount() == 3)
+        #expect(try reopened.pendingSyncCount() == 3)
         let ready = reopened.fetchPendingEvents(ownerUserId: owner, limit: 10)
         #expect(ready.map(\.type) == ["log.upsert", "log.upsert"])
         #expect(ready.compactMap(\.entityId) == [original.id.uuidString, restored.id.uuidString])

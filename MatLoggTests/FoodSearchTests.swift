@@ -440,10 +440,10 @@ struct FoodSearchTests {
         try store.saveProduct(own, ownerUserId: owner)
         try store.saveProduct(foreign, ownerUserId: other)
         try store.cacheCatalogProduct(shared)
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         #expect(try Set(store.getSearchableProducts(ownerUserId: owner).map(\.id)) == [own.id, shared.id])
         #expect(try store.getSearchableProducts(ownerUserId: nil).map(\.id) == [shared.id])
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
     }
 
     @Test func repositoryCombinesBundledCatalogAndOwnerProductsAndPreparesWithoutSync() async throws {
@@ -464,13 +464,13 @@ struct FoodSearchTests {
         let raw = try #require(library.suggestions.first)
         #expect(raw.nutritionSource == .matvaretabellen)
         #expect(raw.amountUnit == .grams)
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         try await repository.prepare(raw, owner: owner)
         #expect(try store.getProduct(raw.id)?.id == raw.id)
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
         let manual = product("Manuell testvare")
         try await repository.saveManual(manual, owner: owner)
-        #expect(store.pendingSyncCount() == count + 1)
+        #expect(try store.pendingSyncCount() == count + 1)
         #expect(try store.getSearchableProducts(ownerUserId: owner).contains { $0.id == manual.id })
         #expect(try !store.getSearchableProducts(ownerUserId: UUID()).contains { $0.id == manual.id })
     }

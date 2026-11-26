@@ -27,15 +27,15 @@ struct AutomaticSyncRetryTests {
         defer { engine.updateActiveOwner(nil) }
         #expect(!(await engine.syncPendingEvents(ownerUserId: owner)).success)
         #expect(harness.stub.requests.count == 1)
-        #expect(store.syncQueueStatus().unsyncedCount == 1)
-        #expect(store.failedSyncCount() == 0)
+        #expect(try store.syncQueueStatus().unsyncedCount == 1)
+        #expect(try store.failedSyncCount() == 0)
         #expect(try store.loadAllLogs(userId: owner).map(\.id) == [log.id])
         let retryDate = try #require(store.nextPendingRetryDate(ownerUserId: owner))
         #expect(retryDate.timeIntervalSinceNow > 9)
         #expect(store.fetchPendingEvents(ownerUserId: owner, limit: 50).isEmpty)
         // No manual retry, queue edits or clock acceleration: wait for the production timer.
         let deadline = retryDate.addingTimeInterval(5)
-        while store.syncQueueStatus().unsyncedCount != 0 && Date() < deadline {
+        while try store.syncQueueStatus().unsyncedCount != 0 && Date() < deadline {
             try await Task.sleep(for: .milliseconds(50))
         }
         let requests = harness.stub.requests
@@ -51,9 +51,9 @@ struct AutomaticSyncRetryTests {
             #expect(events.first?["eventId"] as? String == original.eventId.uuidString)
             #expect(events.first?["payload"] as? String == original.payload.base64EncodedString())
         }
-        #expect(store.syncQueueStatus().unsyncedCount == 0)
+        #expect(try store.syncQueueStatus().unsyncedCount == 0)
         let reopened = try LocalStore(databaseURL: directory.appendingPathComponent("retry.sqlite"))
-        #expect(reopened.syncQueueStatus().unsyncedCount == 0)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 0)
         #expect(try reopened.loadAllLogs(userId: owner).count == 1)
         #expect(try reopened.loadAllLogs(userId: owner).first?.calories == log.calories)
     }

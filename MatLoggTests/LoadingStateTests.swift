@@ -122,7 +122,7 @@ struct LoadingStateTests {
         let first = summary(owner: owner, date: yesterday, product: item).logs[0]
         let foreign = summary(owner: other, date: yesterday, product: item).logs[0]
         try store.saveLogs([first, foreign])
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         let repository = DatabaseService(store: store)
         let dates = [today, older, yesterday]
         let result = try await repository.loadSummaries(userId: owner, dates: dates)
@@ -130,7 +130,7 @@ struct LoadingStateTests {
         #expect(result[0].logs.isEmpty && result[1].logs.isEmpty)
         #expect(result[2].logs.map(\.id) == [first.id])
         #expect(try result[2].totalCalories == store.loadSummary(userId: owner, date: yesterday).totalCalories)
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
         #expect(try await repository.loadSummaries(userId: owner, dates: []).isEmpty)
     }
 

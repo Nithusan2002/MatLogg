@@ -234,3 +234,12 @@ opplastingspolicy i produksjonskode er uendret. Ingen arkitekturavvik.
 Skills brukt: product-review, product-design, offline-sync, ios-swiftui,
 nutrition-privacy og qa-release (instruksjoner lest i denne chatten).
 Ingen commit, push, arkiv eller utrulling er utført.
+
+
+## Lokal ferdigstilling 26. november
+
+Utkasttestene, tilstandsmodellen og brukertestopplegget er committet i
+`0d0773a`. Administrativ køstatus er fulgt opp i teknisk-gjeld-planen og
+`testing.md`, med regresjon før/etter og fysisk verifisering. Legacy-grunnlaget
+ble presisert i `3521c47`; ingen avvikling er besluttet. De utsatte manuelle
+kontrollene og deltakertestingen forblir åpne. Ingen push eller release.

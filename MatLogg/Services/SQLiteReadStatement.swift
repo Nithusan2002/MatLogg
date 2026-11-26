@@ -74,6 +74,20 @@ nonisolated final class SQLiteReadStatement {
         return value
     }
 
+    func optionalNumber(_ column: Int32) throws -> Double? {
+        sqlite3_column_type(statement, column) == SQLITE_NULL ? nil : try number(column)
+    }
+
+    func optionalText(_ column: Int32) throws -> String? {
+        sqlite3_column_type(statement, column) == SQLITE_NULL ? nil : try text(column)
+    }
+
+    func count(_ column: Int32) throws -> Int {
+        guard sqlite3_column_type(statement, column) == SQLITE_INTEGER,
+              let value = Int(exactly: sqlite3_column_int64(statement, column)), value >= 0 else { throw invalidData() }
+        return value
+    }
+
     func decode<T: Decodable>(_ type: T.Type, column: Int32 = 0) throws -> T {
         guard let bytes = sqlite3_column_blob(statement, column) else { throw invalidData() }
         let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, column)))

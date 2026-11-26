@@ -100,7 +100,7 @@ struct FoodGroupTests {
             restored.selectedFoodGroup = nil
             _ = try #require(await restored.save())
             #expect(try store.getProduct(product.id)?.selectedFoodGroup == nil)
-            #expect(store.pendingSyncCount() == 2)
+            #expect(try store.pendingSyncCount() == 2)
             #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == [initial.eventId])
             store.markEventsAcked([initial.eventId])
             let cleared = try #require(store.fetchPendingEvents(limit: 20).first)
@@ -126,7 +126,7 @@ struct FoodGroupTests {
             await model.updateFoodGroup(.dairy, owner: UUID())
             #expect(model.foodGroupError != nil)
             #expect(try store.getProduct(original.id)?.selectedFoodGroup == nil)
-            #expect(store.pendingSyncCount() == 1)
+            #expect(try store.pendingSyncCount() == 1)
             await model.updateFoodGroup(.dairy, owner: owner)
             #expect(model.foodGroupError == nil)
             let saved = try #require(try store.getProduct(original.id))
@@ -137,7 +137,7 @@ struct FoodGroupTests {
             #expect(saved.nutritionBasis == .per100ml)
             await model.updateFoodGroup(nil, owner: owner)
             #expect(model.product.foodGroup == .other)
-            #expect(store.pendingSyncCount() == 3)
+            #expect(try store.pendingSyncCount() == 3)
             for expectedGroup in [nil, FoodGroup.dairy.rawValue, nil] as [String?] {
                 let ready = store.fetchPendingEvents(ownerUserId: owner, limit: 20)
                 #expect(ready.count == 1)
@@ -151,7 +151,7 @@ struct FoodGroupTests {
                 }
                 store.markEventsAcked([event.eventId])
             }
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 

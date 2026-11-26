@@ -87,7 +87,7 @@ struct MorningCheckInTests {
         #expect(entries.count == 1)
         #expect(entries.first?.id == first.id)
         #expect(entries.first?.weightKg == 70.3)
-        #expect(await database.pendingSyncCount() == 2)
+        #expect(try await database.pendingSyncCount() == 2)
         let ready = await database.fetchPendingEvents(ownerUserId: owner, limit: 10)
         #expect(ready.count == 1)
         let initial = try #require(ready.first)

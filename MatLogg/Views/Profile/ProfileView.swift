@@ -220,7 +220,7 @@ private struct ProfileSettingsView: View {
                         .font(AppTypography.bodyEmphasis)
                         .foregroundStyle(AppColors.ink)
                     if appState.isSyncAvailable {
-                        Text(syncStatusText)
+                        Text(appState.syncStatusReadError ?? syncStatusText)
                             .font(AppTypography.secondary)
                             .foregroundStyle(AppColors.textSecondary)
                     } else {
@@ -231,6 +231,9 @@ private struct ProfileSettingsView: View {
                 }
                 .padding(.vertical, 8)
                 .accessibilityElement(children: .combine)
+                if appState.isSyncAvailable && appState.syncStatusReadError != nil {
+                    Button("Prøv å lese synkstatus igjen") { Task { await appState.refreshSyncStatus() } }
+                }
                 if appState.isSyncAvailable && appState.quarantinedSyncCount > 0 {
                     Label(
                         "\(appState.quarantinedSyncCount) eldre endring(er) er lagret på denne iPhonen. De kan ikke lastes opp fordi vi ikke kan bekrefte hvilken konto de tilhører.",

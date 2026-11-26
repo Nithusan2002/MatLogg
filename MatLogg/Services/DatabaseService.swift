@@ -279,28 +279,28 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         try await perform { try $0.getMatvaretabellenCache(maxAgeDays: maxAgeDays) }
     }
     
-    func pendingSyncCount() async -> Int {
-        await performIfAvailable { $0?.pendingSyncCount() ?? 0 }
+    func pendingSyncCount() async throws -> Int {
+        try await perform { try $0.pendingSyncCount() }
     }
 
-    func failedSyncCount() async -> Int {
-        await performIfAvailable { $0?.failedSyncCount() ?? 0 }
+    func failedSyncCount() async throws -> Int {
+        try await perform { try $0.failedSyncCount() }
     }
 
-    func syncQueueStatus() async -> SyncQueueStatus {
-        await performIfAvailable { $0?.syncQueueStatus() ?? .empty }
+    func syncQueueStatus() async throws -> SyncQueueStatus {
+        try await perform { try $0.syncQueueStatus() }
     }
 
-    func syncQueueStatus(ownerUserId: UUID) async -> SyncQueueStatus {
-        await performIfAvailable { $0?.syncQueueStatus(ownerUserId: ownerUserId) ?? .empty }
+    func syncQueueStatus(ownerUserId: UUID) async throws -> SyncQueueStatus {
+        try await perform { try $0.syncQueueStatus(ownerUserId: ownerUserId) }
     }
 
-    func failedSyncEvents(limit: Int = 5) async -> [SyncFailureSummary] {
-        await performIfAvailable { $0?.failedSyncEvents(limit: limit) ?? [] }
+    func failedSyncEvents(limit: Int = 5) async throws -> [SyncFailureSummary] {
+        try await perform { try $0.failedSyncEvents(limit: limit) }
     }
 
-    func failedSyncEvents(ownerUserId: UUID, limit: Int = 5) async -> [SyncFailureSummary] {
-        await performIfAvailable { $0?.failedSyncEvents(ownerUserId: ownerUserId, limit: limit) ?? [] }
+    func failedSyncEvents(ownerUserId: UUID, limit: Int = 5) async throws -> [SyncFailureSummary] {
+        try await perform { try $0.failedSyncEvents(ownerUserId: ownerUserId, limit: limit) }
     }
 
     func nextPendingRetryDate() async -> Date? {
@@ -311,8 +311,8 @@ class DatabaseService: FoodLoggingDraftRepository, WaterRepository, ProfileDataE
         await performIfAvailable { $0?.nextPendingRetryDate(ownerUserId: ownerUserId) }
     }
 
-    func quarantinedSyncCount() async -> Int {
-        await performIfAvailable { $0?.quarantinedSyncCount() ?? 0 }
+    func quarantinedSyncCount() async throws -> Int {
+        try await perform { try $0.quarantinedSyncCount() }
     }
 
     func localSchemaVersion() async -> Int {

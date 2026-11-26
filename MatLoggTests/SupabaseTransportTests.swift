@@ -240,7 +240,7 @@ struct SupabaseQueueIntegrationTests {
         engine.updateActiveOwner(nil) // Cancel the scheduled retry before simulating restart.
         let reopened = try LocalStore(databaseURL: url)
         #expect(try reopened.loadAllLogs(userId: owner).map(\.id).sorted(by: uuidOrder) == logs.map(\.id).sorted(by: uuidOrder))
-        #expect(reopened.syncQueueStatus().unsyncedCount == 1)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 1)
         #expect(reopened.fetchPendingEvents(ownerUserId: owner, limit: 50).isEmpty)
         reopened.markEventForRetry(second.eventId, error: nil, backoffSeconds: 0)
         let remaining = try #require(reopened.fetchPendingEvents(ownerUserId: owner, limit: 50).first)
@@ -252,7 +252,7 @@ struct SupabaseQueueIntegrationTests {
         let uploaded = try wireEventIDs(retry.stub)
         #expect(uploaded == [second.eventId])
         let final = try LocalStore(databaseURL: url)
-        #expect(final.syncQueueStatus().unsyncedCount == 0)
+        #expect(try final.syncQueueStatus().unsyncedCount == 0)
         #expect(try final.loadAllLogs(userId: owner).count == 2)
     }
 
@@ -273,7 +273,7 @@ struct SupabaseQueueIntegrationTests {
         let reopened = try LocalStore(databaseURL: url)
         #expect(try reopened.loadAllLogs(userId: owner).first?.id == entry.id)
         #expect(try reopened.loadAllLogs(userId: owner).first?.calories == entry.calories)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 1)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 1)
         reopened.markEventForRetry(original.eventId, error: nil, backoffSeconds: 0)
         let retained = try #require(reopened.fetchPendingEvents(ownerUserId: owner, limit: 50).first)
         #expect(retained.payload == original.payload && retained.eventId == original.eventId)
@@ -284,7 +284,7 @@ struct SupabaseQueueIntegrationTests {
         let secondUpload = try wireEventIDs(online.stub)
         #expect(firstUpload == secondUpload)
         #expect(try reopened.loadAllLogs(userId: owner).count == 1)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 0)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 0)
     }
 
     @Test func interruptedInFlightUploadIsRecoveredOnReopen() async throws {
@@ -296,7 +296,7 @@ struct SupabaseQueueIntegrationTests {
         try store.saveLog(log(owner))
         let original = try #require(store.fetchPendingEvents(ownerUserId: owner, limit: 50).first)
         store.markEventsInFlight([original.eventId]) // Process ends before recording the ACK.
-        #expect(store.syncQueueStatus().inFlightCount == 1)
+        #expect(try store.syncQueueStatus().inFlightCount == 1)
         let reopened = try LocalStore(databaseURL: url)
         let recovered = try #require(reopened.fetchPendingEvents(ownerUserId: owner, limit: 50).first)
         #expect(recovered.eventId == original.eventId && recovered.payload == original.payload)
@@ -306,7 +306,7 @@ struct SupabaseQueueIntegrationTests {
         #expect((await engine.syncPendingEvents(ownerUserId: owner)).success)
         #expect(try wireEventIDs(harness.stub) == [original.eventId])
         #expect(try reopened.loadAllLogs(userId: owner).count == 1)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 0)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 0)
     }
 
     private func makeEngine(store: LocalStore, service: SupabaseService, owner: UUID) -> SyncEngine {

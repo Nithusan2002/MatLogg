@@ -697,89 +697,47 @@ nonisolated final class LocalStore: @unchecked Sendable {
 
     // MARK: - Sync Queue
     
-    func pendingSyncCount() -> Int {
-        syncQueueStatus().pendingCount
-    }
+    func pendingSyncCount() throws -> Int { try syncQueueStatus().pendingCount }
 
-    func failedSyncCount() -> Int {
-        syncQueueStatus().failedCount
-    }
+    func failedSyncCount() throws -> Int { try syncQueueStatus().failedCount }
 
-    func syncQueueStatus() -> SyncQueueStatus {
-        syncQueueStatus(ownerUserId: nil)
-    }
+    func syncQueueStatus() throws -> SyncQueueStatus { try syncQueueStatus(ownerUserId: nil) }
 
-    func syncQueueStatus(ownerUserId: UUID?) -> SyncQueueStatus {
-        queue.sync {
-            let ownerClause = ownerUserId == nil ? "" : "WHERE ownerUserId = ?"
-            let sql = """
-            SELECT
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN status = 'inFlight' THEN 1 ELSE 0 END),
-                SUM(CASE WHEN status = 'deadLetter' THEN 1 ELSE 0 END),
-                MIN(CASE WHEN status = 'pending' THEN nextRetryAt END)
-            FROM sync_queue
-            \(ownerClause);
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            if let ownerUserId {
-                sqlite3_bind_text(stmt, 1, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
-            }
-            defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return .empty }
-            let nextRetryAt = sqlite3_column_type(stmt, 3) == SQLITE_NULL
-                ? nil
-                : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
-            return SyncQueueStatus(
-                pendingCount: Int(sqlite3_column_int(stmt, 0)),
-                inFlightCount: Int(sqlite3_column_int(stmt, 1)),
-                failedCount: Int(sqlite3_column_int(stmt, 2)),
-                nextRetryAt: nextRetryAt
-            )
+    func syncQueueStatus(ownerUserId: UUID?) throws -> SyncQueueStatus {
+        let ownerClause = ownerUserId == nil ? "" : "WHERE ownerUserId = ?"
+        let sql = """
+        SELECT COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN status = 'inFlight' THEN 1 ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN status = 'deadLetter' THEN 1 ELSE 0 END), 0),
+               MIN(CASE WHEN status = 'pending' THEN nextRetryAt END)
+        FROM sync_queue \(ownerClause);
+        """
+        let rows = try readRows(sql: sql, values: ownerUserId.map { [.text($0.uuidString)] } ?? []) { row in
+            let retry = try row.optionalNumber(3)
+            return SyncQueueStatus(pendingCount: try row.count(0), inFlightCount: try row.count(1),
+                                   failedCount: try row.count(2), nextRetryAt: retry.map(Date.init(timeIntervalSince1970:)))
         }
+        guard rows.count == 1, let result = rows.first else { throw LocalStoreError.invalidStoredData("Kunne ikke lese køstatus.") }
+        return result
     }
 
-    func failedSyncEvents(limit: Int) -> [SyncFailureSummary] {
-        failedSyncEvents(ownerUserId: nil, limit: limit)
+    func failedSyncEvents(limit: Int) throws -> [SyncFailureSummary] {
+        try failedSyncEvents(ownerUserId: nil, limit: limit)
     }
 
-    func failedSyncEvents(ownerUserId: UUID?, limit: Int) -> [SyncFailureSummary] {
-        queue.sync {
-            let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
-            let sql = """
-            SELECT eventId, type, lastError, createdAt
-            FROM sync_queue
-            WHERE status = 'deadLetter'
-            \(ownerClause)
-            ORDER BY createdAt ASC, rowid ASC
-            LIMIT ?;
-            """
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, sql, -1, &stmt, nil)
-            var index: Int32 = 1
-            if let ownerUserId {
-                sqlite3_bind_text(stmt, index, ownerUserId.uuidString, -1, SQLITE_TRANSIENT)
-                index += 1
+    func failedSyncEvents(ownerUserId: UUID?, limit: Int) throws -> [SyncFailureSummary] {
+        guard limit > 0 else { return [] }
+        let ownerClause = ownerUserId == nil ? "" : "AND ownerUserId = ?"
+        let values: [SQLiteReadValue] = (ownerUserId.map { [.text($0.uuidString)] } ?? []) + [.integer(limit)]
+        return try readRows(sql: """
+            SELECT eventId, type, lastError, createdAt FROM sync_queue
+            WHERE status = 'deadLetter' \(ownerClause)
+            ORDER BY createdAt ASC, rowid ASC LIMIT ?;
+            """, values: values) { row in
+                SyncFailureSummary(id: try row.uuid(0), type: try row.text(1),
+                    message: try row.optionalText(2) ?? "Hendelsen ble avvist av serveren.",
+                    createdAt: Date(timeIntervalSince1970: try row.number(3)))
             }
-            sqlite3_bind_int(stmt, index, Int32(limit))
-            defer { sqlite3_finalize(stmt) }
-            var results: [SyncFailureSummary] = []
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                guard let idText = sqlite3_column_text(stmt, 0),
-                      let id = UUID(uuidString: String(cString: idText)),
-                      let typeText = sqlite3_column_text(stmt, 1) else { continue }
-                let message = sqlite3_column_text(stmt, 2).map(String.init(cString:))
-                    ?? "Hendelsen ble avvist av serveren."
-                results.append(SyncFailureSummary(
-                    id: id,
-                    type: String(cString: typeText),
-                    message: message,
-                    createdAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 3))
-                ))
-            }
-            return results
-        }
     }
 
     func nextPendingRetryDate() -> Date? {
@@ -976,16 +934,12 @@ nonisolated final class LocalStore: @unchecked Sendable {
         }
     }
 
-    func quarantinedSyncCount() -> Int {
-        queue.sync {
-            var stmt: OpaquePointer?
-            sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM sync_queue WHERE status = 'quarantined';", -1, &stmt, nil)
-            defer { sqlite3_finalize(stmt) }
-            guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
-            return Int(sqlite3_column_int(stmt, 0))
-        }
+    func quarantinedSyncCount() throws -> Int {
+        let rows = try readRows(sql: "SELECT COUNT(*) FROM sync_queue WHERE status = 'quarantined';", values: []) { try $0.count(0) }
+        guard rows.count == 1, let count = rows.first else { throw LocalStoreError.invalidStoredData("Kunne ikke lese køstatus.") }
+        return count
     }
-    
+
     func resetInFlightToPending() {
         queue.sync {
             let sql = """

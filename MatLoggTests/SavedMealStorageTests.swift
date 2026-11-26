@@ -25,7 +25,7 @@ struct SavedMealStorageTests {
             #expect(try reopened.loadSavedMeals(userId: userId) == [meal])
             try reopened.deleteSavedMeal(meal.id, userId: userId)
             #expect(try reopened.loadSavedMeals(userId: userId).isEmpty)
-            #expect(reopened.pendingSyncCount() == 2)
+            #expect(try reopened.pendingSyncCount() == 2)
             #expect(reopened.fetchPendingEvents(limit: 10).map(\.eventId) == [event.eventId])
             reopened.markEventsAcked([event.eventId])
             let next = reopened.fetchPendingEvents(limit: 10)
@@ -47,7 +47,7 @@ struct SavedMealStorageTests {
 
             #expect(throws: (any Error).self) { try store.saveSavedMeal(meal) }
             #expect(try store.loadSavedMeals(userId: meal.userId).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 

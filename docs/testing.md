@@ -1584,3 +1584,54 @@ Separat QA-identitet fra `/tmp/MatLoggDebtPhysicalQA.xcconfig`:
 Neste steg: gjennomfør utkastflyten manuelt ved største tekst på QA-appen,
 og avklar faktisk feltbetjening før UI-testen endres videre. Manuell VoiceOver
 og brukertesting med deltakere gjenstår. Ingen commit/push eller releasegodkjenning.
+
+## Synkkøens administrative lesinger — 26. november 2026
+
+Grunnlag: `068f24d` / etterfølgende IN2000-commit `0d0773a`, med lokale
+køstatusendringer. Xcode 27.2 (27B52), separat QA-app
+`com.nithusan.MatLogg.qa20261014.MatLogg`, iPhone 17 / iOS 27.3.
+Ingen produksjonssynk eller backendendring.
+
+- Før retting ga `SyncDiagnosticsReadTests/missingQueueMustNotLookEmpty`
+  tre forventede feilutslag: manglende køtabell ga tom status/feilliste/null.
+  Baseline: `/tmp/in2000-queue-baseline.log`.
+- Etter retting bestod 81 tester i 12 suiter i eksisterende macOS-harness,
+  med oppdaterte faktiske lagringskilder og tester. Harness har tidligere
+  dokumenterte plattformtilpasninger og laster ikke AppState/SwiftUI.
+  Resultat: `/tmp/queue-core-tests.log`.
+- Fysisk iPhone: 39 testmetoder i SyncDiagnosticsReadTests, SyncRetryTests,
+  MealBatchStorageTests og LoggingDraftTests bestod. Resultat:
+  `/tmp/MatLoggQueueAdmin-retry-20261126.xcresult`.
+- Første fysiske kjøring av den nye AppState-testen feilet fordi testen
+  undersøkte status før init-/profilbytteoppgavene var ferdige. Testen venter
+  nå på publisert status før feil injiseres. Assertions er beholdt.
+- Testens egen opprydding av en fortsatt åpen SQLite-fil ga advarsel.
+  AppState-testen lar nå den lille syntetiske filen ryddes med QA-containeren;
+  ordinære brukerdata berøres ikke. Siste målrettede retest føres nedenfor.
+
+Køstatus, feilliste og karantenetelling har nå throwing kontrakter gjennom
+DatabaseService. AppState publiserer et samlet resultat etter vellykkede
+lesinger, beholder samme eiers status ved feil, tømmer ved eierbytte og
+avviser utdaterte svar. Profilens eksisterende synkflate viser lesefeil og
+nytt forsøk når synkflaten er tilgjengelig. Release forblir localOnly;
+den latente synkflaten er kompilert, ikke visuelt eller med VoiceOver testet
+ved å åpne opplastingspolicyen.
+
+Egenreview: ingen endret transaksjonsgrense, hendelsesformat, skjema,
+eierskap eller domeneopplasting. Views gjør fortsatt ingen IO. Kun eksisterende
+appomfattende statuskoordineringsansvar er endret i AppState.
+Det er ikke gjort en full revisjon av køskriving, transportuttak eller retry-
+timerens neste-dato-lesing. Manuell utkast-/VoiceOver-QA forblir utsatt.
+
+Sluttkontroll: `/tmp/MatLoggQueueAdmin-state-suite-20261126.xcresult`
+bekrefter 16 beståtte testmetoder / 19 parameteriserte utførelser i
+SyncRetryTests, inkludert diagnosticsFailureRetainsSameOwnerAndRetryClearsError.
+Den nye status-testfilen gir ikke lenger unlink-advarselen. Suiten logger
+fortsatt en tilsvarende advarsel fra den uendrede localOnly-testens local.sqlite;
+dette er testopprydding, ikke påvist skade på brukerdata, og er ikke rettet her.
+En tidligere enkelttestkjøring (`...-state-final-20261126.xcresult`) valgte
+null tester og regnes uttrykkelig ikke som verifisering.
+
+Skills: offline-sync, ios-swiftui, product-design og qa-release for status/
+feilpresentasjon; backend-api for legacy-beslutningsgrunnlaget. Ingen ny
+produktfunksjon, auth-endring, produksjonshemmelighet eller utrulling.

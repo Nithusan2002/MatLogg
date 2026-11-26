@@ -23,7 +23,7 @@ struct RepeatFoodTests {
                 log(foreign, owner: owner, time: now)])
             // A legacy private product without an owner is not a shared catalog item.
             try sql("UPDATE products SET ownerUserId = NULL WHERE id = '\(foreign.id.uuidString)';", url: url)
-            let count = store.pendingSyncCount()
+            let count = try store.pendingSyncCount()
             let rows = try await database.getRecentFoods(owner: owner, before: now, limit: 6)
             #expect(rows.map(\.id) == [item.id, second.id])
             let times = try await database.getLoggedProductTimes(owner: owner, before: now)
@@ -33,7 +33,7 @@ struct RepeatFoodTests {
             #expect(rows.first?.log.amountG == 150)
             #expect(try await database.getRecentFoods(owner: owner, before: now, limit: 1).count == 1)
             #expect(try await database.getRecentFoods(owner: owner, before: now, limit: 0).isEmpty)
-            #expect(store.pendingSyncCount() == count)
+            #expect(try store.pendingSyncCount() == count)
         }
     }
 
@@ -100,10 +100,10 @@ struct RepeatFoodTests {
             let changed = product(id: item.id, servings: [ServingOption(label: "1 beger", grams: 50,
                 source: .openFoodFacts, kind: .piece, shortLabel: "beger")])
             try store.cacheCatalogProduct(changed)
-            let count = store.pendingSyncCount()
+            let count = try store.pendingSyncCount()
             guard case .review = try await repository.logAgain(current, owner: owner, mealType: "lunsj", date: Date())
             else { Issue.record("Changed portion must require review"); return }
-            #expect(store.pendingSyncCount() == count)
+            #expect(try store.pendingSyncCount() == count)
             #expect(!RecentFood(product: changed, log: repeated).canRepeat)
             #expect(!RecentFood(product: product(id: item.id, unit: .milliliters), log: repeated).canRepeat)
             #expect(!RecentFood(product: item, log: log(item, owner: owner, amount: 0)).canRepeat)
@@ -123,11 +123,11 @@ struct RepeatFoodTests {
                 try await repository.logAgain(food, owner: owner, mealType: "frokost", date: Date())
             }
             #expect(try store.loadAllLogs(userId: owner).map(\.id) == [source.id])
-            #expect(store.pendingSyncCount() == 1)
+            #expect(try store.pendingSyncCount() == 1)
             try sql("DROP TRIGGER fail_repeat;", url: url)
             _ = try await repository.logAgain(food, owner: owner, mealType: "frokost", date: Date())
             #expect(try store.loadAllLogs(userId: owner).count == 2)
-            #expect(store.pendingSyncCount() == 2)
+            #expect(try store.pendingSyncCount() == 2)
             await #expect(throws: (any Error).self) {
                 try await repository.logAgain(food, owner: UUID(), mealType: "frokost", date: Date())
             }
@@ -185,7 +185,7 @@ struct RepeatFoodTests {
                 try store.cacheCatalogProduct(item)
                 try store.saveLog(log(item, owner: owner, time: now.addingTimeInterval(Double(-offset))))
             }
-            let pending = store.pendingSyncCount()
+            let pending = try store.pendingSyncCount()
             let repository = searchRepository(database)
             let library = try await repository.loadLocalLibrary(owner: owner)
             #expect(library.recent.count == 6)
@@ -193,7 +193,7 @@ struct RepeatFoodTests {
             #expect(library.loggedProductTimes.count == 8)
             #expect(try abs(#require(library.loggedProductTimes[old.id]).timeIntervalSince(latest.loggedTime)) < 0.001)
             #expect(library.loggedProductTimes[foreign.id] == nil && library.loggedProductTimes[future.id] == nil)
-            #expect(store.pendingSyncCount() == pending)
+            #expect(try store.pendingSyncCount() == pending)
             try store.deleteLog(latest.id)
             let reloaded = try await repository.loadLocalLibrary(owner: owner)
             #expect(try abs(#require(reloaded.loggedProductTimes[old.id]).timeIntervalSince(original.loggedTime)) < 0.001)

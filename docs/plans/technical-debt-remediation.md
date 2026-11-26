@@ -415,3 +415,31 @@ eller opplastingspolicyendring. Atomisk domene-/synk-/Helse-outbox-skriving
 beholdes; migrering, gjenåpning og rollback er kontrollert i relevante tester.
 Synkkøens operative status-/administrasjonslesinger og øvrige upåvirkede
 runtime-grenser er ikke fullrevidert; denne runden betyr ikke null teknisk gjeld.
+
+## Avgrenset oppfølging — administrative kølesinger, 26. november 2026
+
+Gjennomført fra main `068f24d`: pendingSyncCount, failedSyncCount,
+syncQueueStatus, failedSyncEvents og quarantinedSyncCount formidler nå
+lesefeil. Kontrollerte statements sjekker prepare/bind/step og nødvendige
+kolonnetyper/UUID-er. Feilrader gir feil fremfor lydløst delresultat.
+DatabaseService skjuler ikke utilgjengelig lager som en tom kø.
+
+AppState bevarer siste status for samme eier ved feil, nullstiller ved
+profilbytte og hindrer at gamle forespørsler publiserer i ny kontekst.
+Synkflaten har en kontrollert norsk lesefeil og nytt forsøk. localOnly,
+transaksjoner, schema og hendelsesformat er uendret.
+
+Regresjon før retting: tre forventede feilutslag. Etter retting: 81
+macOS-harness-tester og 39 målrettede fysiske testmetoder bestod; se testing.md
+for faktisk kandidat, miljø, omfang, første testfeil og siste retest.
+
+Legacy-beslutningsgrunnlaget i backend/README.md er kontrollert mot kildekode
+og CI. Anbefalingen er avgrenset referansevedlikehold inntil tjenesteeier,
+faktisk trafikk/distribuerte klienter, operativ restore og cutovervilkår er
+avklart. Ingen avvikling er gjennomført. Den separate avhengighetsplanen er
+ikke implementert som del av denne runden.
+
+Fortsatt avgrensning: køens mutasjoner, transportuttak og neste-retry-lesing
+inngår ikke i denne rettelsen; manuell VoiceOver, kameradeteksjon og utkast-QA
+er fortsatt egne åpne kontroller. Ingen påstand om null teknisk gjeld eller
+releasegodkjenning.

@@ -81,3 +81,62 @@ struct HistoryReadFailureTests {
         try #require(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
     }
 }
+
+struct SyncDiagnosticsReadTests {
+    @Test func missingQueueMustNotLookEmpty() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("queue-read-\(UUID()).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = try LocalStore(databaseURL: url)
+        #expect(try store.syncQueueStatus().pendingCount == 0)
+        #expect(try store.failedSyncEvents(limit: 5).isEmpty)
+        var db: OpaquePointer?
+        #expect(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        #expect(sqlite3_exec(db, "ALTER TABLE sync_queue RENAME TO hidden_queue", nil, nil, nil) == SQLITE_OK)
+        #expect(throws: (any Error).self) { try store.syncQueueStatus() }
+        #expect(throws: (any Error).self) { try store.failedSyncEvents(limit: 5) }
+        #expect(throws: (any Error).self) { try store.quarantinedSyncCount() }
+        #expect(sqlite3_exec(db, "ALTER TABLE hidden_queue RENAME TO sync_queue", nil, nil, nil) == SQLITE_OK)
+        #expect(try store.syncQueueStatus().pendingCount == 0)
+    }
+}
+
+
+extension SyncDiagnosticsReadTests {
+    @MainActor @Test func databaseBoundaryPropagatesFailureAndRetryRecovers() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("queue-service-\(UUID()).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = try LocalStore(databaseURL: url)
+        let service = DatabaseService(store: store)
+        let owner = UUID()
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        try #require(sqlite3_exec(db, "ALTER TABLE sync_queue RENAME TO hidden_queue", nil, nil, nil) == SQLITE_OK)
+        await #expect(throws: (any Error).self) { try await service.syncQueueStatus(ownerUserId: owner) }
+        await #expect(throws: (any Error).self) { try await service.failedSyncEvents(ownerUserId: owner) }
+        await #expect(throws: (any Error).self) { try await service.quarantinedSyncCount() }
+        try #require(sqlite3_exec(db, "ALTER TABLE hidden_queue RENAME TO sync_queue", nil, nil, nil) == SQLITE_OK)
+        #expect(try await service.syncQueueStatus(ownerUserId: owner).unsyncedCount == 0)
+    }
+
+    @Test func corruptFailureRowRejectsWholeListAndPreservesRows() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("queue-corrupt-\(UUID()).sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = try LocalStore(databaseURL: url)
+        let owner = UUID()
+        let food = Product(name: "QA", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 2, fatGPer100g: 3)
+        try store.saveProduct(food, ownerUserId: owner)
+        let event = try #require(store.fetchPendingEvents(ownerUserId: owner, limit: 1).first)
+        store.markEventDeadLetter(event.eventId, error: "QA")
+        #expect(try store.failedSyncEvents(ownerUserId: owner, limit: 5).count == 1)
+        #expect(try store.failedSyncEvents(ownerUserId: UUID(), limit: 5).isEmpty)
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        try #require(sqlite3_exec(db, "UPDATE sync_queue SET eventId = 'invalid'", nil, nil, nil) == SQLITE_OK)
+        #expect(throws: (any Error).self) { try store.failedSyncEvents(ownerUserId: owner, limit: 5) }
+        try #require(sqlite3_exec(db, "UPDATE sync_queue SET eventId = '\(event.eventId.uuidString)'", nil, nil, nil) == SQLITE_OK)
+        #expect(try store.failedSyncEvents(ownerUserId: owner, limit: 5).first?.id == event.eventId)
+    }
+}

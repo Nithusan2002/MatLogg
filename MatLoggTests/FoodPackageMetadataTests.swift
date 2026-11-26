@@ -44,7 +44,7 @@ struct FoodPackageMetadataTests {
         let product = makeProduct(package: "4 x 330 ml")
         try store.cacheCatalogProduct(product)
         #expect(try store.getProduct(product.id)?.packageQuantityLabel == "4 x 330 ml")
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
         var legacy = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(product)) as? [String: Any])
         legacy.removeValue(forKey: "packageQuantityLabel")
         let oldProduct = try JSONDecoder().decode(Product.self, from: JSONSerialization.data(withJSONObject: legacy))

@@ -37,7 +37,7 @@ struct LoggingDraftTests {
         #expect(restored.date == draft.date)
         #expect(try reopened.loadLoggingDraft(owner: UUID()) == nil)
         #expect(store.localDataSummary(ownerId: draft.userId).hasData)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
         #expect(try store.exportProfileRecords(ownerId: draft.userId)["food_logging_drafts"]?.count == 1)
     }
 
@@ -69,7 +69,7 @@ struct LoggingDraftTests {
         draft.amountText = "50,0"
         try store.advanceLoggingDraft(draft, product: food)
         try store.advanceLoggingDraft(draft, product: food)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
         let reopened = try LocalStore(databaseURL: path)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId)?.amountText == "50,0")
         #expect(try reopened.getProduct(food.id)?.name == "Testmat")
@@ -77,7 +77,7 @@ struct LoggingDraftTests {
         try reopened.completeLoggingDraft(draft, log: entry)
         try reopened.completeLoggingDraft(draft, log: entry)
         #expect(try reopened.loadAllLogs(userId: draft.userId).count == 1)
-        #expect(reopened.pendingSyncCount() == 2)
+        #expect(try reopened.pendingSyncCount() == 2)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId) == nil)
         #expect(throws: (any Error).self) { try reopened.updateLoggingDraft(draft) }
     }
@@ -91,7 +91,7 @@ struct LoggingDraftTests {
         draft.revision += 1; draft.step = .amount; draft.product = food
         #expect(throws: (any Error).self) { try store.advanceLoggingDraft(draft, product: food) }
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .product)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
     }
 
     @Test func failedDomainTransactionsRetainDraftWithoutPartialWrites() throws {
@@ -113,7 +113,7 @@ struct LoggingDraftTests {
         #expect(throws: (any Error).self) { try store.completeLoggingDraft(draft, log: log(draft)) }
         #expect(try store.loadAllLogs(userId: draft.userId).isEmpty)
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .amount)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
     }
 
     @Test func corruptAndUnknownDraftsFailWithoutOverwriting() throws {

@@ -51,10 +51,10 @@ struct PerformanceWorkerTests {
         let included = log(owner: owner, date: start)
         try store.saveLogs([included, log(owner: owner, date: start.addingTimeInterval(-1)),
                             log(owner: owner, date: end), log(owner: other, date: start)])
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         let loaded = try await database.loadLogs(userId: owner, from: start, before: end)
         #expect(loaded.map(\.id) == [included.id])
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
         #expect(try await database.getProduct(food.id)?.id == food.id)
     }
     @Test func startupWaitsForDatabaseAndPublishesControlledFailure() async throws {
@@ -97,14 +97,14 @@ struct PerformanceWorkerTests {
         try store.saveProduct(own, ownerUserId: owner)
         try store.saveProduct(foreign, ownerUserId: other)
         let codes: Set<String> = ["1234567890123", "9999999999999", "missing"]
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         let owned = try await database.getProductsByBarcodes(codes, ownerUserId: owner)
         #expect(owned.count == 1)
         #expect(owned["1234567890123"]?.id == own.id)
         let catalog = try await database.getProductsByBarcodes(codes, ownerUserId: nil)
         #expect(catalog.count == 1)
         #expect(catalog["1234567890123"]?.id == shared.id)
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
     }
 
     @Test func lateFavoriteLoadCannotOverwriteToggleOrProfileReset() async throws {
