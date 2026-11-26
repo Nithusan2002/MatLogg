@@ -104,6 +104,12 @@ struct ProfileView: View {
                 ProfileMenuRow(icon: "heart", title: "Favoritter")
             }
             Divider().overlay(AppColors.separator)
+            NavigationLink { SavedMealsListView(isPresentedAsSheet: false, onLogged: {}) } label: {
+                ProfileMenuRow(icon: "square.stack.3d.up", title: "Lagrede måltider")
+            }
+            .accessibilityIdentifier("profile-saved-meals")
+            .accessibilityHint("Åpner lagrede måltider for visning og redigering")
+            Divider().overlay(AppColors.separator)
             NavigationLink { ProfileSettingsView() } label: {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger")
             }
