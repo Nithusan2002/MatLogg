@@ -1502,3 +1502,55 @@ endring, endret ernæringsgrunnlag eller opplasting. Lokal domene-/synk-/Helse-
 outbox-transaksjon er bevart og rollback-/gjenåpningstestene består.
 Skills: offline-sync, backend-api, ios-swiftui, nutrition-privacy, product-design
 og qa-release. Backend-build/-tester er ikke kjørt for README-/kommentarendringer.
+
+
+## Runde 2 – fysisk oppfølging 26. november 2026
+
+Kodekandidat `91e3a01`, basert på `2d7a483` og lokal main `14e861a`.
+Xcode 27.2, iPhone 17 / iOS 27.3, Debug, separat bundle-ID
+`com.nithusan.MatLogg.qa20261014.MatLogg` og QA-lager. Vanlig app er ikke brukt.
+
+- `2d7a483`: 271/271 tester i de 25 suitene i oppskriften over bestod,
+  ingen hoppet over. Resultat: `/tmp/MatLoggR2-final-unit-20261126.xcresult`.
+- Endelig `91e3a01`: **277/277 tester i 26 suiter bestod**, ingen hoppet over,
+  med samme oppskrift pluss `-only-testing:MatLoggTests/MeasurementPickerTests`
+  og `test-without-building` etter signert bygg. Resultat:
+  `/tmp/MatLoggR2-final277-20261126.xcresult`.
+- Målefelt: ny regresjon `duplicateManualCommitKeepsValidationError` feilet
+  før rettelsen og bestod etterpå. Alle seks MeasurementPickerTests bestod
+  på iPhone etter rettelsen. Uendret tekstbinding bevarer valideringsfeilen;
+  en faktisk tekstendring nullstiller den. Ingen beregnings-/lagringsendring.
+- Åtte UI-tester ble først kjørt samlet: sju bestod, målefeltets feilvisning
+  feilet. Diagnosen krevde både enhetstestrettelsen over og korrekt fysisk
+  betjening i UI-testen: avslutt tastatur med rulling før Apply, og rull over
+  bunnmenyen for å nå høyderaden ved største tekst. Ingen assertions er fjernet.
+- Følgende ni distinkte UI-tester har nå bestått over målrettede kjøringer:
+  `DailyGoalsUITests/testEditSaveAndRelaunchPreservesCustomMacros`,
+  `DailyGoalsUITests/testLargeTextKeepsFieldsAndSaveReachable`,
+  `DomainReadFailureUITests/testFavoritesReadFailureShowsErrorAndRetryRecoversWithLargeText`,
+  `MatLoggUITests/testLogEditorTogglesFavoriteFromHomeAndDiary`,
+  `MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay`,
+  `ProfileUITests/testProfileNavigationWithLargeText`,
+  `ProgressHubUITests/testWeightRegistrationAndDeletionFromHub`,
+  `ProfileUITests/testMeasurementPickerValidatesInputAndCancelDiscardsDraft` og
+  `ProfileUITests/testMeasurementRulerAdjustsAndSheetCancelKeepsOriginalValue`.
+  De sju første gjelder `2d7a483`; de to siste gjelder målefeltrettelsen i
+  `91e3a01`. Tidligere grønne flyter ble ikke endret av den rettelsen.
+- UI-resultater: `/tmp/MatLoggR2-ui-20261126.xcresult` (sju av åtte),
+  `/tmp/MatLoggR2-picker-scroll-20261126.xcresult` (validering bestod),
+  `/tmp/MatLoggR2-ruler-gesture-20261126.xcresult` (skala/avbryt bestod).
+  Skjermbilder er inspisert for favorittfeil/retry og mål ved største tekst,
+  samt synlig nullvalidering og høydevelger. Rå resultater ligger utenfor repoet.
+
+Debug-fixturen `--favorite-read-failure-qa` feiler første favorittlesing og
+bruker deretter det reelle QA-lageret. Den skriver ikke korrupte brukerdata.
+Injeksjon og fixture er utelatt i Release. UI-testen krever feil og retry,
+ikke falsk tomtilstand, og vellykket lesing etter retry.
+
+Arkitekturkontroll: validering forblir i ViewModel; ingen ny IO, endring i
+schema/synkkontrakt, dataeierskap eller localOnly. Atomiske transaksjoner
+bevares. Native HealthKit-skriving er ikke aktivert i denne kjøringen.
+Manuell VoiceOver, faktisk kameradeteksjon og separat release-go/no-go gjenstår.
+Ingen backenddeploy, auth-endring, legacyavvikling eller opplasting inngår.
+Skills brukt: offline-sync, backend-api, ios-swiftui, nutrition-privacy,
+product-design og qa-release.

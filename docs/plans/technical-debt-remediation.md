@@ -1,7 +1,7 @@
 # Utbedringsplan for teknisk gjeld
 
-**Gjeldende arbeid:** Runde 2 er startet etter brukerens nye beskjed
-25. november. Resultater føres når kontrollene er fullført.
+**Gjeldende arbeid:** Runde 2 er implementert og målrettet fysisk QA er
+fullført 26. november. Release og legacyavvikling har separate åpne porter.
 
 Dato: 25. november 2026. Status: første gjennomføring ferdig; åpne porter er spesifisert nedenfor.
 Grunnlag: statisk gjennomgang av lokal `main`, commit `85755ea` fra 21. november.
@@ -220,7 +220,7 @@ visuell feil/retry står fortsatt åpne. Resultater og avgrensning finnes i
 
 ## Runde 2 – fullføre de fire gjenværende punktene
 
-**Status: startet etter brukerens beskjed «Start runde 2».** Grunnlag: lokal `main` `14e861a`.
+**Status: implementert og fysisk verifisert 26. november.** Grunnlag: lokal `main` `14e861a`.
 Arbeidsbranch `codex/technical-debt-followup` er opprettet fra denne committen.
 Planen ble først skrevet uten implementering. Gjennomføringen er nå startet.
 Tidligere resultater over gjelder runde 1.
@@ -390,8 +390,8 @@ praksisregler (`efc793b`), feilretting (`a844af7`), mekanisk oppdeling
 
 | Punkt | Gjennomført | Fortsatt åpent |
 | --- | --- | --- |
-| 1. Canonical lesekontrakter | De gamle getAllLogs/getLogs/getSummary/getTodaysSummary/getSavedMeals-grensesnittene er fjernet fra produksjonskode. Feilskjulende standardimplementasjoner er fjernet; testdobler/kallere er migrert uten svekkede feilasserts. | iOS-runtime av de migrerte, berørte suitene. |
-| 2. Øvrige lesefeil | Kontrollerte lese-/feilgrenser for mål, vekt, lagrede måltider, produkter/batch/strekkode, favoritter, nylige produkter, skanning, matching, eksport og personlige detaljer. Korrupte nødvendige rader avvises; originaldata beholdes. Gjenoppbyggbar cache formidler feil ved lagergrensen og har eksplisitt fallback til medfølgende katalog. Katalogfeil blir ikke tomt resultat. | Visuell kontroll av nye feil-/retrytilstander. Cachefallback-regresjonen i ProductSearchTests er kompilert, men ikke kjørt på iOS. |
+| 1. Canonical lesekontrakter | De gamle getAllLogs/getLogs/getSummary/getTodaysSummary/getSavedMeals-grensesnittene er fjernet fra produksjonskode. Feilskjulende standardimplementasjoner er fjernet; testdobler/kallere er migrert uten svekkede feilasserts. | Relevant iOS-runtime bestod 26. november; se testing.md. |
+| 2. Øvrige lesefeil | Kontrollerte lese-/feilgrenser for mål, vekt, lagrede måltider, produkter/batch/strekkode, favoritter, nylige produkter, skanning, matching, eksport og personlige detaljer. Korrupte nødvendige rader avvises; originaldata beholdes. Gjenoppbyggbar cache formidler feil ved lagergrensen og har eksplisitt fallback til medfølgende katalog. Katalogfeil blir ikke tomt resultat. | Favorittfeil/retry er fysisk UI-testet ved største tekst. Cachefallback-regresjonen bestod på iOS. Manuell VoiceOver gjenstår. |
 | 3. LocalStore-ansvar | 23 eksisterende lesemetoder flyttet byte-identisk til tre domene-filer; kontrollert statement-håndtering i separat SQLiteReadStatement. Tilkobling/kø/transaksjoner forblir private i LocalStore. | Ingen total omskriving av skriver-/migrerings-/synkkøansvar er gjort. Slike senere endringer krever konkret behov. |
 | 4. Legacy-levetid | backend/README.md angir vedlikeholdsgrense, faktiske kildeavhengigheter, konkrete filer/metoder som må vurderes, bevaring av tester, arkivpunkt og operativ rollback-avklaring. Eksisterende cutoverkrav og CI-porter er beholdt. | Faktisk drift/eldre distribuerte klienter og eventuell avviklingsbeslutning krever ekstern avklaring. Ingen større kodefjerning, auth-endring eller driftsstenging er utført. |
 
@@ -400,10 +400,14 @@ signert iOS build-for-testing, byte-sammenligning av flyttede metoder,
 uendret kjørbar legacy-CI og diff-kontroll. Baseline før retting ga tolv
 forventede feilutslag for manglende tabeller/korrupte domenerader.
 
-Rå data/harness ligger utenfor repoet. iPhonen var utilgjengelig og ingen
-simulatorruntime var installert. Runde 2 er derfor implementert lokalt, men
-avventer relevant iOS-/visuell QA før sammenslåing; den er ikke en ny release-
-eller avviklingsgodkjenning. Tidligere 41+3 fysiske tester gjelder bare runde 1.
+Oppfølging 26. november: sluttkandidat `91e3a01` bestod 277/277 tester
+i 26 suiter på separat QA-iPhone.
+Seks målefelttester bestod etter rettelse for uendret tekstbinding som slettet
+valideringsfeil. Fysisk UI bekrefter feil/retry ved største tekst, mål/omstart,
+favoritter, tidligere loggdag, profil, vekthistorikk og målefeltets validering/avbryt.
+Rå data ligger utenfor repoet; detaljer og kildekandidater står i testing.md.
+Dette er ikke en ny release- eller avviklingsgodkjenning. Manuell VoiceOver
+og faktisk kameradeteksjon gjenstår som separate kontroller.
 
 Arkitektur: View → ViewModel → Repository → LocalStore er bevart, uten nye
 IO-avhengigheter i views. Ingen skjema-, synkformat-, enhets-/kildeberegnings-

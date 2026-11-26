@@ -1,23 +1,22 @@
 # Produksjonsberedskap
 
-## Aktiv oppfølging – runde 2, 25. november 2026
+## Aktiv oppfølging – runde 2, 26. november 2026
 
-Kodekandidat **`c86bb83`** på `codex/technical-debt-followup`, basert på `14e861a`.
-Dette er ny kode etter den fysisk verifiserte første runden. Resultatene for
-`b9b8eb7` nedenfor er historiske og verifiserer ikke denne kandidaten.
+Kodekandidat **`91e3a01`**, basert på `14e861a`. Fysisk oppfølging av runde 2
+er gjennomført på separat QA-app. Eldre resultater nedenfor gjelder sitt omfang.
 
 | Port | Resultat for runde 2 |
 | --- | --- |
-| Målrettet lokal runtime | 72 tester i ti suiter bestod i midlertidig macOS-harness med faktiske lagrings-, repository-, eksport- og ViewModel-kilder. Omfatter kildefeil, korrupte rader, eksportavvisning, 405-produkters batch, cacheutfall, profil-/retryvern, migrering og atomisk rollback. Ikke full app-/iOS-dekning. |
-| iOS-kompilering | Signert build-for-testing bestod, Xcode 27.2, Debug, generic iOS, separat MatLogg QA-identitet. App og begge testtargeter er kompilert. |
-| iOS-runtime og visuell kontroll | Åpen. Telefonen var utilgjengelig og ingen simulatorruntime fantes. Kjør berørte suiter på QA-iPhone og kontroller profil, mål/vekt, favoritter og retry før sammenslåing. |
-| Kilde-/arkitekturkontroll | 23 byte-identiske metoder ved filflytting, privat db/kø, uendret migrasjon/synkformat og localOnly. Legacy-CI har bare nye kommentarer, med identisk kjørbar konfigurasjon. |
-| Release, konto og drift | Fortsatt åpne porter etter gjeldende releasepolicy. Ingen ny produksjons-/synk-/avviklingsgodkjenning. Faktisk gammel backenddrift er ikke verifisert. |
+| iOS-runtime | 277/277 tester i 26 målrettede suiter bestod på iPhone 17 / iOS 27.3, ingen hoppet over. Signert Debug-kandidat, Xcode 27.2. Omfatter lesefeil, cachefallback, eksportavvisning, profil-/retryvern, migrering, atomisk rollback og målefelt. |
+| UI og visuell kontroll | Ni distinkte UI-tester bestod over målrettede kjøringer. Favorittfeil/retry, mål, profil og høydevelger ved største tekst; logging, favoritter, omstart, vekt og målevalidering/avbryt. Første målefelttest feilet; regresjon/rettelse og testbetjening er dokumentert i testing.md. |
+| Kilde-/arkitekturkontroll | Privat db/kø og transaksjoner bevart, uendret migrasjon/synkformat og localOnly. Validering forblir i ViewModel. Legacy-CI har bare kommentarer med identisk kjørbar konfigurasjon. |
+| Release, konto og drift | Fortsatt separate porter etter gjeldende releasepolicy. Ingen produksjons-/synk-/avviklingsgodkjenning. Faktisk gammel backenddrift er ikke verifisert. |
 
-**Go for kodegjennomgang og videre QA; avvent sammenslåing til main og
-produksjonsrelease til relevant iOS-verifisering er fullført.** Manuell
-VoiceOver, faktisk kameradeteksjon og øvrige tidligere åpne kontroller er
-fortsatt egne porter. Se docs/testing.md for utførte kontroller og neste kjøring.
+**Go for lokal sammenslåing til main innen dette scopet.** Ingen push eller
+produksjonsutrulling inngår. Manuell VoiceOver, faktisk kameradeteksjon og
+øvrige tidligere åpne kontroller er fortsatt egne porter. Native HealthKit-
+skriving er ikke aktivert i denne kjøringen. Se docs/testing.md for kildekandidater,
+resultatpakker og avgrensninger.
 
 
 ## Kandidatkontroll – teknisk gjeld, 25. november 2026

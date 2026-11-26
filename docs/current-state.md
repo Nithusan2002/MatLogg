@@ -1,9 +1,9 @@
 # Gjeldende prosjektstatus
 
-## Runde 2 – lokal kodekandidat 25. november 2026
+## Runde 2 – fysisk QA 26. november 2026
 
-Kodekandidat **`c86bb83`**, på `codex/technical-debt-followup`, basert på
-`main` `14e861a`. Runde 2 er ikke slått sammen eller distribuert.
+Kodekandidat `91e3a01` bygger på `main` `14e861a`. Fysisk QA er fulgt opp på separat
+MatLogg QA-app på iPhone 17 / iOS 27.3. Ingen distribusjon inngår.
 
 - Gamle ikke-kastende historikk-/måltidsgrensesnitt og feilskjulende defaults
   er fjernet. Mål, vekt, produkter, favoritter, skanning og matching formidler
@@ -14,17 +14,21 @@ Kodekandidat **`c86bb83`**, på `codex/technical-debt-followup`, basert på
 - 23 lesemetoder er flyttet til LocalStore+History/Products/Profiles.
   SQLiteReadStatement kontrollerer prepare, binding, step og dekoding;
   LocalStore beholder privat tilkobling, seriell kø og transaksjoner.
-- **72 målrettede tester i ti suiter bestod på macOS med faktiske kilder.**
-  Signert iOS build-for-testing bestod for app og testtargeter. iPhonen var
-  utilgjengelig, og ingen simulatorruntime var installert; ingen ny iOS-
-  testkjøring eller visuell QA er bekreftet for denne kandidaten.
+- **277 målrettede tester i 26 suiter bestod på iPhone**, inkludert
+  katalogfallback, feil/retry, kontekstvern og atomisk rollback. Seks tester
+  for målefelt bestod etter en ekstra valideringsrettelse: uendret tekst
+  skal ikke nullstille feil. Regresjonen feilet før og bestod etter rettelsen.
+- UI-kontroll bekrefter favorittlesefeil og retry ved største tekst, mål og
+  omstart, favorittredigering, tidligere loggdag, profil og vekthistorikk.
+  Målefeltets nullvalidering, desimalpresisjon og avbryt er fysisk kontrollert.
+  Manuell VoiceOver er fortsatt åpen.
 - Legacy beholdes med eksplisitt vedlikeholdsgrense og konkret avviklingspakke
   i backend/README.md. CI-portene er uendret; faktisk drift/eldre klientbruk
   må avklares før avvikling.
 
 Ingen skjema-/synkkontraktsendring eller aktivering av opplasting inngår.
 Se [planens resultat](plans/technical-debt-remediation.md#runde-2--gjennomføringsstatus)
-og [testavgrensningen](testing.md#runde-2--lesefeil-og-ansvarsdeling-25-november-2026).
+og [testavgrensningen](testing.md#runde-2--fysisk-oppfølging-26-november-2026).
 
 
 ## Avgrenset kodekontroll – 25. november 2026
