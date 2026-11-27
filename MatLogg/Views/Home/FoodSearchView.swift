@@ -168,7 +168,7 @@ private struct FoodSearchContent: View {
         .toolbar {
             if searchFocused {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Skjul tastatur") { searchFocused = false }
+                    Button(isUnifiedLogging ? "Skjul tastatur" : "Ferdig") { searchFocused = false }
                         .accessibilityIdentifier("food-search-hide-keyboard")
                         .foregroundColor(AppColors.actionText)
                 }

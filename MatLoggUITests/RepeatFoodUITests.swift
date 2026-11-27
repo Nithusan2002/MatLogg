@@ -13,9 +13,6 @@ final class RepeatFoodUITests: XCTestCase {
         let skip = app.buttons["first-log-skip"]
         XCTAssertTrue(skip.waitForExistence(timeout: 10))
         skip.tap()
-        let breakfast = app.buttons["home-meal-open-frokost"]
-        reveal(breakfast, in: app)
-        breakfast.tap()
         openSearch(app)
         let field = app.textFields["food-search-field"]
         field.tap()
@@ -27,14 +24,12 @@ final class RepeatFoodUITests: XCTestCase {
         let save = app.buttons["product-log-save"]
         reveal(save, in: app)
         save.tap()
-        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS 'Porsjonstestbrød'"))
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS 'Porsjonstestbrød'"))
         let original = rows.firstMatch
         reveal(original, in: app, towardTop: true)
         let originalID = original.identifier
         XCTAssertTrue(original.label.contains("1 Polarbrød"))
-        openSearch(app)
-        // This search presentation focuses the field; submit the empty query to dismiss the keyboard.
-        app.textFields["food-search-field"].typeText("\n")
+        app.buttons["Søk"].firstMatch.tap()
         let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-recent-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(recent, in: app)
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-repeat-'")).firstMatch.exists)
@@ -54,7 +49,8 @@ final class RepeatFoodUITests: XCTestCase {
         history.tap()
         XCTAssertTrue(app.buttons["product-log-save"].waitForExistence(timeout: 5))
         app.buttons["product-detail-close"].tap()
-        app.buttons["food-search-close"].tap()
+        app.buttons["Hjem"].firstMatch.tap()
+        openSearch(app)
         let repeatButton = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-' AND label CONTAINS 'Porsjonstestbrød'")).firstMatch
         reveal(repeatButton, in: app)
         XCTAssertTrue(repeatButton.label.contains("37,5 g"))
@@ -67,19 +63,21 @@ final class RepeatFoodUITests: XCTestCase {
         repeatButton.tap()
         let undo = app.buttons["Angre"]
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
-        XCTAssertTrue(repeatButton.exists, "Hurtiglogging skal beholde arket åpent.")
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["logging-done"].exists, "Logging skal lukke arket.")
         let closeReceipt = app.buttons["log-receipt-close"]
         XCTAssertTrue(closeReceipt.waitForExistence(timeout: 5))
         closeReceipt.tap()
         expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: undo)
         waitForExpectations(timeout: 5)
+        openSearch(app)
         reveal(repeatButton, in: app)
         XCTAssertTrue(repeatButton.isHittable)
         repeatButton.tap()
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["product-log-save"].exists)
         undo.tap()
-        app.buttons["Lukk"].tap()
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 5))
         reveal(app.buttons[originalID], in: app, towardTop: true)
         XCTAssertTrue(app.buttons[originalID].label.contains("1 Polarbrød"))
         XCTAssertEqual(rows.count, 2, "Angre skal bare fjerne siste hurtiglogging og bevare de to tidligere registreringene.")
@@ -89,23 +87,29 @@ final class RepeatFoodUITests: XCTestCase {
         let add = app.buttons["tab-log-food"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
-        XCTAssertTrue(app.buttons["Søk etter mat"].waitForExistence(timeout: 5))
-        app.textFields["food-search-field"].tap()
         XCTAssertTrue(app.textFields["food-search-field"].waitForExistence(timeout: 8))
+        let breakfast = app.buttons["Logg til Frokost"]
+        reveal(breakfast, in: app)
+        breakfast.tap()
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, towardTop: Bool = false) {
         _ = element.waitForExistence(timeout: 8)
         for _ in 0..<12 {
             let tab = app.buttons["tab-log-food"]
-            let bottom = tab.exists && tab.isHittable ? tab.frame.minY : app.frame.maxY - 34
+            let home = app.buttons["Hjem"].firstMatch
+            let bottom = tab.exists && tab.isHittable
+                ? min(tab.frame.minY, home.exists ? home.frame.minY : tab.frame.minY)
+                : app.frame.maxY - 34
             if element.exists && element.isHittable,
                element.frame.midY >= 102,
                element.frame.midY < bottom { return }
             if element.exists ? element.frame.midY < app.frame.midY : towardTop {
-                app.swipeDown()
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
             } else {
-                app.swipeUp()
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                    .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)))
             }
         }
         let screenshot = XCTAttachment(screenshot: app.screenshot())

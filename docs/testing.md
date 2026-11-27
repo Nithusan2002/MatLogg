@@ -1751,3 +1751,27 @@ Samlet målrettet resultat: 60 enhetstester og fire UI-flyter bestod på fysisk
 iPhone over de avgrensede kjøringene. Hele testpakken, manuell VoiceOver,
 faktisk kameradekoding og Helse-integrasjon er ikke kontrollert på kandidaten.
 Ingen utrulling eller synkaktivering. `git diff --check` bestod.
+
+## PR-forhåndskontroll – 27. november 2026
+
+PR #10 sammenligner codex/unified-logging med main. Utvidet fysisk kontroll
+startet CI sine åtte UI-smoketester samt gjenbruk, utkast og to porsjonstester.
+Resultatlogg: `/private/tmp/unified-pr-preflight-20261127.log`.
+
+Før telefonen ble utilgjengelig, fant kjøringen foreldede forventninger:
+Lukk i det tidligere valgarket, Ferdig for tastatur i samlet Loggfør, eksakt
+kort utkastetikett og gammel plassering av Forkast. Manuell strekkodevalidering
+og lokal demostrekkode med logging bestod i denne kjøringen. Resterende
+scenarioer kan ikke oppgis som bestått; enhetskommunikasjonen ble brutt.
+
+Rettelsene beholder Ferdig som tastaturhandling i ordinært søk/onboarding,
+bruker Skjul tastatur i samlet Loggfør, tilpasser testene til menyen for
+utkastvalg og lukking etter gjenlogging, og bruker Hjems radidentiteter og
+frokostkort i porsjonstestene. Funksjonelle assertions for mengde, opprinnelig
+registrering, persistens og Angre beholdes.
+
+`xcodebuild build-for-testing` med generic/platform=iOS, samme separate
+QA-xcconfig og DerivedData som ovenfor bestod etter hovedrettelsene.
+Logg: `/private/tmp/unified-pr-final-build-20261127.log`.
+PR-en står som utkast mens CI og de siste runtime-kontrollene avklares.
+Historiske grønne resultater erstatter ikke kontroll av de nye testendringene.

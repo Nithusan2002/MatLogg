@@ -104,8 +104,11 @@ final class LoggingDraftUITests: XCTestCase {
             if sheetResume.isHittable { break }
             sheet.swipeUp()
         }
-        XCTAssertEqual(sheetResume.label, "Fortsett registreringen")
-        sheet.buttons["logging-draft-discard"].tap()
+        XCTAssertTrue(sheetResume.label.hasPrefix("Fortsett registreringen, Utkast QA, "))
+        let draftOptions = sheet.buttons["logging-draft-options"]
+        XCTAssertTrue(draftOptions.waitForExistence(timeout: 5))
+        draftOptions.tap()
+        app.buttons["logging-draft-discard"].tap()
         let confirmDiscard = app.buttons.matching(NSPredicate(
             format: "label == %@ AND identifier != %@", "Forkast", "logging-draft-discard"
         )).firstMatch

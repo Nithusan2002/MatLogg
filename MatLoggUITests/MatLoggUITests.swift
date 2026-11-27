@@ -121,7 +121,8 @@ final class MatLoggUITests: XCTestCase {
         search.typeText("Tilberedte testnudler")
         let result = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-' AND label CONTAINS[c] 'Tilberedte testnudler'")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 8))
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         result.tap()
         let notice = app.descendants(matching: .any)["prepared-nutrition-notice"].firstMatch
         XCTAssertTrue(notice.waitForExistence(timeout: 8))
@@ -131,7 +132,8 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         amount.tap()
         amount.typeText("200")
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         XCTAssertEqual(amount.value as? String, "200 g")
         let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
@@ -330,7 +332,7 @@ final class MatLoggUITests: XCTestCase {
         let add = app.buttons["home-meal-add-frokost"]
         revealDiaryElement(add, in: app)
         add.tap()
-        app.buttons["Lukk"].tap()
+        app.buttons["logging-done"].tap()
         for _ in 0..<4 { logPortionTestBread(in: app, returningTo: ready) }
         let close = app.buttons["log-receipt-close"]
         if close.exists { close.tap() }
@@ -526,7 +528,8 @@ final class MatLoggUITests: XCTestCase {
         add(screenshot)
         name.tap()
         name.typeText("Utvalgstest")
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         app.buttons["saved-meal-save"].tap()
         revealDiaryElement(app.buttons["home-select"], in: app)
         XCTAssertTrue(app.buttons["home-select"].waitForExistence(timeout: 8))
@@ -586,7 +589,7 @@ final class MatLoggUITests: XCTestCase {
         let add = app.buttons["home-meal-add-frokost"]
         revealDiaryElement(add, in: app)
         add.tap()
-        app.buttons["Lukk"].tap()
+        app.buttons["logging-done"].tap()
         for _ in 0..<2 {
             logPortionTestBread(in: app, returningTo: app.buttons["home-select"])
         }
@@ -607,7 +610,8 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(search.waitForExistence(timeout: 8))
         search.tap()
         search.typeText("Porsjonstestbrød")
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         let result = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 8))
         for _ in 0..<8 { if result.isHittable { break }; app.swipeUp() }
@@ -687,7 +691,8 @@ final class MatLoggUITests: XCTestCase {
         search.typeText("havregryn")
         let result = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Havregryn' AND label CONTAINS 'Matvaretabellen'")).firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 5))
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         result.tap()
         let save = app.buttons["product-log-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
@@ -1250,7 +1255,8 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         attachSearchScreenshot(app, name: "Søk – lokale treff")
         // The keyboard toolbar can overlap the first row's tap point.
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         row.tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.descendants(matching: .any)["product-hero-image"].firstMatch.exists)
@@ -1263,7 +1269,8 @@ final class MatLoggUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Legg til '")).firstMatch.tap()
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         app.buttons["Tøm søket"].tap()
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         XCTAssertTrue(app.buttons["Loggfør mat"].waitForExistence(timeout: 5))
         let favorite = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'food-search-favorite-' AND label CONTAINS[c] 'Havregryn'")).firstMatch
         XCTAssertTrue(favorite.waitForExistence(timeout: 5), "Favorittvaren skal være tilgjengelig.")
@@ -1365,7 +1372,8 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap()
         field.typeText("Pakningstest")
-        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        if app.buttons["Skjul tastatur"].exists { app.buttons["Skjul tastatur"].tap() }
+        else if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
         let list = app.collectionViews.firstMatch
         attachSearchScreenshot(app, name: "Søkemetadata – start – \(largeText ? "stor" : "vanlig") tekst")
         var visibleTop: CGFloat { list.frame.minY + 8 }
