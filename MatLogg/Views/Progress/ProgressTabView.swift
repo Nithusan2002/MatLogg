@@ -76,7 +76,7 @@ private struct ProgressTabContent: View {
             }
             .onReceive(healthProfileViewModel.$weightEntries) { entries in
                 viewModel.updateWeights(entries, owner: authViewModel.currentUser?.id)
-                if !healthProfileViewModel.isLoadingWeights, let owner = authViewModel.currentUser?.id {
+                if !healthProfileViewModel.isLoadingWeights, healthProfileViewModel.weightLoadError == nil, let owner = authViewModel.currentUser?.id {
                     hub.updateDefault(hasWeightHistory: !entries.isEmpty, owner: owner)
                 }
             }
@@ -258,11 +258,19 @@ private struct ProgressTabContent: View {
             NavigationLink {
                 WeightDetailView(progress: viewModel, healthWeight: healthWeight, dateRange: viewModel.dateRange, onOpenHealthSettings: openHealthSettings)
             } label: {
-                CompactWeightCard(
-                    overview: viewModel.weightOverview.showingLatest(with: healthOverview),
-                    isLoading: healthProfileViewModel.isLoadingWeights || healthWeight.state == .loading,
-                    isPaired: isPaired
-                )
+                let overview = viewModel.weightOverview.showingLatest(with: healthOverview)
+                VStack(spacing: 8) {
+                    if overview.source == .matLogg, let error = healthProfileViewModel.weightLoadError {
+                        ErrorMessageView(error)
+                            .padding(12)
+                            .matLoggCardSurface()
+                    }
+                    if overview.latest != nil || healthProfileViewModel.weightLoadError == nil || overview.source == .appleHealth {
+                        CompactWeightCard(overview: overview,
+                            isLoading: healthProfileViewModel.isLoadingWeights || healthWeight.state == .loading,
+                            isPaired: isPaired)
+                    }
+                }
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("progress-hub-weight-open")
@@ -299,7 +307,9 @@ private struct ProgressTabContent: View {
         _ = await (summaries, health)
         guard !Task.isCancelled, userId == authViewModel.currentUser?.id, let userId else { return }
         viewModel.updateWeights(healthProfileViewModel.weightEntries, owner: userId)
-        hub.updateDefault(hasWeightHistory: !healthProfileViewModel.weightEntries.isEmpty, owner: userId)
+        if healthProfileViewModel.weightLoadError == nil {
+            hub.updateDefault(hasWeightHistory: !healthProfileViewModel.weightEntries.isEmpty, owner: userId)
+        }
     }
 
     private func refreshHealthReads() async {
@@ -349,9 +359,19 @@ private struct WeightDetailView: View {
                         CardContainer {
                             VStack(alignment: .leading, spacing: 16) {
                                 ProgressCardHeading(title: "Registrert i Spor Mat", symbol: "scalemass", detail: dateRange.label)
+                                if let error = health.weightLoadError {
+                                    ErrorMessageView(error)
+                                    Button("Prøv igjen") {
+                                        Task {
+                                            guard let owner = auth.currentUser?.id else { return }
+                                            await health.loadWeightEntries(userId: owner)
+                                        }
+                                    }
+                                    .frame(minHeight: 44)
+                                }
                                 if health.isLoadingWeights && progress.weightOverview.latest == nil {
                                     ProgressView("Henter vekthistorikk …")
-                                } else {
+                                } else if health.weightLoadError == nil || progress.weightOverview.latest != nil {
                                     WeightPeriodMeasurements(overview: progress.weightOverview)
                                 }
                                 WeightEntryContent()
@@ -453,11 +473,22 @@ private struct WeightEntryContent: View {
 
 private struct WeightHistoryView: View {
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
+    @EnvironmentObject private var auth: AuthViewModel
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                if healthProfileViewModel.weightEntries.isEmpty {
+                if let error = healthProfileViewModel.weightLoadError {
+                    ErrorMessageView(error)
+                    Button("Prøv igjen") {
+                        Task {
+                            guard let owner = auth.currentUser?.id else { return }
+                            await healthProfileViewModel.loadWeightEntries(userId: owner)
+                        }
+                    }
+                    .frame(minHeight: 44)
+                }
+                if healthProfileViewModel.weightEntries.isEmpty && healthProfileViewModel.weightLoadError == nil {
                     Text("Ingen vekt registrert")
                         .font(AppTypography.body)
                         .foregroundColor(AppColors.textSecondary)

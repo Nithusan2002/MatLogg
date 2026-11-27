@@ -18,6 +18,19 @@ struct PersonalDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                if let error = healthProfile.personalDetailsLoadError {
+                    ErrorMessageView(error)
+                    Button("Prøv igjen") {
+                        Task {
+                            guard let owner = auth.currentUser?.id else { return }
+                            await healthProfile.loadGoal(userId: owner)
+                            guard healthProfile.personalDetailsLoadError == nil else { return }
+                            viewModel.begin(details: healthProfile.personalDetails, userId: owner)
+                        }
+                    }
+                    .frame(minHeight: 44)
+                }
+                Group {
                 Text("Alle opplysningene er valgfrie. Du kan lagre bare navn.")
                     .font(AppTypography.secondary)
                     .foregroundStyle(AppColors.textSecondary)
@@ -121,6 +134,8 @@ struct PersonalDetailsView: View {
                         .font(AppTypography.body)
                         .accessibilityIdentifier("personal-details-error")
                 }
+                }
+                .disabled(healthProfile.personalDetailsLoadError != nil)
             }
             .padding(16)
         }
@@ -146,6 +161,7 @@ struct PersonalDetailsView: View {
                     if viewModel.save() { dismiss() }
                 }
                 .accessibilityIdentifier("personal-details-save")
+                .disabled(healthProfile.personalDetailsLoadError != nil)
             }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()

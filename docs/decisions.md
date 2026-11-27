@@ -2,6 +2,18 @@
 
 Bruk denne filen for varige valg som påvirker produktretning, arkitektur, datakontrakter eller drift. Hold hvert innslag kort: dato, beslutning, begrunnelse og konsekvens.
 
+## 2026-11-25 – Viderefør praksis for lesefeil og teknisk gjeld
+
+**Beslutning:** Feilformidlende domene-lesing, eksplisitt cachefallback,
+kontekstvern ved retry, bevart transaksjonseierskap ved filoppdeling og
+kandidatbundne QA-bevis gjøres til varige krav i arkitekturprinsippene,
+AGENTS.md og relevante prosjekt-skills.
+
+**Konsekvens:** Kravene gjelder ny og endret kode. Eksisterende avvik skal
+ikke kopieres videre eller omtales som løst bare fordi reglene er skrevet.
+Runde 2 i utbedringsplanen er fortsatt ikke startet, etter brukerens instruks.
+Legacy beholdes etter eksisterende cutoverkrav; ingen avvikling godkjennes her.
+
 ## 2026-09-28 – Supabase erstatter egen auth- og synkbackend
 
 **Beslutning:** Supabase Auth, PostgreSQL, RLS og Edge Functions overtar konto,
@@ -1130,6 +1142,43 @@ kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
 klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
 native historikk-QA kreves før funksjonen sendes til testerne.
 
+## 2026-11-25 – Eksplisitte feil ved historikklesing
+
+**Beslutning:** Aktive historikk-, eksport-, gjenbruks-, kopierings- og
+angreflyter bruker throwing lesemetoder. SQL-/dekodingsfeil skal ikke bli
+et tomt eller delvis ernæringsresultat. Samme brukers/dags innhold beholdes
+ved oppdateringsfeil; endret kontekst tømmer innholdet. Eldre ikke-kastende
+API-er beholdes som kompatibilitetsgjeld, ikke som mønster for ny kode.
+
+**Begrunnelse:** En tom logg er et gyldig domeneresultat og må kunne skilles
+fra feil. Lagrings- og ViewModel-grensene gjør feilsituasjonene testbare.
+
+**Konsekvens:** Kodekandidat `b9b8eb7` bevarer local-first, transaksjoner,
+eierskap og avslått synk. Ingen skjema-/synkkontraktsendring. Legacy-backend
+beholdes etter tidligere cutoverbeslutning; avhengigheter og foreslåtte
+kriterier for separat avvikling er samlet i utbedringsplanen. Ingen ny
+produksjons- eller synkaktiveringsgodkjenning.
+
+## 2026-11-25 – Runde 2: én lesekontrakt og avgrenset LocalStore
+
+**Beslutning:** Fjern de ikke-kastende historikk-/måltidsgrensesnittene og la
+berørte domene-repositories formidle lese-/dekodingsfeil. Nødvendige
+rader/kilder skal ikke gi delsummer eller en tilsynelatende komplett eksport.
+Uleselige personopplysninger skal bevares også når et redigeringsskjema lagres.
+Kun gjenoppbyggbar katalogcache bruker eksplisitt best-effort-fallback.
+
+**Struktur:** LocalStore eier fortsatt privat tilkobling, kø og transaksjoner;
+23 lesemetoder fordeles på History/Products/Profiles, med felles kontrollert
+SQLiteReadStatement. Flyttingen holdes separat fra feilrettingen.
+
+**Legacy:** Viderefør referansevedlikehold etter eksisterende cutoverkrav,
+med konkret avviklingspakke i backend/README. Ingen CI-port svekkes og ingen
+auth-/produksjonsavvikling er godkjent. Ukjent drift må avklares før sletting.
+
+**Status:** Runde 2 ble startet etter brukerens nye instruks. Kodekandidat
+`c86bb83` er lokalt implementert og avventer iOS-/visuell QA. Se kandidatoversikten
+for faktisk testomfang; historiske runde 1-resultater lukker ikke nye porter.
+
 ## Avgrensning etter tilbakeføring – 27. november 2026
 
 Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
@@ -1140,3 +1189,11 @@ arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
 opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
 beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
 logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
+
+## 2026-11-27 – Bevar valgt dag ved retur til Hjem
+
+Sammenslåing av main inn i unified-logging beholder den samlede skjermen og
+opprinnelig fanenavigasjon. Hjems innlastingsoppgave skal ikke nullstille valgt
+dag ved retur fra en annen fane; nullstilling er knyttet til faktisk profilbytte.
+Fysisk UI-regresjon for Profil → lagrede måltider → Hjem feilet på valgt dato
+før rettingen og bestod etterpå. Lagring, transaksjoner og synkpolicy er uendret.

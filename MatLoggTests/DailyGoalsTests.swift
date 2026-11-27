@@ -236,7 +236,7 @@ struct DailyGoalsTests {
             eventId = events.first?.eventId
         }
         let reopened = try LocalStore(databaseURL: url)
-        let saved = try #require(reopened.getLatestGoal(userId: userId))
+        let saved = try #require(try reopened.getLatestGoal(userId: userId))
         #expect(saved.dailyCalories == 2100)
         #expect(saved.proteinTargetG == 120.25)
         #expect(saved.carbsTargetG == 220.75)
@@ -265,5 +265,5 @@ private final class GoalRepositoryStub: GoalRepository {
 private struct LocalGoalRepository: GoalRepository {
     let store: LocalStore
     func saveGoal(_ goal: Goal) async throws { try store.saveGoal(goal) }
-    func latestGoal(userId: UUID) async -> Goal? { store.getLatestGoal(userId: userId) }
+    func latestGoal(userId: UUID) async throws  -> Goal? { try store.getLatestGoal(userId: userId) }
 }

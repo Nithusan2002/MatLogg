@@ -395,7 +395,7 @@ class APIService {
             URLQueryItem(name: "page_size", value: "20"),
             URLQueryItem(
                 name: "fields",
-                value: "code,product_name,brands,categories,categories_tags,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
+                value: "code,product_name,brands,categories,categories_tags,nutriscore_grade,nutriscore_version,nutriscore,nova_group,nova_groups_markers,ingredients_text,ingredients_text_nb,ingredients_text_no,image_front_url,serving_size,serving_quantity,quantity,product_quantity,product_quantity_unit,nutrition_data_per,nutrition_data_prepared_per,nutriments,last_modified_t,rev,schema_version,data_quality_errors_tags,data_quality_warnings_tags"
             )
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
@@ -408,7 +408,7 @@ class APIService {
         let fields = [
             "code", "product_name", "brands", "categories", "categories_tags", "image_front_url",
             "nutriscore_grade", "nutriscore_version", "nutriscore", "nova_group", "nova_groups_markers", "ingredients_text", "ingredients_text_nb", "ingredients_text_no",
-            "serving_size", "serving_quantity", "product_quantity", "product_quantity_unit",
+            "serving_size", "serving_quantity", "quantity", "product_quantity", "product_quantity_unit",
             "nutrition_data_per", "nutrition_data_prepared_per", "nutriments", "last_modified_t", "rev", "schema_version",
             "data_quality_errors_tags", "data_quality_warnings_tags"
         ].joined(separator: ",")
@@ -628,7 +628,8 @@ nonisolated private enum OpenFoodFactsParser {
             fetchedAt: Date(),
             nutriScoreInfo: product.nutriScoreInfo,
             processingInfo: product.processingInfo,
-            dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? [])
+            dataQualityWarnings: (product.dataQualityErrors ?? []) + (product.dataQualityWarnings ?? []),
+            packageQuantityLabel: product.quantity
         )
     }
 
@@ -829,6 +830,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
     let imageUrl: String?
     let servingSize: String?
     let servingQuantity: FlexibleDouble?
+    let quantity: String?
     let productQuantity: FlexibleDouble?
     let productQuantityUnit: String?
     let nutriments: OpenFoodFactsNutriments?
@@ -875,6 +877,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         imageUrl = try c.decodeIfPresent(String.self, forKey: .imageUrl)
         servingSize = try c.decodeIfPresent(String.self, forKey: .servingSize)
         servingQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .servingQuantity)
+        quantity = ProductPackageLabel.validated(try? c.decode(String.self, forKey: .quantity))
         productQuantity = try c.decodeIfPresent(FlexibleDouble.self, forKey: .productQuantity)
         productQuantityUnit = try c.decodeIfPresent(String.self, forKey: .productQuantityUnit)
         nutriments = try c.decodeIfPresent(OpenFoodFactsNutriments.self, forKey: .nutriments)
@@ -912,6 +915,7 @@ nonisolated private struct OpenFoodFactsProduct: Codable {
         case imageUrl = "image_front_url"
         case servingSize = "serving_size"
         case servingQuantity = "serving_quantity"
+        case quantity
         case productQuantity = "product_quantity"
         case productQuantityUnit = "product_quantity_unit"
         case nutriments

@@ -248,8 +248,8 @@ struct MatLoggTests {
 
         #expect(store.localDataSummary(ownerId: localId) == .empty)
         #expect(store.localDataSummary(ownerId: accountId).goals == 1)
-        #expect(store.getLatestGoal(userId: localId) == nil)
-        #expect(store.getLatestGoal(userId: accountId)?.userId == accountId)
+        #expect(try store.getLatestGoal(userId: localId) == nil)
+        #expect(try store.getLatestGoal(userId: accountId)?.userId == accountId)
         #expect(store.fetchPendingEvents(ownerUserId: localId, limit: 10).isEmpty)
         let claimedEvent = try #require(store.fetchPendingEvents(ownerUserId: accountId, limit: 10).first)
         #expect(claimedEvent.eventId == originalEvent.eventId)
@@ -355,7 +355,7 @@ struct MatLoggTests {
         try await db.saveLog(log)
         try await db.saveProduct(product, ownerUserId: userId)
 
-        let summary = await db.getTodaysSummary(userId: userId)
+        let summary = try await db.loadSummary(userId: userId, date: Date())
         #expect(summary.logs.contains { $0.id == log.id && $0.mealType == "lunsj" })
     }
 
@@ -384,8 +384,8 @@ struct MatLoggTests {
 
         try store.cacheCatalogProduct(product)
 
-        #expect(store.getProductByBarcode(barcode, ownerUserId: nil)?.id == product.id)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: nil)?.id == product.id)
+        #expect(try store.pendingSyncCount() == 0)
     }
 
     @Test func userProductsAreOwnerScopedClaimedAndDeletedWithProfileData() throws {
@@ -410,19 +410,19 @@ struct MatLoggTests {
 
         try store.saveProduct(product, ownerUserId: localOwner)
 
-        #expect(store.getProductByBarcode(barcode, ownerUserId: localOwner)?.id == product.id)
-        #expect(store.getProductByBarcode(barcode, ownerUserId: unrelatedOwner) == nil)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: localOwner)?.id == product.id)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: unrelatedOwner) == nil)
         #expect(store.localDataSummary(ownerId: localOwner).products == 1)
 
         try store.claimLocalData(from: localOwner, to: accountOwner)
 
-        #expect(store.getProductByBarcode(barcode, ownerUserId: localOwner) == nil)
-        #expect(store.getProductByBarcode(barcode, ownerUserId: accountOwner)?.id == product.id)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: localOwner) == nil)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: accountOwner)?.id == product.id)
         #expect(store.localDataSummary(ownerId: accountOwner).products == 1)
 
         try store.deleteLocalData(ownerId: accountOwner)
 
-        #expect(store.getProductByBarcode(barcode, ownerUserId: accountOwner) == nil)
+        #expect(try store.getProductByBarcode(barcode, ownerUserId: accountOwner) == nil)
         #expect(store.localDataSummary(ownerId: accountOwner).products == 0)
     }
 
@@ -437,12 +437,12 @@ struct MatLoggTests {
         try store.cacheCatalogProduct(requested)
         try store.cacheCatalogProduct(omitted)
 
-        let products = store.getProducts([requested.id, UUID()])
+        let products = try store.getProducts([requested.id, UUID()])
 
         #expect(products.count == 1)
         #expect(products[requested.id]?.name == requested.name)
         #expect(products[omitted.id] == nil)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
     }
 
     @Test func localDatabaseUsesLatestFormalSchemaVersion() async {
@@ -478,7 +478,7 @@ struct MatLoggTests {
 
         let store = try LocalStore(databaseURL: url)
         #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
-        #expect(store.getProduct(product.id)?.name == product.name)
+        #expect(try store.getProduct(product.id)?.name == product.name)
 
         db = nil
         try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
@@ -522,7 +522,7 @@ struct MatLoggTests {
 
         let store = try LocalStore(databaseURL: url)
         #expect(store.schemaVersion() == LocalStore.latestSchemaVersion)
-        #expect(store.quarantinedSyncCount() == 1)
+        #expect(try store.quarantinedSyncCount() == 1)
         #expect(store.fetchPendingEvents(ownerUserId: UUID(), limit: 10).isEmpty)
 
         db = nil
@@ -568,8 +568,8 @@ struct MatLoggTests {
 
         let migrated = try LocalStore(databaseURL: url)
         #expect(migrated.schemaVersion() == LocalStore.latestSchemaVersion)
-        #expect(migrated.getProduct(product.id)?.name == product.name)
-        #expect(migrated.getSavedMeals(userId: UUID()).isEmpty)
+        #expect(try migrated.getProduct(product.id)?.name == product.name)
+        #expect(try migrated.loadSavedMeals(userId: UUID()).isEmpty)
     }
 
     @Test func schemaVersionSixMigratesAndReopensWithoutDeletingDrafts() throws {
@@ -716,7 +716,7 @@ struct MatLoggTests {
         try #require(sqlite3_exec(db, "UPDATE products SET json = X'7B';", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(db)
 
-        #expect(store.getProduct(product.id) == nil)
+        #expect(throws: LocalStoreError.self) { try store.getProduct(product.id) }
         #expect(diagnostics.count == 1)
         guard case .decodingFailed(let entity, _) = diagnostics[0] else {
             Issue.record("Forventet dekodingsdiagnostikk")
@@ -744,13 +744,13 @@ struct MatLoggTests {
         let product = Product(name: "Slettes", caloriesPer100g: 100, proteinGPer100g: 1, carbsGPer100g: 1, fatGPer100g: 1)
         try store.saveProduct(product, ownerUserId: userId)
         try store.saveGoal(Goal(userId: userId, goalType: "maintain", dailyCalories: 2000, proteinTargetG: 100, carbsTargetG: 200, fatTargetG: 60))
-        #expect(store.pendingSyncCount() > 0)
+        #expect(try store.pendingSyncCount() > 0)
 
         try store.resetAllData()
 
-        #expect(store.getProduct(product.id) == nil)
-        #expect(store.getLatestGoal(userId: userId) == nil)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.getProduct(product.id) == nil)
+        #expect(try store.getLatestGoal(userId: userId) == nil)
+        #expect(try store.pendingSyncCount() == 0)
     }
 }
 
@@ -990,7 +990,7 @@ struct LogViewModelTests {
         let original = makeLog(userId: owner, productId: UUID(), date: Date())
         try store.saveLog(original)
         try store.deleteLog(original.id)
-        #expect(store.getAllLogs(userId: owner).isEmpty)
+        #expect(try store.loadAllLogs(userId: owner).isEmpty)
         let restored = FoodLog(userId: owner, productId: original.productId, mealType: original.mealType,
                                amountG: original.amountG, amountUnit: original.resolvedAmountUnit,
                                loggedDate: original.loggedDate, loggedTime: original.loggedTime,
@@ -998,8 +998,8 @@ struct LogViewModelTests {
                                carbsG: original.carbsG, fatG: original.fatG, createdAt: original.createdAt)
         try store.saveLogs([restored])
         let reopened = try LocalStore(databaseURL: url)
-        #expect(reopened.getAllLogs(userId: owner).map(\.id) == [restored.id])
-        #expect(reopened.pendingSyncCount() == 3)
+        #expect(try reopened.loadAllLogs(userId: owner).map(\.id) == [restored.id])
+        #expect(try reopened.pendingSyncCount() == 3)
         let ready = reopened.fetchPendingEvents(ownerUserId: owner, limit: 10)
         #expect(ready.map(\.type) == ["log.upsert", "log.upsert"])
         #expect(ready.compactMap(\.entityId) == [original.id.uuidString, restored.id.uuidString])
@@ -1313,7 +1313,7 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
     func loadSummaries(userId: UUID, dates: [Date]) async throws -> [DailySummary] {
         if let summaryError { throw summaryError }
         var result: [DailySummary] = []
-        for date in dates { result.append(await getSummary(userId: userId, date: date)) }
+        for date in dates { result.append(await loadSummary(userId: userId, date: date)) }
         return result
     }
 
@@ -1338,11 +1338,11 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
         deletedIds.append(id)
     }
 
-    func getAllLogs(userId: UUID) async -> [FoodLog] {
+    func loadAllLogs(userId: UUID) async -> [FoodLog] {
         logs.filter { $0.userId == userId }
     }
 
-    func getSummary(userId: UUID, date: Date) async -> DailySummary {
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary {
         if let delay = summaryDelayNanoseconds?(date), delay > 0 {
             try? await Task.sleep(nanoseconds: delay)
         }
@@ -1350,10 +1350,6 @@ private final class FoodLogRepositorySpy: FoodLogRepository {
             $0.userId == userId && Calendar.current.isDate($0.loggedDate, inSameDayAs: date)
         }
         return summary(date: date, logs: matching)
-    }
-
-    func getTodaysSummary(userId: UUID) async -> DailySummary {
-        await getSummary(userId: userId, date: Date())
     }
 
     func getProduct(_ id: UUID) -> Product? {
@@ -1474,8 +1470,8 @@ struct AuthViewModelTests {
         await restarted.restoreSession()
         #expect(restarted.currentUser?.id == account.id)
         #expect(sessions.pendingLink == nil)
-        #expect(store.getWeightEntries(userId: account.id).count == 1)
-        #expect(store.getWeightEntries(userId: local.id).isEmpty)
+        #expect(try store.getWeightEntries(userId: account.id).count == 1)
+        #expect(try store.getWeightEntries(userId: local.id).isEmpty)
         #expect(store.fetchPendingEvents(ownerUserId: account.id, limit: 50).map(\.eventId) == [original.eventId])
     }
 
@@ -2227,8 +2223,8 @@ struct ManualProductViewModelTests {
         let store = try LocalStore(databaseURL: storeURL)
         try store.saveProduct(product, ownerUserId: UUID())
         let reopened = try LocalStore(databaseURL: storeURL)
-        #expect(reopened.getProduct(product.id)?.manualNutritionInput?.calories == 120)
-        #expect(reopened.getProduct(product.id)?.manualNutritionInput?.label == "Skive")
+        #expect(try reopened.getProduct(product.id)?.manualNutritionInput?.calories == 120)
+        #expect(try reopened.getProduct(product.id)?.manualNutritionInput?.label == "Skive")
         let events = store.fetchPendingEvents(limit: 10)
         #expect(events.count == 1)
         let payload = try #require(JSONSerialization.jsonObject(with: events[0].payload) as? [String: Any])

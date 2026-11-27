@@ -7,7 +7,10 @@ build/
 *.xcworkspace/xcuserdata/
 *.xcworkspace/xcshareddata/
 *.xcodeproj/xcuserdata/
-*.xcodeproj/xcshareddata/
+*.xcodeproj/xcshareddata/*
+!MatLogg.xcodeproj/xcshareddata/xcschemes/
+MatLogg.xcodeproj/xcshareddata/xcschemes/*
+!MatLogg.xcodeproj/xcshareddata/xcschemes/MatLogg.xcscheme
 DerivedData/
 *.xcodeproj/-Xcc/
 .DS_Store

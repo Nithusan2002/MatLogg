@@ -22,10 +22,10 @@ struct SavedMealStorageTests {
             #expect(items.first?["amountUnit"] as? String == "ml")
 
             let reopened = try LocalStore(databaseURL: url)
-            #expect(reopened.getSavedMeals(userId: userId) == [meal])
+            #expect(try reopened.loadSavedMeals(userId: userId) == [meal])
             try reopened.deleteSavedMeal(meal.id, userId: userId)
-            #expect(reopened.getSavedMeals(userId: userId).isEmpty)
-            #expect(reopened.pendingSyncCount() == 2)
+            #expect(try reopened.loadSavedMeals(userId: userId).isEmpty)
+            #expect(try reopened.pendingSyncCount() == 2)
             #expect(reopened.fetchPendingEvents(limit: 10).map(\.eventId) == [event.eventId])
             reopened.markEventsAcked([event.eventId])
             let next = reopened.fetchPendingEvents(limit: 10)
@@ -46,8 +46,8 @@ struct SavedMealStorageTests {
                 """, at: url)
 
             #expect(throws: (any Error).self) { try store.saveSavedMeal(meal) }
-            #expect(store.getSavedMeals(userId: meal.userId).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.loadSavedMeals(userId: meal.userId).isEmpty)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 
@@ -61,11 +61,11 @@ struct SavedMealStorageTests {
             #expect(older.localImageData == nil)
             meal.localImageData = Data([4, 5, 6])
             try store.saveSavedMeal(meal)
-            #expect(store.getSavedMeals(userId: UUID()).isEmpty)
+            #expect(try store.loadSavedMeals(userId: UUID()).isEmpty)
             meal.localImageData = nil
             try store.saveSavedMeal(meal)
             let reopened = try LocalStore(databaseURL: url)
-            let stored = try #require(reopened.getSavedMeals(userId: meal.userId).first)
+            let stored = try #require(try reopened.loadSavedMeals(userId: meal.userId).first)
             #expect(stored.localImageData == nil)
         }
     }

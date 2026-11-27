@@ -122,15 +122,15 @@ struct LoadingStateTests {
         let first = summary(owner: owner, date: yesterday, product: item).logs[0]
         let foreign = summary(owner: other, date: yesterday, product: item).logs[0]
         try store.saveLogs([first, foreign])
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         let repository = DatabaseService(store: store)
         let dates = [today, older, yesterday]
         let result = try await repository.loadSummaries(userId: owner, dates: dates)
         #expect(result.map(\.date) == dates)
         #expect(result[0].logs.isEmpty && result[1].logs.isEmpty)
         #expect(result[2].logs.map(\.id) == [first.id])
-        #expect(result[2].totalCalories == store.getSummary(userId: owner, date: yesterday).totalCalories)
-        #expect(store.pendingSyncCount() == count)
+        #expect(try result[2].totalCalories == store.loadSummary(userId: owner, date: yesterday).totalCalories)
+        #expect(try store.pendingSyncCount() == count)
         #expect(try await repository.loadSummaries(userId: owner, dates: []).isEmpty)
     }
 
@@ -207,15 +207,14 @@ private final class LoadingRepository: FoodLogRepository, SavedMealRepository, S
     func loadScanHistory(userId: UUID) async throws -> ScanHistorySnapshot {
         try await withCheckedThrowingContinuation { scanRequests.append($0) }
     }
-    func getAllLogs(userId: UUID) async -> [FoodLog] { [] }
-    func getSummary(userId: UUID, date: Date) async -> DailySummary { DailySummary.summaries(userId: userId, dates: [date], logs: [])[0] }
-    func getTodaysSummary(userId: UUID) async -> DailySummary { DailySummary.summaries(userId: userId, dates: [Date()], logs: [])[0] }
+    func loadAllLogs(userId: UUID) async -> [FoodLog] { [] }
+    func loadSummary(userId: UUID, date: Date) async -> DailySummary { DailySummary.summaries(userId: userId, dates: [date], logs: [])[0] }
     func getProduct(_ id: UUID) async -> Product? { nil }
     func saveLogs(_ logs: [FoodLog]) async throws {}
     func deleteLogs(_ ids: [UUID]) async throws {}
     func saveLog(_ log: FoodLog) async throws {}
     func deleteLog(_ id: UUID) async throws {}
-    func getSavedMeals(userId: UUID) async -> [SavedMeal] { [] }
+
     func saveSavedMeal(_ meal: SavedMeal) async throws {}
     func deleteSavedMeal(_ id: UUID, userId: UUID) async throws {}
 }

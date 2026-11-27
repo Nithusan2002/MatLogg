@@ -230,3 +230,11 @@ mottakerimport kreves. Sending fra mottakerappen kan kreve nett. Alle stiler har
 reserveutforming uten bilde; et ødelagt bilde gir en eksplisitt forklaring.
 Eksportbildet holdes i minnet og inneholder ikke original fotometadata,
 loggdato, profilinformasjon, mål eller vekt. Profilbytte forkaster delingsøkten.
+
+## Tilgang fra Profil
+
+«Lagrede måltider» ligger rett under «Favoritter» på Profil og åpner det samme
+biblioteket med vanlig tilbakeknapp. Hurtiglogging beholder åpning som ark.
+Biblioteket endrer ikke valgt loggføringsdato eller måltid ved åpning.
+Detaljarket viser eksisterende «Logg til»-rad med dato og måltid før logging.
+Etter logging fra Profil blir biblioteket stående åpent.

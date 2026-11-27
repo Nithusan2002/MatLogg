@@ -1,4 +1,6 @@
 name: Backend CI
+# Legacy reference maintenance retains all gates until an explicit cutover decision.
+# Scope and removal prerequisites: backend/README.md.
 
 on:
   push:

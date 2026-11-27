@@ -144,7 +144,17 @@ struct MatLoggContent: View {
             barcodeService: productAPI, nameSearchService: productAPI,
             barcodeRepository: barcodeRepository
         ))
-        _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: databaseService))
+        let favoritesRepository: any FavoriteListRepository
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--favorite-read-failure-qa") {
+            favoritesRepository = FavoriteReadFailureQAFixture(base: databaseService)
+        } else {
+            favoritesRepository = databaseService
+        }
+        #else
+        favoritesRepository = databaseService
+        #endif
+        _profileFavoritesViewModel = StateObject(wrappedValue: ProfileFavoritesViewModel(repository: favoritesRepository))
         let healthProfile = HealthProfileViewModel(repository: databaseService, personalDetailsStore: UserDefaultsPersonalDetailsStore(defaults: defaults))
         _healthProfileViewModel = StateObject(wrappedValue: healthProfile)
         _personalDetailsViewModel = StateObject(wrappedValue: PersonalDetailsViewModel(
@@ -254,6 +264,13 @@ struct MatLoggContent: View {
             }
             .task {
                 #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--search-metadata-qa") {
+                    do {
+                        for product in SearchMetadataQAFixture.products {
+                            try await portionQARepository.cacheCatalogProduct(product)
+                        }
+                    } catch { appState.errorMessage = "Kunne ikke lagre testproduktene lokalt." }
+                }
                 if ProcessInfo.processInfo.arguments.contains("--prepared-nutrition-qa") {
                     do { try await portionQARepository.cacheCatalogProduct(PortionQAFixture.preparedProduct) }
                     catch { appState.errorMessage = "Kunne ikke lagre testproduktet lokalt." }

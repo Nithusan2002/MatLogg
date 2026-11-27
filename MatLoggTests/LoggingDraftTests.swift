@@ -37,7 +37,7 @@ struct LoggingDraftTests {
         #expect(restored.date == draft.date)
         #expect(try reopened.loadLoggingDraft(owner: UUID()) == nil)
         #expect(store.localDataSummary(ownerId: draft.userId).hasData)
-        #expect(store.pendingSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 0)
         #expect(try store.exportProfileRecords(ownerId: draft.userId)["food_logging_drafts"]?.count == 1)
     }
 
@@ -69,15 +69,15 @@ struct LoggingDraftTests {
         draft.amountText = "50,0"
         try store.advanceLoggingDraft(draft, product: food)
         try store.advanceLoggingDraft(draft, product: food)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
         let reopened = try LocalStore(databaseURL: path)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId)?.amountText == "50,0")
-        #expect(reopened.getProduct(food.id)?.name == "Testmat")
+        #expect(try reopened.getProduct(food.id)?.name == "Testmat")
         let entry = log(draft)
         try reopened.completeLoggingDraft(draft, log: entry)
         try reopened.completeLoggingDraft(draft, log: entry)
-        #expect(reopened.getAllLogs(userId: draft.userId).count == 1)
-        #expect(reopened.pendingSyncCount() == 2)
+        #expect(try reopened.loadAllLogs(userId: draft.userId).count == 1)
+        #expect(try reopened.pendingSyncCount() == 2)
         #expect(try reopened.loadLoggingDraft(owner: draft.userId) == nil)
         #expect(throws: (any Error).self) { try reopened.updateLoggingDraft(draft) }
     }
@@ -91,7 +91,7 @@ struct LoggingDraftTests {
         draft.revision += 1; draft.step = .amount; draft.product = food
         #expect(throws: (any Error).self) { try store.advanceLoggingDraft(draft, product: food) }
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .product)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
     }
 
     @Test func failedDomainTransactionsRetainDraftWithoutPartialWrites() throws {
@@ -106,14 +106,14 @@ struct LoggingDraftTests {
         draft.revision += 1; draft.step = .amount; draft.product = product(draft)
         #expect(throws: (any Error).self) { try store.advanceLoggingDraft(draft, product: product(draft)) }
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .product)
-        #expect(store.getProduct(draft.productId) == nil)
+        #expect(try store.getProduct(draft.productId) == nil)
         try #require(sqlite3_exec(db, "DROP TRIGGER fail_event;", nil, nil, nil) == SQLITE_OK)
         try store.advanceLoggingDraft(draft, product: product(draft))
         try #require(sqlite3_exec(db, "CREATE TRIGGER fail_event BEFORE INSERT ON sync_queue BEGIN SELECT RAISE(ABORT, 'test'); END;", nil, nil, nil) == SQLITE_OK)
         #expect(throws: (any Error).self) { try store.completeLoggingDraft(draft, log: log(draft)) }
-        #expect(store.getAllLogs(userId: draft.userId).isEmpty)
+        #expect(try store.loadAllLogs(userId: draft.userId).isEmpty)
         #expect(try store.loadLoggingDraft(owner: draft.userId)?.step == .amount)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.pendingSyncCount() == 1)
     }
 
     @Test func corruptAndUnknownDraftsFailWithoutOverwriting() throws {
@@ -201,7 +201,7 @@ struct LoggingDraftTests {
         let receipt = try #require(await third.complete())
         #expect(receipt.ownerID == owner)
         #expect(receipt.loggedDate == Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1000)))
-        #expect(store.getAllLogs(userId: owner).count == 1)
+        #expect(try store.loadAllLogs(userId: owner).count == 1)
         await third.load(owner: UUID())
         #expect(third.draft == nil)
     }
@@ -248,4 +248,88 @@ struct LoggingDraftTests {
         #expect(await restored.discard())
     }
 
+}
+
+
+/// Controlled repository responses exercise ordering without timing-dependent sleeps.
+@MainActor
+private final class DeferredDraftRepository: FoodLoggingDraftRepository {
+    var loads: [UUID: Int] = [:]
+    var pending: [UUID: CheckedContinuation<FoodLoggingDraft?, Error>] = [:]
+
+    func loadLoggingDraft(owner: UUID) async throws -> FoodLoggingDraft? {
+        loads[owner, default: 0] += 1
+        return try await withCheckedThrowingContinuation { pending[owner] = $0 }
+    }
+    func resolve(_ owner: UUID, result: Result<FoodLoggingDraft?, Error>) {
+        pending.removeValue(forKey: owner)?.resume(with: result)
+    }
+    func waitForLoad(_ owner: UUID) async throws {
+        for _ in 0..<1_000 {
+            if pending[owner] != nil { return }
+            await Task.yield()
+        }
+        try #require(pending[owner] != nil, "Expected repository request")
+    }
+    func createLoggingDraft(_ draft: FoodLoggingDraft) async throws { throw LoggingDraftError.unavailable }
+    func updateLoggingDraft(_ draft: FoodLoggingDraft) async throws { throw LoggingDraftError.unavailable }
+    func discardLoggingDraft(id: UUID, owner: UUID) async throws { throw LoggingDraftError.unavailable }
+    func advanceLoggingDraft(_ draft: FoodLoggingDraft, product: Product) async throws { throw LoggingDraftError.unavailable }
+    func completeLoggingDraft(_ draft: FoodLoggingDraft, log: FoodLog) async throws { throw LoggingDraftError.unavailable }
+}
+
+extension LoggingDraftTests {
+    @MainActor @Test(arguments: [false, true])
+    func lateLoadCannotReplaceNewProfileOrPublishOldFailure(fails: Bool) async throws {
+        let repository = DeferredDraftRepository()
+        let model = FoodLoggingDraftViewModel(repository: repository)
+        let oldOwner = UUID(), newOwner = UUID()
+        let old = Task { await model.load(owner: oldOwner) }
+        try await repository.waitForLoad(oldOwner)
+        let current = Task { await model.load(owner: newOwner) }
+        try await repository.waitForLoad(newOwner)
+        let expected = FoodLoggingDraft(userId: newOwner, mealType: "lunsj", date: Date())
+        repository.resolve(newOwner, result: .success(expected))
+        await current.value
+        repository.resolve(oldOwner, result: fails ? .failure(LoggingDraftError.unavailable) :
+            .success(FoodLoggingDraft(userId: oldOwner, mealType: "middag", date: Date())))
+        await old.value
+        #expect(model.draft?.id == expected.id)
+        #expect(model.isLoaded)
+        #expect(model.errorMessage == nil)
+    }
+
+    @MainActor @Test
+    func concurrentEntryPointsShareFailedLoadAndExplicitRetryRecovers() async throws {
+        let repository = DeferredDraftRepository()
+        let model = FoodLoggingDraftViewModel(repository: repository)
+        let owner = UUID()
+        let first = Task { await model.load(owner: owner) }
+        try await repository.waitForLoad(owner)
+        var secondEntered = false
+        let second = Task {
+            secondEntered = true
+            await model.load(owner: owner)
+        }
+        // MainActor reaches the suspended load before this task can observe the flag.
+        for _ in 0..<1_000 {
+            if secondEntered { break }
+            await Task.yield()
+        }
+        #expect(secondEntered)
+        repository.resolve(owner, result: .failure(LoggingDraftError.unavailable))
+        await first.value
+        await second.value
+        #expect(repository.loads[owner] == 1)
+        #expect(!model.isLoaded)
+        #expect(model.errorMessage != nil)
+        let retry = Task { await model.load(owner: owner) }
+        try await repository.waitForLoad(owner)
+        repository.resolve(owner, result: .success(nil))
+        await retry.value
+        #expect(repository.loads[owner] == 2)
+        #expect(model.isLoaded)
+        #expect(model.draft == nil)
+        #expect(model.errorMessage == nil)
+    }
 }

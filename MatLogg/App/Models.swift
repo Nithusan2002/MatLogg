@@ -165,6 +165,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
     let nutriScoreInfo: ProductNutriScoreInfo?
     let processingInfo: ProductProcessingInfo?
     let dataQualityWarnings: [String]?
+    /// Source-supplied package text for display only; never a serving or nutrition basis.
+    var packageQuantityLabel: String?
     
     // Local flags
     var isSynced: Bool = true
@@ -206,7 +208,8 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         fetchedAt: Date? = nil,
         nutriScoreInfo: ProductNutriScoreInfo? = nil,
         processingInfo: ProductProcessingInfo? = nil,
-        dataQualityWarnings: [String]? = nil
+        dataQualityWarnings: [String]? = nil,
+        packageQuantityLabel: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -245,6 +248,7 @@ nonisolated struct Product: Codable, Identifiable, Sendable {
         self.nutriScoreInfo = nutriScoreInfo
         self.processingInfo = processingInfo
         self.dataQualityWarnings = dataQualityWarnings
+        self.packageQuantityLabel = packageQuantityLabel
     }
 
     /// Stable local identity for read-only catalog rows. Version 8 marks the
@@ -406,6 +410,14 @@ nonisolated enum NutritionSource: String, Codable, Sendable {
     case matvaretabellen
     case openFoodFacts
     case user
+
+    var displayName: String {
+        switch self {
+        case .matvaretabellen: "Matvaretabellen"
+        case .openFoodFacts: "Open Food Facts"
+        case .user: "Brukeroppgitt"
+        }
+    }
 }
 
 nonisolated enum ImageSource: String, Codable, Sendable {

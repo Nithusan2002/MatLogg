@@ -52,19 +52,25 @@ final class ProductDetailViewModel: ObservableObject {
     func loadFavorite(owner: UUID?) async {
         let request = UUID()
         favoriteRequest = request
+        if favoriteOwner != owner { isFavorite = false }
         favoriteOwner = owner
-        isFavorite = false
         isChangingFavorite = false
         favoriteError = nil
         guard let owner, let favorites else { return }
-        let loaded = await favorites.isFavorite(userId: owner, productId: product.id)
+        let loaded: Bool
+        do { loaded = try await favorites.isFavorite(userId: owner, productId: product.id) }
+        catch {
+            guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return }
+            favoriteError = "Kunne ikke hente favorittstatus. Prøv igjen."
+            return
+        }
         guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return }
         isFavorite = loaded
     }
 
     @discardableResult
     func toggleFavorite(owner: UUID?) async -> Bool {
-        guard !isChangingFavorite, let owner, let favorites else { return false }
+        guard !isChangingFavorite, favoriteError == nil, let owner, let favorites else { return false }
         let request = UUID()
         favoriteRequest = request
         favoriteOwner = owner
@@ -73,7 +79,7 @@ final class ProductDetailViewModel: ObservableObject {
         defer { if favoriteRequest == request { isChangingFavorite = false } }
         do {
             try await favorites.toggleFavorite(userId: owner, productId: product.id)
-            let current = await favorites.isFavorite(userId: owner, productId: product.id)
+            let current = try await favorites.isFavorite(userId: owner, productId: product.id)
             guard favoriteRequest == request, favoriteOwner == owner, !Task.isCancelled else { return false }
             isFavorite = current
             return true

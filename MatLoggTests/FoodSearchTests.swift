@@ -21,6 +21,142 @@ struct FoodSearchTests {
         #expect(vm.reuseList == .recent)
     }
 
+
+    // Fixed relevance benchmark against the bundled public catalog; no live provider or user data.
+    @Test(arguments: [
+        ("melk", "Melk, uspesifisert"),
+        ("lettmelk", "Lettmelk, uspesifisert"),
+        ("havregryn", "Havregryn"),
+        ("banan", "Banan, rå"),
+        ("egg", "Egg, kokt"),
+        ("ris", "Ris, basmati, kokt"),
+        ("potet", "Potet, bakt"),
+        ("laks", "Laks, oppdrett, rå"),
+        ("yoghurt naturell", "Yoghurt, naturell"),
+        ("smør", "Smør"),
+        ("brokkoli", "Brokkoli, norsk, rå"),
+        ("kylling filet", "Kylling, filet, uten skinn, rå"),
+        ("kokt ris", "Ris, basmati, kokt"),
+        ("rå laks", "Laks, oppdrett, rå"),
+        ("lettmelk tine", "Lettmelk, 1,0 % fett, Tine"),
+        ("havre", "Havre- og bokhvetegrøt, glutenfri"),
+        ("brød grovt", "Brød, grovt (50-75 %), kjøpt"),
+        ("eple", "Eple, uspesifisert, rå"),
+        ("pasta kokt", "Pasta, naturell, kokt"),
+        ("yoghurt vanilje", "Yoghurt, vanilje")
+    ])
+    func catalogBenchmarkFindsRelevantFoodInFirstFive(query: String, expected: String) async throws {
+        let catalog = try await MatvaretabellenService().fetchCommonFoods().map(FoodSearchCatalog.product)
+        let results = try await FoodSearchIndex().results(library: catalog, remote: [], query: query)
+        #expect(results.prefix(5).contains { $0.name == expected }, "\(query): \(results.prefix(5).map(\.name))")
+    }
+
+    @Test func wholeWordsOutrankCompoundAndIngredientMatches() async throws {
+        let milk = product("Skummet melk")
+        let compound = product("Melkesjokolade")
+        let ingredient = product("Bolle med melk")
+        let results = try await FoodSearchIndex().results(library: [compound, ingredient, milk], remote: [], query: "melk")
+        #expect(results.first?.id == milk.id)
+        #expect(Set(results.map(\.id)) == Set([milk.id, compound.id, ingredient.id]))
+    }
+
+    @Test func weakHistoryDoesNotHideExactUnloggedMatch() async throws {
+        let exact = product("Melk")
+        let old = product("Melkesjokolade")
+        let sections = try await FoodSearchIndex().sections(library: [old, exact], remote: [], query: "melk",
+            loggedProductTimes: [old.id: Date()])
+        #expect(sections.all.first?.id == exact.id)
+        #expect(sections.history.isEmpty)
+        #expect(sections.other.contains { $0.id == old.id })
+    }
+
+    @Test func preferencesBreakTextualTiesWithoutPromotingWeakerMatches() async throws {
+        let first = product("Yoghurt naturell", brand: "A")
+        let favorite = product("Yoghurt naturell", brand: "B")
+        let recent = product("Yoghurt naturell", brand: "C")
+        let weaker = product("Yoghurtis naturell")
+        let index = FoodSearchIndex()
+        let result = try await index.results(library: [first, favorite, recent, weaker], remote: [], query: "yoghurt",
+            favoriteIDs: [favorite.id, weaker.id], loggedProductTimes: [recent.id: Date(), weaker.id: Date()])
+        #expect(result.map(\.id) == [favorite.id, recent.id, first.id, weaker.id])
+        let repeated = try await index.results(library: [weaker, recent, favorite, first], remote: [], query: "yoghurt",
+            favoriteIDs: [favorite.id, weaker.id], loggedProductTimes: [recent.id: Date(), weaker.id: Date()])
+        #expect(result.map(\.id) == repeated.map(\.id))
+    }
+
+    @Test func brandWordOrderAndPartialQueriesRemainSearchable() async throws {
+        let milk = product("Lettmelk", brand: "Testmerke")
+        let distraction = product("Lettmelkesjokolade", brand: "Testmerke")
+        let index = FoodSearchIndex()
+        for query in ["TESTMERKE lettmelk", "lettmelk testmerke", "lettm testm"] {
+            let result = try await index.results(library: [distraction, milk], remote: [], query: query)
+            #expect(result.first?.id == milk.id)
+        }
+        let result = try await index.results(library: [milk], remote: [product("Irrelevant")], query: "lettmelk")
+        #expect(result.map(\.id) == [milk.id])
+        #expect(FoodSearchMatcher.sorted([distraction, milk], query: "lettmelk").first?.id == milk.id)
+    }
+
+    @Test func viewModelUsesFavoritesAndClearsPreferenceOnOwnerSwitch() async {
+        let repository = SearchRepositoryStub()
+        let a = product("Yoghurt", brand: "A")
+        let b = product("Yoghurt", brand: "B")
+        repository.library = FoodSearchLibrary(products: [a, b], recent: [], favorites: [b], suggestions: [])
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        vm.setQuery("yoghurt")
+        await waitUntil { vm.results.first?.id == b.id }
+        repository.library = FoodSearchLibrary(products: [a, b], recent: [], favorites: [], suggestions: [])
+        await vm.load(owner: UUID())
+        vm.setQuery("yoghurt")
+        await waitUntil { vm.results.first?.id == a.id }
+        #expect(vm.favorites.isEmpty)
+    }
+
+    @Test func singleBrandQueryKeepsNamedFoodAheadOfOtherBrandProducts() async throws {
+        let cheese = product("Jarlsberg Original", brand: "Tine")
+        let pizza = product("Hjertepizza", brand: "Grandiosa, Jarlsberg")
+        let original = product("Grandiosa Original", brand: "Orkla")
+        let pepperoni = product("Grandiosa Pepperoni", brand: "Grandiosa")
+        let other = product("4x ost", brand: "Grandiosa")
+        let index = FoodSearchIndex()
+        let cheeses = try await index.results(library: [], remote: [pizza, cheese], query: "jarlsberg")
+        #expect(cheeses.first?.id == cheese.id)
+        let pizzas = try await index.results(library: [], remote: [other, pepperoni, original], query: "grandiosa")
+        #expect(pizzas.first?.id == original.id)
+    }
+
+    @Test func separateBrandMetadataDoesNotPromoteExtraFlavorVariants() async throws {
+        let plain = product("Proteinyoghurt Vanilje", brand: "Skyr")
+        let mango = product("Skyr Mango & Vanilje", brand: "Q-Meieriene")
+        let milk = product("Havredrik barista edition", brand: "Oatly")
+        let vanilla = product("Vanilla Barista", brand: "Oatly")
+        let index = FoodSearchIndex()
+        let skyr = try await index.results(library: [mango, plain], remote: [], query: "skyr vanilje")
+        #expect(skyr.first?.id == plain.id)
+        let barista = try await index.results(library: [], remote: [vanilla, milk], query: "oatly barista")
+        #expect(barista.first?.id == milk.id)
+        #expect(Set(skyr.map(\.id)) == [plain.id, mango.id])
+        #expect(Set(barista.map(\.id)) == [milk.id, vanilla.id])
+    }
+
+    @Test func unavailableProviderExplainsRetryAndKeepsLocalMatches() async {
+        let repository = SearchRepositoryStub()
+        let milk = product("Melk")
+        repository.library = FoodSearchLibrary(products: [milk], recent: [], favorites: [], suggestions: [])
+        let vm = FoodSearchViewModel(repository: repository)
+        await vm.load(owner: UUID())
+        vm.setQuery("melk")
+        vm.search()
+        await repository.waitForRequests(1)
+        repository.requests[0].resume(throwing: APIService.APIError.serverError(503))
+        await waitUntil { vm.phase == .offline }
+        #expect(vm.results.map(\.id) == [milk.id])
+        #expect(vm.query == "melk")
+        #expect(vm.searchError?.contains("midlertidig utilgjengelig") == true)
+        #expect(vm.canSearchGlobally)
+    }
+
     @Test func historyMatchesAreLimitedPreciseAndResetWithOwnerOrQuery() async {
         let repository = SearchRepositoryStub()
         let foods = [product("Yoghurt vanilje"), product("Yoghurt jordbær"),
@@ -322,10 +458,10 @@ struct FoodSearchTests {
         try store.saveProduct(own, ownerUserId: owner)
         try store.saveProduct(foreign, ownerUserId: other)
         try store.cacheCatalogProduct(shared)
-        let count = store.pendingSyncCount()
-        #expect(Set(try store.getSearchableProducts(ownerUserId: owner).map(\.id)) == [own.id, shared.id])
+        let count = try store.pendingSyncCount()
+        #expect(try Set(store.getSearchableProducts(ownerUserId: owner).map(\.id)) == [own.id, shared.id])
         #expect(try store.getSearchableProducts(ownerUserId: nil).map(\.id) == [shared.id])
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.pendingSyncCount() == count)
     }
 
     @Test func repositoryCombinesBundledCatalogAndOwnerProductsAndPreparesWithoutSync() async throws {
@@ -346,13 +482,13 @@ struct FoodSearchTests {
         let raw = try #require(library.suggestions.first)
         #expect(raw.nutritionSource == .matvaretabellen)
         #expect(raw.amountUnit == .grams)
-        let count = store.pendingSyncCount()
+        let count = try store.pendingSyncCount()
         try await repository.prepare(raw, owner: owner)
-        #expect(store.getProduct(raw.id)?.id == raw.id)
-        #expect(store.pendingSyncCount() == count)
+        #expect(try store.getProduct(raw.id)?.id == raw.id)
+        #expect(try store.pendingSyncCount() == count)
         let manual = product("Manuell testvare")
         try await repository.saveManual(manual, owner: owner)
-        #expect(store.pendingSyncCount() == count + 1)
+        #expect(try store.pendingSyncCount() == count + 1)
         #expect(try store.getSearchableProducts(ownerUserId: owner).contains { $0.id == manual.id })
         #expect(try !store.getSearchableProducts(ownerUserId: UUID()).contains { $0.id == manual.id })
     }

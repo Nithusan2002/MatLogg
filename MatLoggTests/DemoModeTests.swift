@@ -16,7 +16,7 @@ struct DemoModeTests {
         #expect(refreshed.localImageData == expected.localImageData && manual.localImageData == expected.localImageData)
         #expect(refreshed.name == expected.name && refreshed.caloriesPer100g == expected.caloriesPer100g)
         #expect(loads == 1)
-        #expect(await repo.cached(barcode: "1000000000000", owner: nil) == nil)
+        #expect(try await repo.cached(barcode: "1000000000000", owner: nil) == nil)
         await #expect(throws: BarcodeLookupFailure.notFound) { _ = try await repo.fetch(barcode: "1000000000000") }
     }
 
@@ -77,13 +77,13 @@ struct DemoModeTests {
         let url = directory.appendingPathComponent("demo.sqlite")
         let demoOwner = UUID()
         let demo = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load())
-        let initialCount = demo.getAllLogs(userId: demoOwner).count
+        let initialCount = try demo.loadAllLogs(userId: demoOwner).count
         #expect(initialCount > 400)
-        #expect(demo.getAllLogs(userId: owner).isEmpty)
-        #expect(!demo.getSummary(userId: demoOwner, date: Date()).logs.isEmpty)
-        #expect(demo.getSavedMeals(userId: demoOwner).count == 8)
+        #expect(try demo.loadAllLogs(userId: owner).isEmpty)
+        #expect(try !demo.loadSummary(userId: demoOwner, date: Date()).logs.isEmpty)
+        #expect(try demo.loadSavedMeals(userId: demoOwner).count == 8)
         #expect(try demo.getWaterGlasses(userId: demoOwner).count > 200)
-        let meals = demo.getSavedMeals(userId: demoOwner)
+        let meals = try demo.loadSavedMeals(userId: demoOwner)
         #expect(meals.allSatisfy { $0.items.count >= 3 })
         #expect(meals.contains { $0.name == "Fredagstaco" && $0.items.count == 6 })
         let catalog = try await DemoProductCatalog.load()
@@ -94,20 +94,20 @@ struct DemoModeTests {
                 #expect(item.nutritionSource == source.nutritionSource)
             }
         }
-        let today = demo.getSummary(userId: demoOwner, date: Date()).logs
+        let today = try demo.loadSummary(userId: demoOwner, date: Date()).logs
         #expect(Set(today.map(\.mealType)) == Set(["frokost", "lunsj", "middag"]))
         let todayWater = try demo.getWaterGlasses(userId: demoOwner).filter {
             Calendar.current.isDateInToday($0.date)
         }
         #expect(todayWater.count == 5)
-        for log in demo.getAllLogs(userId: demoOwner) {
+        for log in try demo.loadAllLogs(userId: demoOwner) {
             let product = try #require(catalog.first { $0.id == log.productId })
             #expect(abs(log.calories - product.caloriesPer100g * log.amountG / 100) < 0.001)
         }
         let oats = try #require(catalog.first { $0.externalID == "7044416013141" })
         #expect(!today.contains { $0.productId == oats.id })
         let yesterday = try #require(Calendar.current.date(byAdding: .day, value: -1, to: Date()))
-        #expect(Set(demo.getSummary(userId: demoOwner, date: yesterday).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
+        #expect(try Set(demo.loadSummary(userId: demoOwner, date: yesterday).logs.map(\.mealType)) == Set(["frokost", "lunsj", "middag", "snacks"]))
         let pictured = meals.filter { $0.localImageData != nil }
         #expect(Set(pictured.map(\.name)) == Set(["Yoghurt med havre og bær", "Laks med poteter"]))
         for meal in pictured {
@@ -116,25 +116,25 @@ struct DemoModeTests {
             #expect(CGImageSourceCreateImageAtIndex(source, 0, nil) != nil)
         }
         let weight = WeightEntry(userId: demoOwner, date: Date(), weightKg: 99)
-        let previousWeight = demo.getWeightEntries(userId: demoOwner).first { Calendar.current.isDate($0.date, inSameDayAs: weight.date) }
+        let previousWeight = try demo.getWeightEntries(userId: demoOwner).first { Calendar.current.isDate($0.date, inSameDayAs: weight.date) }
         try demo.saveWeightEntry(weight)
         let savedWeightID = previousWeight?.id ?? weight.id
         let reopened = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [])
-        #expect(reopened.getAllLogs(userId: demoOwner).count == initialCount)
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
+        #expect(try reopened.loadAllLogs(userId: demoOwner).count == initialCount)
+        #expect(try reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         await #expect(throws: (any Error).self) {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner, products: [], reset: true)
         }
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
+        #expect(try reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         await #expect(throws: (any Error).self) {
             _ = try await DemoDataset.prepare(at: url, userId: demoOwner,
                 products: catalog.filter { $0.externalID != "04.342" }, reset: true)
         }
-        #expect(reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
+        #expect(try reopened.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
         let reset = try await DemoDataset.prepare(at: url, userId: demoOwner, products: try await DemoProductCatalog.load(), reset: true)
-        #expect(reset.getAllLogs(userId: demoOwner).count == initialCount)
-        #expect(!reset.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
-        #expect(normal.getWeightEntries(userId: owner).first?.weightKg == 81)
+        #expect(try reset.loadAllLogs(userId: demoOwner).count == initialCount)
+        #expect(try !reset.getWeightEntries(userId: demoOwner).contains { $0.id == savedWeightID && $0.weightKg == 99 })
+        #expect(try normal.getWeightEntries(userId: owner).first?.weightKg == 81)
     }
 
     @Test func personalDetailsStayInTheirDefaultsSuite() throws {
@@ -152,8 +152,8 @@ struct DemoModeTests {
         var details = PersonalDetails.empty
         details.weightKg = 74
         try demo.save(details, userId: owner)
-        #expect(demo.load(userId: owner).weightKg == 74)
-        #expect(normal.load(userId: owner).weightKg == nil)
+        #expect(try demo.load(userId: owner).weightKg == 74)
+        #expect(try normal.load(userId: owner).weightKg == nil)
     }
 }
 

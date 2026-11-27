@@ -110,7 +110,7 @@ final class HomeOverviewViewModel: ObservableObject {
             // A streak read failure must not hide the selected day's overview or report a false zero.
             let loggingDates = try? await repository.loadLoggingDates(userId: userId)
             let productsTiming = PerformanceSignposts.begin("Home.Products")
-            let products = await repository.getProducts(Set(summary.logs.map(\.productId)))
+            let products = try await repository.getProducts(Set(summary.logs.map(\.productId)))
             PerformanceSignposts.end(productsTiming)
             guard requestID == request, !Task.isCancelled else { return }
             loggingStreak = loggingDates.map { LoggingStreakCalculator.count(dates: $0, now: now, calendar: calendar) }

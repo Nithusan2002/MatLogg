@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import Testing
 @testable import MatLogg
 
@@ -37,7 +38,7 @@ struct SyncRetryTests {
         resumed.updateActiveOwner(owner)
         defer { resumed.updateActiveOwner(nil) }
         #expect((await resumed.syncPendingEvents(ownerUserId: owner)).success)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 0)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 0)
         #expect(api.appliedTypes == (deleteLast ? ["log.upsert", "goal.set", "log.upsert", "log.delete"] : ["log.upsert", "goal.set", "log.upsert"]))
         #expect(api.amount == (deleteLast ? nil : 200))
         #expect(api.batches.dropFirst().first?.first == first.eventId)
@@ -126,11 +127,11 @@ struct SyncRetryTests {
 
         store.markEventDeadLetter(event.eventId, error: "Permanent feil")
 
-        #expect(store.pendingSyncCount() == 0)
-        #expect(store.failedSyncCount() == 1)
-        #expect(store.syncQueueStatus().failedCount == 1)
-        #expect(store.syncQueueStatus().unsyncedCount == 1)
-        #expect(store.failedSyncEvents(limit: 5) == [
+        #expect(try store.pendingSyncCount() == 0)
+        #expect(try store.failedSyncCount() == 1)
+        #expect(try store.syncQueueStatus().failedCount == 1)
+        #expect(try store.syncQueueStatus().unsyncedCount == 1)
+        #expect(try store.failedSyncEvents(limit: 5) == [
             SyncFailureSummary(
                 id: event.eventId,
                 type: event.type,
@@ -142,8 +143,8 @@ struct SyncRetryTests {
 
         store.retryDeadLetterEvent(event.eventId, ownerUserId: try #require(event.ownerUserId))
 
-        #expect(store.failedSyncCount() == 0)
-        #expect(store.pendingSyncCount() == 1)
+        #expect(try store.failedSyncCount() == 0)
+        #expect(try store.pendingSyncCount() == 1)
         #expect(store.fetchPendingEvents(limit: 1).first?.eventId == event.eventId)
     }
 
@@ -159,9 +160,9 @@ struct SyncRetryTests {
 
         store.markEventsInFlight([event.eventId])
 
-        #expect(store.syncQueueStatus().pendingCount == 0)
-        #expect(store.syncQueueStatus().inFlightCount == 1)
-        #expect(store.syncQueueStatus().unsyncedCount == 1)
+        #expect(try store.syncQueueStatus().pendingCount == 0)
+        #expect(try store.syncQueueStatus().inFlightCount == 1)
+        #expect(try store.syncQueueStatus().unsyncedCount == 1)
     }
 
     @Test func syncProcessesMoreThanOneBatch() async {
@@ -304,7 +305,7 @@ struct SyncRetryTests {
         for _ in 0..<100 { try store.saveGoal(goal) }
         let original = try #require(store.fetchPendingEvents(ownerUserId: owner, limit: 1000).first)
         let reopened = try LocalStore(databaseURL: url)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 100)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 100)
         #expect(reopened.fetchPendingEvents(ownerUserId: owner, limit: 1000).map(\.eventId) == [original.eventId])
         var retainedIDs = Set<UUID>()
         for _ in 0..<100 {
@@ -314,7 +315,7 @@ struct SyncRetryTests {
             reopened.markEventsAcked([event.eventId])
         }
         #expect(retainedIDs.count == 100)
-        #expect(reopened.syncQueueStatus().unsyncedCount == 0)
+        #expect(try reopened.syncQueueStatus().unsyncedCount == 0)
     }
 
     @Test func localOnlyBlocksAllTriggersEvenWithBackendEnabled() async throws {
@@ -465,5 +466,42 @@ private final class OrderedSyncServer: SyncAPIClient {
         }
         let acked = batches.count == 1 ? events.filter { $0.type != "log.upsert" } : events
         return .init(ackedEventIds: acked.map(\.eventId), rejected: [])
+    }
+}
+
+
+extension SyncRetryTests {
+    @Test func diagnosticsFailureRetainsSameOwnerAndRetryClearsError() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("status-state-\(UUID()).sqlite")
+        // AppState owns refresh tasks which can outlive this test scope. Keep this
+        // synthetic QA file for container cleanup instead of unlinking an open DB.
+        let store = try LocalStore(databaseURL: url)
+        let owner = UUID()
+        try store.saveProduct(Product(name: "QA", caloriesPer100g: 100, proteinGPer100g: 1,
+            carbsGPer100g: 2, fatGPer100g: 3), ownerUserId: owner)
+        let state = AppState(databaseService: DatabaseService(store: store))
+        #expect(try store.pendingSyncCount() == 1)
+        state.updateAuthenticatedUser(owner)
+        // Init and owner change schedule refreshes; await their observable completion.
+        for _ in 0..<10_000 {
+            if state.pendingSyncCount == 1 { break }
+            await Task.yield()
+        }
+        #expect(state.pendingSyncCount == 1)
+        var db: OpaquePointer?
+        try #require(sqlite3_open(url.path, &db) == SQLITE_OK)
+        defer { sqlite3_close(db) }
+        try #require(sqlite3_exec(db, "ALTER TABLE sync_queue RENAME TO hidden_queue", nil, nil, nil) == SQLITE_OK)
+        await state.refreshSyncStatus()
+        #expect(state.pendingSyncCount == 1)
+        #expect(state.syncStatusReadError != nil)
+        state.updateAuthenticatedUser(UUID())
+        #expect(state.pendingSyncCount == 0)
+        #expect(state.syncFailures.isEmpty)
+        try #require(sqlite3_exec(db, "ALTER TABLE hidden_queue RENAME TO sync_queue", nil, nil, nil) == SQLITE_OK)
+        await state.refreshSyncStatus()
+        #expect(state.syncStatusReadError == nil)
+        #expect(state.pendingSyncCount == 0)
+        #expect(!state.isSyncAvailable)
     }
 }

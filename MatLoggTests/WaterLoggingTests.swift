@@ -21,7 +21,7 @@ struct WaterLoggingTests {
             #expect(event.entityId == glass.id.uuidString)
             try reopened.deleteWaterGlass(glass.id, userId: owner)
             #expect(try reopened.getWaterGlasses(userId: owner).isEmpty)
-            #expect(reopened.pendingSyncCount() == 2)
+            #expect(try reopened.pendingSyncCount() == 2)
             #expect(reopened.fetchPendingEvents(limit: 10).map(\.eventId) == [event.eventId])
             reopened.markEventsAcked([event.eventId])
             let next = reopened.fetchPendingEvents(limit: 10)
@@ -37,7 +37,7 @@ struct WaterLoggingTests {
             try executeSQL("CREATE TRIGGER fail_water BEFORE INSERT ON sync_queue WHEN NEW.type = 'water.upsert' BEGIN SELECT RAISE(ABORT, 'Injected failure'); END;", at: url)
             #expect(throws: (any Error).self) { try store.saveWaterGlass(glass) }
             #expect(try store.getWaterGlasses(userId: glass.userId).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 
@@ -52,7 +52,7 @@ struct WaterLoggingTests {
             #expect(store.fetchPendingEvents(limit: 10).first?.ownerUserId == account)
             try store.deleteLocalData(ownerId: account)
             #expect(try store.getWaterGlasses(userId: account).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 

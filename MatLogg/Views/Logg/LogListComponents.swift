@@ -125,58 +125,6 @@ struct LogRowView: View {
     }
 }
 
-struct CompactLogListView: View {
-    let summary: DailySummary
-    let productNames: [UUID: String]
-    let maxPerMeal: Int
-    let onSeeAll: (String?) -> Void
-    
-    var body: some View {
-        let groups = LogSummaryService.groupedLogs(
-            logs: summary.logs,
-            productNameLookup: { productNames[$0] ?? "" }
-        )
-        
-        VStack(alignment: .leading, spacing: 16) {
-            ForEach(groups, id: \.mealType) { group in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(LogSummaryService.title(for: group.mealType))
-                            .font(AppTypography.body)
-                            .foregroundColor(AppColors.textSecondary)
-                        Spacer()
-                        if group.logs.count > maxPerMeal {
-                            Button("Se alt") {
-                                onSeeAll(group.mealType)
-                            }
-                            .font(AppTypography.caption)
-                            .foregroundColor(AppColors.actionText)
-                        }
-                    }
-                    
-                    ForEach(LogSummaryService.limitedLogs(group.logs, limit: maxPerMeal)) { log in
-                        LogRowView(
-                            log: log,
-                            productName: productNames[log.productId] ?? "Ukjent produkt",
-                            onEdit: nil,
-                            onMove: nil,
-                            onDelete: nil
-                        )
-                    }
-                }
-            }
-            
-            Button("Se alt for dagen") {
-                onSeeAll(nil)
-            }
-            .font(AppTypography.bodyEmphasis)
-            .foregroundColor(AppColors.actionText)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
-        }
-    }
-}
-
 struct LogMealCardBackground: View {
     var top = false
     var bottom = false

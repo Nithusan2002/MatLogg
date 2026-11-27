@@ -11,8 +11,8 @@ export function AppScreenshot({ screen, label, priority = false }: {
         <img
           src={`./screenshots/${screen}.png`}
           alt={`Skjermbilde fra Spor Mat: ${label}. Vist med fiktive demodata.`}
-          width={1206}
-          height={2622}
+          width={1179}
+          height={2556}
           loading={priority ? "eager" : "lazy"}
           fetchPriority={priority ? "high" : "auto"}
           className="block h-auto w-full rounded-[1.9rem]"

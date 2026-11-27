@@ -227,7 +227,10 @@ final class FoodSearchViewModel: ObservableObject {
             do {
                 let products = try await repository.searchRemote(query: submittedQuery, owner: submittedOwner, scope: .global)
                 guard globalID == request, owner == submittedOwner, !Task.isCancelled else { return }
-                globalResults = FoodSearchMatcher.unique(results + products).filter { product in
+                let ranked = try await searchIndex.results(library: [], remote: products, query: submittedQuery,
+                    favoriteIDs: Set(favorites.map(\.id)), loggedProductTimes: loggedProductTimes)
+                guard globalID == request, owner == submittedOwner, !Task.isCancelled else { return }
+                globalResults = FoodSearchMatcher.unique(results + ranked).filter { product in
                     !self.results.contains { $0.id == product.id }
                 }
                 hasSearchedGlobally = true
@@ -295,11 +298,12 @@ final class FoodSearchViewModel: ObservableObject {
         let library = library
         let remote = remoteProducts
         let times = loggedProductTimes
+        let favoriteIDs = Set(favorites.map(\.id))
         let index = searchIndex
         resultsTask = Task { [weak self] in
             let timing = PerformanceSignposts.begin("Search.ResultsToState")
             defer { PerformanceSignposts.end(timing) }
-            guard let computed = try? await index.sections(library: library, remote: remote, query: query, loggedProductTimes: times), let self, resultsID == request, !Task.isCancelled else { return }
+            guard let computed = try? await index.sections(library: library, remote: remote, query: query, loggedProductTimes: times, favoriteIDs: favoriteIDs), let self, resultsID == request, !Task.isCancelled else { return }
             resultSections = computed
             globalResults = FoodSearchMatcher.unique(computed.all + globalResults).filter { product in
                 !computed.all.contains { $0.id == product.id }
@@ -308,8 +312,15 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     private static func message(for error: Error) -> String {
-        if let apiError = error as? APIService.APIError, case .rateLimited = apiError {
-            return apiError.localizedDescription
+        if let apiError = error as? APIService.APIError {
+            switch apiError {
+            case .rateLimited:
+                return apiError.localizedDescription
+            case .serverError(let status) where (500...599).contains(status):
+                return "Produktdatabasen er midlertidig utilgjengelig. Prøv igjen om litt. Lagrede matvarer kan fortsatt brukes."
+            default:
+                break
+            }
         }
         return "Kunne ikke hente nye produkter fra Open Food Facts. Lagrede matvarer kan fortsatt brukes."
     }

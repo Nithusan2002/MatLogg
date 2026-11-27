@@ -32,6 +32,8 @@ class AppState: ObservableObject {
         get { activeError?.message }
         set { activeError = newValue.map(AppError.general) }
     }
+    @Published private(set) var syncStatusReadError: String?
+    private var syncStatusRequest = UUID()
     @Published private(set) var syncQueueStatus: SyncQueueStatus = .empty
     @Published private(set) var syncFailures: [SyncFailureSummary] = []
     @Published private(set) var quarantinedSyncCount = 0
@@ -99,17 +101,36 @@ class AppState: ObservableObject {
     // MARK: - Sync Status
     
     func refreshSyncStatus() async {
-        quarantinedSyncCount = await databaseService.quarantinedSyncCount()
-        guard let activeSyncUserId else {
-            syncQueueStatus = .empty
-            syncFailures = []
-            return
+        let request = UUID()
+        syncStatusRequest = request
+        let owner = activeSyncUserId
+        do {
+            let quarantined = try await databaseService.quarantinedSyncCount()
+            let status: SyncQueueStatus
+            let failures: [SyncFailureSummary]
+            if let owner {
+                status = try await databaseService.syncQueueStatus(ownerUserId: owner)
+                failures = try await databaseService.failedSyncEvents(ownerUserId: owner)
+            } else { status = .empty; failures = [] }
+            guard syncStatusRequest == request, activeSyncUserId == owner else { return }
+            quarantinedSyncCount = quarantined
+            syncQueueStatus = status
+            syncFailures = failures
+            syncStatusReadError = nil
+        } catch {
+            guard syncStatusRequest == request, activeSyncUserId == owner else { return }
+            syncStatusReadError = "Kunne ikke lese synkstatus. Prøv igjen."
         }
-        syncQueueStatus = await databaseService.syncQueueStatus(ownerUserId: activeSyncUserId)
-        syncFailures = await databaseService.failedSyncEvents(ownerUserId: activeSyncUserId)
     }
 
     func updateAuthenticatedUser(_ userId: UUID?) {
+        if activeSyncUserId != userId {
+            syncStatusRequest = UUID()
+            syncQueueStatus = .empty
+            syncFailures = []
+            quarantinedSyncCount = 0
+            syncStatusReadError = nil
+        }
         activeSyncUserId = userId
         syncEngine.updateActiveOwner(userId)
         Task { await refreshSyncStatus() }

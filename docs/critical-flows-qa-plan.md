@@ -132,3 +132,50 @@ Før resultater og gjenværende hull i `production-readiness.md`. Oppgi
 kommandoer, miljø, pass/fail, ikke-testede forhold og eksplisitt go/no-go.
 Ved blocker beholdes kandidaten i intern QA og bredere utrulling stanses;
 eksport skal ikke brukes som antatt rollback eller gjenopprettingsløsning.
+
+
+## Brukertestrunde etter IN2000 — klar til gjennomføring
+
+Status 26. november 2026: opplegg forberedt, ingen brukerresultater innsamlet.
+Bruk omtrent fem relevante iPhone-brukere med variasjon i erfaring. Inkluder
+om mulig deltakere som bruker tilgjengelighetsfunksjoner. Fem er en praktisk
+runde for å finne friksjon, ikke statistisk bevis for hele målgruppen.
+
+Bruk separat QA-app, syntetisk profil og fast kandidat. Ingen egen mathistorikk,
+Helse-tilgang, Apple-konto eller opptak trengs. Deltakelse er frivillig og kan
+avsluttes når som helst. Ikke lagre navn/kontaktopplysninger i resultatene.
+
+Gi oppgaven uten å forklare knapper eller vise veien. Start klokken når
+oppgaven er lest; stopp ved synlig riktig resultat eller når deltakeren gir opp.
+Avslutt etter tre minutter og marker behov for hjelp fremfor å la testen gå
+ubegrenset. Eventuell veiledning registreres som hjelp.
+
+| Oppgave til deltakeren | Forberedelse og korrekt sluttresultat |
+| --- | --- |
+| Registrer 150 g av den oppgitte havregrynvaren til lunsj i dag. | Velg én entydig katalogvare på forhånd. Riktig vare, mengde, enhet, måltid og dag er lagret én gang. |
+| Denne testvaren finnes ikke ved skanning. Registrer den med opplysningene på testarket. | Bruk en kontrollert teststrekkode som er bekreftet ukjent i kandidaten og syntetiske emballasjedata. Én riktig manuell logg. Ikke anta at en tilfeldig kode er ukjent. |
+| Du registrerte 150 g, men spiste 75 g. Rett registreringen. | Eksisterende logg endres, uten duplikat; riktig sum vises. |
+| Registrer det lagrede testmåltidet til middag i dag. | Forhåndslagre syntetisk måltid med kjent innhold. Riktige varer/mengder/dato/måltid. |
+| Uten nett: registrer testvaren fra favoritter, lukk og åpne appen, og finn registreringen. | Testleder setter QA-enheten offline og tilbake etterpå. Varen er lokalt tilgjengelig. Loggen vises etter gjenåpning én gang. |
+
+Etter hver oppgave: «Hva forventet du skulle skje?» og «Var det noe som var
+uklart?». Unngå ledende spørsmål som foreslår vår foretrukne løsning.
+
+Resultatmal (én rad per oppgave og anonym deltaker P1–P5):
+
+| Kandidat/enhet/OS | Deltaker/oppgave | Fullført uten hjelp | Sekunder | Feil/hjelp | Konkret observasjon | Tolkning/hypotese |
+| --- | --- | --- | --- | --- | --- | --- |
+| Ikke gjennomført | — | — | — | — | — | — |
+
+Skill hva deltakeren gjorde/sa fra vår forklaring. Sammenstill antall fullførte
+uten hjelp per oppgave, tidsbruk for fullførte oppgaver og gjentatte hindringer.
+Avbrutte oppgaver skal ikke skjules i en gjennomsnittstid. Velg høyst tre
+problemer ut fra konsekvens og gjentakelse. Skriv ønsket adferd og
+akseptansekriterier før retting. Retest samme oppgave etterpå, med samme
+målegrenser; ta høyde for at tidligere deltakere har lært løsningen.
+
+Manuell tilgjengelighetskontroll følger hele oppgaven med VoiceOver, største
+tekst og redusert bevegelse: finne handling, fylle ut, forstå feil, korrigere,
+lagre og forstå bekreftelse/Angre. Kameraalternativ kontrolleres ved skanning.
+Ingen brukerundersøkelse eller tilgjengelighetskontroll regnes som utført bare
+fordi denne malen finnes.

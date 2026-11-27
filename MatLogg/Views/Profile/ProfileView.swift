@@ -92,7 +92,7 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: "target",
                     title: "Daglige mål",
-                    subtitle: healthProfileViewModel.currentGoal.map {
+                    subtitle: healthProfileViewModel.goalLoadError ?? healthProfileViewModel.currentGoal.map {
                         "\($0.dailyCalories.formatted(.number.locale(Locale(identifier: "nb_NO")))) kcal per dag"
                     } ?? "Valgfritt · Sett opp mål"
                 )
@@ -103,6 +103,12 @@ struct ProfileView: View {
             NavigationLink { ProfileFavoritesView() } label: {
                 ProfileMenuRow(icon: "heart", title: "Favoritter")
             }
+            Divider().overlay(AppColors.separator)
+            NavigationLink { SavedMealsListView(isPresentedAsSheet: false, onLogged: {}) } label: {
+                ProfileMenuRow(icon: "square.stack.3d.up", title: "Lagrede måltider")
+            }
+            .accessibilityIdentifier("profile-saved-meals")
+            .accessibilityHint("Åpner lagrede måltider for visning og redigering")
             Divider().overlay(AppColors.separator)
             NavigationLink { ProfileSettingsView() } label: {
                 ProfileMenuRow(icon: "gearshape", title: "Innstillinger")
@@ -220,7 +226,7 @@ private struct ProfileSettingsView: View {
                         .font(AppTypography.bodyEmphasis)
                         .foregroundStyle(AppColors.ink)
                     if appState.isSyncAvailable {
-                        Text(syncStatusText)
+                        Text(appState.syncStatusReadError ?? syncStatusText)
                             .font(AppTypography.secondary)
                             .foregroundStyle(AppColors.textSecondary)
                     } else {
@@ -231,6 +237,9 @@ private struct ProfileSettingsView: View {
                 }
                 .padding(.vertical, 8)
                 .accessibilityElement(children: .combine)
+                if appState.isSyncAvailable && appState.syncStatusReadError != nil {
+                    Button("Prøv å lese synkstatus igjen") { Task { await appState.refreshSyncStatus() } }
+                }
                 if appState.isSyncAvailable && appState.quarantinedSyncCount > 0 {
                     Label(
                         "\(appState.quarantinedSyncCount) eldre endring(er) er lagret på denne iPhonen. De kan ikke lastes opp fordi vi ikke kan bekrefte hvilken konto de tilhører.",

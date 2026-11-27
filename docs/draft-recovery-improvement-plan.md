@@ -329,3 +329,50 @@ en asynkron commit; dette må ikke beskrives som garantert tapsfri lagring.
 Denne oppfølgingen er vurdering og miljøkontroll; autosave-koden er ikke endret.
 Ingen nye tester er kjørt, siden simulatoren ikke startet og produksjonskode
 ikke ble endret. Tidligere fysiske testresultater gjelder fortsatt.
+
+
+## Tilstandsmodell og testkobling — IN2000, 26. november 2026
+
+Modellen beskriver dagens ViewModel og repository. Feil er tilleggsstatus
+på gjeldende steg, ikke et separat domenesteg. Bare produkt/mengde lagres
+som utkaststeg; lasting, busy og feil er presentasjonstilstand.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Laster
+    Laster --> Ingen: vellykket lesing uten utkast
+    Laster --> Produkt: lagret produktsteg
+    Laster --> Mengde: lagret mengdesteg
+    Laster --> Lesefeil: mislykket lesing
+    Lesefeil --> Laster: eksplisitt nytt forsøk
+    Ingen --> Produkt: opprett utkast
+    Produkt --> Produkt: rediger og autosave / flush
+    Produkt --> Mengde: valider og atomisk lagre produkt + hendelse + utkast
+    Mengde --> Mengde: endre mengde / dato / måltid og flush
+    Mengde --> Ingen: atomisk logg + hendelse og fjern utkast
+    Produkt --> Ingen: bekreftet forkasting
+    Mengde --> Ingen: bekreftet forkasting
+```
+
+Ved mislykket oppretting blir tilstanden Ingen med feilmelding. Mislykket
+lagring/overgang/forkasting beholder input og gjeldende steg; retry bruker
+samme identiteter. Lukking/bakgrunn forsøker flush og beholder utkastet.
+Profilbytte kan skje fra alle tilstander: gammel autosave kobles fra,
+presentasjonsstate tømmes og ny profil går til Laster. Forsinkede svar skal
+ikke publisere data eller feil i den nye profilen. Pågående skriving dreneres
+før ny profils lasting. Dette endrer ikke garantien for ikke-committede tastetrykk.
+
+| Overgang / risiko | Vedlikeholdt kontroll i LoggingDraftTests |
+| --- | --- |
+| Gjenåpning, ugyldig råtekst, bilde, dato og eier | reopenPreservesIncompleteInputImageDateAndOwner; preparedImageAndTextSurviveRealDatabaseReopen |
+| Eldre revisjon, andre utkast og slettet utkast | staleWritesCannotOverwriteOrResurrectAndSecondDraftIsRejected |
+| Produkt → mengde → fullføring, retry/gjenåpning | transitionAndCompletionAreAtomicAndIdempotentAcrossReopen |
+| Delvis transaksjonsfeil | failedDomainTransactionsRetainDraftWithoutPartialWrites |
+| Autosave-feil og retry, forkasting avbryter ventende save | autosaveFailureRetainsInputAndDiscardCancelsPendingSave |
+| Forsinket data eller feil etter profilbytte | lateLoadCannotReplaceNewProfileOrPublishOldFailure (begge utfall) |
+| Samtidige innganger, lesefeil og eksplisitt retry | concurrentEntryPointsShareFailedLoadAndExplicitRetryRecovers |
+
+De to siste testmetodene er nye i denne gjennomføringen. De styrer svar med
+continuations, uten nettverk eller ekte profildata. Tabellen viser testansvar,
+ikke en påstand om at alle tester er kjørt på nytt. Fysisk avbrudd, manuell
+VoiceOver og kamerabruk er egne kontroller.

@@ -2,7 +2,7 @@
 
 Tidligere MatLogg. Navneovergangen er implementert lokalt 11. november 2026. `/MatLogg/`, personvernlenker og ikon beholdes. Nytt navn innebærer ingen endret databruk. Publisering avklares separat.
 
-Statisk presentasjonsside for dagens Spor Mat-app, med utgangspunkt i Lovable-prototypen. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-11-11 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Søk/Mengde/Logg-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
+Statisk presentasjonsside for dagens Spor Mat-app, med utgangspunkt i Lovable-prototypen. React, Vite og Tailwind; ingen Lovable-konto, runtime, database, analyse eller betapåmelding kreves. De statiske appvisningene er faktiske simulatorbilder fra den lokale utviklingsversjonen, tatt 2026-11-21 med verifisert demomodus (fiktive data). Bildene ligger i `public/screenshots/`. Stegvelgeren og Forrige/Neste-knappene bytter mellom ekte bilder av én loggingflyt; siden simulerer ikke søk eller logging.
 
 Krever Node.js 22.12 eller nyere.
 
@@ -19,3 +19,5 @@ Designkilde: Lovable-prosjekt `84794cb2-b1b1-4308-a80f-f740a521b073`, commit `90
 
 
 Innholdet er kontrollert mot appkoden 2026-11-02: lokal bruk uten konto, dokumenterte porsjoner, gjenlogging, flervalg i dagboken, vann, valgfrie mål og måltidskort. Personvernsiden omtaler valgfri fødselsdato, eksterne produktbilder og brukerinitiert deling/lagring av måltidskort. Nettsiden endrer ingen dataflyt i appen.
+
+Oppdatert lokalt 21. november 2026: kortere hero og innhold, navnebytte i footer, rett telefon og manuell trestegsdemo som starter med søk. Nye appbilder er tatt med `LandingCaptureUITests` på en isolert iPhone 16-simulator med fiktive demodata. Opptakstesten følger nå samlet dagslogg på Hjem. Rå testresultater og nettleserskjermbilder fra QA holdes utenfor repoet. Ingen endret datainnsamling eller appfunksjonalitet. Publisering krever separat avklaring.

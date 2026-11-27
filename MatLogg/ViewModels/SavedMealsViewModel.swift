@@ -158,9 +158,14 @@ final class SavedMealsViewModel: ObservableObject {
         let request = UUID()
         sourceID = request
         isLoadingSource = true
-        sourceProductNames = [:]
         defer { if sourceID == request { isLoadingSource = false } }
-        let products = await foodLogRepository.getProducts(Set(logs.filter { $0.userId == userId }.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await foodLogRepository.getProducts(Set(logs.filter { $0.userId == userId }.map(\.productId))) }
+        catch {
+            guard sourceID == request, self.userId == userId, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return
+        }
         guard sourceID == request, self.userId == userId, !Task.isCancelled else { return }
         sourceProductNames = products.mapValues(\.name)
     }
@@ -183,7 +188,13 @@ final class SavedMealsViewModel: ObservableObject {
         defer { isPreparingMutation = false }
         let context = contextID
         let photo = photoData
-        let products = await foodLogRepository.getProducts(Set(logs.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await foodLogRepository.getProducts(Set(logs.map(\.productId))) }
+        catch {
+            guard contextID == context, self.userId == userId, !Task.isCancelled else { return false }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return false
+        }
         guard contextID == context, self.userId == userId, !Task.isCancelled else { return false }
         var items: [SavedMealItem] = []
         for (index, log) in logs.sorted(by: { $0.loggedTime < $1.loggedTime }).enumerated() {
@@ -300,7 +311,13 @@ final class SavedMealsViewModel: ObservableObject {
         isPreparingMutation = true
         defer { isPreparingMutation = false }
         let preparationContext = contextID
-        let products = await foodLogRepository.getProducts(Set(meal.items.map(\.productId)))
+        let products: [UUID: Product]
+        do { products = try await foodLogRepository.getProducts(Set(meal.items.map(\.productId))) }
+        catch {
+            guard contextID == preparationContext, self.userId == userId, !Task.isCancelled else { return false }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return false
+        }
         guard contextID == preparationContext, self.userId == userId, !Task.isCancelled else { return false }
         let timestamp = now()
         let targetDate = calendar.startOfDay(for: date)

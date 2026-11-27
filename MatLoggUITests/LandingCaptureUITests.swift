@@ -47,16 +47,13 @@ final class LandingCaptureUITests: XCTestCase {
         capture("overview", app)
 
         app.buttons["Hjem"].firstMatch.tap()
-        let breakfast = app.buttons["home-meal-open-frokost"]
-        XCTAssertTrue(breakfast.waitForExistence(timeout: 10))
+        let addBreakfast = app.buttons["home-meal-add-frokost"]
+        XCTAssertTrue(addBreakfast.waitForExistence(timeout: 10))
         for _ in 0..<5 {
-            if breakfast.isHittable { break }
+            if addBreakfast.isHittable { break }
             app.swipeUp()
         }
-        breakfast.tap()
-        XCTAssertTrue(app.staticTexts["meal-room-heading-frokost"].waitForExistence(timeout: 10))
-        app.buttons["tab-log-food"].tap()
-        app.textFields["food-search-field"].tap()
+        addBreakfast.tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
@@ -76,7 +73,7 @@ final class LandingCaptureUITests: XCTestCase {
         amount.tap()
         amount.typeText("60")
         app.buttons["product-log-save"].tap()
-        let loggedOats = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'meal-room-row-' AND label CONTAINS[c] 'Lettkokte havregryn'")).firstMatch
+        let loggedOats = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Lettkokte havregryn'")).firstMatch
         XCTAssertTrue(loggedOats.waitForExistence(timeout: 10))
         capture("flow-log", app)
         let closeReceipt = app.buttons["Lukk bekreftelse"]

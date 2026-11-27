@@ -18,7 +18,7 @@ Start med relevante deler av `docs/product-brief.md`, `docs/design-and-user-flow
 
 ## Leveranse
 
-Ved nytt eller endret design, lever:
+Tilpass detaljnivået til endringen. For små justeringer holder en kort begrunnelse og berørte akseptansekriterier; ikke opprett et eget designdokument. For nye skjermer eller større flyter, dekk:
 
 1. brukerbehov og berørt flyt
 2. informasjons- og handlingshierarki

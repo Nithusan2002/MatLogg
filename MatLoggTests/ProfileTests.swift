@@ -13,7 +13,7 @@ struct ProfileTests {
         defaults.set(legacy, forKey: "personalDetails")
         let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
         for owner in [UUID(), UUID()] {
-            #expect(store.load(userId: owner).displayName == nil)
+            #expect(try store.load(userId: owner).displayName == nil)
             #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == nil)
         }
         #expect(defaults.data(forKey: "personalDetails") == legacy)
@@ -53,7 +53,7 @@ struct ProfileTests {
         #expect(throws: (any Error).self) { try store.recoverLegacyDetails(userId: owner) }
         #expect(defaults.data(forKey: "personalDetails") == legacy)
         #expect(defaults.data(forKey: "personalDetails.\(owner.uuidString)") == corrupt)
-        #expect(store.load(userId: UUID()).weightKg == nil)
+        #expect(try store.load(userId: UUID()).weightKg == nil)
     }
 
     @Test func explicitLegacyRecoveryBindsOnceAndPreservesCurrentDetails() throws {
@@ -70,9 +70,9 @@ struct ProfileTests {
         #expect(recovered.displayName == "Current" && recovered.weightKg == 79 && recovered.heightCm == 178)
         let restarted = UserDefaultsPersonalDetailsStore(defaults: defaults)
         #expect(!restarted.hasUnassignedLegacyDetails)
-        #expect(restarted.load(userId: owner).heightCm == 178)
+        #expect(try restarted.load(userId: owner).heightCm == 178)
         #expect(try restarted.recoverLegacyDetails(userId: UUID()) == nil)
-        #expect(restarted.load(userId: UUID()).heightCm == nil)
+        #expect(try restarted.load(userId: UUID()).heightCm == nil)
     }
 
     @Test func interruptedLegacyRecoveryResumesOnlyForConfirmedOwner() throws {
@@ -84,9 +84,9 @@ struct ProfileTests {
         defaults.set(data, forKey: "personalDetails")
         defaults.set(owner.uuidString, forKey: "personalDetails.legacyOwnerId")
         let store = UserDefaultsPersonalDetailsStore(defaults: defaults)
-        #expect(store.load(userId: UUID()).weightKg == nil)
+        #expect(try store.load(userId: UUID()).weightKg == nil)
         #expect(defaults.data(forKey: "personalDetails") == data)
-        #expect(store.load(userId: owner).weightKg == 81)
+        #expect(try store.load(userId: owner).weightKg == 81)
         #expect(defaults.data(forKey: "personalDetails") == nil)
     }
 
@@ -165,13 +165,13 @@ struct ProfileTests {
         vm.begin(details: .empty, userId: owner)
         vm.displayName = "  Test Navn  "
         #expect(vm.save())
-        vm.begin(details: store.load(userId: owner), userId: owner)
+        vm.begin(details: try store.load(userId: owner), userId: owner)
         #expect(vm.displayName == "Test Navn")
         #expect(vm.birthDate == nil)
-        #expect(store.load(userId: UUID()).displayName == nil)
+        #expect(try store.load(userId: UUID()).displayName == nil)
         vm.displayName = "  "
         #expect(vm.save())
-        #expect(store.load(userId: owner).displayName == nil)
+        #expect(try store.load(userId: owner).displayName == nil)
     }
 
     @Test func oldDetailsDecodeWithoutAName() throws {
@@ -419,10 +419,10 @@ struct ProfileTests {
         #expect(preservedRecords["goal_history"]?.count == 1)
         #expect(preservedRecords["scan_history"]?.count == 1)
         #expect(preservedRecords["profile_preferences"]?.count == 1)
-        #expect(await database.getWeightEntries(userId: user.id).isEmpty)
-        #expect(await database.getWeightEntries(userId: other).count == 1)
-        #expect(await database.getSavedMeals(userId: user.id).isEmpty)
-        #expect(await database.getSavedMeals(userId: other).count == 1)
+        #expect(try await database.getWeightEntries(userId: user.id).isEmpty)
+        #expect(try await database.getWeightEntries(userId: other).count == 1)
+        #expect(try await database.loadSavedMeals(userId: user.id).isEmpty)
+        #expect(try await database.loadSavedMeals(userId: other).count == 1)
         #expect(await database.fetchPendingEvents(ownerUserId: user.id, limit: 100).isEmpty)
         #expect(!(await database.fetchPendingEvents(ownerUserId: other, limit: 100)).isEmpty)
     }

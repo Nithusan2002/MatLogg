@@ -38,6 +38,20 @@ struct MeasurementPickerTests {
         #expect(picker.confirmedText() == "178,5")
     }
 
+    @Test func duplicateManualCommitKeepsValidationError() {
+        let picker = MeasurementPickerViewModel(measurement: .weight, initialText: "70")
+        picker.text = "0"
+        #expect(picker.confirmedText() == nil)
+        #expect(picker.error != nil)
+        // SwiftUI may commit the same text again when focus/keyboard state changes.
+        picker.text = "0"
+        #expect(picker.error != nil)
+        #expect(picker.text == "0")
+        picker.text = "72,25"
+        #expect(picker.error == nil)
+        #expect(picker.confirmedText() == "72,25")
+    }
+
     @Test func accessibleAdjustmentsStayWithinRulerBounds() {
         let picker = MeasurementPickerViewModel(measurement: .weight, initialText: "300")
         picker.adjust(by: 1)

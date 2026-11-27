@@ -26,11 +26,11 @@ struct MealBatchStorageTests {
         }
         // MainActor can inspect state even while the database worker is paused.
         #expect(started)
-        #expect(store.getAllLogs(userId: owner).isEmpty)
+        #expect(try store.loadAllLogs(userId: owner).isEmpty)
         queue.resume()
         try await save.value
-        #expect(await database.getAllLogs(userId: owner).count == 2)
-        #expect(await database.pendingSyncCount() == 2)
+        #expect(try await database.loadAllLogs(userId: owner).count == 2)
+        #expect(try await database.pendingSyncCount() == 2)
         #expect(store.fetchPendingEvents(limit: 10).allSatisfy { $0.type == "log.upsert" && $0.schemaVersion == 1 })
     }
 
@@ -51,12 +51,12 @@ struct MealBatchStorageTests {
         } catch {
             #expect(error is LocalStoreError)
         }
-        #expect(await database.getAllLogs(userId: owner).isEmpty)
-        #expect(await database.pendingSyncCount() == 0)
+        #expect(try await database.loadAllLogs(userId: owner).isEmpty)
+        #expect(try await database.pendingSyncCount() == 0)
         try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
         try await database.saveLogs(logs)
-        #expect(await database.getAllLogs(userId: owner).count == 2)
-        #expect(await database.pendingSyncCount() == 2)
+        #expect(try await database.loadAllLogs(userId: owner).count == 2)
+        #expect(try await database.pendingSyncCount() == 2)
     }
 
     @Test func savesMealAndUndoWithCanonicalEvents() throws {
@@ -64,7 +64,7 @@ struct MealBatchStorageTests {
             let userId = UUID()
             let logs = [makeLog(userId), makeLog(userId)]
             try store.saveLogs(logs)
-            #expect(Set(store.getAllLogs(userId: userId).map(\.id)) == Set(logs.map(\.id)))
+            #expect(try Set(store.loadAllLogs(userId: userId).map(\.id)) == Set(logs.map(\.id)))
             let created = store.fetchPendingEvents(limit: 20)
             #expect(created.count == 2)
             #expect(created.allSatisfy { $0.type == "log.upsert" && $0.schemaVersion == 1 })
@@ -74,8 +74,8 @@ struct MealBatchStorageTests {
             #expect(payload["unit"] as? String == "ml")
 
             try store.deleteLogs(logs.map(\.id))
-            #expect(store.getAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 4)
+            #expect(try store.loadAllLogs(userId: userId).isEmpty)
+            #expect(try store.pendingSyncCount() == 4)
             #expect(store.fetchPendingEvents(limit: 20).map(\.eventId) == created.map(\.eventId))
             store.markEventsAcked(created.map(\.eventId))
             let deleted = store.fetchPendingEvents(limit: 20)
@@ -92,13 +92,13 @@ struct MealBatchStorageTests {
             let logs = [makeLog(userId), makeLog(userId)]
             try installEventFailure(url, entityId: logs[1].id, type: "log.upsert")
             #expect(throws: (any Error).self) { try store.saveLogs(logs) }
-            #expect(store.getAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.loadAllLogs(userId: userId).isEmpty)
+            #expect(try store.pendingSyncCount() == 0)
 
             try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
             try store.saveLogs(logs)
-            #expect(store.getAllLogs(userId: userId).count == 2)
-            #expect(store.pendingSyncCount() == 2)
+            #expect(try store.loadAllLogs(userId: userId).count == 2)
+            #expect(try store.pendingSyncCount() == 2)
         }
     }
 
@@ -110,13 +110,13 @@ struct MealBatchStorageTests {
             let originalEvents = Set(store.fetchPendingEvents(limit: 20).map(\.eventId))
             try installEventFailure(url, entityId: logs[1].id, type: "log.delete")
             #expect(throws: (any Error).self) { try store.deleteLogs(logs.map(\.id)) }
-            #expect(Set(store.getAllLogs(userId: userId).map(\.id)) == Set(logs.map(\.id)))
+            #expect(try Set(store.loadAllLogs(userId: userId).map(\.id)) == Set(logs.map(\.id)))
             #expect(Set(store.fetchPendingEvents(limit: 20).map(\.eventId)) == originalEvents)
 
             try executeSQL("DROP TRIGGER fail_meal_event;", at: url)
             try store.deleteLogs(logs.map(\.id))
-            #expect(store.getAllLogs(userId: userId).isEmpty)
-            #expect(store.pendingSyncCount() == 4)
+            #expect(try store.loadAllLogs(userId: userId).isEmpty)
+            #expect(try store.pendingSyncCount() == 4)
         }
     }
 
@@ -124,7 +124,7 @@ struct MealBatchStorageTests {
         try withStore { store, _ in
             try store.saveLogs([])
             try store.deleteLogs([])
-            #expect(store.pendingSyncCount() == 0)
+            #expect(try store.pendingSyncCount() == 0)
         }
     }
 
@@ -136,10 +136,10 @@ struct MealBatchStorageTests {
 
             try store.saveLogs([first, second])
 
-            let stored = store.getAllLogs(userId: userId)
+            let stored = try store.loadAllLogs(userId: userId)
             #expect(stored.count == 2)
             #expect(stored.allSatisfy { abs($0.calories - 49.95) < 0.001 })
-            let summary = store.getSummary(userId: userId, date: first.loggedDate)
+            let summary = try store.loadSummary(userId: userId, date: first.loggedDate)
             #expect(abs(summary.totalCalories - 99.9) < 0.001)
             let event = try #require(store.fetchPendingEvents(limit: 1).first)
             let payload = try #require(JSONSerialization.jsonObject(with: event.payload) as? [String: Any])

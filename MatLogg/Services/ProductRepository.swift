@@ -2,37 +2,40 @@ import Foundation
 
 protocol ProductFavoriteRepository {
     func toggleFavorite(userId: UUID, productId: UUID) async throws
-    func isFavorite(userId: UUID, productId: UUID) async -> Bool
+    func isFavorite(userId: UUID, productId: UUID) async throws -> Bool
 }
 
-protocol ProductRepository: ProductFavoriteRepository {
+protocol FavoriteListRepository {
+    func getFavorites(userId: UUID, kind: ProductKind?) async throws -> [Product]
+}
+
+protocol ProductRepository: ProductFavoriteRepository, FavoriteListRepository {
     func saveProduct(_ product: Product, ownerUserId: UUID) async throws
     func cacheCatalogProduct(_ product: Product) async throws
     func getSearchableProducts(ownerUserId: UUID?) async throws -> [Product]
-    func getProduct(_ id: UUID) async -> Product?
-    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product]
-    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async -> Product?
-    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async -> [String: Product]
-    func saveMatchMapping(_ mapping: ProductMatchMapping) async
-    func getMatchMapping(for barcode: String) async -> ProductMatchMapping?
+    func getProduct(_ id: UUID) async throws -> Product?
+    func getProducts(_ ids: Set<UUID>) async throws -> [UUID: Product]
+    func getProductByBarcode(_ barcode: String, ownerUserId: UUID?) async throws -> Product?
+    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async throws -> [String: Product]
+    func saveMatchMapping(_ mapping: ProductMatchMapping) async throws
+    func getMatchMapping(for barcode: String) async throws -> ProductMatchMapping?
     func saveScanHistory(userId: UUID, productId: UUID) async throws
-    func getRecentScans(userId: UUID, limit: Int) async -> [ScanHistory]
-    func getFavorites(userId: UUID, kind: ProductKind?) async -> [Product]
-    func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) async -> [Product]
-    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async
-    func getMatvaretabellenCache(maxAgeDays: Int) async -> [MatvaretabellenProduct]?
+    func getRecentScans(userId: UUID, limit: Int) async throws -> [ScanHistory]
+    func getRecentProducts(userId: UUID, kind: ProductKind?, limit: Int) async throws -> [Product]
+    func saveMatvaretabellenCache(_ items: [MatvaretabellenProduct]) async throws
+    func getMatvaretabellenCache(maxAgeDays: Int) async throws -> [MatvaretabellenProduct]?
 }
 
 extension ProductRepository {
-    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async -> [String: Product] {
+    func getProductsByBarcodes(_ barcodes: Set<String>, ownerUserId: UUID?) async throws -> [String: Product] {
         var products: [String: Product] = [:]
-        for barcode in barcodes { products[barcode] = await getProductByBarcode(barcode, ownerUserId: ownerUserId) }
+        for barcode in barcodes { products[barcode] = try await getProductByBarcode(barcode, ownerUserId: ownerUserId) }
         return products
     }
 
-    func getProducts(_ ids: Set<UUID>) async -> [UUID: Product] {
+    func getProducts(_ ids: Set<UUID>) async throws -> [UUID: Product] {
         var products: [UUID: Product] = [:]
-        for id in ids { products[id] = await getProduct(id) }
+        for id in ids { products[id] = try await getProduct(id) }
         return products
     }
 }

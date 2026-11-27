@@ -107,8 +107,20 @@ final class MealReuseViewModel: ObservableObject {
         let context = contextID
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: targetDay),
               let tomorrow = calendar.date(byAdding: .day, value: 1, to: targetDay) else { return }
-        let logs = await repository.getLogs(userId: userId, from: yesterday, before: tomorrow)
-        let products = await repository.getProducts(Set(logs.map(\.productId)))
+        let logs: [FoodLog]
+        do { logs = try await repository.loadLogs(userId: userId, from: yesterday, before: tomorrow) }
+        catch {
+            guard loadID == requestID, contextID == context, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente registreringene. Prøv igjen."
+            return
+        }
+        let products: [UUID: Product]
+        do { products = try await repository.getProducts(Set(logs.map(\.productId))) }
+        catch {
+            guard loadID == requestID, contextID == context, !Task.isCancelled else { return }
+            errorMessage = "Kunne ikke hente matvarene. Prøv igjen."
+            return
+        }
         guard loadID == requestID, contextID == context,
               calendar.isDate(targetDay, inSameDayAs: now()), !Task.isCancelled else { return }
         let calendar = calendar
@@ -137,6 +149,7 @@ final class MealReuseViewModel: ObservableObject {
         }
         guard loadID == requestID, contextID == context,
               calendar.isDate(targetDay, inSameDayAs: now()), !Task.isCancelled else { return }
+        errorMessage = nil
         suggestions = (loaded ?? []).filter { !self.dismissed.contains($0.mealType) }
 
     }
@@ -193,7 +206,13 @@ final class MealReuseViewModel: ObservableObject {
         let context = contextID
         isSaving = true
         defer { isSaving = false }
-        let existing = await repository.getAllLogs(userId: userId)
+        let existing: [FoodLog]
+        do { existing = try await repository.loadAllLogs(userId: userId) }
+        catch {
+            guard context == contextID else { return false }
+            errorMessage = "Kunne ikke kontrollere registreringene. Prøv igjen."
+            return false
+        }
         guard context == contextID, calendar.isDate(day, inSameDayAs: now()) else { return false }
         guard !existing.contains(where: {
             $0.userId == userId && $0.mealType == suggestion.mealType && calendar.isDate($0.loggedDate, inSameDayAs: day)

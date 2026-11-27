@@ -547,8 +547,12 @@ final class MatLoggUITests: XCTestCase {
         func isReachable() -> Bool {
             guard element.exists, element.isHittable else { return false }
             let bar = app.otherElements["meal-room-selection-bar"]
-            let bottom = bar.exists ? bar.frame.minY : app.frame.maxY - 100
-            return element.frame.minY < bottom - 44 && element.frame.maxY > app.frame.minY + 100
+            let navigationTop = ["Hjem", "Søk", "tab-log-food", "Utvikling", "Profil"]
+                .map { app.buttons[$0].firstMatch }
+                .filter { $0.exists && $0.frame.height > 0 }
+                .map { $0.frame.minY }.min() ?? app.frame.maxY - 100
+            let bottom = bar.exists ? bar.frame.minY : navigationTop
+            return element.frame.minY >= app.frame.minY + 100 && element.frame.maxY <= bottom - 8
         }
         guard !isReachable() else { return }
         // Keep drags above the persistent selection bar, including at accessibility sizes.
@@ -661,7 +665,7 @@ final class MatLoggUITests: XCTestCase {
     func testMealRoomLogsAndEditsFoodForSelectedPastDay() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
-        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         let breakfast = app.buttons["home-meal-open-frokost"]
         XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
@@ -720,17 +724,48 @@ final class MatLoggUITests: XCTestCase {
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
 
+    @MainActor
+    func testMealRoomEditedPastDaySurvivesRelaunch() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        // Existing synthetic history isolates edit/persistence from food search
+        // and creation, which the separate logging test covers.
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "YES",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
+        selectPreviousDiaryDay(in: app)
+        let dateLabel = app.buttons["day-navigation-date"].label
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-'")).firstMatch
+        revealDiaryElement(row, in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        let loggedRowID = row.identifier
+        row.tap()
+        let editor = app.scrollViews["log-editor-scroll"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let lunchChoice = app.buttons["Flytt til Lunsj"]
+        let breakfastChoice = app.buttons["Flytt til Frokost"]
+        let saveChanges = app.buttons["Lagre endringer"]
+        for _ in 0..<5 {
+            if lunchChoice.isHittable && lunchChoice.frame.maxY < saveChanges.frame.minY { break }
+            editor.swipeUp()
+        }
+        // Always change the meal, including when this synthetic row was moved
+        // by an earlier run against the same demo database.
+        let moveToBreakfast = lunchChoice.isSelected
+        let destination = moveToBreakfast ? breakfastChoice : lunchChoice
+        XCTAssertTrue(destination.isHittable)
+        destination.tap()
+        XCTAssertTrue(destination.isSelected)
+        XCTAssertTrue(saveChanges.isEnabled)
+        saveChanges.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
+        waitForExpectations(timeout: 8)
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
-        let lunch = app.buttons["home-meal-open-lunsj"]
-        // The home list creates meal rows as they come into view.
-        for _ in 0..<8 {
-            if lunch.isHittable { break }
-            app.swipeUp()
-        }
-        XCTAssertTrue(lunch.isHittable)
         selectPreviousDiaryDay(in: app)
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let restoredRow = app.buttons[loggedRowID]
@@ -738,7 +773,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(restoredRow.waitForExistence(timeout: 8), "Den redigerte matloggen skal overleve omstart med samme ID og dato.")
         restoredRow.tap()
         XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
+        XCTAssertTrue(app.buttons[moveToBreakfast ? "Flytt til Frokost" : "Flytt til Lunsj"].isSelected, "Valgt måltid skal være lagret etter omstart.")
     }
 
     @MainActor
@@ -967,6 +1002,32 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testProfileSavedMealsReturnsWithoutChangingDateWithLargestText() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let previousDay = app.buttons["Forrige dag"]
+        XCTAssertTrue(previousDay.waitForExistence(timeout: 10))
+        previousDay.tap()
+        let selectedDate = app.buttons["day-navigation-date"].label
+        app.buttons["Profil"].firstMatch.tap()
+        let library = app.buttons["profile-saved-meals"]
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        revealDiaryElement(library, in: app)
+        library.tap()
+        let navigationBar = app.navigationBars["Lagrede måltider"]
+        XCTAssertTrue(navigationBar.waitForExistence(timeout: 5))
+        XCTAssertFalse(navigationBar.buttons["Lukk"].exists)
+        let back = navigationBar.buttons.firstMatch
+        XCTAssertTrue(back.isHittable)
+        back.tap()
+        XCTAssertTrue(library.waitForExistence(timeout: 5))
+        app.buttons["Hjem"].firstMatch.tap()
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, selectedDate)
+    }
+
+    @MainActor
     func testQuickLogManualOpensDirectlyAndCancelReturnsToQuickMenu() throws {
         let app = XCUIApplication()
         app.launchArguments += ["--skip-auth"]
@@ -1048,12 +1109,12 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(app.buttons["day-navigation-date"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let closeReceipt = app.buttons["log-receipt-close"]
-        if closeReceipt.waitForExistence(timeout: 2) { closeReceipt.tap() }
-        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS %@", name)).firstMatch
-        for _ in 0..<10 {
-            if row.isHittable { break }
-            app.swipeUp()
+        if closeReceipt.waitForExistence(timeout: 2) {
+            closeReceipt.tap()
+            XCTAssertTrue(closeReceipt.waitForNonExistence(timeout: 5))
         }
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS %@", name)).firstMatch
+        revealDiaryElement(row, in: app)
         XCTAssertTrue(row.exists)
         row.staticTexts[name].tap()
         let editor = app.scrollViews["log-editor-scroll"]
@@ -1279,6 +1340,96 @@ final class MatLoggUITests: XCTestCase {
             XCTAssertLessThanOrEqual(control.frame.maxX, app.frame.maxX)
         }
         attachSearchScreenshot(app, name: "Søk – stor tekst")
+    }
+
+    @MainActor
+    func testSearchDistinguishesPackagesAndGenericFoods() throws {
+        verifySearchMetadata(largeText: false)
+    }
+
+    @MainActor
+    func testSearchMetadataSupportsLargestText() throws {
+        verifySearchMetadata(largeText: true)
+    }
+
+    @MainActor
+    private func verifySearchMetadata(largeText: Bool) {
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--search-metadata-qa", "-demoModeActive", "NO",
+            "-UIPreferredContentSizeCategoryName",
+            largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 10))
+        app.buttons["Søk"].tap()
+        let field = app.textFields["food-search-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("Pakningstest")
+        if app.buttons["Ferdig"].exists { app.buttons["Ferdig"].tap() }
+        let list = app.collectionViews.firstMatch
+        attachSearchScreenshot(app, name: "Søkemetadata – start – \(largeText ? "stor" : "vanlig") tekst")
+        var visibleTop: CGFloat { list.frame.minY + 8 }
+        var visibleBottom: CGFloat { min(list.frame.maxY, app.buttons["Hjem"].frame.minY - 16) }
+        func scrollVisibleList(by distance: CGFloat) {
+            // List's frame includes the area covered by the persistent menu.
+            let top = visibleTop + 12
+            let bottom = visibleBottom - 12
+            let movement = min(abs(distance), (bottom - top) * 0.75)
+            let startY = distance > 0 ? bottom : top
+            let endY = distance > 0 ? bottom - movement : top + movement
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: list.frame.midX, dy: startY))
+            let end = origin.withOffset(CGVector(dx: list.frame.midX, dy: endY))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        for expected in ["Pakning: 1 l", "Pakning: 500 ml", "Generell matvare"] {
+            let row = app.buttons.matching(NSPredicate(format:
+                "identifier BEGINSWITH 'food-search-result-' AND label CONTAINS %@", expected)).firstMatch
+            for _ in 0..<12 {
+                if row.exists && row.isHittable {
+                    if !largeText || abs(row.frame.minY - visibleTop) <= 28 { break }
+                    scrollVisibleList(by: row.frame.minY - visibleTop)
+                } else {
+                    scrollVisibleList(by: 200)
+                }
+            }
+            if !row.exists {
+                attachSearchScreenshot(app, name: "Søkemetadata – manglende rad – \(expected)")
+                let tree = XCTAttachment(string: list.debugDescription)
+                tree.name = "Søkemetadata – tilgjengelighetstre etter rulling"
+                tree.lifetime = .keepAlways
+                add(tree)
+            }
+            XCTAssertTrue(row.exists, expected)
+            XCTAssertTrue(row.isHittable, expected)
+            if row.exists {
+                XCTAssertGreaterThanOrEqual(row.frame.minX, app.frame.minX)
+                XCTAssertLessThanOrEqual(row.frame.maxX, app.frame.maxX)
+                if largeText {
+                    XCTAssertLessThanOrEqual(abs(row.frame.minY - visibleTop), 28,
+                        "Navn og pakningsinfo skal være rullet fram over bunnmenyen")
+                }
+                if expected.hasPrefix("Pakning:") {
+                    XCTAssertTrue(row.label.contains("Pakkevare"))
+                    XCTAssertTrue(row.label.contains("Open Food Facts"))
+                    XCTAssertTrue(row.label.contains("per 100 ml"))
+                } else {
+                    XCTAssertTrue(row.label.contains("Matvaretabellen"))
+                    XCTAssertFalse(row.label.contains("Pakning:"))
+                }
+            }
+            attachSearchScreenshot(app, name: "Søkemetadata – \(expected) – \(largeText ? "stor" : "vanlig") tekst")
+            if largeText && row.exists {
+                for _ in 0..<12 {
+                    if row.frame.maxY <= visibleBottom + 12 { break }
+                    scrollVisibleList(by: row.frame.maxY - visibleBottom)
+                }
+                XCTAssertLessThanOrEqual(row.frame.maxY, visibleBottom + 12,
+                    "Kilde og næringsgrunnlag skal kunne rulles fram over bunnmenyen")
+                XCTAssertGreaterThan(row.frame.maxY, visibleTop + 40)
+                attachSearchScreenshot(app, name: "Søkemetadata – kilde og enhet – \(expected) – stor tekst")
+            }
+        }
     }
 
     @MainActor

@@ -80,7 +80,7 @@ export default function App() {
   const links = [["#slik", "Slik fungerer det"], ["#funksjoner", "Funksjoner"], ["#faq", "Spørsmål"]];
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-x-clip">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-card focus:p-3">Hopp til innhold</a>
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
         <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5" aria-label="Hovedmeny">
@@ -102,16 +102,13 @@ export default function App() {
       </header>
 
       <main id="main">
-        <section id="top" className="hero-section mx-auto grid max-w-6xl items-center gap-14 px-5 pb-16 pt-14 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
+        <section id="top" className="hero-section mx-auto grid max-w-6xl items-center gap-8 px-5 py-10 lg:grid-cols-[1.15fr_1fr]">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs font-medium">
               <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden />Norsk matlogging · Under utvikling
             </span>
-            <aside className="mt-4 text-sm text-muted-foreground" aria-label="Nytt navn">
-              <p><strong className="font-semibold text-foreground">MatLogg heter nå Spor Mat.</strong> Samme app, nytt navn.</p>
-            </aside>
             <h1 className="mt-6 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl">Logg maten.<br /><span className="hero-highlight">Uten å lage konto.</span></h1>
-            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Norske råvarer, strekkodesøk og en matlogg som lagres på iPhonen din. Få oversikt over maten, med eller uten mål.</p>
+            <p className="mt-6 max-w-lg text-lg text-muted-foreground">Finn norske matvarer, skann strekkoder og bruk favorittmåltidene igjen. Matloggen lagres på iPhonen din.</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href="#slik" className="btn-primary">Se demoen <span aria-hidden>→</span></a>
               <a href="#funksjoner" className="btn-ghost">Utforsk appen</a>
@@ -120,13 +117,12 @@ export default function App() {
           <div className="hero-stage">
             <div className="hero-orbit" aria-hidden="true" />
             <div className="hero-phone"><AppScreenshot screen="home" label="Dagen din, samlet på ett sted" priority /></div>
-            <div className="hero-note hero-note-top"><span aria-hidden="true">✦</span><div><strong>Din dag. Din oversikt.</strong><span>Mål er helt valgfrie.</span></div></div>
-            <div className="hero-note hero-note-bottom"><span aria-hidden="true">↗</span><div><strong>Enklere neste gang</strong><span>Lagre måltider du bruker ofte.</span></div></div>
+            <div className="hero-note"><span aria-hidden="true">✦</span><div><strong>Din dag. Din oversikt.</strong><span>Mål er helt valgfrie.</span></div></div>
           </div>
         </section>
 
         <ul className="mx-auto grid max-w-6xl gap-4 px-5 sm:grid-cols-3">
-          {[["01", "Uten konto", "Start med maten. Registrering er valgfritt."], ["02", "Også uten nett", "Logg med matvarene som er lagret på iPhonen."], ["03", "På dine premisser", "Få oversikt, med eller uten mål."]].map(([n, t, d]) => (
+          {[["01", "Finn maten raskt", "Søk i norske råvarer eller skann en strekkode."], ["02", "Bruk måltider igjen", "Lagre gjengangerne og slipp å starte på nytt."], ["03", "Velg din oversikt", "Se maten samlet, med eller uten mål."]].map(([n, t, d]) => (
             <li key={t} className="benefit-card rounded-3xl border bg-card p-6"><span className="eyebrow">{n}</span><p className="mt-5 text-xl font-semibold">{t}</p><p className="text-sm text-muted-foreground">{d}</p></li>
           ))}
         </ul>
@@ -138,7 +134,7 @@ export default function App() {
             <div className="meal-story-heading">
               <p className="eyebrow">Dine gjengangere</p>
               <h2 id="meal-story-title">Favorittfrokosten din.<br /><span>Klar igjen i morgen.</span></h2>
-              <p>Lagre et måltid fra dagboken og loggfør det igjen når det passer. Velg dato og måltid før du lagrer, og angre rett etterpå hvis du vil.</p>
+              <p>Lagre et måltid du bruker ofte, og loggfør det igjen når det passer. Velg dato og måltid – og angre hvis du ombestemmer deg.</p>
             </div>
             <div className="meal-story-pictures">
               <figure className="meal-photo meal-photo-breakfast">
@@ -158,20 +154,9 @@ export default function App() {
           <Feature flip eyebrow="Utvikling" title="Oversikt på dine premisser" visual={
             <AppScreenshot screen="overview" label="Utvikling – mat, skritt, vekt og treningsøkter" />
           }>
-            <p>Samle mat, skritt, vekt og treningsøkter i én oversikt. Velg selv hvilke kort du vil se, og bla mellom dag, uke og måned.</p>
+            <p>Velg hvilke kort du vil se, og bla mellom dag, uke og måned. Mål og vektregistrering er valgfrie.</p>
             <p>Skritt, vekt og treningsøkter fra Apple Helse vises når du velger å koble dem til. Du kan også registrere vekt manuelt. Bildet viser fiktive demodata.</p>
           </Feature>
-          <div className="grid gap-6 sm:grid-cols-2">
-            {[
-              ["En dagbok du kan endre", "Rediger matvarer og mengder, flytt dem mellom måltider eller velg flere registreringer samlet."],
-              ["Norske råvarer og kjente produkter", "Søk i Matvaretabellen og slå opp merkevarer fra Open Food Facts. Matvarene viser kilden og næringsgrunnlaget."],
-            ].map(([title, text]) => (
-              <article key={title} className="benefit-card rounded-3xl border bg-card p-7">
-                <h3 className="text-xl font-semibold">{title}</h3>
-                <p className="mt-3 text-muted-foreground">{text}</p>
-              </article>
-            ))}
-          </div>
           <Feature eyebrow="Lokalt" title="På iPhonen. Også uten nett." visual={
             <AppScreenshot screen="diary" label="Dagbok – dagens måltider lagret på iPhonen" />
           }>
@@ -194,6 +179,7 @@ export default function App() {
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3"><Logo /><span className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground">Under utvikling</span></div>
+          <p className="text-sm text-muted-foreground">MatLogg heter nå Spor Mat. Samme app, nytt navn.</p>
           <div className="flex flex-wrap gap-2">
             <a href="./personvern.html" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Personvern</a>
             <a href="./personvern.html#bildekilder" className="flex min-h-11 items-center px-3 text-sm text-muted-foreground hover:text-foreground">Bildekilder</a>

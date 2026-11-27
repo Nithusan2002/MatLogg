@@ -11,6 +11,52 @@ opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
 beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
 logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
 
+## Runde 2 – fysisk QA 26. november 2026
+
+Kodekandidat `91e3a01` bygger på `main` `14e861a`. Fysisk QA er fulgt opp på separat
+MatLogg QA-app på iPhone 17 / iOS 27.3. Ingen distribusjon inngår.
+
+- Gamle ikke-kastende historikk-/måltidsgrensesnitt og feilskjulende defaults
+  er fjernet. Mål, vekt, produkter, favoritter, skanning og matching formidler
+  lesefeil gjennom repositories; eksport stopper ved feil i nødvendige kilder.
+- Uleselige personopplysninger bevares og kan ikke overskrives fra en tom
+  redigeringsfallback. Feil/retry og samme profils sist lastede innhold
+  håndteres i berørte ViewModels/skjermer.
+- 23 lesemetoder er flyttet til LocalStore+History/Products/Profiles.
+  SQLiteReadStatement kontrollerer prepare, binding, step og dekoding;
+  LocalStore beholder privat tilkobling, seriell kø og transaksjoner.
+- **277 målrettede tester i 26 suiter bestod på iPhone**, inkludert
+  katalogfallback, feil/retry, kontekstvern og atomisk rollback. Seks tester
+  for målefelt bestod etter en ekstra valideringsrettelse: uendret tekst
+  skal ikke nullstille feil. Regresjonen feilet før og bestod etter rettelsen.
+- UI-kontroll bekrefter favorittlesefeil og retry ved største tekst, mål og
+  omstart, favorittredigering, tidligere loggdag, profil og vekthistorikk.
+  Målefeltets nullvalidering, desimalpresisjon og avbryt er fysisk kontrollert.
+  Manuell VoiceOver er fortsatt åpen.
+- Legacy beholdes med eksplisitt vedlikeholdsgrense og konkret avviklingspakke
+  i backend/README.md. CI-portene er uendret; faktisk drift/eldre klientbruk
+  må avklares før avvikling.
+
+Ingen skjema-/synkkontraktsendring eller aktivering av opplasting inngår.
+Se [planens resultat](plans/technical-debt-remediation.md#runde-2--gjennomføringsstatus)
+og [testavgrensningen](testing.md#runde-2--fysisk-oppfølging-26-november-2026).
+
+
+## Avgrenset kodekontroll – 25. november 2026
+
+Teknisk gjeld er utbedret i kodekandidat `b9b8eb7`, basert på main `85755ea`:
+feilformidlende historikklesing, bevart innhold ved oppdateringsfeil, retry i
+måltidsrommet, samlet kamerafil og delt Xcode-scheme. Denne kontrollen gjelder
+committen, uten parallelle arbeidskopiendringer.
+Oppfølging på fysisk iPhone 17 / iOS 27.3 bestod 41 målrettede tester og
+tre UI-tester med separat QA-identitet. Manuell VoiceOver, faktisk
+kameradeteksjon og visuell feil/retry er fortsatt åpne kontroller.
+Resultater og åpne porter finnes øverst i [produksjonsberedskap](production-readiness.md).
+Historiske beskrivelser og testresultater nedenfor er ikke verifisert på nytt
+av denne avgrensede kontrollen. Legacy beholdes etter eksisterende policy;
+[utbedringsplanen](plans/technical-debt-remediation.md) beskriver avhengigheter
+og videre avviklingskriterier.
+
 
 ## Gjeldende lanseringsscope – 3. oktober 2026
 

@@ -20,10 +20,31 @@ final class ProfileUITests: XCTestCase {
         XCTAssertTrue(value.waitForExistence(timeout: 3))
         value.tap()
         value.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (value.value as? String ?? "").count) + "0")
+        XCTAssertEqual(value.value as? String, "0")
+        let picker = app.scrollViews["measurement-picker-sheet"]
+        picker.swipeDown()
+        picker.swipeDown()
         app.buttons["measurement-picker-apply"].tap()
-        XCTAssertTrue(app.staticTexts["measurement-picker-error"].exists)
+        let afterApply = XCTAttachment(screenshot: app.screenshot())
+        afterApply.name = "Vektinntasting – etter bruk av null"
+        afterApply.lifetime = .keepAlways
+        add(afterApply)
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "Ugyldig verdi skal ikke lukke redigeringen.")
+        // Tapping the button can scroll the validation message above the visible viewport.
+        picker.swipeDown()
+        picker.swipeDown()
+        XCTAssertEqual(value.value as? String, "0", "Skalaen skal ikke erstatte ugyldig manuelt input.")
+        let validation = app.descendants(matching: .any)["measurement-picker-error"].firstMatch
+        let invalid = XCTAttachment(screenshot: app.screenshot())
+        invalid.name = "Vektinntasting – synlig validering"
+        invalid.lifetime = .keepAlways
+        add(invalid)
+        XCTAssertTrue(validation.waitForExistence(timeout: 5))
+        XCTAssertTrue(validation.label.contains("Skriv et gyldig tall over 0"))
         value.tap()
         value.typeText(XCUIKeyboardKey.delete.rawValue + "72,25")
+        picker.swipeDown()
+        picker.swipeDown()
         app.buttons["measurement-picker-apply"].tap()
         XCTAssertTrue(weight.waitForExistence(timeout: 3))
         XCTAssertTrue(weight.label.contains("72,25"))
@@ -41,15 +62,27 @@ final class ProfileUITests: XCTestCase {
         app.buttons["Profil"].tap()
         app.buttons["profile-personal-details"].tap()
         let height = app.buttons["personal-details-height"]
-        for _ in 0..<6 {
-            if height.isHittable { break }
-            app.swipeUp()
+        for _ in 0..<20 {
+            if height.isHittable && height.frame.maxY < app.frame.height * 0.55 { break }
+            // Keep the gesture above the persistent menu at accessibility sizes.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)))
         }
         let original = height.label
+        let before = XCTAttachment(screenshot: app.screenshot())
+        before.name = "Høyderad før åpning med stor tekst"
+        before.lifetime = .keepAlways
+        add(before)
         height.tap()
-        let ruler = app.otherElements["measurement-picker-ruler"]
-        XCTAssertTrue(ruler.waitForExistence(timeout: 3))
         let value = app.textFields["measurement-picker-value"]
+        XCTAssertTrue(value.waitForExistence(timeout: 3))
+        let ruler = app.descendants(matching: .any)["measurement-picker-ruler"].firstMatch
+        let sheet = app.scrollViews["measurement-picker-sheet"]
+        for _ in 0..<6 {
+            if ruler.exists && ruler.isHittable { break }
+            sheet.swipeUp()
+        }
+        XCTAssertTrue(ruler.waitForExistence(timeout: 3))
         let initialValue = value.value as? String
         ruler.swipeLeft()
         XCTAssertNotEqual(value.value as? String, initialValue)
@@ -57,7 +90,11 @@ final class ProfileUITests: XCTestCase {
         attachment.name = "Høydevelger med stor tekst"
         attachment.lifetime = .keepAlways
         add(attachment)
-        app.scrollViews["measurement-picker-sheet"].buttons["Avbryt"].tap()
+        for _ in 0..<6 {
+            if sheet.buttons["Avbryt"].isHittable { break }
+            sheet.swipeDown()
+        }
+        sheet.buttons["Avbryt"].tap()
         XCTAssertTrue(height.waitForExistence(timeout: 3))
         XCTAssertEqual(height.label, original)
     }
