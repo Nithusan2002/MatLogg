@@ -5,17 +5,12 @@ import Charts
 
 struct ProgressTabView: View {
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
-    let onOpenProfile: () -> Void
-
-    var body: some View {
-        ProgressTabContent(healthProfileViewModel: healthProfileViewModel, onOpenProfile: onOpenProfile)
-    }
+    var body: some View { ProgressTabContent(healthProfileViewModel: healthProfileViewModel) }
 }
 
 private struct ProgressTabContent: View {
     @EnvironmentObject private var appState: AppState
     @ObservedObject var healthProfileViewModel: HealthProfileViewModel
-    let onOpenProfile: () -> Void
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var demoMode: DemoMode
     @EnvironmentObject private var viewModel: ProgressViewModel
@@ -159,12 +154,7 @@ private struct ProgressTabContent: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityIdentifier("progress-hub-title")
         let stackedHeading = VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top, spacing: 12) {
-                title
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                OpenProfileButton(action: onOpenProfile)
-            }
+            title
             customizeButton
         }
         return VStack(alignment: .leading, spacing: 4) {
@@ -176,7 +166,6 @@ private struct ProgressTabContent: View {
                         title.fixedSize(horizontal: true, vertical: false)
                         Spacer(minLength: 0)
                         customizeButton.fixedSize(horizontal: true, vertical: false)
-                        OpenProfileButton(action: onOpenProfile)
                     }
                     stackedHeading
                 }

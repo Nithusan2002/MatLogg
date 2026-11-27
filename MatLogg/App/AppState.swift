@@ -3,7 +3,10 @@ import Combine
 
 enum AppTab: String, CaseIterable {
     case home
+    case search
+    case add
     case progress
+    case profile
 }
 
 struct AppError: Identifiable, Equatable {

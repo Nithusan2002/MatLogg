@@ -1,10 +1,15 @@
 # MatLogg iOS – Spesifikasjon
 
-> Oppdatert navigasjon 17. november 2026: Søk inngår nå i Loggfør, uten egen
-> fane eller valgark før søk. Se [samlet brukerflyt](../design-and-user-flow.md#samlet-søk-og-loggfør--17-november-2026).
-> Loggfør blir åpen etter lagring med lokal kvittering og Angre. Historiske
-> beskrivelser av Søk-fanen og retur til Hjem etter hver vanlig logging erstattes
-> av denne flyten. Første logging i onboarding beholder sin særskilte retur.
+## Avgrensning etter tilbakeføring – 27. november 2026
+
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
 
 
 ## Gjeldende lanseringsscope – 3. oktober 2026

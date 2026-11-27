@@ -1,5 +1,17 @@
 # Spor Mat – produktbrief
 
+## Avgrensning etter tilbakeføring – 27. november 2026
+
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
+
+
 Spor Mat het tidligere MatLogg. Tekniske navn og filstier beholdes ved navnebyttet.
 
 ## Gjeldende lanseringsscope – 3. oktober 2026
@@ -68,14 +80,13 @@ behandling, diagnostikk eller individuell ernæringsfaglig rådgivning.
 
 ## Kjerneopplevelse
 
-Spor Mat har tre hovedskjermer og én vedvarende handling:
+MatLogg har fem hovedinnganger:
 
-1. **Hjem** – dagens status og hele dagsloggen.
-2. **Loggfør** – fremhevet handling som åpner samlet søk, skanning, manuell registrering, nylig brukt, favoritter og lagrede måltider.
-3. **Utvikling** – oversikt over tid og valgfri vekthistorikk.
-4. **Profil** – personlige detaljer, mål, innstillinger, personvern og konto.
-
-Søk har ikke egen fane. Flere matvarer kan loggføres etter hverandre i Loggfør; Ferdig går tilbake til underliggende skjerm.
+1. **Hjem** – dagens status og måltider.
+2. **Søk** – råvarer, produkter, favoritter og nylig brukt.
+3. **Loggfør** – sentral handling for søk, skanning og manuell registrering.
+4. **Utvikling** – personlig kortoversikt for mat og næring samt valgfri vektregistrering og historikk.
+5. **Profil** – personlige detaljer, mål, trygghet, personvern, konto og synk.
 
 Den sentrale kjerneflyten er:
 

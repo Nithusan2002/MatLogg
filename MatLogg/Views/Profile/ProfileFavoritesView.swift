@@ -6,7 +6,7 @@ struct ProfileFavoritesView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
 
     @State private var selectedProduct: Product?
-    let onFindFood: () -> Void
+    @Environment(\.matLoggTabBarScrollMargin) private var bottomMargin
 
     var body: some View {
         Group {
@@ -22,9 +22,12 @@ struct ProfileFavoritesView: View {
                 } description: {
                     Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
                 } actions: {
-                    Button("Finn matvarer", action: onFindFood)
+                    Button("Finn matvarer") {
+                        appState.selectedTab = .search
+                    }
                     .foregroundColor(AppColors.actionText)
                 }
+                .safeAreaPadding(.bottom, bottomMargin)
                 .accessibilityIdentifier("favorites-empty-state")
             } else {
                 ScrollView {
@@ -40,6 +43,7 @@ struct ProfileFavoritesView: View {
                     }
                     .padding(16)
                 }
+                .matLoggTabBarScrollClearance()
                 .refreshable { await loadFavorites() }
                 .accessibilityIdentifier("favorites-list")
             }

@@ -1130,22 +1130,13 @@ kan prøve dem igjen. UI-QA bruker disponibel database og simulert native
 klient, isolert fra vanlig app og ekte Helse-data. Nytt distribusjonsbygg og
 native historikk-QA kreves før funksjonen sendes til testerne.
 
+## Avgrensning etter tilbakeføring – 27. november 2026
 
-## 2026-11-17 – Samle Søk og Loggfør
-
-Brukeren godkjente implementeringsplanen på ny branch. Søk inngår i Loggfør,
-som åpner direkte til søk og gjenbruk i et stort ark. Hjem, Utvikling og Profil
-beholdes som destinasjoner. Dette fjerner mellomsteget uten å fjerne søk,
-skanning, manuell registrering, favoritter eller lagrede måltider. Flere varer
-kan loggføres i samme økt, med lokal kvittering og Angre. Eksisterende
-persistens, kilder/enheter, eierskap og synkpolicy beholdes. Første logging og
-redigering av måltidsmaler beholder sine særskilte flyter.
-
-
-## 2026-11-17 – Sentrert Loggfør og Profil fra toppfeltet
-
-Loggfør ligger midt mellom Hjem og Utvikling og presenteres som en handling
-som bevarer aktiv fane. Ved tilgjengelighetstekst ligger handlingen i full
-bredde under fanene. Dette gir den primære handlingen en fast plass og gir
-etikettene rom ved stor tekst. Profil åpnes fra personikonet på begge fanene
-i én fullskjermspresentasjon med egen navigasjonsstakk.
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.

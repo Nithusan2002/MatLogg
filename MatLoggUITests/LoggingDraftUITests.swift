@@ -77,6 +77,9 @@ final class LoggingDraftUITests: XCTestCase {
         XCTAssertTrue(resume.isHittable)
         XCTAssertLessThan(resume.frame.maxY, visibleBottom)
         if largeText {
+            let profile = app.buttons["Profil"].firstMatch
+            XCTAssertTrue(profile.isHittable)
+            XCTAssertTrue(app.frame.contains(profile.frame))
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped, .sufficientElementDescription, .hitRegion]) { issue in
                 auditFindings.append("\(issue.auditType): \(issue.element?.debugDescription ?? "unknown element")")
                 return true // Collect all issues, then fail explicitly after exercising the full flow.
@@ -94,7 +97,7 @@ final class LoggingDraftUITests: XCTestCase {
         XCTAssertTrue(resume.waitForExistence(timeout: 12))
         // Hjem also shows the draft behind the sheet.
         app.buttons["tab-log-food"].tap()
-        let sheet = app.scrollViews["quick-log-scroll"]
+        let sheet = app.collectionViews.firstMatch
         let sheetResume = sheet.buttons["logging-draft-continue"]
         XCTAssertTrue(sheetResume.waitForExistence(timeout: 8))
         for _ in 0..<8 {

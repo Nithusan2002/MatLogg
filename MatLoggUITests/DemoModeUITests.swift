@@ -8,8 +8,8 @@ final class DemoModeUITests: XCTestCase {
         app.launch()
 
         func openProfile() {
-            XCTAssertTrue(app.buttons["open-profile"].waitForExistence(timeout: 10))
-            app.buttons["open-profile"].tap()
+            XCTAssertTrue(app.buttons["Profil"].waitForExistence(timeout: 10))
+            app.buttons["Profil"].tap()
             let control = app.switches["profile-demo-mode"]
             for _ in 0..<4 where !control.isHittable { app.swipeUp() }
             XCTAssertTrue(control.waitForExistence(timeout: 10))

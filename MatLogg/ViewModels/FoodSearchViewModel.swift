@@ -6,7 +6,7 @@ final class FoodSearchViewModel: ObservableObject {
     enum ReuseList: String, CaseIterable {
         case recent = "Nylig brukt"
         case favorites = "Favoritter"
-        case saved = "Lagrede måltider"
+        case saved = "Måltider"
     }
     @Published var reuseList = ReuseList.recent
 

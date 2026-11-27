@@ -62,16 +62,12 @@ final class MealShareUITests: XCTestCase {
         app.launchArguments = ["--skip-auth", "-demoModeActive", "YES", "-UIPreferredContentSizeCategoryName",
                                largeText ? "UICTContentSizeCategoryAccessibilityXXXL" : "UICTContentSizeCategoryL"]
         app.launch()
-        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 15))
-        app.buttons["tab-log-food"].tap()
-        let reuse = app.buttons["logging-reuse-saved"]
-        XCTAssertTrue(reuse.waitForExistence(timeout: 8))
-        if !reuse.isHittable { app.swipeUp() }
-        reuse.tap()
+        XCTAssertTrue(app.buttons["Søk"].waitForExistence(timeout: 15))
+        app.buttons["Søk"].tap()
         let library = app.buttons["food-search-saved-meals"]
         XCTAssertTrue(library.waitForExistence(timeout: 8))
         for _ in 0..<5 {
-            if library.isHittable && library.frame.maxY < app.frame.maxY - 34 { break }
+            if library.isHittable && library.frame.maxY < app.buttons["tab-log-food"].frame.minY { break }
             app.collectionViews.firstMatch.swipeUp()
         }
         library.tap()

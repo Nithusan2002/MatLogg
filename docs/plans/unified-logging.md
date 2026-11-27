@@ -1,5 +1,7 @@
 # Samle Søk og Loggfør
 
+Historisk plan: erstattet av avgrensningen 27. november 2026 i docs/design-and-user-flow.md.
+
 Status: godkjent av brukeren og implementert lokalt på `codex/unified-logging`, 17. november 2026. Se verifisering i `docs/testing.md`. Ikke produksjonsutrullet.
 
 ## Forbedringsrunde etter skjermbilder – 17. november 2026

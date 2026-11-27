@@ -1,10 +1,15 @@
 # MatLogg – Skjermkart & iOS Tekstskisser
 
-> Oppdatert navigasjon 17. november 2026: Søk inngår nå i Loggfør, uten egen
-> fane eller valgark før søk. Se [samlet brukerflyt](../design-and-user-flow.md#samlet-søk-og-loggfør--17-november-2026).
-> Loggfør blir åpen etter lagring med lokal kvittering og Angre. Historiske
-> beskrivelser av Søk-fanen og retur til Hjem etter hver vanlig logging erstattes
-> av denne flyten. Første logging i onboarding beholder sin særskilte retur.
+## Avgrensning etter tilbakeføring – 27. november 2026
+
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
 
 
 
@@ -50,11 +55,15 @@ sammenfoldet status til VoiceOver. Animasjon respekterer Reduser bevegelse.
 ## 3.1 App-Arkitektur & Tab-struktur
 
 ```
-Bunnmeny: Hjem · Loggfør · Utvikling
-          fane   ark       fane
-
-Hjem / Utvikling → personikon → Profil i fullskjerm
-                               └─ Lukk → opprinnelig fane
+┌─────────────────────────────────────────┐
+│ MatLogg Root (TabView)                  │
+├─────────────────────────────────────────┤
+│ Tab 1: HJEM (dagsstatus og måltider)    │
+│ Tab 2: SØK (favoritter, nylig brukt) │
+│ Tab 3: LEGG TIL (handlingsmeny)         │
+│ Tab 4: OVERSIKT (uke, makroer og utvikling) │
+│ Tab 5: PROFIL (mål, trygghet og konto)  │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -132,12 +141,8 @@ trykkflate. Aktivitetsvalg kan rulles ved store tekststørrelser.
 ### **SKJERM 1: Home (Main)**
 
 Home bruker en varm bakgrunn med måltidsloggen som hovedinnhold. Toppområdet
-viser en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer), loggstreak
-og personikon. Datovelgeren ligger rett under toppfeltet. Personikonet åpner
-Profil i fullskjerm. Lokal lagring vises under Profil → Innstillinger → Data
-og lagring. Når synk er tilgjengelig, vises status for ventende endringer og
-feil under datovelgeren. Dagsstatusfeltet samler valgfri næring og vann i
-nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
+starter med datovelgeren. Appnavn og profilknapp vises ikke her; Profil åpnes fra bunnmenyen. Lokal lagring vises under Profil → Innstillinger → Data og lagring, uten permanent banner på Hjem. Når synk er tilgjengelig, vises eventuell status for ventende endringer og feil før en tidsstyrt hilsen for i dag («Dagsoversikt» for andre datoer), et valgfritt
+samlet dagsstatusfelt med valgfri næring og vann som nederste rad. Når næring er skjult, vises bare vannraden i samme flate. Deretter følger måltidsoverskriften og fire kompakte måltidsseksjoner: frokost, lunsj, middag og kveldsmat. Seksjonene har
 lyse kortflater med 24 pt hjørner, 16 pt padding og diskret skygge. Ingen separat hurtigvalgseksjon følger etter måltidene.
 Generiske søk- og skanneknapper dupliseres ikke på Hjem.
 En uferdig manuell registrering vises i en egen kompakt flate mellom dagsstatus

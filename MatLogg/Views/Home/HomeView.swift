@@ -26,8 +26,7 @@ private struct HomeNavigationContent: View {
     @State private var isUndoingReceipt = false
     @State private var isUndoingSavedMeal = false
     @State private var showAddActions = false
-    @State private var showProfile = false
-    @State private var openLoggingAfterProfile = false
+    @State private var previousTab: AppTab = .home
     @State private var isTabEditing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var diarySelection: MatLoggDiarySelectionPresentation?
@@ -51,7 +50,6 @@ private struct HomeNavigationContent: View {
         // for the hidden system tab bar while retaining TabView state.
         return TabView(selection: tabSelection) {
             HomeTabView(
-                onOpenProfile: { showProfile = true },
                 onOpenQuickLog: { showAddActions = true },
                 onDeleteComplete: {
                     dismissReceipt()
@@ -66,11 +64,37 @@ private struct HomeNavigationContent: View {
                 .tag(AppTab.home)
                 .matLoggSystemTabBarHidden()
 
-            ProgressTabView(onOpenProfile: { showProfile = true })
+            SearchHubView(
+                onScan: { showScanCamera = true },
+                onLogComplete: { payload in
+                    receiptPayload = payload
+                    Task { await loadTodaysSummary() }
+                },
+                onSavedMealLogComplete: {
+                    Task {
+                        await loadTodaysSummary()
+                        await appState.refreshSyncStatus()
+                    }
+                }
+            )
+                .tabItem { EmptyView() }
+                .tag(AppTab.search)
+                .matLoggSystemTabBarHidden()
+
+            Color.clear
+                .tabItem { EmptyView() }
+                .tag(AppTab.add)
+                .matLoggSystemTabBarHidden()
+
+            ProgressTabView()
                 .tabItem { EmptyView() }
                 .tag(AppTab.progress)
                 .matLoggSystemTabBarHidden()
 
+            ProfileView()
+                .tabItem { EmptyView() }
+                .tag(AppTab.profile)
+                .matLoggSystemTabBarHidden()
         }
         .onPreferenceChange(MatLoggTabBarEditingKey.self) { isTabEditing = $0 }
         .onPreferenceChange(MatLoggDiarySelectionKey.self) { presentation in
@@ -82,8 +106,7 @@ private struct HomeNavigationContent: View {
         .environment(\.matLoggTabBarScrollMargin, isTabEditing ? 0 : tabBarScrollMargin)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !isTabEditing {
-                MatLoggTabBar(selection: tabSelection, onLogFood: { showAddActions = true },
-                             diarySelection: diarySelection)
+                MatLoggTabBar(selection: tabSelection, diarySelection: diarySelection)
                     .onGeometryChange(for: CGFloat.self) { proxy in
                         proxy.size.height
                     } action: { height in
@@ -96,7 +119,7 @@ private struct HomeNavigationContent: View {
         }
         .environmentObject(appState)
         .overlay(alignment: .bottom) {
-            if let payload = receiptPayload, !isDiarySelecting, !showAddActions {
+            if let payload = receiptPayload, !isDiarySelecting {
                 LogToastView(
                     payload: payload,
                     isUndoing: isUndoingReceipt,
@@ -106,7 +129,7 @@ private struct HomeNavigationContent: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, tabBarScrollMargin)
                 .transition(.logToast)
-            } else if let receipt = navigation.savedMealReceipt, !isDiarySelecting, !showAddActions {
+            } else if let receipt = navigation.savedMealReceipt, !isDiarySelecting {
                 SavedMealToastView(
                     receipt: receipt,
                     isUndoing: isUndoingSavedMeal,
@@ -135,17 +158,6 @@ private struct HomeNavigationContent: View {
             }
             .interactiveDismissDisabled()
         }
-        .fullScreenCover(isPresented: $showProfile, onDismiss: {
-            if openLoggingAfterProfile {
-                openLoggingAfterProfile = false
-                showAddActions = true
-            }
-        }) {
-            ProfileView(onFindFood: {
-                openLoggingAfterProfile = true
-                showProfile = false
-            })
-        }
         .fullScreenCover(isPresented: $showScanCamera) {
             CameraView(
                 onLogComplete: { _ in
@@ -169,19 +181,16 @@ private struct HomeNavigationContent: View {
                 await loadTodaysSummary()
             }
         }
-        .onChange(of: showAddActions) { _, isPresented in
-            if isPresented {
-                dismissReceipt()
-                savedMealsViewModel.dismissReceipt()
-            }
+        .onChange(of: navigation.selectedTab) { _, newValue in
+            if newValue != .add { previousTab = newValue }
         }
         .onChange(of: receiptPayload?.id) { _, id in
             if id != nil { logViewModel.dismissCopyReceipt() }
         }
         .sheet(isPresented: $showAddActions) {
             LoggingFlowView(
-                onLogComplete: { _ in
-                    receiptPayload = nil
+                onLogComplete: { payload in
+                    receiptPayload = payload
                     Task { await loadTodaysSummary() }
                 },
                 onSavedMealLogComplete: {
@@ -191,7 +200,7 @@ private struct HomeNavigationContent: View {
                     }
                 }
             )
-            .presentationDetents([.large])
+            .presentationDetents([.fraction(0.66), .large])
             .presentationDragIndicator(.hidden)
             .presentationCornerRadius(36)
         }
@@ -200,7 +209,15 @@ private struct HomeNavigationContent: View {
     private var tabSelection: Binding<AppTab> {
         Binding(
             get: { navigation.selectedTab },
-            set: { appState.selectedTab = $0 }
+            set: { newValue in
+                if newValue == .add {
+                    showAddActions = true
+                    appState.selectedTab = previousTab
+                } else {
+                    appState.selectedTab = newValue
+                    previousTab = newValue
+                }
+            }
         )
     }
 
@@ -275,7 +292,6 @@ struct HomeTabView: View {
     @EnvironmentObject private var savedMealsViewModel: SavedMealsViewModel
     @EnvironmentObject private var healthProfileViewModel: HealthProfileViewModel
     @EnvironmentObject private var preferencesViewModel: PreferencesViewModel
-    let onOpenProfile: () -> Void
     let onOpenQuickLog: () -> Void
     let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
@@ -285,7 +301,7 @@ struct HomeTabView: View {
             HomeTabContent(repository: repository, appState: appState, logViewModel: logViewModel,
                 authViewModel: authViewModel, savedMealsViewModel: savedMealsViewModel,
                 healthProfileViewModel: healthProfileViewModel, preferencesViewModel: preferencesViewModel,
-                onOpenProfile: onOpenProfile, onOpenQuickLog: onOpenQuickLog, onDeleteComplete: onDeleteComplete, onLogComplete: onLogComplete)
+                onOpenQuickLog: onOpenQuickLog, onDeleteComplete: onDeleteComplete, onLogComplete: onLogComplete)
         } else {
             ContentUnavailableView("Oversikt er utilgjengelig", systemImage: "fork.knife")
         }
@@ -303,7 +319,6 @@ private struct HomeTabContent: View {
     let healthProfileViewModel: HealthProfileViewModel
     let authViewModel: AuthViewModel
     let preferencesViewModel: PreferencesViewModel
-    let onOpenProfile: () -> Void
     let onOpenQuickLog: () -> Void
     let onDeleteComplete: () -> Void
     let onLogComplete: (ReceiptPayload) -> Void
@@ -328,7 +343,7 @@ private struct HomeTabContent: View {
     init(repository: any FoodLogRepository, appState: AppState, logViewModel: LogViewModel,
          authViewModel: AuthViewModel, savedMealsViewModel: SavedMealsViewModel,
          healthProfileViewModel: HealthProfileViewModel, preferencesViewModel: PreferencesViewModel,
-         onOpenProfile: @escaping () -> Void, onOpenQuickLog: @escaping () -> Void, onDeleteComplete: @escaping () -> Void,
+         onOpenQuickLog: @escaping () -> Void, onDeleteComplete: @escaping () -> Void,
          onLogComplete: @escaping (ReceiptPayload) -> Void) {
         self.appState = appState
         self.logViewModel = logViewModel
@@ -336,7 +351,6 @@ private struct HomeTabContent: View {
         self.savedMealsViewModel = savedMealsViewModel
         self.healthProfileViewModel = healthProfileViewModel
         self.preferencesViewModel = preferencesViewModel
-        self.onOpenProfile = onOpenProfile
         self.onOpenQuickLog = onOpenQuickLog
         self.onDeleteComplete = onDeleteComplete
         self.onLogComplete = onLogComplete
@@ -538,8 +552,6 @@ private struct HomeTabContent: View {
 
     private var overviewHeader: some View {
         VStack(alignment: .leading, spacing: 16) {
-            overviewHeading
-
             VStack(spacing: 4) {
                 DayNavigationBar(selection: selectedDateBinding)
                 if !Calendar.current.isDateInToday(selectedDate) {
@@ -569,6 +581,21 @@ private struct HomeTabContent: View {
             }
             if isSummaryLoading && !isPullRefreshing && (selectedSummary != nil || !preferencesViewModel.showGoalStatusOnHome) {
                 ProgressView("Henter oversikt …")
+            }
+
+
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        homeHeadingText(at: context.date).fixedSize()
+                        Spacer(minLength: 0)
+                        loggingStreakBadge
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        homeHeadingText(at: context.date)
+                        loggingStreakBadge
+                    }
+                }
             }
 
             DailyStatusCard(
@@ -823,28 +850,6 @@ private struct HomeTabContent: View {
 
     private func loadMealReuse(userId: UUID?, date: Date) async {
         if let userId { await mealReuseViewModel.load(userId: userId, date: date) }
-    }
-
-    private var overviewHeading: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            HStack(alignment: .top, spacing: 12) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
-                        homeHeadingText(at: context.date).fixedSize(horizontal: true, vertical: false)
-                        Spacer(minLength: 0)
-                        loggingStreakBadge
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        homeHeadingText(at: context.date)
-                        loggingStreakBadge
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(minHeight: 44)
-
-                OpenProfileButton(action: onOpenProfile)
-            }
-        }
     }
 
     private func homeHeadingText(at date: Date) -> some View {

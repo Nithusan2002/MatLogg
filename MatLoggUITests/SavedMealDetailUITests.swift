@@ -6,13 +6,9 @@ final class SavedMealDetailUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-demoModeActive", "YES"]
         app.launch()
-        let searchTab = app.buttons["tab-log-food"].firstMatch
+        let searchTab = app.buttons["Søk"].firstMatch
         XCTAssertTrue(searchTab.waitForExistence(timeout: 20))
         searchTab.tap()
-        let reuse = app.buttons["logging-reuse-saved"]
-        XCTAssertTrue(reuse.waitForExistence(timeout: 8))
-        if !reuse.isHittable { app.swipeUp() }
-        reuse.tap()
         let library = app.buttons["food-search-saved-meals"]
         XCTAssertTrue(library.waitForExistence(timeout: 8))
         library.tap()

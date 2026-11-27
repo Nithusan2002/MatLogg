@@ -9,7 +9,7 @@ final class FoodGroupUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 12))
         app.buttons["tab-log-food"].tap()
-        let manual = app.buttons["quick-log-manual"]
+        let manual = app.buttons["food-search-manual-registration"]
         XCTAssertTrue(manual.waitForExistence(timeout: 6))
         reveal(manual, in: app)
         manual.tap()
@@ -58,7 +58,7 @@ final class FoodGroupUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 12))
         app.buttons["tab-log-food"].tap()
-        let manual = app.buttons["quick-log-manual"]
+        let manual = app.buttons["food-search-manual-registration"]
         XCTAssertTrue(manual.waitForExistence(timeout: 6))
         reveal(manual, in: app)
         manual.tap()

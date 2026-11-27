@@ -186,14 +186,14 @@ private struct LoggContent: View {
     private var loggingSheet: some View {
         LoggingFlowView(
             onLogComplete: { payload in
-                receiptPayload = nil
+                receiptPayload = payload
                 Task { await loadSelectedSummary() }
             },
             onSavedMealLogComplete: {
                 Task { await loadSelectedSummary() }
             }
         )
-        .presentationDetents([.large])
+        .presentationDetents([.fraction(0.66), .large])
         .presentationDragIndicator(.hidden)
         .presentationCornerRadius(36)
     }

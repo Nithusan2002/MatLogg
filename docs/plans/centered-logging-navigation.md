@@ -1,5 +1,7 @@
 # Sentrert Loggfør og Profil fra toppfeltet
 
+Historisk plan: erstattet av avgrensningen 27. november 2026 i docs/design-and-user-flow.md.
+
 Status: implementeringsforslag, 17. november 2026. Ingen kodeendring i denne planen.
 
 ## Mål og avgrensning

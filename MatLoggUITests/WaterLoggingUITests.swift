@@ -83,7 +83,7 @@ final class WaterLoggingUITests: XCTestCase {
     }
     @MainActor
     private func setEnergyVisibility(_ visible: Bool, in app: XCUIApplication) {
-        let profile = app.buttons["open-profile"]
+        let profile = app.buttons["Profil"]
         XCTAssertTrue(profile.waitForExistence(timeout: 8))
         profile.tap()
         let settings = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Innstillinger'")).firstMatch
@@ -110,7 +110,7 @@ final class WaterLoggingUITests: XCTestCase {
         }
         expectation(for: NSPredicate(format: "value == %@", visible ? "1" : "0"), evaluatedWith: toggle)
         waitForExpectations(timeout: 5)
-        app.closeProfile()
+        app.buttons["Hjem"].tap()
     }
 
 }

@@ -92,7 +92,6 @@ final class HealthWorkoutUITests: XCTestCase {
     }
 
     @MainActor private func openHub(_ app: XCUIApplication) {
-        if app.navigationBars["Apple Helse"].exists { app.closeProfile() }
         XCTAssertTrue(app.buttons["Utvikling"].firstMatch.waitForExistence(timeout: 30))
         app.buttons["Utvikling"].firstMatch.tap()
         XCTAssertTrue(app.buttons["progress-hub-customize"].waitForExistence(timeout: 10))
