@@ -63,7 +63,17 @@ struct MatLoggContent: View {
             products: databaseService, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: databaseService
         )
         foodSearchRepository = searchRepository
-        _quickLogViewModel = StateObject(wrappedValue: QuickLogViewModel(repository: searchRepository))
+        let quickChoicesRepository: any FoodSearchRepository
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--quick-choices-read-failure-qa") {
+            quickChoicesRepository = QuickChoicesReadFailureQAFixture(base: searchRepository)
+        } else {
+            quickChoicesRepository = searchRepository
+        }
+        #else
+        quickChoicesRepository = searchRepository
+        #endif
+        _quickLogViewModel = StateObject(wrappedValue: QuickLogViewModel(repository: quickChoicesRepository))
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient

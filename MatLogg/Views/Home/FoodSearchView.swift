@@ -604,7 +604,22 @@ private struct FoodSearchContent: View {
             .listRowBackground(AppColors.background)
             if viewModel.reuseList == .recent {
                 Section {
-                    if viewModel.recent.isEmpty { Text("Matvarer du logger, vises her.") }
+                    if let error = quickLog.errorMessage {
+                        ErrorMessageView(error)
+                            .accessibilityIdentifier("logging-recent-read-error")
+                        Button("Prøv igjen") {
+                            Task { await quickLog.load(userId: authViewModel.currentUser?.id) }
+                        }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("logging-recent-retry")
+                    }
+                    if quickLog.isLoading || !quickLog.hasLoaded {
+                        ProgressView("Henter nylig loggede matvarer …")
+                    } else if quickLog.errorMessage == nil,
+                              quickLog.recentFoods.isEmpty && viewModel.recent.isEmpty {
+                        Text("Matvarer du logger, vises her.")
+                            .accessibilityIdentifier("logging-recent-empty")
+                    }
                     if let error = quickLog.logError { ErrorMessageView(error) }
                     ForEach(quickLog.recentFoods) { food in
                         recentFoodRow(food)

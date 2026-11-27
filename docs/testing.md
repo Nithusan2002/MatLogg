@@ -1793,3 +1793,27 @@ beholdes. Appkode, lagring og funksjonelle testassertions er uendret.
 logg `/private/tmp/pr10-visibility-build.log`. Ingen lokal simulator-runtime
 eller tilkoblet iPhone var tilgjengelig for runtime. Ny CI-kjøring kreves for
 å bekrefte rettelsen; tidligere feilresultat er beholdt.
+
+## Siste review av PR #10 – lesefeil i Nylig brukt, 27. november 2026
+
+Siste gjennomgang fant at samlet Loggfør ikke viste QuickLogViewModel sin
+errorMessage eller ga retry for loadQuickChoices. Den automatiske reviewen
+på `6a9fd01` rapporterte samme P1-funn i discussion_r4722493498.
+
+Samlet Nylig brukt viser nå modellens loading/feil og en retry som laster
+hurtigvalgene fra riktig kilde. Tomtilstanden vises bare etter vellykket
+fullført lesing. Eksisterende innhold for samme kontekst kan beholdes sammen
+med synlig feilstatus; ViewModel-eierskap, request-ID og lagring er uendret.
+
+En DEBUG-fixture injiseres bare i QuickLogViewModel med eksplisitt
+`--quick-choices-read-failure-qa`. Ordinær søkemodell bruker fortsatt den
+virkelige repository-implementasjonen. Fixturen feiler første hurtiglesing,
+bruker deretter ekte QA-lager og endrer ikke lagrede data.
+`DomainReadFailureUITests/testUnifiedRecentReadFailureShowsErrorAndRetryRecovers`
+kontrollerer synlig feil, fravær av falsk tomtilstand og recovery med retry,
+og er lagt til UI-smoke i CI. Ingen regresjonsassertions er fjernet.
+
+App og testmål kompilerer med build-for-testing generic iOS i separat
+QA-konfigurasjon: `/private/tmp/pr10-recent-read-build.log`, TEST BUILD SUCCEEDED.
+Ny runtime-verifisering i CI gjenstår før sammenslåing. Verken lokal simulator-
+runtime eller fysisk iPhone var tilgjengelig for en før/etter-UI-kjøring.
