@@ -27,20 +27,14 @@ struct ProfileFavoritesView: View {
                 .padding(20)
                 .safeAreaPadding(.bottom, bottomMargin)
             } else if viewModel.products.isEmpty {
-                ContentUnavailableView {
-                    VStack(spacing: 12) {
-                        SporIllustration().frame(width: 120, height: 120)
-                        Label("Ingen favoritter ennå", systemImage: "heart")
-                    }
-                } description: {
-                    Text("Trykk på hjertet på en matvare for å finne den raskt igjen her.")
-                } actions: {
-                    Button("Finn matvarer") {
-                        appState.selectedTab = .search
-                    }
-                    .foregroundColor(AppColors.actionText)
+                SporEmptyState(
+                    title: "Ingen favoritter ennå",
+                    message: "Trykk på hjertet på en matvare for å finne den raskt igjen her.",
+                    actionTitle: "Finn matvarer",
+                    actionIdentifier: "favorites-find-foods"
+                ) {
+                    appState.selectedTab = .search
                 }
-                .safeAreaPadding(.bottom, bottomMargin)
                 .accessibilityIdentifier("favorites-empty-state")
             } else {
                 ScrollView {

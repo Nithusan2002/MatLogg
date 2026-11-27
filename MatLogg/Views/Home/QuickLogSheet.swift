@@ -124,7 +124,11 @@ struct QuickLogSheet: View {
             }
         }
         .sheet(isPresented: $showAllSavedMeals) {
-            SavedMealsListView {
+            SavedMealsListView(onGoHome: {
+                showAllSavedMeals = false
+                dismiss()
+                appState.selectedTab = .home
+            }) {
                 showAllSavedMeals = false
                 dismiss()
                 onSavedMealLogComplete()

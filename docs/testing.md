@@ -1651,3 +1651,71 @@ verifisert her. Telefonen er tilbake med Sparebluss og Reduser bevegelse av.
 Arkitekturkontroll: VM eier handlinger/state, RealityKit-tjenesten eier scene,
 lastet modell og bildeabonnement; abonnementet kanselleres ved inaktivitet.
 Ingen domene-, auth-, backend-, synk- eller eierskapsendringer i maskotscopet.
+
+## Spor – kontrollert ressursmåling, 27. november 2026
+
+Kandidat `f0aa3d4` med eksisterende øvrige lokale endringer, iPhone 17 /
+iOS 27.3, optimalisert Release-bygg, separat QA-identitet
+`com.nithusan.MatLogg.spor-integration-qa`. Ingen endring i appkode i repoet.
+Midlertidige valg bare i QA-kopien: samme deterministiske testprofil som i
+UI-testene, per-app skjermvåkenhet og flagg for stillbilde / 3D uten pust.
+Før hver runde bekreftet QA-appen aktiv Hjem, profil, riktig variant,
+Sparebluss av, Reduser bevegelse av og normal temperaturstatus. Telefonen ladet.
+
+Activity Monitor: seks opptak à 30 sekunder, rekkefølge
+stillbilde → 3D uten pust → 3D med pust → 3D med pust → 3D uten pust → stillbilde.
+Åtte sekunder stabilisering før opptak; analysevindu 2–28 sekunder i hvert
+opptak. CPU er tidsvektet med 100 % lik én CPU-kjerne. Instrumentet slår sammen
+uendrede intervaller, derfor er varighet, ikke antall rader, brukt som vekt.
+Minne er fysisk footprint, tidsvektet median per runde og gjennomsnitt av to runder.
+
+| Variant | CPU, gjennomsnitt | CPU per runde | Minne | Idle wakeups/s |
+| --- | --- | --- | --- | --- |
+| Stillbilde | 0,014 % | 0,019 / 0,010 % | 34,73 MiB | 0,14 |
+| Aktiv 3D uten pust | 24,393 % | 24,102 / 24,685 % | 164,47 MiB | 80,48 |
+| Aktiv 3D med pust | 24,772 % | 24,724 / 24,820 % | 163,58 MiB | 79,84 |
+
+Resultatet peker på kostnaden ved å holde RealityKit-visningen aktiv,
+heller enn den lille prosedyrestyrte pusten. Ingen meningsfull minneforskjell
+mellom de to 3D-variantene ble påvist i disse korte opptakene.
+
+Power Profiler fungerte ved verktøystyrt oppstart (`--launch`), selv om direkte
+PID-tilkobling og All Processes-oppsettet tidligere feilet. To ekstra opptak
+à 15 sekunder sammenlignet 3D med pust og stillbilde. I vinduet 8–14 sekunder
+viste 3D-opptaket 360 Metal-frames, 59,99 FPS, gjennomsnittlig GPU Active Time
+0,506 ms per frame og lagets GPU Usage 3,036 %. Stillbildet hadde ingen
+registrerte Metal-per-frame-rader fra appen i samme vindu; dette betyr ikke at
+skjermen/systemkompositoren bruker null GPU. App-/innstillingsstatus ble
+validert også for disse opptakene. Generelle energiindikatorer gir ikke her
+et validert watt-/mWh- eller batteriprosent-per-time-resultat.
+
+Konklusjon: funksjonell QA er grønn, men kontinuerlig 3D-hvile bør optimaliseres
+før lansering. Brukeren har valgt å utsette optimaliseringen og beholde dagens
+løsning på maskotbranchen med kjent ressurskostnad. Prioriter å redusere vedvarende rendering; å fjerne bare pusten vil
+ikke gi vesentlig gevinst ut fra denne sammenligningen. En neste løsning kan
+bruke et hvilebilde fra samme 3D-scene og aktivere 3D bare ved behov, med ny
+kontroll av kontinuitet og ressursbruk etterpå. Ingen slik produktendring er
+gjort som del av målingen. Dette er ikke en kontrollert utladingstest eller
+et løfte om batteritid, og resultatet generaliseres ikke til alle iPhone-modeller.
+
+Rådata, validerte tilstandslogger, QA-patch, analyse og måleskript:
+`/tmp/spor-energy-validated-20261127/`. `summary.json` og `gpu-summary.json`
+inneholder tallene. Foreløpige, ikke-skjermvaliderte opptak i
+`/tmp/spor-energy-20261127/` er merket ugyldige og ikke brukt i resultatet.
+QA-kildefilene er gjenopprettet etter målingen; vanlig app og dens data er uberørt.
+
+### Felles tomtilstander i bibliotekene – 27. november 2026
+
+Ny `SporEmptyState` gjenbrukes i Favoritter og lagrede måltider. De store
+SF-symbolene er fjernet; stillfigur, tittel, forklaring og handling deler
+layout, med rulling og bunnmenyklaring. Ny Hjem-handling lukker også
+hurtigloggingens bibliotek uten å sende en falsk loggføringskvittering.
+
+`build-for-testing` bestod for generisk iOS Simulator og den separate iPhone
+QA-appen, inkludert `SporEmptyStateUITests`. Testene dekker lys/mørk modus,
+vertikal plassering, handlinger, største tekst og lukking av hurtiglogging.
+De er kompilert, ikke kjørt: iPhonen var utilgjengelig, og ingen simulatorruntime
+var tilgjengelig. Visuell QA og manuell VoiceOver gjenstår for denne layouten.
+Logger: `/tmp/spor-empty-polish-build.log` og `/tmp/spor-empty-polish-qa-build.log`.
+Arkitektur: rent visuelt fellesview, eksisterende navigasjonshandlinger og
+uendrede data-/feilkontrakter. Ingen ny animasjon, renderer eller IO-grense.

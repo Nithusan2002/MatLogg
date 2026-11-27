@@ -158,12 +158,14 @@ struct SaveMealFromLogsView: View {
 
 struct SavedMealsListView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var viewModel: SavedMealsViewModel
     @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var selectedMeal: SavedMeal?
     @State private var editingMeal: SavedMeal?
     @State private var deleteCandidate: SavedMeal?
     var isPresentedAsSheet = true
+    var onGoHome: (() -> Void)? = nil
     let onLogged: () -> Void
 
     var body: some View {
@@ -177,12 +179,7 @@ struct SavedMealsListView: View {
     private var libraryContent: some View {
         Group {
             if viewModel.meals.isEmpty {
-                ScrollView {
-                    emptyContent
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                }
-                .modifier(LibraryScrollClearance(isPresentedAsSheet: isPresentedAsSheet))
+                emptyContent
             } else {
                 List {
                     if let error = viewModel.loadError {
@@ -259,26 +256,40 @@ struct SavedMealsListView: View {
 
     @ViewBuilder
     private var emptyContent: some View {
-        if viewModel.isLoading {
-            ProgressView("Henter lagrede måltider …")
-        } else if let error = viewModel.loadError {
-            ContentUnavailableView {
-                Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
-            } description: {
-                ErrorMessageView(error)
-            } actions: {
-                Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
-                    .accessibilityIdentifier("saved-meals-retry")
-            }
-            .accessibilityIdentifier("saved-meals-read-error")
-        } else {
-            ContentUnavailableView {
-                VStack(spacing: 12) {
-                    SporIllustration().frame(width: 120, height: 120)
-                    Label("Ingen lagrede måltider", systemImage: "square.stack.3d.up")
+        if viewModel.isLoading || viewModel.loadError != nil {
+            ScrollView {
+                Group {
+                    if viewModel.isLoading {
+                        ProgressView("Henter lagrede måltider …")
+                    } else if let error = viewModel.loadError {
+                        ContentUnavailableView {
+                            Label("Kunne ikke hente måltider", systemImage: "exclamationmark.triangle")
+                        } description: {
+                            ErrorMessageView(error)
+                        } actions: {
+                            Button("Prøv igjen") { Task { await viewModel.load(userId: authViewModel.currentUser?.id) } }
+                                .accessibilityIdentifier("saved-meals-retry")
+                        }
+                        .accessibilityIdentifier("saved-meals-read-error")
+                    }
                 }
-            } description: {
-                Text("På Hjem velger du ••• ved Måltider → Lagre som måltid.")
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            }
+            .modifier(LibraryScrollClearance(isPresentedAsSheet: isPresentedAsSheet))
+        } else {
+            SporEmptyState(
+                title: "Ingen lagrede måltider ennå",
+                message: "Lagre et måltid fra dagsloggen, så finner du det igjen her.",
+                actionTitle: "Gå til Hjem",
+                actionIdentifier: "saved-meals-go-home",
+                isPresentedAsSheet: isPresentedAsSheet
+            ) {
+                if let onGoHome { onGoHome() }
+                else {
+                    if isPresentedAsSheet { dismiss() }
+                    appState.selectedTab = .home
+                }
             }
             .accessibilityIdentifier("saved-meals-empty-state")
         }

@@ -581,3 +581,18 @@ bakgrunn og systeminnstillinger er kontrollert fysisk 27. november;
 energimåling gjenstår. Blunk er ikke implementert i denne
 iterasjonen. Skjermtester som tidligere forventet helt stillestående Hjem,
 må ta høyde for pust når Reduser bevegelse og sparebluss er av.
+
+### Felles Spor-tomtilstand for Profil-biblioteker – 27. november 2026
+
+Favoritter og lagrede måltider bruker `SporEmptyState`: én dekorativ
+stillfigur i eksisterende 120 pt bildeflate, tittel, forklaring og én
+teksthandling. De ekstra store SF-symbolene er fjernet. Figur–tittel har
+16 pt mellomrom, tittel–forklaring 8 pt og handlingen 16 pt før sin minst
+44 pt høye trykkflate. Eksisterende semantiske farger og typografi gjenbrukes.
+
+Gruppen sentreres i tilgjengelig høyde over bunnmenyen og kan rulle ved stor
+tekst. Begge skjermer bruker samme beregning; sheets får ingen bunnmenymargin.
+«Finn matvarer» åpner Søk. «Gå til Hjem» åpner Hjem og lukker også hurtiglogging
+hvis biblioteket ble åpnet derfra, uten å utløse en loggføringskvittering eller
+endre dato/måltid. Ved lasting eller lesefeil brukes fortsatt egne tilstander.
+Ingen ny animasjon eller renderer introduseres.
