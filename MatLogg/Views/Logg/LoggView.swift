@@ -505,61 +505,6 @@ private struct LoggContent: View {
     }
 }
 
-struct LoggFilterSheet: View {
-    @Binding var selected: String?
-    @Environment(\.dismiss) private var dismiss
-    
-    private struct Option: Identifiable {
-        let id: String
-        let label: String
-        let value: String?
-    }
-
-    private let options: [Option] = [
-        Option(id: "all", label: "Alle måltider", value: nil),
-        Option(id: "frokost", label: "Frokost", value: "frokost"),
-        Option(id: "lunsj", label: "Lunsj", value: "lunsj"),
-        Option(id: "middag", label: "Middag", value: "middag"),
-        Option(id: "snacks", label: "Kveldsmat", value: "snacks")
-    ]
-    
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(options) { option in
-                    Button(action: {
-                        selected = option.value
-                        dismiss()
-                    }) {
-                        HStack {
-                            Text(option.label)
-                                .foregroundColor(AppColors.ink)
-                            Spacer()
-                            if selected == option.value {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(AppColors.brand)
-                            }
-                        }
-                    }
-                }
-                .listRowBackground(AppColors.surface)
-            }
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background.ignoresSafeArea())
-            .tint(AppColors.action)
-            .navigationTitle("Filter")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Nullstill") {
-                        selected = nil
-                    }
-                    .foregroundColor(AppColors.actionText)
-                }
-            }
-        }
-    }
-}
-
 struct EditLogView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
