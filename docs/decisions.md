@@ -1197,3 +1197,29 @@ opprinnelig fanenavigasjon. Hjems innlastingsoppgave skal ikke nullstille valgt
 dag ved retur fra en annen fane; nullstilling er knyttet til faktisk profilbytte.
 Fysisk UI-regresjon for Profil → lagrede måltider → Hjem feilet på valgt dato
 før rettingen og bestod etterpå. Lagring, transaksjoner og synkpolicy er uendret.
+
+## 2026-11-27 – Stopp feilkonfigurerte Release-bygg før kontooppretting
+
+Build 4s ferdige app manglet Supabase-URL og offentlig klientnøkkel. Lokal
+Release-konfigurasjon manglet i arbeidsområdet som ble brukt til arkivering.
+Oppdatering viste onboarding og utilgjengelig Apple-innlogging; brukeren
+bekreftet at dataene ble synlige igjen ved retur til build 3. Sletting er ikke
+påvist, og nøyaktig profilbane i build 4 er ikke bevist.
+
+Release-bygg har nå obligatorisk konfigurasjonskontroll før kompilering.
+Kontrollen avviser manglende/uutvidede innstillinger, ugyldig HTTPS/callback,
+servernøkler og reserverte QA-domener. Den samme validatoren kan kontrollere
+ferdig app/arkiv-Info.plist før opplasting. Dette verifiserer konfigurasjonens
+form, ikke faktisk tilgjengelighet eller kontoautorisasjon hos leverandøren.
+
+Manglende konfigurasjon presenteres som en stoppfeil før normal appflyt.
+AuthViewModel skal ikke opprette ny lokal profil, vise onboarding eller
+utføre ventende sletting/kobling når kontooppsettet er utilgjengelig.
+Eksisterende data og profilmarkører beholdes. Dette er ikke en ny rettighet
+til å åpne en annens kontodata; korrekt session kreves som før. Gyldig
+konfigurasjon krever ikke nett for eksisterende lokale funksjoner.
+
+CI bruker eksplisitt syntetisk Debug-kontokonfigurasjon mot .invalid og
+verifiserer både byggevalidator og blokkert/korrigert oppstart med bevarte
+syntetiske data. Produksjonssynk forblir deaktivert. Ingen produksjonsmigrasjon,
+arkivering eller opplasting inngår i rettelsen.

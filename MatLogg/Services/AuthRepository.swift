@@ -7,6 +7,8 @@ enum AccountRegistrationResult {
 }
 
 protocol AccountAuthRepository {
+    /// Configuration availability only; offline access must not depend on network reachability.
+    var isConfigured: Bool { get }
     func restoreSession() async -> User?
     func signIn(email: String, password: String) async throws -> User
     func signUp(email: String, password: String) async throws -> AccountRegistrationResult
@@ -15,6 +17,10 @@ protocol AccountAuthRepository {
     func handleAuthCallback(_ url: URL) async throws -> User
     func signOut() async throws
     func deleteAccount() async throws -> AccountDeletionReceipt
+}
+
+extension AccountAuthRepository {
+    var isConfigured: Bool { true }
 }
 
 nonisolated struct AuthTokens: Codable, Equatable, Sendable {

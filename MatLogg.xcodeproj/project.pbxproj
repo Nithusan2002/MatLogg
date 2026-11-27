@@ -116,6 +116,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8276A8FD2F21636100FD2BF4 /* Build configuration list for PBXNativeTarget "MatLogg" */;
 			buildPhases = (
+				A21D00000000000000000001 /* Validate Release account configuration */,
 				8276A8D82F21635F00FD2BF4 /* Sources */,
 				8276A8D92F21635F00FD2BF4 /* Frameworks */,
 				8276A8DA2F21635F00FD2BF4 /* Resources */,
@@ -256,6 +257,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+        A21D00000000000000000001 /* Validate Release account configuration */ = {
+            isa = PBXShellScriptBuildPhase;
+            alwaysOutOfDate = 1;
+            buildActionMask = 2147483647;
+            files = ();
+            inputPaths = ("$(SRCROOT)/scripts/validate-release-configuration.py",);
+            name = "Validate Release account configuration";
+            outputPaths = ();
+            runOnlyForDeploymentPostprocessing = 0;
+            shellPath = /bin/sh;
+            shellScript = "/usr/bin/python3 \"${SRCROOT}/scripts/validate-release-configuration.py\"\n";
+        };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8276A8D82F21635F00FD2BF4 /* Sources */ = {
