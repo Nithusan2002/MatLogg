@@ -555,7 +555,9 @@ final class MatLoggUITests: XCTestCase {
                 .filter { $0.exists && $0.frame.height > 0 }
                 .map { $0.frame.minY }.min() ?? app.frame.maxY - 100
             let bottom = bar.exists ? bar.frame.minY : navigationTop
-            return element.frame.minY >= app.frame.minY + 100 && element.frame.maxY <= bottom - 8
+            let statusBar = app.statusBars.firstMatch
+            let top = statusBar.exists ? statusBar.frame.maxY : app.frame.minY + 44
+            return element.frame.minY >= top && element.frame.maxY <= bottom - 8
         }
         guard !isReachable() else { return }
         // Keep drags above the persistent selection bar, including at accessibility sizes.

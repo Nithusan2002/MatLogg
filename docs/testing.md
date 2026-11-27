@@ -1775,3 +1775,21 @@ QA-xcconfig og DerivedData som ovenfor bestod etter hovedrettelsene.
 Logg: `/private/tmp/unified-pr-final-build-20261127.log`.
 PR-en står som utkast mens CI og de siste runtime-kontrollene avklares.
 Historiske grønne resultater erstatter ikke kontroll av de nye testendringene.
+
+## PR #10 – øvre synlighetsgrense i UI-smoke, 27. november 2026
+
+CI-run `46036510669` på `b5f9c9e` kjørte åtte UI-tester: sju bestod, mens
+`testMealRoomLogsAndEditsFoodForSelectedPastDay` feilet i revealDiaryElement.
+Loggen viser gjentatte forsøk på å rulle fram `day-navigation-date` før
+assertionen på linje 572 feilet. Hjelperen krevde minY >= 100, selv for
+Hjems datoheader som normalt ligger høyere. Dette kunne ikke løses ved rulling.
+CI-resultatpakken ble hentet til `/private/tmp/pr10-ci-ui-smoke`; ingen
+feilvedlegg kunne eksporteres, så det foreligger ikke CI-skjermbildebevis.
+
+Øvre grense følger nå tilgjengelig statuslinjes nedre kant (44 pt fallback),
+mens isHittable og kravet om at hele kontrollen ligger over faktisk bunnmeny
+beholdes. Appkode, lagring og funksjonelle testassertions er uendret.
+`xcodebuild build-for-testing` mot generic iOS med separat QA-oppsett bestod;
+logg `/private/tmp/pr10-visibility-build.log`. Ingen lokal simulator-runtime
+eller tilkoblet iPhone var tilgjengelig for runtime. Ny CI-kjøring kreves for
+å bekrefte rettelsen; tidligere feilresultat er beholdt.
