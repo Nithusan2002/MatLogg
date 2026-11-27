@@ -1178,3 +1178,22 @@ auth-/produksjonsavvikling er godkjent. Ukjent drift må avklares før sletting.
 **Status:** Runde 2 ble startet etter brukerens nye instruks. Kodekandidat
 `c86bb83` er lokalt implementert og avventer iOS-/visuell QA. Se kandidatoversikten
 for faktisk testomfang; historiske runde 1-resultater lukker ikke nye porter.
+
+## Avgrensning etter tilbakeføring – 27. november 2026
+
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
+
+## 2026-11-27 – Bevar valgt dag ved retur til Hjem
+
+Sammenslåing av main inn i unified-logging beholder den samlede skjermen og
+opprinnelig fanenavigasjon. Hjems innlastingsoppgave skal ikke nullstille valgt
+dag ved retur fra en annen fane; nullstilling er knyttet til faktisk profilbytte.
+Fysisk UI-regresjon for Profil → lagrede måltider → Hjem feilet på valgt dato
+før rettingen og bestod etterpå. Lagring, transaksjoner og synkpolicy er uendret.

@@ -1,5 +1,17 @@
 # MatLogg – Brukerhistorier & Detaljerte Flyter
 
+## Avgrensning etter tilbakeføring – 27. november 2026
+
+Bunnmenyen og profilnavigasjonen er tilbakeført til Hjem, Søk, Loggfør,
+Utvikling og Profil. Søk er fortsatt en egen fane. Loggfør beholder den
+samlede skjermen med søk, skanning, manuell registrering og gjenbruk
+(Nylig brukt, Favoritter og Lagrede måltider). Etter vellykket logging lukkes
+arket; kvittering og Angre vises på underliggende skjerm. Arket bruker de
+opprinnelige høydene på 66 prosent og full høyde. Dette erstatter tidligere
+beslutninger om tre plasser i bunnmenyen, profil i fullskjerm og gjentatt
+logging uten lukking. Lokal lagring, datakilder og synkpolicy er uendret.
+
+
 > **Dokumentstatus:** Detaljert kravunderlag. For gjeldende overordnet
 > informasjonsarkitektur, terminologi og UX-retning, se
 > [`../design-and-user-flow.md`](../design-and-user-flow.md). Kode og

@@ -445,8 +445,10 @@ private struct HomeTabContent: View {
             collapsedMeals = []
             savedMealSource = nil
             dismissDeletion()
-            appState.logSelectedDate = Date()
             await refreshSummaries()
+        }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
+            appState.logSelectedDate = Date()
         }
     }
 

@@ -1642,3 +1642,178 @@ null tester og regnes uttrykkelig ikke som verifisering.
 Skills: offline-sync, ios-swiftui, product-design og qa-release for status/
 feilpresentasjon; backend-api for legacy-beslutningsgrunnlaget. Ingen ny
 produktfunksjon, auth-endring, produksjonshemmelighet eller utrulling.
+
+## Tilbakeføring på unified-logging – 27. november 2026
+
+Kandidat: `cbc25dd` med lokale endringer. Opprinnelig navigasjon er gjenopprettet;
+samlet Loggfør beholdes og lukkes etter logging. Seks navigasjonsfiler er
+kontrollert byte for byte mot `cbc25dd^`. `git diff --check` bestod.
+`xcodebuild build-for-testing -project MatLogg.xcodeproj -scheme MatLogg
+-destination 'generic/platform=iOS Simulator' -derivedDataPath
+/private/tmp/unified-reversal-build CODE_SIGNING_ALLOWED=NO` bestod.
+Dette er kompilering av app og tester, ikke kjørte tester. Ingen tilgjengelig
+iOS-simulator-runtime; UI-smoke, visuell kontroll og VoiceOver gjenstår.
+Berørte UI-tester bruker samlet skjerm med de opprinnelige fanene og lukking
+etter logging. Ingen produksjonsutrulling eller endring av lagring/synk.
+
+## Fysisk kontroll av tilbakeført navigasjon – 27. november 2026
+
+Kandidat: `codex/unified-logging`, `cbc25dd` med lokale tilbakeføringsendringer,
+`nonisolated`-retting av `HistoryValue.fingerprint` og oppdaterte UI-tester.
+Debug på brukerens tilkoblede iPhone 17, iOS 27.3. Separat QA-identitet:
+`com.nithusan.MatLogg.loggingqa20261127.MatLogg`, separate testbundle-ID-er,
+appnavn «Spor Mat Loggfør QA». Signert application-identifier kontrollert;
+ingen delte keychain-access-groups eller Helse-entitlements i dette QA-bygget.
+Vanlig app og dens data ble ikke brukt. Bare syntetiske QA-data.
+
+Målrettet `xcodebuild test`, fysisk destinasjon, xcconfig
+`/private/tmp/UnifiedLoggingPhysicalQA.xcconfig`, DerivedData
+`/private/tmp/UnifiedLoggingPhysicalQA`, parallel testing NO.
+Resultatbundler i `/private/tmp/`: `unified-physical-20261127.xcresult`,
+`unified-physical-recheck-20261127.xcresult`,
+`unified-physical-final-20261127.xcresult`,
+`unified-physical-cancel-20261127.xcresult`.
+
+Bestått på telefonen:
+- Alle fem menyhandlinger synlige, trykkbare og navigerbare ved største tekst.
+- Samlet Loggfør viser søk, skanning, manuell registrering og gjenbruk.
+- Direkte gjenlogging lukker arket; Angre gjennomføres på Hjem.
+- Manuell Lukk returnerer til samlet skjerm og valgt dato på Hjem.
+- Manuell lagring beholder valgt tidligere dato; inngang fra frokostkortet
+  ble også kjørt fram til lagring og kontroll av dato/ny rad.
+
+Fulltesten for manuell logging OG direkte redigering bestod én gang, men
+stoppet ved åpning av `log-editor-scroll` i andre kjøringer (også fra kort).
+Årsak ikke fastslått; dette er et ustabilt resultat, ikke full grønn QA.
+Testoppsettet er rettet for Lukk/Ferdig, eksisterende QA-utkast og entydig
+valg av trykkbar Forkast-knapp. Assertions for redigering er beholdt.
+Skjermbilder av samlet Loggfør og største tekst er visuelt inspisert.
+Faktisk kameradekoding, manuell VoiceOver og Helse-integrasjon er ikke testet.
+Ingen commit, push eller produksjonsutrulling i denne kontrollen.
+
+### Undersøkelse av ustabil redigeringsåpning – 27. november 2026
+
+Samme kandidat (`cbc25dd` med lokale tilbakeføringsendringer og fingerprint-
+retting), samme isolerte iPhone-QA-app og iOS 27.3 som ovenfor. Kun test-
+diagnostikk ble lagt til i denne undersøkelsen; ingen appkode ble endret.
+
+`testQuickLogManualRegistrationAndDirectHomeEditingKeepPastDate` bestod
+først én diagnostisk kjøring, deretter tre repetisjoner med `-test-iterations 3`.
+Repetisjonene har ingen skjermbildeinnsamling eller ekstra venting før trykket.
+Alle åpnet redigering ved første trykk, flyttet varen til lunsj og beholdt dato.
+Resultater: `/private/tmp/unified-edit-diagnosis-20261127.xcresult` og
+`/private/tmp/unified-edit-repeat-20261127.xcresult` (3/3, TEST SUCCEEDED).
+Før-trykk-skjermbildet fra første kjøring viste varen synlig over bunnmenyen;
+dette utelukker ikke annen geometri/timing i de tidligere feilede kjøringene.
+
+Testen lagrer nå skjermbilde etter første trykk og hierarki hvis redigering
+ikke åpnes. Et diagnostisk andretrykk endrer ikke beståttkravet: første trykk
+må fortsatt åpne redigering. Ingen assertions er fjernet eller svekket.
+
+Konklusjon: tidligere feil ble ikke reprodusert i fire nye kjøringer.
+Årsaken er fortsatt uavklart; timing/automatisering er en hypotese, ikke en
+bekreftet forklaring eller dokumentert feilretting. Ingen spekulativ endring
+av presentasjonsmodellen. Tidligere feilede resultater ovenfor beholdes.
+
+## Main inn i unified-logging – 27. november 2026
+
+Grunnlag: tilbakeføring `1ea9f57` og `origin/main` `dc10200`, med lokale
+mergeoppløsninger og datorettingen nedenfor. Samme separate iPhone 17 /
+iOS 27.3 QA-identitet og syntetiske data som fysisk kontroll ovenfor.
+Lokalt prosjektoppsett for QA holdes utenfor committen; ordinære entitlements
+endres ikke. Første signeringsforsøk med ordinært oppsett stoppet før tester.
+
+60 tester i sju suiter bestod: FoodSearchTests, FoodSearchLoadingTests,
+FoodPackageMetadataTests, DomainReadFailureTests, DomainReadFlowTests,
+HistoryReadFailureTests og HistoryReadViewModelTests. Resultat:
+`/private/tmp/unified-main-merge-qa-20261127.xcresult`.
+Samme kjøring bekreftet paknings-/generisk matsøk og manuell logging/redigering.
+
+UI-kontrollen avdekket en reell datonullstilling ved retur fra Profil til Hjem.
+Dato nullstilles nå ved profilbytte, ikke hver gang Hjem blir synlig.
+Profiltesten feilet før retting på datoassertionen. En senere testfeil traff
+Søk under den store bunnmenyen; testhelperen krever nå at hele kontrollen er
+synlig over den faktisk målte bunnmenyen. Manuelltesten venter på lukket
+kvittering og synlig rad før første trykk. Første-trykk-assertionen er beholdt;
+årsaken til historiske tapte trykk er fortsatt ikke endelig bevist.
+
+Beståtte kontroller av sammenslått kandidat, etter relevante rettinger:
+- Samlet Loggfør, lukking og Angre:
+  `/private/tmp/unified-main-merge-final-20261127.xcresult`.
+- Paknings-/generisk søk:
+  `/private/tmp/unified-main-merge-qa-20261127.xcresult`.
+- Profil → lagrede måltider → Hjem med bevart dato ved største tekst, samt
+  manuell logging fra tidligere dags frokostkort, første-trykk-redigering og
+  flytting til lunsj: `/private/tmp/unified-main-viewport-20261127.xcresult`
+  (2/2, TEST SUCCEEDED).
+
+Samlet målrettet resultat: 60 enhetstester og fire UI-flyter bestod på fysisk
+iPhone over de avgrensede kjøringene. Hele testpakken, manuell VoiceOver,
+faktisk kameradekoding og Helse-integrasjon er ikke kontrollert på kandidaten.
+Ingen utrulling eller synkaktivering. `git diff --check` bestod.
+
+## PR-forhåndskontroll – 27. november 2026
+
+PR #10 sammenligner codex/unified-logging med main. Utvidet fysisk kontroll
+startet CI sine åtte UI-smoketester samt gjenbruk, utkast og to porsjonstester.
+Resultatlogg: `/private/tmp/unified-pr-preflight-20261127.log`.
+
+Før telefonen ble utilgjengelig, fant kjøringen foreldede forventninger:
+Lukk i det tidligere valgarket, Ferdig for tastatur i samlet Loggfør, eksakt
+kort utkastetikett og gammel plassering av Forkast. Manuell strekkodevalidering
+og lokal demostrekkode med logging bestod i denne kjøringen. Resterende
+scenarioer kan ikke oppgis som bestått; enhetskommunikasjonen ble brutt.
+
+Rettelsene beholder Ferdig som tastaturhandling i ordinært søk/onboarding,
+bruker Skjul tastatur i samlet Loggfør, tilpasser testene til menyen for
+utkastvalg og lukking etter gjenlogging, og bruker Hjems radidentiteter og
+frokostkort i porsjonstestene. Funksjonelle assertions for mengde, opprinnelig
+registrering, persistens og Angre beholdes.
+
+`xcodebuild build-for-testing` med generic/platform=iOS, samme separate
+QA-xcconfig og DerivedData som ovenfor bestod etter hovedrettelsene.
+Logg: `/private/tmp/unified-pr-final-build-20261127.log`.
+PR-en står som utkast mens CI og de siste runtime-kontrollene avklares.
+Historiske grønne resultater erstatter ikke kontroll av de nye testendringene.
+
+## PR #10 – øvre synlighetsgrense i UI-smoke, 27. november 2026
+
+CI-run `46036510669` på `b5f9c9e` kjørte åtte UI-tester: sju bestod, mens
+`testMealRoomLogsAndEditsFoodForSelectedPastDay` feilet i revealDiaryElement.
+Loggen viser gjentatte forsøk på å rulle fram `day-navigation-date` før
+assertionen på linje 572 feilet. Hjelperen krevde minY >= 100, selv for
+Hjems datoheader som normalt ligger høyere. Dette kunne ikke løses ved rulling.
+CI-resultatpakken ble hentet til `/private/tmp/pr10-ci-ui-smoke`; ingen
+feilvedlegg kunne eksporteres, så det foreligger ikke CI-skjermbildebevis.
+
+Øvre grense følger nå tilgjengelig statuslinjes nedre kant (44 pt fallback),
+mens isHittable og kravet om at hele kontrollen ligger over faktisk bunnmeny
+beholdes. Appkode, lagring og funksjonelle testassertions er uendret.
+`xcodebuild build-for-testing` mot generic iOS med separat QA-oppsett bestod;
+logg `/private/tmp/pr10-visibility-build.log`. Ingen lokal simulator-runtime
+eller tilkoblet iPhone var tilgjengelig for runtime. Ny CI-kjøring kreves for
+å bekrefte rettelsen; tidligere feilresultat er beholdt.
+
+## Siste review av PR #10 – lesefeil i Nylig brukt, 27. november 2026
+
+Siste gjennomgang fant at samlet Loggfør ikke viste QuickLogViewModel sin
+errorMessage eller ga retry for loadQuickChoices. Den automatiske reviewen
+på `6a9fd01` rapporterte samme P1-funn i discussion_r4722493498.
+
+Samlet Nylig brukt viser nå modellens loading/feil og en retry som laster
+hurtigvalgene fra riktig kilde. Tomtilstanden vises bare etter vellykket
+fullført lesing. Eksisterende innhold for samme kontekst kan beholdes sammen
+med synlig feilstatus; ViewModel-eierskap, request-ID og lagring er uendret.
+
+En DEBUG-fixture injiseres bare i QuickLogViewModel med eksplisitt
+`--quick-choices-read-failure-qa`. Ordinær søkemodell bruker fortsatt den
+virkelige repository-implementasjonen. Fixturen feiler første hurtiglesing,
+bruker deretter ekte QA-lager og endrer ikke lagrede data.
+`DomainReadFailureUITests/testUnifiedRecentReadFailureShowsErrorAndRetryRecovers`
+kontrollerer synlig feil, fravær av falsk tomtilstand og recovery med retry,
+og er lagt til UI-smoke i CI. Ingen regresjonsassertions er fjernet.
+
+App og testmål kompilerer med build-for-testing generic iOS i separat
+QA-konfigurasjon: `/private/tmp/pr10-recent-read-build.log`, TEST BUILD SUCCEEDED.
+Ny runtime-verifisering i CI gjenstår før sammenslåing. Verken lokal simulator-
+runtime eller fysisk iPhone var tilgjengelig for en før/etter-UI-kjøring.

@@ -4,6 +4,33 @@ final class DomainReadFailureUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
+    func testUnifiedRecentReadFailureShowsErrorAndRetryRecovers() {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["--skip-auth", "--quick-choices-read-failure-qa", "-demoModeActive", "NO",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        let open = app.buttons["tab-log-food"]
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        open.tap()
+        let error = app.descendants(matching: .any)["logging-recent-read-error"].firstMatch
+        let retry = app.buttons["logging-recent-retry"]
+        XCTAssertTrue(error.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.staticTexts["logging-recent-empty"].exists)
+        for _ in 0..<6 {
+            if retry.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(retry.isHittable)
+        retry.tap()
+        XCTAssertTrue(error.waitForNonExistence(timeout: 8))
+        XCTAssertTrue(retry.waitForNonExistence(timeout: 5))
+        let empty = app.staticTexts["logging-recent-empty"]
+        let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'quick-log-repeat-'"))
+        XCTAssertTrue(empty.waitForExistence(timeout: 3) || recent.firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testFavoritesReadFailureShowsErrorAndRetryRecoversWithLargeText() {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

@@ -1678,7 +1678,7 @@ extension LocalStore {
         var source: NutritionSource? = nil
         var amount: Float? = nil
         var unit: String? = nil
-        var fingerprint: String {
+        nonisolated var fingerprint: String {
             healthFingerprint([kind.rawValue, String(value.bitPattern), String(date.timeIntervalSince1970.bitPattern),
                 source?.rawValue ?? "", amount.map { String($0.bitPattern) } ?? "", unit ?? ""])
         }

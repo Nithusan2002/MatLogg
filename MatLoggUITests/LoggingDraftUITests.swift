@@ -29,7 +29,7 @@ final class LoggingDraftUITests: XCTestCase {
             XCTAssertTrue(app.buttons["logging-draft-discard"].waitForNonExistence(timeout: 5))
         }
         app.buttons["tab-log-food"].tap()
-        let manual = app.buttons["quick-log-manual"]
+        let manual = app.buttons["food-search-manual-registration"]
         XCTAssertTrue(manual.waitForExistence(timeout: 8))
         manual.tap()
         let name = app.textFields["Produktnavn"]
@@ -97,15 +97,18 @@ final class LoggingDraftUITests: XCTestCase {
         XCTAssertTrue(resume.waitForExistence(timeout: 12))
         // Hjem also shows the draft behind the sheet.
         app.buttons["tab-log-food"].tap()
-        let sheet = app.scrollViews["quick-log-scroll"]
+        let sheet = app.collectionViews.firstMatch
         let sheetResume = sheet.buttons["logging-draft-continue"]
         XCTAssertTrue(sheetResume.waitForExistence(timeout: 8))
         for _ in 0..<8 {
             if sheetResume.isHittable { break }
             sheet.swipeUp()
         }
-        XCTAssertEqual(sheetResume.label, "Fortsett registreringen")
-        sheet.buttons["logging-draft-discard"].tap()
+        XCTAssertTrue(sheetResume.label.hasPrefix("Fortsett registreringen, Utkast QA, "))
+        let draftOptions = sheet.buttons["logging-draft-options"]
+        XCTAssertTrue(draftOptions.waitForExistence(timeout: 5))
+        draftOptions.tap()
+        app.buttons["logging-draft-discard"].tap()
         let confirmDiscard = app.buttons.matching(NSPredicate(
             format: "label == %@ AND identifier != %@", "Forkast", "logging-draft-discard"
         )).firstMatch

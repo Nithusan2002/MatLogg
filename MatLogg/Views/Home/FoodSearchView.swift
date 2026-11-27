@@ -14,6 +14,8 @@ extension EnvironmentValues {
 /// The app root supplies IO; each presentation owns its own search state.
 struct FoodSearchView: View {
     @Environment(\.foodSearchRepository) private var repository
+    var refreshRevision = 0
+    var isUnifiedLogging = false
     var isTab = false
     var focusOnAppear = false
     var isFirstLog = false
@@ -24,7 +26,7 @@ struct FoodSearchView: View {
 
     var body: some View {
         if let repository {
-            FoodSearchContent(repository: repository, isTab: isTab, focusOnAppear: focusOnAppear, isFirstLog: isFirstLog,
+            FoodSearchContent(repository: repository, refreshRevision: refreshRevision, isUnifiedLogging: isUnifiedLogging, isTab: isTab, focusOnAppear: focusOnAppear, isFirstLog: isFirstLog,
                               onScan: onScan, onLogComplete: onLogComplete,
                               onSavedMealLogComplete: onSavedMealLogComplete,
                               productSelectionContent: productSelectionContent)
@@ -39,13 +41,20 @@ private struct FoodSearchContent: View {
     @EnvironmentObject private var productViewModel: ProductViewModel
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var quickLog: QuickLogViewModel
+    @EnvironmentObject private var logs: LogViewModel
     @EnvironmentObject private var draftViewModel: FoodLoggingDraftViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSavedMeals = false
     @State private var showManualProduct = false
+    @State private var showsLoggingCalendar = false
     @FocusState private var searchFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let productSelectionContent: ((Product) -> AnyView)?
+    private let refreshRevision: Int
+    @EnvironmentObject private var savedMeals: SavedMealsViewModel
+    @State private var selectedSavedMeal: SavedMeal?
+    private let isUnifiedLogging: Bool
     private let isTab: Bool
     private let focusOnAppear: Bool
     private let isFirstLog: Bool
@@ -53,13 +62,15 @@ private struct FoodSearchContent: View {
     private let onSavedMealLogComplete: () -> Void
     private let onLogComplete: (ReceiptPayload) -> Void
 
-    init(repository: any FoodSearchRepository, isTab: Bool, focusOnAppear: Bool, isFirstLog: Bool,
+    init(repository: any FoodSearchRepository, refreshRevision: Int, isUnifiedLogging: Bool, isTab: Bool, focusOnAppear: Bool, isFirstLog: Bool,
          onScan: @escaping () -> Void,
          onLogComplete: @escaping (ReceiptPayload) -> Void,
          onSavedMealLogComplete: @escaping () -> Void,
          productSelectionContent: ((Product) -> AnyView)?) {
         _viewModel = StateObject(wrappedValue: FoodSearchViewModel(repository: repository))
         self.productSelectionContent = productSelectionContent
+        self.refreshRevision = refreshRevision
+        self.isUnifiedLogging = isUnifiedLogging
         self.isTab = isTab
         self.focusOnAppear = focusOnAppear
         self.isFirstLog = isFirstLog
@@ -70,7 +81,7 @@ private struct FoodSearchContent: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if !isFirstLog && !dynamicTypeSize.isAccessibilitySize {
+            if !isUnifiedLogging && !isFirstLog && !dynamicTypeSize.isAccessibilitySize {
                 searchControls.padding(.horizontal, 16)
             }
             if isTab {
@@ -92,6 +103,25 @@ private struct FoodSearchContent: View {
         .task(id: authViewModel.currentUser?.id) {
             await draftViewModel.load(owner: authViewModel.currentUser?.id)
         }
+        .task(id: refreshRevision) {
+            if refreshRevision > 0 {
+                await reload()
+                await quickLog.load(userId: authViewModel.currentUser?.id)
+            }
+        }
+        .task(id: authViewModel.currentUser?.id) {
+            if isUnifiedLogging {
+                async let meals: Void = savedMeals.load(userId: authViewModel.currentUser?.id)
+                async let recent: Void = quickLog.load(userId: authViewModel.currentUser?.id)
+                _ = await (meals, recent)
+            }
+        }
+        .onChange(of: authViewModel.currentUser?.id) { _, _ in
+            showSavedMeals = false
+            selectedSavedMeal = nil
+            showManualProduct = false
+            showsLoggingCalendar = false
+        }
         .onChange(of: productViewModel.metadataRevision) { _, _ in
             Task { await reload() }
         }
@@ -108,6 +138,15 @@ private struct FoodSearchContent: View {
                 productSelectionContent(product)
             } else {
                 ProductDetailView(product: product, appState: appState, onLogComplete: onLogComplete)
+            }
+        }
+        .sheet(item: $quickLog.selectedQuickProduct, onDismiss: { Task { await reload() } }) { product in
+            ProductDetailView(product: product, appState: appState, onLogComplete: onLogComplete)
+        }
+        .sheet(item: $selectedSavedMeal, onDismiss: { Task { await reload() } }) { meal in
+            SavedMealLogView(meal: meal) {
+                selectedSavedMeal = nil
+                onSavedMealLogComplete()
             }
         }
         .sheet(isPresented: $showSavedMeals, onDismiss: { Task { await reload() } }) {
@@ -129,7 +168,8 @@ private struct FoodSearchContent: View {
         .toolbar {
             if searchFocused {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Ferdig") { searchFocused = false }
+                    Button(isUnifiedLogging ? "Skjul tastatur" : "Ferdig") { searchFocused = false }
+                        .accessibilityIdentifier("food-search-hide-keyboard")
                         .foregroundColor(AppColors.actionText)
                 }
             }
@@ -138,30 +178,34 @@ private struct FoodSearchContent: View {
 
     private var searchControls: some View {
         VStack(spacing: 8) {
-            if isFirstLog || dynamicTypeSize.isAccessibilitySize {
-                searchInput
+            if isUnifiedLogging {
+                unifiedSearchControls
             } else {
-                HStack(spacing: 8) {
+                if isFirstLog || dynamicTypeSize.isAccessibilitySize {
                     searchInput
-                    searchButton.frame(width: 72)
-                }
-            }
-
-            if isFirstLog {
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
                 } else {
-                    HStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
+                    HStack(spacing: 8) {
+                        searchInput
+                        searchButton.frame(width: 104)
+                    }
                 }
-            } else {
-                if dynamicTypeSize.isAccessibilitySize { searchButton }
-                if productSelectionContent == nil {
+
+                if isFirstLog {
                     if dynamicTypeSize.isAccessibilitySize {
-                        VStack(spacing: 8) { scanButton; manualRegistrationButton }
+                        VStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
                     } else {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 8) { scanButton; manualRegistrationButton }
+                        HStack(spacing: 8) { searchButton; scanButton; manualRegistrationButton }
+                    }
+                } else {
+                    if dynamicTypeSize.isAccessibilitySize { searchButton }
+                    if productSelectionContent == nil {
+                        if dynamicTypeSize.isAccessibilitySize {
                             VStack(spacing: 8) { scanButton; manualRegistrationButton }
+                        } else {
+                            ViewThatFits(in: .horizontal) {
+                                HStack(spacing: 8) { scanButton; manualRegistrationButton }
+                                VStack(spacing: 8) { scanButton; manualRegistrationButton }
+                            }
                         }
                     }
                 }
@@ -171,16 +215,66 @@ private struct FoodSearchContent: View {
         .buttonStyle(.plain)
     }
 
+    private var unifiedSearchControls: some View {
+        VStack(spacing: 8) {
+            if dynamicTypeSize >= .xxxLarge {
+                searchInput
+                unifiedScanButton
+            } else {
+                HStack(spacing: 8) {
+                    searchInput
+                    unifiedScanButton.fixedSize(horizontal: true, vertical: false)
+                }
+            }
+            manualRegistrationButton
+            if viewModel.hasQuery {
+                Button(action: submitSearch) {
+                    Text("Søk etter produkter")
+                        .font(AppTypography.secondaryEmphasis)
+                        .foregroundStyle(AppColors.actionText)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                }
+                .disabled(viewModel.isLoading || viewModel.phase == .searching)
+                .accessibilityHint("Henter også produkter fra Open Food Facts")
+                .accessibilityIdentifier("food-search-submit")
+            }
+        }
+    }
+
+    private var unifiedScanButton: some View {
+        Button { searchFocused = false; onScan() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "barcode.viewfinder")
+                    .accessibilityHidden(true)
+                Text("Skann")
+                    .fixedSize(horizontal: true, vertical: true)
+            }
+                .font(AppTypography.bodyEmphasis)
+                .padding(.horizontal, 16)
+                .frame(maxWidth: dynamicTypeSize >= .xxxLarge ? .infinity : nil)
+                .frame(height: dynamicTypeSize >= .xxxLarge ? nil : 52)
+                .frame(minHeight: 52)
+                .foregroundStyle(AppColors.surface)
+                .background(AppColors.deepInk, in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Skann strekkode")
+        .accessibilityIdentifier("logging-scan")
+    }
+
     private var searchInput: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18))
                 .foregroundColor(AppColors.textSecondary)
                 .accessibilityHidden(true)
-            TextField("Søk etter mat eller produkt", text: Binding(
+            TextField(isUnifiedLogging ? "Søk etter mat" : "Søk etter mat eller produkt", text: Binding(
                 get: { viewModel.query }, set: { viewModel.setQuery($0) }
             ))
             .font(AppTypography.body)
+            .frame(minHeight: isUnifiedLogging ? 44 : nil)
+            .contentShape(Rectangle())
             .focused($searchFocused)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -207,7 +301,7 @@ private struct FoodSearchContent: View {
     private var searchStatus: some View {
         let message = viewModel.showsSearchFeedback ? "Henter flere produkter …"
             : viewModel.showsCatalogFeedback ? "Henter flere matvarer …"
-            : viewModel.hasQuery && viewModel.phase == .local && !isFirstLog
+            : viewModel.hasQuery && viewModel.phase == .local && !isFirstLog && !isUnifiedLogging
                 ? "Trykk Søk for flere produkter." : ""
         if !message.isEmpty {
             HStack(spacing: 8) {
@@ -240,7 +334,7 @@ private struct FoodSearchContent: View {
         Button(action: submitSearch) {
             actionLabel("Søk", symbol: "magnifyingglass")
                 .font(AppTypography.bodyEmphasis)
-                .fixedSize(horizontal: false, vertical: true)
+                .fixedSize(horizontal: true, vertical: true)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .foregroundColor(AppColors.surface)
@@ -273,15 +367,37 @@ private struct FoodSearchContent: View {
         }
     }
 
-    private var searchList: some View {
+    @ViewBuilder private var searchList: some View {
+        if isUnifiedLogging {
+            searchListContent.listSectionSpacing(12)
+        } else {
+            searchListContent
+        }
+    }
+
+    private var searchListContent: some View {
         List {
+            if isUnifiedLogging {
+                Section {
+                    VStack(spacing: 12) {
+                        // Keep the List row's runtime metadata independent of the
+                        // nested calendar, menu and alternate search layouts.
+                        AnyView(loggingContext)
+                        AnyView(searchControls)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowBackground(AppColors.background)
+                .listRowSeparator(.hidden)
+            }
             if productSelectionContent == nil,
                draftViewModel.draft != nil || draftViewModel.errorMessage != nil {
                 Section { LoggingDraftBanner(presentation: .row, onLogComplete: onLogComplete) }
                     .listRowBackground(AppColors.surface)
                     .listRowSeparator(.hidden)
             }
-            if !isFirstLog && dynamicTypeSize.isAccessibilitySize {
+            if !isUnifiedLogging && !isFirstLog && dynamicTypeSize.isAccessibilitySize {
                 Section { searchControls }
                     .listRowBackground(AppColors.background)
                     .listRowSeparator(.hidden)
@@ -363,6 +479,77 @@ private struct FoodSearchContent: View {
         .refreshable { await reload() }
     }
 
+    private var loggingContext: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Måltid")
+                    .font(AppTypography.bodyEmphasis)
+                    .foregroundStyle(AppColors.deepInk)
+                Spacer(minLength: 8)
+                Button { searchFocused = false; showsLoggingCalendar = true } label: {
+                    Label(loggingDateTitle, systemImage: "calendar")
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .font(AppTypography.secondary)
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityLabel("Loggdato, \(appState.logSelectedDate.formatted(date: .complete, time: .omitted))")
+                .accessibilityHint("Åpner kalenderen")
+                .accessibilityIdentifier("logging-date")
+                .sheet(isPresented: $showsLoggingCalendar) {
+                    NavigationStack {
+                        ScrollView {
+                            DatePicker("Loggdato", selection: $appState.logSelectedDate, displayedComponents: .date)
+                                .datePickerStyle(.graphical)
+                                .accessibilityIdentifier("logging-calendar")
+                                .environment(\.locale, Locale(identifier: "nb_NO"))
+                                .padding(.horizontal, 16)
+                        }
+                        .background(AppColors.background.ignoresSafeArea())
+                        .navigationTitle("Velg dato")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Ferdig") { showsLoggingCalendar = false }
+                                    .accessibilityIdentifier("logging-calendar-done")
+                            }
+                        }
+                    }
+                    .tint(AppColors.actionText)
+                    .presentationBackground(AppColors.background)
+                    .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.height(460), .large])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))
+            layout {
+                ForEach(MealPresentation.all) { meal in
+                    Button { appState.selectedMealType = meal.key } label: {
+                        Text(appState.selectedMealType == meal.key ? "\(meal.title) ✓" : meal.title)
+                            .font(AppTypography.captionEmphasis)
+                            .foregroundStyle(appState.selectedMealType == meal.key ? AppColors.onVibrant : AppColors.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(appState.selectedMealType == meal.key ? AppColors.brand : AppColors.surface, in: Capsule())
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Logg til \(meal.title)")
+                    .accessibilityAddTraits(appState.selectedMealType == meal.key ? .isSelected : [])
+                    .accessibilityIdentifier("logging-meal-\(meal.key)")
+                }
+            }
+        }
+    }
+
+    private var loggingDateTitle: String {
+        if Calendar.current.isDateInToday(appState.logSelectedDate) { return "I dag" }
+        return appState.logSelectedDate.formatted(.dateTime.day().month(.abbreviated).year().locale(Locale(identifier: "nb_NO")))
+    }
+
     private var firstLogStorageInformation: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("På denne iPhonen", systemImage: "iphone")
@@ -386,7 +573,84 @@ private struct FoodSearchContent: View {
 
     @ViewBuilder
     private var library: some View {
-        if viewModel.favorites.isEmpty && viewModel.recent.isEmpty {
+        if isUnifiedLogging {
+            Section {
+                let layout = dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(spacing: 2))
+                    : AnyLayout(HStackLayout(spacing: 2))
+                layout {
+                    ForEach(FoodSearchViewModel.ReuseList.allCases, id: \.self) { list in
+                        Button { viewModel.reuseList = list } label: {
+                            Text(list.rawValue)
+                                .font(AppTypography.secondaryEmphasis)
+                                .foregroundStyle(viewModel.reuseList == list ? AppColors.deepInk : AppColors.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .padding(.horizontal, 8)
+                                .background(viewModel.reuseList == list ? AppColors.surface : Color.clear,
+                                            in: RoundedRectangle(cornerRadius: 12))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(viewModel.reuseList == list ? .isSelected : [])
+                        .accessibilityIdentifier("logging-reuse-\(list == .recent ? "recent" : list == .favorites ? "favorites" : "saved")")
+                    }
+                }
+                .padding(4)
+                .background(AppColors.mutedSurface, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            .listRowBackground(AppColors.background)
+            if viewModel.reuseList == .recent {
+                Section {
+                    if let error = quickLog.errorMessage {
+                        ErrorMessageView(error)
+                            .accessibilityIdentifier("logging-recent-read-error")
+                        Button("Prøv igjen") {
+                            Task { await quickLog.load(userId: authViewModel.currentUser?.id) }
+                        }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("logging-recent-retry")
+                    }
+                    if quickLog.isLoading || !quickLog.hasLoaded {
+                        ProgressView("Henter nylig loggede matvarer …")
+                    } else if quickLog.errorMessage == nil,
+                              quickLog.recentFoods.isEmpty && viewModel.recent.isEmpty {
+                        Text("Matvarer du logger, vises her.")
+                            .accessibilityIdentifier("logging-recent-empty")
+                    }
+                    if let error = quickLog.logError { ErrorMessageView(error) }
+                    ForEach(quickLog.recentFoods) { food in
+                        recentFoodRow(food)
+                    }
+                    if quickLog.recentFoods.isEmpty { productRows(viewModel.recent, context: "recent") }
+                }.listRowBackground(AppColors.surface)
+            } else if viewModel.reuseList == .saved {
+                Section {
+                    if savedMeals.isLoading && savedMeals.meals.isEmpty { ProgressView("Henter lagrede måltider …") }
+                    if let error = savedMeals.loadError {
+                        ErrorMessageView(error)
+                        Button("Prøv igjen") { Task { await savedMeals.load(userId: authViewModel.currentUser?.id) } }
+                    } else if !savedMeals.isLoading && savedMeals.meals.isEmpty {
+                        Text("Lagre et registrert måltid fra •••-menyen ved Måltider på Hjem.")
+                    }
+                    ForEach(savedMeals.meals.prefix(3)) { meal in
+                        Button { selectedSavedMeal = meal } label: { SavedMealRow(meal: meal) }
+                            .buttonStyle(.plain)
+                    }
+                    Button("Se alle lagrede måltider") { showSavedMeals = true }
+                        .buttonStyle(.plain)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("food-search-saved-meals")
+                }.listRowBackground(AppColors.surface)
+            } else {
+                Section {
+                    if viewModel.favorites.isEmpty { Text("Trykk på hjertet på en matvare for å lagre den som favoritt.") }
+                    productRows(viewModel.favorites, context: "favorite")
+                }.listRowBackground(AppColors.surface)
+            }
+        } else if viewModel.favorites.isEmpty && viewModel.recent.isEmpty {
             Section {
                 Text("Søk etter en matvare for å komme i gang.")
                     .font(AppTypography.body)
@@ -408,6 +672,66 @@ private struct FoodSearchContent: View {
                 .listRowBackground(AppColors.surface)
             }
         }
+    }
+
+    private func recentFoodRow(_ food: RecentFood) -> some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
+            Button {
+                searchFocused = false
+                Task { await viewModel.open(food.product) }
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(food.product.name).font(AppTypography.bodyEmphasis)
+                    Text("Sist logget: \(food.amountLabel)").font(AppTypography.caption)
+                }
+                .foregroundStyle(AppColors.deepInk)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.trailing, 20)
+                .overlay(alignment: .trailing) {
+                    Image(systemName: "chevron.right")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.trailing, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Åpner mengdevalg og loggføring")
+            .accessibilityIdentifier("food-search-recent-\(food.id.uuidString)")
+            Button(food.canRepeat ? "Loggfør" : "Kontroller mengde") {
+                searchFocused = false
+                if food.canRepeat {
+                    let owner = authViewModel.currentUser?.id
+                    let date = appState.logSelectedDate
+                    let meal = appState.selectedMealType
+                    Task {
+                        guard await quickLog.logAgain(food, mealType: meal, date: date) != nil,
+                              authViewModel.currentUser?.id == owner,
+                              let receipt = quickLog.repeatReceipt else { return }
+                        quickLog.dismissRepeatReceipt()
+                        logs.didPersistExternalLog()
+                        onLogComplete(receipt)
+                    }
+                } else {
+                    Task { await viewModel.open(food.product) }
+                }
+            }
+            .buttonStyle(.plain)
+            .font(AppTypography.secondaryEmphasis)
+            .foregroundStyle(AppColors.actionText)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .background(AppColors.chipFillSelected, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityLabel("Loggfør \(food.product.name), \(food.amountLabel)")
+            .accessibilityHint("Til \(LogSummaryService.title(for: appState.selectedMealType)) på valgt dato")
+            .accessibilityIdentifier("quick-log-repeat-\(food.id.uuidString)")
+        }
+        .disabled(quickLog.isRepeating || quickLog.isUndoingRepeat)
     }
 
     @ViewBuilder

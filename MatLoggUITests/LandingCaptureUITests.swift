@@ -54,7 +54,6 @@ final class LandingCaptureUITests: XCTestCase {
             app.swipeUp()
         }
         addBreakfast.tap()
-        app.buttons["Søk etter mat"].tap()
         let search = app.textFields["food-search-field"]
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
@@ -88,7 +87,7 @@ final class LandingCaptureUITests: XCTestCase {
         // Reopen the remembered 60 g amount without focusing the input field.
         // This captures the same selection with no keyboard and adds no second log.
         app.buttons["tab-log-food"].tap()
-        app.buttons["Søk etter mat"].tap()
+        app.textFields["food-search-field"].tap()
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
         search.typeText("lettkokte havregryn")

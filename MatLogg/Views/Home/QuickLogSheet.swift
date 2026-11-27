@@ -428,17 +428,39 @@ struct LoggingFlowView: View {
     var productSelectionContent: ((Product) -> AnyView)? = nil
 
     var body: some View {
-        QuickLogSheet(
-            onSearch: { destination = .search },
-            onScan: { destination = .scan },
-            onManualAdd: { destination = .manual },
-            onLogComplete: complete,
-            onSavedMealLogComplete: {
-                dismiss()
-                onSavedMealLogComplete()
-            },
-            productSelectionContent: productSelectionContent
-        )
+        Group {
+            if productSelectionContent == nil {
+                NavigationStack {
+                    FoodSearchView(isUnifiedLogging: true,
+                        onScan: { destination = .scan },
+                        onLogComplete: complete,
+                        onSavedMealLogComplete: {
+                            dismiss()
+                            onSavedMealLogComplete()
+                        })
+                    .navigationTitle("Loggfør")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Ferdig") { dismiss() }
+                                .accessibilityIdentifier("logging-done")
+                        }
+                    }
+                }
+            } else {
+                QuickLogSheet(
+                    onSearch: { destination = .search },
+                    onScan: { destination = .scan },
+                    onManualAdd: { destination = .manual },
+                    onLogComplete: complete,
+                    onSavedMealLogComplete: {
+                        dismiss()
+                        onSavedMealLogComplete()
+                    },
+                    productSelectionContent: productSelectionContent
+                )
+            }
+        }
         .fullScreenCover(item: $destination, onDismiss: viewModel.finishManualCreation) { route in
             switch route {
             case .search:
