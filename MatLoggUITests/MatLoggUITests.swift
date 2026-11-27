@@ -661,7 +661,7 @@ final class MatLoggUITests: XCTestCase {
     func testMealRoomLogsAndEditsFoodForSelectedPastDay() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
-        app.launchArguments += ["--skip-auth", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         let breakfast = app.buttons["home-meal-open-frokost"]
         XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
@@ -720,17 +720,48 @@ final class MatLoggUITests: XCTestCase {
         attachment.name = "Måltidsrom – registrert mat"
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
 
+    @MainActor
+    func testMealRoomEditedPastDaySurvivesRelaunch() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        // Existing synthetic history isolates edit/persistence from food search
+        // and creation, which the separate logging test covers.
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "YES",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
+        selectPreviousDiaryDay(in: app)
+        let dateLabel = app.buttons["day-navigation-date"].label
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-log-row-'")).firstMatch
+        revealDiaryElement(row, in: app)
+        XCTAssertTrue(row.waitForExistence(timeout: 8))
+        let loggedRowID = row.identifier
+        row.tap()
+        let editor = app.scrollViews["log-editor-scroll"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        let lunchChoice = app.buttons["Flytt til Lunsj"]
+        let breakfastChoice = app.buttons["Flytt til Frokost"]
+        let saveChanges = app.buttons["Lagre endringer"]
+        for _ in 0..<5 {
+            if lunchChoice.isHittable && lunchChoice.frame.maxY < saveChanges.frame.minY { break }
+            editor.swipeUp()
+        }
+        // Always change the meal, including when this synthetic row was moved
+        // by an earlier run against the same demo database.
+        let moveToBreakfast = lunchChoice.isSelected
+        let destination = moveToBreakfast ? breakfastChoice : lunchChoice
+        XCTAssertTrue(destination.isHittable)
+        destination.tap()
+        XCTAssertTrue(destination.isSelected)
+        XCTAssertTrue(saveChanges.isEnabled)
+        saveChanges.tap()
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: editor)
+        waitForExpectations(timeout: 8)
         app.terminate()
         app.launch()
         XCTAssertTrue(app.buttons["home-diary-menu"].waitForExistence(timeout: 10))
-        let lunch = app.buttons["home-meal-open-lunsj"]
-        // The home list creates meal rows as they come into view.
-        for _ in 0..<8 {
-            if lunch.isHittable { break }
-            app.swipeUp()
-        }
-        XCTAssertTrue(lunch.isHittable)
         selectPreviousDiaryDay(in: app)
         XCTAssertEqual(app.buttons["day-navigation-date"].label, dateLabel)
         let restoredRow = app.buttons[loggedRowID]
@@ -738,7 +769,7 @@ final class MatLoggUITests: XCTestCase {
         XCTAssertTrue(restoredRow.waitForExistence(timeout: 8), "Den redigerte matloggen skal overleve omstart med samme ID og dato.")
         restoredRow.tap()
         XCTAssertTrue(app.buttons["Flytt til Frokost"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Flytt til Lunsj"].isSelected, "Flyttingen til Lunsj skal være lagret etter omstart.")
+        XCTAssertTrue(app.buttons[moveToBreakfast ? "Flytt til Frokost" : "Flytt til Lunsj"].isSelected, "Valgt måltid skal være lagret etter omstart.")
     }
 
     @MainActor

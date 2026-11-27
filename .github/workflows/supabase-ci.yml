@@ -91,6 +91,7 @@ jobs:
           -destination "platform=iOS Simulator,id=${MATLOGG_QA_SIMULATOR_ID}"
           -only-testing:MatLoggUITests/MatLoggUITests/testFirstLoggingWithoutAccountAndRelaunch
           -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomLogsAndEditsFoodForSelectedPastDay
+          -only-testing:MatLoggUITests/MatLoggUITests/testMealRoomEditedPastDaySurvivesRelaunch
           -only-testing:MatLoggUITests/MatLoggUITests/testDiarySelectionDeletesAndRestoresWholeBatch
           -only-testing:MatLoggUITests/WaterLoggingUITests/testOneTapPersistsAndCanBeCorrected
           -only-testing:MatLoggUITests/MatLoggUITests/testPreparedProductUsesCookedWeightAndLogs

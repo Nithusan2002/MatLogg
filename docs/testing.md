@@ -91,10 +91,13 @@ UI-testen trykker Angre straks, kontrollerer opprinnelig antall og nye ID-er
 etter gjenoppretting, og ruller fram rader før de undersøkes. Kontrollen av
 samme logg-ID, dato og valgt måltid etter redigering og omstart beholdes.
 
-Workflowen kjører enhetstester/dekning (`iOS auth and sync gate`) og de sju
+Workflowen kjører enhetstester/dekning (`iOS auth and sync gate`) og de åtte
 UI-smoke-testene (`iOS UI smoke`) i uavhengige jobber. Hver jobb oppretter egen
 QA-simulator og har 30 minutters tidsramme. UI-jobben bruker `xcodebuild test`
-med eget bygg; testutvalg og tidsgrenser per test er uendret. Dette hindrer at
+med eget bygg. Den lange måltidstesten er delt mellom logging/redigering og
+redigering/omstart med eksisterende syntetisk demohistorikk. Begge inngår i CI;
+kontroll av samme logg-ID, dato og lagret måltid etter omstart beholdes.
+Tidsgrensene per test er uendret. Dette hindrer at
 bygg og enhetstester bruker opp UI-testenes jobbgrense. Oppdelingen er innført
 etter at PR #9 traff den tidligere felles jobbgrensen; tidligere grønne
 kjøringer verifiserer ikke den nye jobboppdelingen.
