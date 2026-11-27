@@ -671,12 +671,14 @@ private struct HomeTabContent: View {
 
             if overviewModel.shouldShowEmptyDay(userId: authViewModel.currentUser?.id, date: selectedDate) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Ingen logget ennå")
+                    Text("Ingen mat registrert denne dagen")
                         .font(AppTypography.body)
                         .foregroundStyle(AppColors.textSecondary)
-                    PrimaryButton(title: "Loggfør første måltid", systemImage: "plus", action: onOpenQuickLog)
+                    PrimaryButton(title: "Legg til mat", systemImage: "plus", action: onOpenQuickLog)
                         .accessibilityIdentifier("home-log-food")
                 }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("home-empty-day")
             }
 
         }
@@ -1300,9 +1302,29 @@ struct ScanHistoryView: View {
                         .frame(minHeight: 44)
                 }
                 if recentScans.isEmpty && !historyViewModel.isLoading && historyViewModel.errorMessage == nil {
-                    Text("Ingen nylige skanninger")
-                        .foregroundColor(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            SporIllustration()
+                                .frame(width: 120, height: 120)
+                            Text("Ingen nylige skanninger")
+                                .font(AppTypography.title)
+                                .foregroundStyle(AppColors.ink)
+                                .accessibilityAddTraits(.isHeader)
+                            Text("Matvarer du skanner, dukker opp her.")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+                            PrimaryButton(title: "Skann strekkode", systemImage: "barcode.viewfinder") {
+                                showScanCamera = true
+                            }
+                            .accessibilityIdentifier("scan-history-empty-scan")
+                        }
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .padding(24)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("scan-history-empty-state")
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List(recentScans) { scan in
                         Button(action: {
@@ -1353,7 +1375,9 @@ struct ScanHistoryView: View {
                 receiptPayload = payload
             }
         }
-        .fullScreenCover(isPresented: $showScanCamera) {
+        .fullScreenCover(isPresented: $showScanCamera, onDismiss: {
+            Task { await historyViewModel.load(userId: authViewModel.currentUser?.id) }
+        }) {
             CameraView(
                 onLogComplete: { _ in },
                 onSearch: { showRawMaterials = true }

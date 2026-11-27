@@ -53,3 +53,16 @@ nonisolated struct BundledMascotAssetRepository: MascotAssetProviding {
     func suspend()
     func restart(playing: Bool)
 }
+
+/// Optional presentation capability; greeting-only players remain supported.
+@MainActor protocol MascotIdlePlaying: AnyObject {
+    func setIdleMotionEnabled(_ enabled: Bool)
+}
+
+nonisolated enum SporIdleMotion {
+    /// A five-second breath, at most 0.3% taller, with zero velocity at rest.
+    static func expansion(at time: TimeInterval) -> Float {
+        guard time.isFinite, time >= 0 else { return 0 }
+        return Float((1 - cos(2 * .pi * time / 5)) * 0.0015)
+    }
+}

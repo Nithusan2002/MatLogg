@@ -98,6 +98,64 @@ import Testing
         #expect(player.starts == 1 && !model.isBusy)
     }
 
+    @Test func homeRestSurvivesDailyGateAndRepeatedWavesWithoutReload() async {
+        let player = Player()
+        let store = Store()
+        store.lastHomeGreeting = date
+        let model = make(player, store, duration: 0.001)
+        await model.prepareHomeRest()
+        #expect(model.isReady && !model.isBusy && !player.playing)
+        await model.greet(context: .home)
+        #expect(model.isReady && player.starts == 0)
+        for _ in 0..<3 {
+            await model.greet(context: .home, trigger: .userInitiated)
+            #expect(model.isReady && !model.isBusy && !player.playing)
+        }
+        #expect(player.prepares == 1 && player.starts == 3)
+        #expect(store.lastHomeGreeting == date)
+        model.stop()
+        #expect(!model.isReady && !player.playing)
+        await model.prepareHomeRest()
+        #expect(model.isReady && player.prepares == 2)
+    }
+
+    @Test func lateHomeRestLoadCannotReattachAfterLeaving() async {
+        let assets = PendingAssets()
+        let player = Player()
+        let model = SporCompanionViewModel(player: player, assets: assets, preferences: Store())
+        let task = Task { await model.prepareHomeRest() }
+        await assets.waitForRequest()
+        model.stop()
+        await assets.finish()
+        await task.value
+        #expect(!model.isReady && !model.isBusy && player.prepares == 0)
+    }
+
+    @Test func breathingIsSmallSmoothAndPeriodic() {
+        #expect(SporIdleMotion.expansion(at: 0) == 0)
+        #expect(abs(SporIdleMotion.expansion(at: 2.5) - 0.003) < 0.000001)
+        #expect(abs(SporIdleMotion.expansion(at: 5)) < 0.000001)
+        #expect(SporIdleMotion.expansion(at: .nan) == 0)
+        #expect(SporIdleMotion.expansion(at: -1) == 0)
+        for sample in 0...500 {
+            let value = SporIdleMotion.expansion(at: Double(sample) / 100)
+            #expect(value >= 0 && value <= 0.003001)
+        }
+        #expect(SporIdleMotion.expansion(at: 0.01) < 0.000001)
+        #expect(SporIdleMotion.expansion(at: 4.99) < 0.000001)
+    }
+
+    @Test func leavingDisablesIdleMotionWithoutStartingGreeting() {
+        let player = Player()
+        let model = make(player, Store())
+        model.setIdleMotionAllowed(true)
+        #expect(player.idleEnabled && player.starts == 0)
+        model.stop()
+        #expect(!player.idleEnabled && player.starts == 0)
+        model.setIdleMotionAllowed(false)
+        #expect(!player.idleEnabled)
+    }
+
     private func make(_ player: Player, _ store: Store, duration: Double = 60) -> SporCompanionViewModel {
         SporCompanionViewModel(player: player, assets: Assets(duration: duration), preferences: store, now: { date })
     }
@@ -121,11 +179,14 @@ import Testing
             pending = nil
         }
     }
-    private final class Player: MascotPlaying {
+    private final class Player: MascotPlaying, MascotIdlePlaying {
+        var idleEnabled = false
+        func setIdleMotionEnabled(_ enabled: Bool) { idleEnabled = enabled }
         var starts = 0
+        var prepares = 0
         var playing = false
         var fails = false
-        func prepare(_ asset: MascotAsset) async throws { if fails { throw MascotAssetError.unavailable } }
+        func prepare(_ asset: MascotAsset) async throws { prepares += 1; if fails { throw MascotAssetError.unavailable } }
         func resume(playing: Bool) { self.playing = playing; if playing { starts += 1 } }
         func suspend() { playing = false }
         func restart(playing: Bool) { self.playing = playing }

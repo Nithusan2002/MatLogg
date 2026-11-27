@@ -11,6 +11,8 @@ import UIKit
             creations += 1
             return ARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         })
+        controller.setIdleMotionEnabled(true)
+        controller.setIdleMotionEnabled(false)
         controller.setBackground(.systemBackground)
         controller.suspend()
         controller.resume(playing: false)
@@ -68,6 +70,11 @@ import UIKit
         controller.resume(playing: true)
         #expect(surface.superview === controller.host)
         #expect(surface.frame == controller.host.bounds)
+        let anchor = try #require(surface.scene.anchors.first)
+        let imported = try #require(Array(anchor.children).last)
+        try await controller.prepare(MascotAsset(url: url, duration: 6))
+        #expect(Array(anchor.children).last === imported,
+                "Repeated waves must retain the imported entity and its presentation")
         controller.suspend()
         #expect(surface.superview == nil)
         controller.host.frame = CGRect(x: 0, y: 0, width: 260, height: 220)

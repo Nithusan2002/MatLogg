@@ -93,7 +93,12 @@ private struct SporPlaybackView: View {
             }
         }
         .task(id: active) {
-            if active { await model.greet(context: context) }
+            model.setIdleMotionAllowed(active && context == .home)
+            if active {
+                if context == .home { await model.prepareHomeRest() }
+                guard !Task.isCancelled else { return }
+                await model.greet(context: context)
+            }
             else { model.stop() }
         }
         .onChange(of: allowsTap) { _, allowed in
@@ -104,8 +109,8 @@ private struct SporPlaybackView: View {
 
     private var artwork: some View {
         ZStack {
-            SporIllustration().opacity(model.isPlaying ? 0 : 1)
-            if model.isPlaying {
+            SporIllustration().opacity(model.isReady || model.isPlaying ? 0 : 1)
+            if model.isReady || model.isPlaying {
                 SporRenderSurface(controller: controller, dark: dark)
             }
         }

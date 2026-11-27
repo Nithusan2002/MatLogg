@@ -4,6 +4,40 @@ import UIKit
 /// Run only against the separate QA app; never changes a user's ordinary app.
 final class SporCompanionRenderingUITests: XCTestCase {
     @MainActor
+    func testEmptyDiaryOpensLoggingForSelectedDateWithLargestText() throws {
+        let app = try qaApplication(requiresMotion: false)
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        let previous = app.buttons["Forrige dag"]
+        XCTAssertTrue(previous.waitForExistence(timeout: 20))
+        previous.tap()
+        let addFood = app.buttons["home-log-food"]
+        XCTAssertTrue(addFood.waitForExistence(timeout: 10))
+        let title = app.staticTexts["Ingen mat registrert denne dagen"]
+        XCTAssertTrue(title.exists)
+        XCTAssertEqual(addFood.label, "Legg til mat")
+        let selectedDate = app.buttons["day-navigation-date"].label
+        for _ in 0..<6 {
+            if addFood.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(addFood.isHittable)
+        keep(app.screenshot(), "Empty diary – largest text")
+        addFood.tap()
+        XCTAssertTrue(app.buttons["quick-log-show-recent"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["I går"].exists,
+                      "The empty-day action must preserve yesterday as the logging date")
+        app.buttons["Lukk"].tap()
+        for _ in 0..<6 {
+            if app.buttons["day-navigation-date"].isHittable { break }
+            app.swipeDown()
+        }
+        XCTAssertEqual(app.buttons["day-navigation-date"].label, selectedDate)
+        XCTAssertTrue(addFood.exists)
+    }
+
+    @MainActor
     func testIntroKeepsMascotVisibleAfterOpening() throws {
         guard ProcessInfo.processInfo.environment["SPOR_QA_APP_BUNDLE_ID"]
                 == "com.nithusan.MatLogg.spor-integration-qa" else {
@@ -97,6 +131,9 @@ final class SporCompanionRenderingUITests: XCTestCase {
 
     @MainActor
     func testHomeGreetingDoesNotRepeatAfterRelaunchOrNavigation() throws {
+        guard ProcessInfo.processInfo.isLowPowerModeEnabled else {
+            throw XCTSkip("Enable Low Power Mode to isolate the daily greeting from idle breathing")
+        }
         let app = try qaApplication(requiresMotion: true)
         // Empty argument-domain value opens the daily gate in this first QA
         // process. The date it writes still persists in the application domain.
@@ -106,37 +143,48 @@ final class SporCompanionRenderingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 20))
         Thread.sleep(forTimeInterval: 0.5)
         let moving = app.screenshot()
+        let region = try mascotRegion(in: moving, button: app.buttons["spor-wave-button"], app: app)
         Thread.sleep(forTimeInterval: 1)
         let movingAgain = app.screenshot()
         keep(moving, "Home – animation frame 1")
         keep(movingAgain, "Home – animation frame 2")
-        XCTAssertGreaterThan(try changedPixels(moving, movingAgain, region: .home), 40)
+        XCTAssertGreaterThan(try changedPixels(moving, movingAgain, region: region), 40)
         app.terminate()
         // Remove the override: subsequent processes use the real persisted date.
         app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", "light"]
         app.launch()
         XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 20))
+        waitForWaveReady(app.buttons["spor-wave-button"])
         let still = app.screenshot()
         Thread.sleep(forTimeInterval: 1)
         let stillAgain = app.screenshot()
         keep(still, "Home – persisted daily gate after restart")
-        XCTAssertLessThan(try changedPixels(still, stillAgain, region: .home), 20)
+        XCTAssertLessThan(try changedPixels(still, stillAgain, region: region), 20)
         app.buttons["Søk"].firstMatch.tap()
         app.buttons["Hjem"].firstMatch.tap()
         Thread.sleep(forTimeInterval: 0.5)
         let afterNavigation = app.screenshot()
-        XCTAssertLessThan(try changedPixels(stillAgain, afterNavigation, region: .home), 20)
+        XCTAssertLessThan(try changedPixels(stillAgain, afterNavigation, region: region), 20)
         XCUIDevice.shared.press(.home)
         app.activate()
         XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 10))
         let afterBackground = app.screenshot()
         keep(afterBackground, "Home – unchanged after background")
-        XCTAssertLessThan(try changedPixels(stillAgain, afterBackground, region: .home), 20)
+        XCTAssertLessThan(try changedPixels(stillAgain, afterBackground, region: region), 20)
+    }
+
+    @MainActor
+    func testReducedMotionAllowsManualWaveButNoAutomaticPlayback() throws {
+        guard UIAccessibility.isReduceMotionEnabled else {
+            throw XCTSkip("Enable system Reduce Motion for this accessibility scenario")
+        }
+        try testHomeTapWavesAgainAndStopsAfterBackground()
     }
 
     @MainActor
     func testHomeTapWavesAgainAndStopsAfterBackground() throws {
         let app = try qaApplication(requiresMotion: false)
+        let idlePixelLimit = UIAccessibility.isReduceMotionEnabled || ProcessInfo.processInfo.isLowPowerModeEnabled ? 20 : 600
         app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", "light",
                                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
@@ -148,30 +196,94 @@ final class SporCompanionRenderingUITests: XCTestCase {
         XCTAssertFalse(button.isEnabled)
         XCTAssertEqual(button.value as? String, "Vinker")
         let first = app.screenshot()
+        let region = try mascotRegion(in: first, button: button, app: app)
         Thread.sleep(forTimeInterval: 1)
         let second = app.screenshot()
         try assertArtworkKeepsColor(first, button: button, app: app)
         keep(first, "Home – tapped greeting frame 1")
         keep(second, "Home – tapped greeting frame 2")
-        XCTAssertGreaterThan(try changedPixels(first, second, region: .home), 40)
+        XCTAssertGreaterThan(try changedPixels(first, second, region: region), 40)
         // Raw coordinates exercise ignored touches on the disabled control.
         for _ in 0..<3 { button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
         waitForWaveReady(button)
         let settled = app.screenshot()
         Thread.sleep(forTimeInterval: 1)
-        XCTAssertLessThan(try changedPixels(settled, app.screenshot(), region: .home), 20)
+        XCTAssertLessThan(try changedPixels(settled, app.screenshot(), region: region), idlePixelLimit)
         button.tap()
         Thread.sleep(forTimeInterval: 0.5)
         XCTAssertEqual(button.value as? String, "Vinker")
         let again = app.screenshot()
         Thread.sleep(forTimeInterval: 1)
-        XCTAssertGreaterThan(try changedPixels(again, app.screenshot(), region: .home), 40)
+        XCTAssertGreaterThan(try changedPixels(again, app.screenshot(), region: region), 40)
         XCUIDevice.shared.press(.home)
         app.activate()
         waitForWaveReady(button)
         let afterBackground = app.screenshot()
         Thread.sleep(forTimeInterval: 1)
-        XCTAssertLessThan(try changedPixels(afterBackground, app.screenshot(), region: .home), 20)
+        XCTAssertLessThan(try changedPixels(afterBackground, app.screenshot(), region: region), idlePixelLimit)
+    }
+
+    @MainActor
+    func testHomeRestMatchesBeforeAndAfterWave() throws {
+        guard ProcessInfo.processInfo.isLowPowerModeEnabled else {
+            throw XCTSkip("Enable Low Power Mode to compare the exact rest pose without breathing")
+        }
+        let app = try qaApplication(requiresMotion: true)
+        for appearance in ["light", "dark"] {
+            app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", appearance,
+                                   "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+            app.launch()
+            let button = app.buttons["spor-wave-button"]
+            waitForWaveReady(button)
+            Thread.sleep(forTimeInterval: 0.5)
+            let before = app.screenshot()
+            let restFrame = button.frame
+            let region = try mascotRegion(in: before, button: button, app: app)
+            try assertArtworkKeepsColor(before, button: button, app: app)
+            keep(before, "Home – same 3D rest before tap – \(appearance)")
+            button.tap()
+            Thread.sleep(forTimeInterval: 2)
+            let waving = app.screenshot()
+            keep(waving, "Home – continuous 3D wave – \(appearance)")
+            XCTAssertGreaterThan(try changedPixels(before, waving, region: region), 40)
+            waitForWaveReady(button)
+            Thread.sleep(forTimeInterval: 0.5)
+            let after = app.screenshot()
+            XCTAssertEqual(button.frame, restFrame, "Waving must not move or resize its surface")
+            keep(after, "Home – same 3D rest after wave – \(appearance)")
+            XCTAssertLessThan(try changedPixels(before, after, region: region), 40,
+                              "Returning to rest must preserve silhouette, camera and materials")
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testHomeBreathStaysSubtleWithoutStartingAnotherGreeting() throws {
+        let app = try qaApplication(requiresMotion: true)
+        guard !ProcessInfo.processInfo.isLowPowerModeEnabled else {
+            throw XCTSkip("Disable Low Power Mode to verify idle breathing")
+        }
+        app.launchArguments = ["--skip-auth", "-demoModeActive", "NO", "-appAppearance", "light",
+                               "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launch()
+        let button = app.buttons["spor-wave-button"]
+        waitForWaveReady(button)
+        Thread.sleep(forTimeInterval: 0.5)
+        let first = app.screenshot()
+        let region = try mascotRegion(in: first, button: button, app: app)
+        Thread.sleep(forTimeInterval: 2.5)
+        let second = app.screenshot()
+        let difference = try changedPixels(first, second, region: region)
+        XCTAssertGreaterThan(difference, 5, "The visible idle figure should breathe")
+        XCTAssertLessThan(difference, 600, "A breath must remain much smaller than a greeting")
+        XCTAssertTrue(button.isEnabled)
+        XCTAssertEqual(button.value as? String, "Klar")
+        keep(first, "Home – subtle breath frame 1")
+        keep(second, "Home – subtle breath frame 2")
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        waitForWaveReady(button)
+        XCTAssertEqual(button.value as? String, "Klar")
     }
 
     @MainActor
@@ -238,7 +350,16 @@ final class SporCompanionRenderingUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
-    private enum Region { case intro, home }
+    @MainActor private func mascotRegion(in screenshot: XCUIScreenshot,
+                                           button: XCUIElement, app: XCUIApplication) throws -> Region {
+        let source = try XCTUnwrap(screenshot.image.cgImage)
+        let scale = CGFloat(source.width) / app.frame.width
+        let frame = button.frame.offsetBy(dx: -app.frame.minX, dy: -app.frame.minY)
+        return .mascot(CGRect(x: frame.minX * scale, y: frame.minY * scale,
+                              width: frame.width * scale, height: frame.height * scale).integral)
+    }
+
+    private enum Region { case intro, mascot(CGRect) }
     private func changedPixels(_ first: XCUIScreenshot, _ second: XCUIScreenshot,
                                region: Region) throws -> Int {
         let a = try regionBytes(first.image, region: region)
@@ -257,9 +378,11 @@ final class SporCompanionRenderingUITests: XCTestCase {
     private func regionBytes(_ image: UIImage, region: Region) throws -> [UInt8] {
         let source = try XCTUnwrap(image.cgImage)
         let w = CGFloat(source.width), h = CGFloat(source.height)
-        let rect = region == .intro
-            ? CGRect(x: 0, y: h * 0.15, width: w, height: h * 0.28)
-            : CGRect(x: w * 0.77, y: h * 0.14, width: w * 0.21, height: h * 0.10)
+        let rect: CGRect
+        switch region {
+        case .intro: rect = CGRect(x: 0, y: h * 0.15, width: w, height: h * 0.28)
+        case .mascot(let bounds): rect = bounds
+        }
         let crop = try XCTUnwrap(source.cropping(to: rect))
         var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
         try bytes.withUnsafeMutableBytes { buffer in

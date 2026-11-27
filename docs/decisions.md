@@ -1220,3 +1220,21 @@ auth-/produksjonsavvikling er godkjent. Ukjent drift må avklares før sletting.
 **Status:** Runde 2 ble startet etter brukerens nye instruks. Kodekandidat
 `c86bb83` er lokalt implementert og avventer iOS-/visuell QA. Se kandidatoversikten
 for faktisk testomfang; historiske runde 1-resultater lukker ikke nye porter.
+
+## 2026-11-27 – Samme Spor gjennom hvile og hilsen på Hjem
+
+På maskotbranchen beholdes samme importerte RealityKit-modell, kamera,
+materialer og renderflate gjennom hvile–vink–hvile. Dette erstatter veksling
+mellom et Blender-stillbilde og en visuelt avvikende mobilmodell på aktivt
+Hjem. Ressurs og modell gjenbrukes ved gjentatte trykk. En femsekunders pust
+med høyst 0,3 prosent vertikal utvidelse gir rolig liv uten gjentatte hilsener.
+
+Pust er av med Reduser bevegelse, Sparebluss og inaktivt Hjem. Systemets
+reduserte bevegelse sperrer automatisk lasting/avspilling; eksplisitt
+«La Spor vinke» kan fortsatt spille. Renderer opprettes utsatt og kobles fra
+ved inaktivitet. Stillbildet beholdes som reserve og i dekorative tomtilstander.
+Ingen ny motor, tredjepartsavhengighet eller domenelagring innføres.
+
+Fysisk funksjonskontroll er bestått. Renderflaten er fortsatt tilkoblet mens
+Hjem er synlig; energibruk er ikke dokumentert og må måles før PR/release.
+Skannehistorikkens stillfigur er forberedt uten ny navigasjonsinngang.

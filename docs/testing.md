@@ -1554,3 +1554,100 @@ Manuell VoiceOver, faktisk kameradeteksjon og separat release-go/no-go gjenstår
 Ingen backenddeploy, auth-endring, legacyavvikling eller opplasting inngår.
 Skills brukt: offline-sync, backend-api, ios-swiftui, nutrition-privacy,
 product-design og qa-release.
+
+## Spor-tomtilstander – 26. november 2026
+
+Kandidat: `3668059` med lokale maskot-/tomtilstandsendringer og bevart øvrig
+lokalt arbeid. Isolert QA-app `com.nithusan.MatLogg.spor-integration-qa`,
+iPhone 17 / iOS 27.3. Vanlig app og dens data ble ikke brukt.
+
+Én UI-test bestod: `SporCompanionRenderingUITests` sin
+`testEmptyDiaryOpensLoggingForSelectedDateWithLargestText`. Den kontrollerer
+ny tomtekst/knapp, åpning av logging for gårsdagen og beholdt dato etter
+lukking, ved AccessibilityXXXL. Skjermbildet er inspisert: tekst og knapp
+kan nås ved rulling. Resultat: `/tmp/spor-empty-day-device.xcresult`.
+
+Tre tester i `HomeOverviewViewModelTests` og de to testene
+`homeKeepsContentDuringRefreshAndRejectsOlderProductBatch` og
+`scanHistoryRejectsResponseAfterResetAndReportsFailure` i `LoadingStateTests`
+bestod på samme iPhone. Resultater: `/tmp/spor-empty-state-read-tests.xcresult`
+og `/tmp/spor-empty-state-loading-tests.xcresult`.
+
+`build-for-testing` bestod for generisk iOS Simulator i repoet og for den
+isolerte iPhone-appen. Den siste endringen, refresh av skannehistorikk ved
+kameralukking, er kompilert i `/tmp/spor-empty-states-final-build.log`, men
+ikke kjørt gjennom kameraet. Ingen tilgjengelig simulatorruntime.
+
+`ScanHistoryView` og den separate `LoggView` har ingen inngang i dagens
+navigasjon. Dagsloggendringen gjelder derfor Hjem, som beholder den eksisterende
+Spor-figuren. Skannehistorikkens stillfigur og skanneknapp er forberedt;
+visuell layout/kamera-QA av denne skjermen, mørk modus og manuell VoiceOver
+står åpne. Ingen ny skjerminngang, lagrings-/synkkontrakt eller produksjonsutrulling.
+Arkitekturkontroll: bare presentasjon og videresending til eksisterende
+handlinger/ViewModel; ingen endring i dataeierskap, transaksjoner eller localOnly.
+
+## Spor på Hjem – pågående kontroll, 27. november 2026
+
+Kandidat: `3668059` med lokale maskotendringer, inkludert pust og kontinuerlig
+3D-flate. Separat app `com.nithusan.MatLogg.spor-integration-qa`, iPhone 17 /
+iOS 27.3. Appkode er kopiert til isolert QA-prosjekt; rådata ligger i `/tmp`.
+
+26 målrettede logikktester bestod i macOS-harness. QA-app og oppdaterte UI-tester
+kompilerte. Første fysiske UI-forsøk feilet før teststart ved aktivering av
+UI-automatisering. Ny kjøring etter oppdatert utviklerforbindelse startet.
+
+Kontinuitetstesten i lys modus fanget 304 endrede piksler mot grensen 40 i
+hvile før/etter vinking. Pust var aktiv; testen forutsatte statisk hvile.
+Før/etter-bildene hadde identisk korall-silhuettboks og gjennomsnittlig
+RGB-forskjell under 0,1 per kanal. Dette alene beviser ikke at pusten forklarer
+alle endringer. Enkeltbilder fra XCTest-skjermopptaket er visuelt inspisert:
+samme figur gjennom løfting, vinking og senking, uten tidligere bildebytte.
+Resultat: `/tmp/spor-home-continuity-20261127-retry.xcresult`.
+
+Den strenge testen beholder grensen 40, men krever nå Sparebluss for å slå av
+pust. En separat test for aktiv pust er lagt til. Begge er kompilert, men må
+kjøres i respektive innstillinger før de godkjennes. Mørk modus, faktisk
+Reduser bevegelse og stopp ved bakgrunn/sparebluss er fortsatt åpne porter.
+
+Power Profiler fant ikke QA-prosessen ved direkte tilkobling. Systemopptak
+feilet fordi Location Energy Model ikke støtter All Processes. Ingen godkjent
+energi-/batterimåling foreligger. Ingen produktkodeendring, commit eller push i
+denne kontrollen; bare testforutsetning og egen pustetest er oppdatert.
+
+### Avsluttet funksjonskontroll på Hjem – 27. november 2026
+
+Ny undersøkelse av 485 endrede piksler med Sparebluss viste at alle lå i
+navigasjonsområdet over Spor, utenfor selve figuren. Maskotens utsnitt hadde
+null piksler med forskjell over den eksisterende RGB-terskelen. Den gamle
+faste prosentsonen i UI-testen omfattet uvedkommende UI. Testene bruker nå
+maskotknappens faktiske ramme omregnet til skjermbildets piksler; strenge
+statiske terskler er beholdt. Knappens plassering/størrelse kontrolleres også.
+
+Fysisk iPhone 17 / iOS 27.3, samme isolerte QA-identitet og kandidat som over:
+
+- `testHomeRestMatchesBeforeAndAfterWave` bestod i lys og mørk modus med
+  Sparebluss: synlig vinking, samme hvilebilde og stabil ramme. Skjermbilder
+  er visuelt inspisert. Resultat: `/tmp/spor-home-low-power-exact-20261127.xcresult`.
+- `testReducedMotionAllowsManualWaveButNoAutomaticPlayback` og alle tre
+  `SporCompanionPresentationTests` bestod med faktisk Reduser bevegelse på.
+  Ingen automatisk ressursforespørsel/renderer; manuell vinking og stopp ved
+  bakgrunn bestod. `/tmp/spor-reduced-motion-confirmed-20261127.xcresult`.
+- Alle fire `MascotRendererLifecycleTests` bestod på iPhone, inkludert
+  utsatt oppretting, manglende/ugyldig ressurs og gjenbruk/frakobling.
+  `/tmp/spor-reduced-motion-20261127.xcresult`. Denne første kjøringen hoppet
+  over Reduce Motion-scenarioene; disse ble deretter kjørt og bestod separat.
+- `testHomeBreathStaysSubtleWithoutStartingAnotherGreeting` bestod med
+  Sparebluss og Reduser bevegelse av, inkludert retur fra bakgrunn.
+  `/tmp/spor-home-breath-20261127.xcresult`.
+
+Totalt tre forskjellige UI-scenarioer og sju forskjellige renderer-/
+presentasjonstester bestod fysisk. De 26 maskotlogikktestene bestod også i
+macOS-harness. Stillbildebaserte daglig-hilsen-tester krever Sparebluss;
+normal pust har egen liten bevegelsesgrense, ikke krav om helt statisk bilde.
+
+Ingen gyldig energi-/batterimåling foreligger; dette gjenstår før PR/release.
+Manuell VoiceOver og den utilgjengelige skannehistorikkens kameraflyt er ikke
+verifisert her. Telefonen er tilbake med Sparebluss og Reduser bevegelse av.
+Arkitekturkontroll: VM eier handlinger/state, RealityKit-tjenesten eier scene,
+lastet modell og bildeabonnement; abonnementet kanselleres ved inaktivitet.
+Ingen domene-, auth-, backend-, synk- eller eierskapsendringer i maskotscopet.

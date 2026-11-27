@@ -537,10 +537,47 @@ Introduksjonen kan spille én kort hilsen. Hjem kan spille én hilsen per lokal
 kalenderdag når dagens oversikt er synlig. Et eksplisitt trykk kan spille én
 hilsen om gangen uten å endre dagsgrensen, også med Reduser bevegelse på.
 Innstillingen sperrer automatisk avspilling. Andre datoer, lastingsfeil og
-avslått animasjonsflagg gir stillbilde. Ingen hvile-/gangsløyfe
+avslått animasjonsflagg gir stillbilde. Ingen gangsløyfe
 brukes i vanlig app, og uttrykket påvirkes ikke av ernæringsdata eller mål.
 
 `sporMascotAnimationEnabled` er aktivert etter fysisk iPhone-kontroll av
 utsatt rendereroppretting. Ingen ARView opprettes av forhåndslastede/inaktive
 maskotvisninger eller av bakgrunnsfargeoppdatering. Ingen produksjonsutrulling
 er utført. Se [plan og kontrollstatus](plans/spor-mascot-app-integration.md).
+
+### Sammenhengende 3D-figur på Hjem – prototype
+
+På maskotbranchen beholder dagens aktive Hjem den samme RealityKit-modellen,
+kameraet, materialene og renderflaten i hvile og under trykkhilsen. Modellen
+klargjøres også når dagens automatiske hilsen allerede er brukt. Etter hilsenen
+returnerer den til klippets startposisjon, uten å bytte til Blender-stillbildet.
+Modellen gjenbrukes ved nye trykk. Bakgrunn og navigasjon bort kobler renderflaten
+fra. Reduser bevegelse beholder stillbildet uten automatisk klargjøring; etter et
+bevisst trykk beholdes 3D-hvilefiguren til visningen blir inaktiv. Introduksjon og
+andre illustrasjoner beholder tidligere presentasjon.
+
+Dette er en lokal prototype: 3D-visningen forblir tilkoblet i synlig hvile.
+Overgangen er kontrollert fysisk i lys og mørk modus 27. november.
+Energiforbruk må fortsatt måles før PR.
+Akseptanse: samme silhuett, farge, størrelse og plassering før og etter hilsen,
+ingen bildebytting ved gjentatte trykk, og ingen avspilling fra sen lasting etter
+navigasjon bort. Skjermtesten sammenligner hvile før/etter i lys og mørk modus;
+den erstatter ikke videokontroll av overgangene.
+
+### Diskret pust på Hjem – prototype
+
+Dagens aktive Hjem kan ha en rolig femsekunders pust med maksimalt 0,3 prosent
+vertikal utvidelse og en mindre horisontal sammentrekning. Den eksisterende
+3D-modellen og materialene beholdes; bevegelsen beregnes i renderertjenesten
+med RealityKits bildeoppdateringer, uten egen timer eller ny ressurslasting.
+Pusten fases ut over 0,25 sekunder ved vinking og inn igjen etterpå. Knappen
+forblir tilgjengelig under pust. Ingen nye gjentatte vinkehilsener innføres.
+
+Reduser bevegelse sperrer pust, også etter eksplisitt trykkhilsen. Sparebluss
+sperrer også pust. Navigasjon bort og bakgrunn kansellerer bildeabonnementet
+og nullstiller transformasjonen. Ingen ekstra renderer opprettes for pusten.
+Dette begrenser arbeid, men dokumenterer ikke lavt batteriforbruk. Pust,
+bakgrunn og systeminnstillinger er kontrollert fysisk 27. november;
+energimåling gjenstår. Blunk er ikke implementert i denne
+iterasjonen. Skjermtester som tidligere forventet helt stillestående Hjem,
+må ta høyde for pust når Reduser bevegelse og sparebluss er av.

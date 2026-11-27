@@ -6,6 +6,7 @@ import Foundation
     enum Trigger { case automatic, userInitiated }
     @Published private(set) var isPlaying = false
     @Published private(set) var isLoading = false
+    @Published private(set) var isReady = false
     var isBusy: Bool { isLoading || isPlaying }
     private let player: any MascotPlaying
     private let assets: any MascotAssetProviding
@@ -15,6 +16,33 @@ import Foundation
     private var request = UUID()
     private var introduced = false
     private var manualTask: Task<Void, Never>?
+    private var preparedHomeAsset: MascotAsset?
+
+    func setIdleMotionAllowed(_ allowed: Bool) {
+        (player as? any MascotIdlePlaying)?.setIdleMotionEnabled(allowed)
+    }
+
+    /// Warm the visible Home scene independently of the daily greeting quota.
+    func prepareHomeRest() async {
+        guard !isBusy, !isReady else { return }
+        let id = request
+        isLoading = true
+        do {
+            let asset = try await assets.asset(for: .greeting)
+            try Task.checkCancellation()
+            guard id == request else { return }
+            try await player.prepare(asset)
+            try Task.checkCancellation()
+            guard id == request else { return }
+            preparedHomeAsset = asset
+            player.resume(playing: false)
+            isReady = true
+            isLoading = false
+        } catch {
+            guard id == request else { return }
+            stop()
+        }
+    }
 
     init(player: any MascotPlaying, assets: any MascotAssetProviding,
          preferences: any SporGreetingStoring, now: @escaping () -> Date = Date.init,
@@ -50,12 +78,22 @@ import Foundation
         }
         isLoading = true
         do {
-            let asset = try await assets.asset(for: .greeting)
+            let asset: MascotAsset
+            if context == .home, let preparedHomeAsset {
+                asset = preparedHomeAsset
+                player.restart(playing: false)
+            } else {
+                asset = try await assets.asset(for: .greeting)
+                guard id == request else { return }
+                try Task.checkCancellation()
+                try await player.prepare(asset)
+            }
             guard id == request else { return }
             try Task.checkCancellation()
-            try await player.prepare(asset)
-            guard id == request else { return }
-            try Task.checkCancellation()
+            if context == .home {
+                preparedHomeAsset = asset
+                isReady = true
+            }
             player.resume(playing: true)
             isLoading = false
             isPlaying = true
@@ -65,7 +103,7 @@ import Foundation
             }
             try await Task.sleep(for: .seconds(asset.duration))
             guard id == request else { return }
-            stop()
+            finishPlayback()
         } catch {
             guard id == request else { return }
             stop()
@@ -73,8 +111,16 @@ import Foundation
     }
 
     func stop() {
+        setIdleMotionAllowed(false)
         manualTask?.cancel()
         manualTask = nil
+        isReady = false
+        preparedHomeAsset = nil
+        resetPlayback()
+    }
+
+    private func finishPlayback() {
+        // Keep the same entity, scene and surface visible at its original pose.
         resetPlayback()
     }
 
@@ -82,7 +128,12 @@ import Foundation
         request = UUID()
         isPlaying = false
         isLoading = false
-        player.suspend()
+        if isReady {
+            player.restart(playing: false)
+            player.resume(playing: false)
+        } else {
+            player.suspend()
+        }
     }
 }
 

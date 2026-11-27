@@ -1202,3 +1202,16 @@ status «Klar», «Laster» eller «Vinker». Andre illustrasjoner er dekorative
 Ved tilgjengelighetsstørrelser legges figuren på egen rad under hilsenen,
 slik at 72 pt-knappen er tilgjengelig uten å klemme teksten. Andre datoer,
 lastingsfeil eller deaktivert maskotfunksjon beholder stillbilde.
+
+### Tom dagslogg og forberedt skannehistorikk – 26. november 2026
+
+Dagsloggen vises på Hjem og bruker Spor som allerede står ved hilsenen.
+En vellykket tom dag viser «Ingen mat registrert denne dagen» og «Legg til
+mat», koblet til eksisterende logging for valgt dato. Ingen ekstra figur
+legges i dagsoversikten. Lasting og lesefeil beholder egne tilstander.
+
+Den eksisterende, foreløpig utilgjengelige `ScanHistoryView` er klargjort med
+120 pt stillfigur, «Ingen nylige skanninger», forklaring og «Skann strekkode».
+Innholdet kan rulle ved stor tekst. Ingen ny inngang er lagt til. Stillfiguren
+har ingen animasjon eller egen tilgjengelighetshandling. Se
+[implementeringsplan og kontrollstatus](plans/spor-empty-states.md).
