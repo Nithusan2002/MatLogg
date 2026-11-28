@@ -96,7 +96,12 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         let expiresAt: Date
     }
     private var searchCache: [String: SearchCacheEntry] = [:]
-    private var searches: [String: Task<[Product], Error>] = [:]
+    private struct PendingSearch {
+        let id: UUID
+        let task: Task<[Product], Error>
+        var callers: Set<UUID>
+    }
+    private var searches: [String: PendingSearch] = [:]
     private let now: () -> Date
     private let searchCacheLifetime: TimeInterval
     private let searchCacheLimit = 20
@@ -198,21 +203,49 @@ final class DefaultFoodSearchRepository: FoodSearchRepository {
         let key = scope.rawValue + ":" + normalizedQuery
         searchCache = searchCache.filter { $0.value.expiresAt > now() }
         if let cached = searchCache[key] { return cached.products }
-        if let pending = searches[key] { return try await pending.value }
-        let task = Task { [remote] in
-            let timing = PerformanceSignposts.begin("Search.RemoteAPI")
-            defer { PerformanceSignposts.end(timing) }
-            return try await remote.searchProductsByNameOpenFoodFacts(normalizedQuery, scope: scope)
+        try Task.checkCancellation()
+        let callerID = UUID()
+        let pending: PendingSearch
+        if var existing = searches[key], !existing.task.isCancelled {
+            existing.callers.insert(callerID)
+            searches[key] = existing
+            pending = existing
+        } else {
+            let task = Task { [remote] in
+                let timing = PerformanceSignposts.begin("Search.RemoteAPI")
+                defer { PerformanceSignposts.end(timing) }
+                return try await remote.searchProductsByNameOpenFoodFacts(normalizedQuery, scope: scope)
+            }
+            pending = PendingSearch(id: UUID(), task: task, callers: [callerID])
+            searches[key] = pending
         }
-        searches[key] = task
-        defer { searches[key] = nil }
-        let result = try await task.value
+        defer { releaseSearch(key: key, id: pending.id, caller: callerID) }
+        let result = try await withTaskCancellationHandler {
+            try await pending.task.value
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.releaseSearch(key: key, id: pending.id, caller: callerID)
+            }
+        }
+        try Task.checkCancellation()
         if searchCache.count >= searchCacheLimit,
            let oldest = searchCache.min(by: { $0.value.expiresAt < $1.value.expiresAt })?.key {
             searchCache[oldest] = nil
         }
         searchCache[key] = SearchCacheEntry(products: result, expiresAt: now().addingTimeInterval(searchCacheLifetime))
         return result
+    }
+
+    // Cancel provider retries only when no screen still needs this shared request.
+    private func releaseSearch(key: String, id: UUID, caller: UUID) {
+        guard var pending = searches[key], pending.id == id else { return }
+        pending.callers.remove(caller)
+        if pending.callers.isEmpty {
+            searches[key] = nil
+            pending.task.cancel()
+        } else {
+            searches[key] = pending
+        }
     }
 
     func saveManual(_ product: Product, owner: UUID) async throws {

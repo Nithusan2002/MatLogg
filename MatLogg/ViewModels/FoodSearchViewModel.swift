@@ -26,10 +26,13 @@ final class FoodSearchViewModel: ObservableObject {
     }
     @Published private(set) var showsCatalogFeedback = false
     @Published private(set) var showsSearchFeedback = false
+    @Published private(set) var showsSlowSearchFeedback = false
+    private let slowSearchFeedback = DelayedActivity()
     private let catalogFeedback = DelayedActivity()
     private let searchFeedback = DelayedActivity()
     @Published private(set) var phase: Phase = .local {
         didSet {
+            slowSearchFeedback.update(isActive: phase == .searching, delay: .seconds(2)) { [weak self] in self?.showsSlowSearchFeedback = $0 }
             searchFeedback.update(isActive: phase == .searching) { [weak self] in self?.showsSearchFeedback = $0 }
         }
     }
@@ -148,7 +151,7 @@ final class FoodSearchViewModel: ObservableObject {
     }
 
     func search() {
-        guard hasQuery, !isLoading else { return }
+        guard hasQuery, !isLoading, phase != .searching else { return }
         cancelSearch()
         let request = UUID()
         searchID = request
@@ -317,7 +320,7 @@ final class FoodSearchViewModel: ObservableObject {
             case .rateLimited:
                 return apiError.localizedDescription
             case .serverError(let status) where (500...599).contains(status):
-                return "Produktdatabasen er midlertidig utilgjengelig. Prøv igjen om litt. Lagrede matvarer kan fortsatt brukes."
+                return "Kunne ikke hente nye treff akkurat nå. Du kan fortsatt bruke lagrede matvarer."
             default:
                 break
             }

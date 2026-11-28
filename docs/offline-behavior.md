@@ -59,6 +59,21 @@ Ved eksternt søk eller skanning uten nett skal lokale treff fortsatt vises og
 merkes som lagrede treff. Manglende lokalt treff er ikke det samme som at
 produktet ikke finnes; brukeren tilbys manuelt produkt eller nytt forsøk senere.
 
+### Midlertidige feil i eksternt navnesøk
+
+Navnesøk har høyst tre forespørsler innen et samlet nettverksbudsjett på
+15 sekunder. Ved HTTP 500/502/503/504, timeout eller brutt forbindelse
+prøver klienten igjen med minst 1 og deretter 3 sekunders pause. HTTP 429
+kan prøves igjen innen samme budsjett. `Retry-After` respekteres også ved
+serverfeil; lang eller ugyldig ventetid avslutter automatiske forsøk.
+Manglende nett og permanente feil gir ikke gjentatte forespørsler.
+Lokale treff kan brukes underveis. Etter to sekunder vises «Søket tar litt
+tid. Vi prøver fortsatt …». Etter mislykket søk tilbys «Prøv igjen».
+Gjentatte trykk under et aktivt søk starter ikke parallelle søk. Endret
+søketekst, profilbytte og lukking av søkeskjermen avbryter ventende arbeid;
+utdaterte svar kan ikke publiseres i en ny kontekst. Strekkodeoppslag
+beholder sin separate retry-policy.
+
 ## Framtidig opplasting når forbindelsen kommer tilbake
 
 Reglene nedenfor gjelder synkmotorens testede, framtidige oppførsel når en

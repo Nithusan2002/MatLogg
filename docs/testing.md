@@ -1857,3 +1857,71 @@ CI bruker Config/Supabase-QA.xcconfig med syntetisk offentlig nøkkel og reserve
 .invalid-vert. Dette unngår ekte kontotjenester under Debug-onboardingtester;
 Release-validatoren avviser den konfigurasjonen. View → ViewModel → Repository,
 eierskap, lokale transaksjoner og localOnly-policy er bevart.
+
+## Avgrenset retry i navnesøk – 28. november 2026
+
+Kandidat: `codex/fix-product-search`, base `39aa309` med lokale endringer.
+`ProductNameSearchRetryTests` dekker maksimalt tre forespørsler, 1/3-sekunders
+backoff, HTTP-/transportfeil, `Retry-After` (sekunder og HTTP-dato), tidsbudsjett
+og avbrytelse under venting. `FoodSearchRequestLifecycleTests` dekker gjentatte
+trykk, utdaterte feil og nullstilling av status når skjermen forlates.
+`FoodSearchLoadingTests` har også regresjon for at siste avbrutte konsument
+stopper providerarbeidet; eksisterende test for delt søk beholdes.
+
+Utført: 12 tester i de to nye suitene bestod i et midlertidig macOS SwiftPM-
+harness. HTTPClient, FoodSearchViewModel og DelayedActivity ble kopiert fra
+kandidaten; ViewModel brukte testdobler for uendret katalog, indeks og lagring.
+Regresjonen for gjentatte trykk feilet med to forespørsler mot opprinnelig
+ViewModel og bestod med rettelsen. `xcodebuild build-for-testing` for scheme
+`MatLogg`, `generic/platform=iOS Simulator`, `CODE_SIGNING_ALLOWED=NO` bestod,
+inkludert kompilering av eksisterende suiter og ny repository-test.
+`git diff --check` bestod.
+
+Ingen tilgjengelig simulator-runtime: iOS-runtime, repository-integrasjon,
+visuell kontroll med stor tekst/bunnmeny og manuell VoiceOver er ikke utført.
+Rå bevis ligger under `/tmp/matlogg-search-*.log`; ingen produksjonsutrulling.
+Skills: product-review, product-design, ios-swiftui, backend-api og qa-release.
+Arkitekturvurdering: View → ViewModel → repository → HTTP beholdes;
+retry ligger ved HTTP-grensen, presentasjonsstate i ViewModel og avbrytelse
+av delte forespørsler i repository. Lokal lagring og synkpolicy er uendret.
+
+### Fysisk oppfølging av søke-retry – 28. november 2026
+
+Samme base `39aa309` og lokale søkeendringer, med Debug-QA-fixture,
+app-root-injeksjon, UI-tester og testtilpasningen nedenfor. Xcode 27.2,
+iPhone 17, iOS 27.3 (24C5049f), Debug. Separat app
+`com.nithusan.MatLogg.searchqa20261128.MatLogg` («Spor Mat Søk QA»), egne
+unit-/UI-testbundle-ID-er og ingen delte nøkkelringgrupper. Generert
+application-identifier og Info.plist ble kontrollert før UI-kjøringen.
+
+- **80 enhetstester i fem suiter bestod fysisk**, inkludert de to nye suitene,
+  FoodSearchLoadingTests, FoodSearchTests og ProductSearchTests. Resultat:
+  `/tmp/matlogg-search-device-unit-final.xcresult`.
+- Første kjøring avdekket at olderSameQueryResponseCannotReplaceNewerSearch
+  forutsatte at gjentatt submit startet en ny forespørsel. Testen avbryter nå
+  eksplisitt før den starter samme søk igjen. Assertions om at det nyere svaret
+  beholdes er uendret; egen regresjon verifiserer at gjentatt submit ignoreres.
+- **Åtte UI-tester bestod fysisk**: vanlig lokalt søk/åpning/logging,
+  tilgjengelige søkekontroller ved største tekst, gjenoppretting etter to 503,
+  vedvarende 503 og manuell retry, samlet tidsgrense, endret søkeord,
+  navigasjon bort og gjenoppretting med største tekst. Resultat:
+  `/tmp/matlogg-search-device-ui.xcresult`.
+
+ProductSearchRetryQAFixture injiserer syntetiske HTTP-svar i den faktiske
+API/repository/ViewModel-kjeden. Den krever både Debug, eksakt QA-bundle-ID
+og `--product-search-retry-qa`. Ingen ekte serverfeil eller driftsgaranti hos
+Open Food Facts er verifisert av disse UI-testene.
+
+Eksporterte skjermbilder ble inspisert: normal tekst viser rolig status og
+bevarer lokale treff ved venting/feil. Ved Accessibility XXXL tar den
+eksisterende bunnmenyen mye plass; statusen er delvis utenfor første synlige
+utsnitt. Funksjonell UI-test ved største tekst er derfor ikke full visuell
+godkjenning av layouten. Bunnmenyen ble ikke endret i denne feilrettelsen.
+Manuell VoiceOver gjenstår. Skjermbilder ligger utenfor repoet i
+`/tmp/matlogg-search-screenshots`; ingen produksjonsdata eller artifacts er lagt
+i repoet. Vanlig appcontainer ble ikke brukt. Ingen produksjonsutrulling.
+
+Arkitektur og local-first-policy er gjennomgått igjen: QA-injeksjonen skjer
+ved app-roten, HTTP-fixturen utfører ingen domeneskriving, og retry endrer
+ikke eierskap, transaksjoner eller synkpolicy. Skills: ios-swiftui,
+backend-api, product-design, product-review og qa-release.

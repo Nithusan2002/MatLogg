@@ -400,7 +400,18 @@ class APIService {
         ]
         guard let url = components?.url else { throw APIError.invalidURL }
 
-        let data = try await openFoodFactsData(from: url)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+        request.httpMethod = "GET"
+        request.setValue(openFoodFactsUserAgent, forHTTPHeaderField: "User-Agent")
+        let result = try await ProductNameSearchRequest.send(request, client: httpClient, sleep: sleep)
+        let status = result.response.statusCode
+        if status == 429 {
+            let delay = ProductNameSearchRequest.retryDelay(
+                result.response.value(forHTTPHeaderField: "Retry-After"), now: Date())
+            throw APIError.rateLimited(retryAfterSeconds: delay.map { Int(min($0.rounded(.up), Double(Int.max / 2))) })
+        }
+        guard (200...299).contains(status) else { throw APIError.serverError(status) }
+        let data = result.data
         return try await BackgroundWork.run { try OpenFoodFactsParser.search(data) }
     }
     
