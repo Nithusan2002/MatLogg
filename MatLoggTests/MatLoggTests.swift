@@ -1671,6 +1671,60 @@ struct AuthViewModelTests {
         #expect(manager.claimedFrom == nil)
     }
 
+    @Test func missingConfigurationDoesNotCreateLocalProfile() async {
+        let store = AuthSessionStoreSpy()
+        let model = AuthViewModel(authRepository: UnavailableAccountAuthRepository(),
+                                  localStore: store, localProfileManager: LocalProfileManagerSpy())
+        await model.restoreSession()
+        #expect(model.currentUser == nil)
+        #expect(store.localUser == nil)
+        #expect(!model.isOnboarding)
+        #expect(!model.isRestoringSession)
+        #expect(model.errorMessage != nil)
+    }
+
+    @Test func misconfiguredUpgradePreservesAccountMarkersAndStoredLogs() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let suite = "release-upgrade-qa-\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let account = makeUser()
+        let sessions = AuthService(defaults: defaults)
+        sessions.storeUser(account)
+        sessions.setOnboardingCompleted(true, userId: account.id)
+        let url = directory.appendingPathComponent("existing-build3.sqlite")
+        let original = try LocalStore(databaseURL: url)
+        let log = FoodLog(userId: account.id, productId: UUID(), mealType: "frokost", amountG: 100,
+                          loggedDate: Date(timeIntervalSince1970: 1_700_000_000),
+                          calories: 123, proteinG: 2, carbsG: 3, fatG: 4)
+        try original.saveLogs([log])
+        let badBuild = AuthViewModel(authRepository: UnavailableAccountAuthRepository(),
+                                    localStore: sessions, localProfileManager: DatabaseService(store: original, defaults: defaults))
+        await badBuild.restoreSession()
+        #expect(badBuild.currentUser == nil)
+        #expect(!badBuild.isOnboarding)
+        #expect(badBuild.errorMessage != nil)
+        #expect(sessions.getStoredUser()?.id == account.id)
+        #expect(sessions.getActiveLocalProfile() == nil)
+        #expect(sessions.hasCompletedOnboarding(userId: account.id))
+        let reopened = try LocalStore(databaseURL: url)
+        let repository = AccountAuthRepositorySpy()
+        repository.restoredUser = account
+        let corrected = AuthViewModel(authRepository: repository, localStore: sessions,
+                                      localProfileManager: DatabaseService(store: reopened, defaults: defaults))
+        await corrected.restoreSession()
+        #expect(corrected.currentUser?.id == account.id)
+        #expect(!corrected.isOnboarding)
+        let rows = try reopened.loadAllLogs(userId: account.id)
+        #expect(rows.map(\.id) == [log.id])
+        #expect(rows.first?.calories == 123)
+        #expect(sessions.getActiveLocalProfile() == nil)
+    }
+
     @Test func failedRestoreDoesNotSilentlyReplaceAnExistingAccountOwner() async {
         let account = makeUser()
         let store = AuthSessionStoreSpy(user: account)

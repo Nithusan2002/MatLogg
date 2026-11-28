@@ -34,6 +34,8 @@ final class AuthViewModel: ObservableObject {
     private let localProfileManager: any LocalProfileManaging
     private var pendingAccountSession: (user: User, localUser: User, shouldOnboard: Bool)?
 
+    var isAccountServiceConfigured: Bool { authRepository.isConfigured }
+
     var isLocalMode: Bool { currentUser?.isLocalProfile == true }
     var authenticatedUser: User? {
         guard let currentUser, !currentUser.isLocalProfile else { return nil }
@@ -85,6 +87,13 @@ final class AuthViewModel: ObservableObject {
     func restoreSession() async {
         isRestoringSession = true
         defer { isRestoringSession = false }
+        guard isAccountServiceConfigured else {
+            currentUser = nil
+            isOnboarding = false
+            authState = .notAuthenticated
+            errorMessage = AccountAuthError.configurationMissing.localizedDescription
+            return
+        }
         if let pendingDeletion, pendingDeletion.serverConfirmed || pendingDeletion.isLocalProfile {
             _ = await finishPendingLocalDeletion()
             return

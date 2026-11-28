@@ -20,6 +20,7 @@ if [[ "$mode" == ios ]]; then
   xcodebuild -version > "$output/tool-version.txt"
   set +e
   xcodebuild test -project MatLogg.xcodeproj -scheme MatLogg \
+    -xcconfig Config/Supabase-QA.xcconfig \
     -destination "$2" -only-testing:MatLoggTests \
     -enableCodeCoverage YES -parallel-testing-enabled NO \
     -resultBundlePath "$output/tests.xcresult" CODE_SIGNING_ALLOWED=NO \

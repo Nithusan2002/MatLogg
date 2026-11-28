@@ -176,6 +176,7 @@ final class SupabaseService: AccountAuthRepository, SyncAPIClient {
 }
 
 final class UnavailableAccountAuthRepository: AccountAuthRepository {
+    var isConfigured: Bool { false }
     func restoreSession() async -> User? { nil }
     func signIn(email: String, password: String) async throws -> User { throw AccountAuthError.configurationMissing }
     func signUp(email: String, password: String) async throws -> AccountRegistrationResult { throw AccountAuthError.configurationMissing }

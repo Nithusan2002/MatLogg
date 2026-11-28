@@ -1,5 +1,31 @@
 # Produksjonsberedskap
 
+## Release-sperre etter build 4 – 27. november 2026
+
+**Ikke send ut build 4 igjen.** Brukeren har utløpt bygget og ser sine tidligere
+data i build 3. Arbeidsområdets lokale kontoinnstillinger er gjenopprettet;
+dette alene verifiserer ikke et nytt distribuert bygg.
+
+Før nytt arkiv/ny utsending:
+
+1. Bruk kandidaten med obligatorisk «Validate Release account configuration».
+   Manglende offentlig Supabase-URL/nøkkel skal stoppe Release-byggingen.
+2. Kjør de nye auth-/oppdateringsregresjonene i isolert QA-app. CI-status må
+   gjelde den faktiske kandidaten, ikke tidligere main/Debug-resultater.
+3. Kontroller **det ferdige arkivet**, uten å skrive innstillingsverdiene i logg:
+   `python3 scripts/validate-release-configuration.py --plist '<arkiv>.xcarchive/Products/Applications/MatLogg.app/Info.plist'`.
+4. Kontroller riktig bundle-ID, nytt ubrukt byggnummer og ordinær Release-
+   signering. Config/Supabase-QA.xcconfig er bare for disponibel Debug-QA og
+   avvises i Release. Lokale produksjonsinnstillinger skal forbli ignorert.
+5. Før utsending må faktisk signert kandidat vurderes for konto/Apple-innlogging
+   og oppdatering med bevart profil/data. Simulert feilkonfigurasjon med test-
+   repository er et eget bevis, ikke native TestFlight-/SDK-session-gjenoppretting.
+
+Den vanlige TestFlight-appen/build 3 på brukerens telefon skal ikke installeres
+over av automatiserte tester. Brukeren håndterer arkivering/opplasting.
+Se docs/testing.md og gjeldende releaseporter nedenfor.
+
+
 ## Aktiv oppfølging – runde 2, 26. november 2026
 
 Kodekandidat **`91e3a01`**, basert på `14e861a`. Fysisk oppfølging av runde 2

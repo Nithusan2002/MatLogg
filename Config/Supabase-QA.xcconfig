@@ -1,0 +1,5 @@
+// Synthetic client configuration for disposable Debug tests only.
+// .invalid cannot address a real account service. Never use this file for distribution.
+SUPABASE_URL = https:/$()/account-qa.invalid
+SUPABASE_PUBLISHABLE_KEY = sb_publishable_synthetic_qa_only
+SUPABASE_AUTH_CALLBACK_URL = matlogg:/$()/auth/callback

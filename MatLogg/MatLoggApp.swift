@@ -77,10 +77,17 @@ struct MatLoggContent: View {
         let localAuthStore = AuthService(defaults: defaults)
         let authRepository: any AccountAuthRepository
         let syncAPIClient: any SyncAPIClient
+        let accountConfiguration: SupabaseConfiguration?
+        #if DEBUG
+        accountConfiguration = ProcessInfo.processInfo.arguments.contains("--missing-account-configuration-qa")
+            ? nil : try? SupabaseConfiguration.load()
+        #else
+        accountConfiguration = try? SupabaseConfiguration.load()
+        #endif
         if let accountRepository {
             authRepository = accountRepository
             syncAPIClient = UnavailableSyncAPIClient()
-        } else if !isDemo, let configuration = try? SupabaseConfiguration.load() {
+        } else if !isDemo, let configuration = accountConfiguration {
             let supabaseService = SupabaseService(configuration: configuration)
             authRepository = supabaseService
             syncAPIClient = supabaseService
@@ -213,6 +220,13 @@ struct MatLoggContent: View {
                     Text("Den lokale databasen kunne ikke åpnes. Dataene er ikke slettet. Avslutt appen og prøv igjen.")
                 }
             }
+        } else if !isDemo && !skipAuthForDev && !authViewModel.isAccountServiceConfigured {
+            ContentUnavailableView {
+                Label("Denne appversjonen kan ikke starte", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text("Denne versjonen mangler nødvendig kontooppsett. Ikke slett appen. Installer en korrigert versjon for å fortsette med dataene dine.")
+            }
+            .accessibilityIdentifier("account-configuration-unavailable")
         } else {
             operationalContent
         }

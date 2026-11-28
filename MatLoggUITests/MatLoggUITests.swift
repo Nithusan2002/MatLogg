@@ -1540,6 +1540,53 @@ final class MatLoggUITests: XCTestCase {
     }
 
     @MainActor
+    func testMisconfiguredUpgradeDoesNotReplaceExistingData() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        let validArguments = ["--skip-auth", "--portion-qa", "-demoModeActive", "NO",
+                              "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        app.launchArguments = validArguments
+        app.launch()
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 10))
+        var daysBack = 0
+        for _ in 0..<12 {
+            if app.buttons["home-log-food"].exists { break }
+            selectPreviousDiaryDay(in: app)
+            daysBack += 1
+        }
+        XCTAssertTrue(app.buttons["home-log-food"].exists)
+        logPortionTestBread(in: app, returningTo: app.buttons["home-select"])
+        let original = app.buttons.matching(NSPredicate(format:
+            "identifier BEGINSWITH 'home-log-row-' AND label CONTAINS[c] 'Porsjonstestbrød'")).firstMatch
+        revealDiaryElement(original, in: app)
+        XCTAssertTrue(original.exists)
+        let originalID = original.identifier
+        let originalLabel = original.label
+        app.terminate()
+
+        app.launchArguments = ["--missing-account-configuration-qa", "-demoModeActive", "NO"]
+        app.launch()
+        let blocked = app.descendants(matching: .any)["account-configuration-unavailable"].firstMatch
+        XCTAssertTrue(blocked.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["onboarding-start-logging"].exists)
+        XCTAssertFalse(app.buttons["onboarding-next"].exists)
+        XCTAssertFalse(app.buttons["tab-log-food"].exists)
+        attachSearchScreenshot(app, name: "Feilkonfigurert oppdatering – data beskyttet")
+        app.terminate()
+
+        app.launchArguments = validArguments
+        app.launch()
+        XCTAssertTrue(app.buttons["tab-log-food"].waitForExistence(timeout: 10))
+        for _ in 0..<daysBack { selectPreviousDiaryDay(in: app) }
+        let recovered = app.buttons[originalID]
+        revealDiaryElement(recovered, in: app)
+        XCTAssertTrue(recovered.exists)
+        XCTAssertEqual(recovered.label, originalLabel)
+        XCTAssertFalse(blocked.exists)
+        attachSearchScreenshot(app, name: "Korrigert oppdatering – samme registrering bevart")
+    }
+
+    @MainActor
     func testCombinedLoggingRetainsOriginalNavigation() throws {
         XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()

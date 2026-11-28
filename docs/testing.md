@@ -1817,3 +1817,43 @@ App og testmål kompilerer med build-for-testing generic iOS i separat
 QA-konfigurasjon: `/private/tmp/pr10-recent-read-build.log`, TEST BUILD SUCCEEDED.
 Ny runtime-verifisering i CI gjenstår før sammenslåing. Verken lokal simulator-
 runtime eller fysisk iPhone var tilgjengelig for en før/etter-UI-kjøring.
+
+## Build 4-regresjoner og Release-sperre – 27. november 2026
+
+Kandidat: codex/fix-release-account-config, basert på main 48b9c73, med lokale
+endringer. Ingen ekte konto-, nøkkelring- eller domenedata kopieres til repoet.
+
+Utført før CI/runtime:
+- Seks Python-regresjoner bestod: manglende/tomme/uutvidede verdier,
+  HTTPS/callback, offentlig anon/publishable kontra servernøkkel, Debug versus
+  Release, ferdig plist og fravær av nøkkelverdier i validatorens utdata.
+- Validatoren avviser det faktiske utløpte build 4-arkivet og godtar build 3.
+- Et faktisk xcodebuild Release-build med tom kontokonfigurasjon feilet i den
+  nye byggfasen med eksplisitte feil for URL/nøkkel. Ikke bare testet som script.
+  Logg: /private/tmp/ReleaseGuard-missing-build.log.
+- Samme Release-build med eksisterende korrekt lokalt oppsett bestod.
+  Logg: /private/tmp/ReleaseGuard-valid-build.log. Ingen arkivering eller opplasting.
+- Debug-app og testmål kompilerte i separat QA-prosjekt.
+  Logg: /private/tmp/ReleaseGuard-Debug-build.log.
+
+Nye runtime-regresjoner:
+- AuthViewModelTests/missingConfigurationDoesNotCreateLocalProfile: manglende
+  kontooppsett gir feil uten ny profil/onboarding.
+- AuthViewModelTests/misconfiguredUpgradePreservesAccountMarkersAndStoredLogs:
+  ekte disponibel UserDefaults-suite og SQLite bevarer konto-ID, fullført
+  onboarding og matlogg over feilkonfigurert oppstart og korrigert gjenåpning.
+- MatLoggUITests/testMisconfiguredUpgradeDoesNotReplaceExistingData: oppretter
+  en syntetisk rad i QA-appen, avslutter, starter med manglende kontooppsett,
+  krever stoppmelding uten onboarding/logging, og bekrefter samme rad/innhold
+  etter korrigert oppstart. Inngår i CI-smoke. Dette er simulert oppdatering
+  over appstarter; ikke distribusjon av to faktisk signerte TestFlight-binarier.
+
+Et forsøk på lokal før-rettelse-runtime kunne ikke starte fordi QA-iPhonen
+var utilgjengelig; ingen før/etter-runtime er derfor påstått. CI må bekrefte de
+nye runtime-testene. Simulator-runtime er ikke installert lokalt. Ekte build 3
+og brukerens data på telefonen er ikke endret av testene.
+
+CI bruker Config/Supabase-QA.xcconfig med syntetisk offentlig nøkkel og reservert
+.invalid-vert. Dette unngår ekte kontotjenester under Debug-onboardingtester;
+Release-validatoren avviser den konfigurasjonen. View → ViewModel → Repository,
+eierskap, lokale transaksjoner og localOnly-policy er bevart.
