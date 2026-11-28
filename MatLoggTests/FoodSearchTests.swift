@@ -153,7 +153,7 @@ struct FoodSearchTests {
         await waitUntil { vm.phase == .offline }
         #expect(vm.results.map(\.id) == [milk.id])
         #expect(vm.query == "melk")
-        #expect(vm.searchError?.contains("midlertidig utilgjengelig") == true)
+        #expect(vm.searchError?.contains("Kunne ikke hente nye treff") == true)
         #expect(vm.canSearchGlobally)
     }
 
@@ -332,6 +332,8 @@ struct FoodSearchTests {
         vm.setQuery("havre")
         vm.search()
         await repository.waitForRequests(1)
+        // A repeated submit is ignored; an explicit cancellation permits a fresh same-query search.
+        vm.cancelSearch()
         vm.search()
         await repository.waitForRequests(2)
         let latest = product("Havre ny")

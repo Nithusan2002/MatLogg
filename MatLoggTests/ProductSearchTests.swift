@@ -791,7 +791,7 @@ struct ProductSearchTests {
         }
     }
 
-    @Test func openFoodFactsRetriesServerFailureOnce() async throws {
+    @Test func openFoodFactsRetriesTransientNameSearchFailure() async throws {
         var callCount = 0
         SearchURLProtocolStub.handler = { request in
             callCount += 1

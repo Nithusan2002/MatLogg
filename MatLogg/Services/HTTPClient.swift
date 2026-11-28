@@ -82,3 +82,67 @@ enum RequestBackoff {
         return base + Double.random(in: 0...0.15)
     }
 }
+
+
+/// A bounded policy for interactive name searches. Barcode requests retain their own policy.
+enum ProductNameSearchRequest {
+    static func send(
+        _ request: URLRequest,
+        client: any HTTPClientProtocol,
+        budget: Duration = .seconds(15),
+        sleep: @escaping (TimeInterval) async throws -> Void
+    ) async throws -> HTTPClientResponse {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: budget)
+        return try await withThrowingTaskGroup(of: HTTPClientResponse.self) { group in
+            group.addTask {
+                for attempt in 0..<3 {
+                    try Task.checkCancellation()
+                    let remaining = clock.now.duration(to: deadline)
+                    guard remaining > .zero else { throw HTTPClientError.timedOut }
+                    let parts = remaining.components
+                    let timeout = min(10, Double(parts.seconds) + Double(parts.attoseconds) / 1e18)
+                    let delay = attempt == 0 ? 1.0 : 3.0
+                    do {
+                        let result = try await client.send(request, timeout: timeout)
+                        try Task.checkCancellation()
+                        guard clock.now < deadline else { throw HTTPClientError.timedOut }
+                        let status = result.response.statusCode
+                        guard attempt < 2, [429, 500, 502, 503, 504].contains(status) else { return result }
+                        // Respect both delta-seconds and HTTP-date Retry-After headers.
+                        let header = result.response.value(forHTTPHeaderField: "Retry-After")
+                        let requestedDelay = retryDelay(header, now: Date())
+                        if header != nil && requestedDelay == nil { return result }
+                        let wait = max(delay, requestedDelay ?? 0)
+                        guard wait < 15, clock.now.advanced(by: .seconds(wait)) < deadline else { return result }
+                        try await sleep(wait)
+                    } catch let error as HTTPClientError {
+                        try Task.checkCancellation()
+                        guard attempt < 2, error == .timedOut || error == .connectionLost else { throw error }
+                        guard clock.now.advanced(by: .seconds(delay)) < deadline else { throw error }
+                        try await sleep(delay)
+                    }
+                }
+                throw HTTPClientError.timedOut
+            }
+            group.addTask {
+                try await clock.sleep(until: deadline)
+                throw HTTPClientError.timedOut
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else { throw CancellationError() }
+            return result
+        }
+    }
+
+    nonisolated static func retryDelay(_ header: String?, now: Date) -> TimeInterval? {
+        guard let header else { return nil }
+        if let seconds = TimeInterval(header), seconds.isFinite, seconds >= 0 { return seconds }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        guard let date = formatter.date(from: header) else { return nil }
+        return max(0, date.timeIntervalSince(now))
+    }
+}

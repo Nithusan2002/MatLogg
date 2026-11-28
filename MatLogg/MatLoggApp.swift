@@ -59,8 +59,18 @@ struct MatLoggContent: View {
         #if DEBUG
         portionQARepository = databaseService
         #endif
+        let nameSearchAPI: APIService
+        #if DEBUG
+        if let client = ProductSearchRetryQAFixture.makeClient() {
+            nameSearchAPI = APIService(httpClient: client)
+        } else {
+            nameSearchAPI = APIService()
+        }
+        #else
+        nameSearchAPI = APIService()
+        #endif
         let searchRepository = DefaultFoodSearchRepository(
-            products: databaseService, catalog: MatvaretabellenService(), remote: APIService(), recentFoods: databaseService
+            products: databaseService, catalog: MatvaretabellenService(), remote: nameSearchAPI, recentFoods: databaseService
         )
         foodSearchRepository = searchRepository
         let quickChoicesRepository: any FoodSearchRepository

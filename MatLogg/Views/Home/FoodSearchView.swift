@@ -299,7 +299,8 @@ private struct FoodSearchContent: View {
 
     @ViewBuilder
     private var searchStatus: some View {
-        let message = viewModel.showsSearchFeedback ? "Henter flere produkter …"
+        let message = viewModel.showsSlowSearchFeedback ? "Søket tar litt tid. Vi prøver fortsatt …"
+            : viewModel.showsSearchFeedback ? "Henter flere produkter …"
             : viewModel.showsCatalogFeedback ? "Henter flere matvarer …"
             : viewModel.hasQuery && viewModel.phase == .local && !isFirstLog && !isUnifiedLogging
                 ? "Trykk Søk for flere produkter." : ""

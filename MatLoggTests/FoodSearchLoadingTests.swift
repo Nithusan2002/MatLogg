@@ -143,6 +143,21 @@ struct FoodSearchLoadingTests {
         #expect(remote.calls == 2)
     }
 
+    @Test func lastCancelledCallerStopsProviderWorkAndAllowsFreshSearch() async throws {
+        let products = LoadingSearchProducts()
+        let remote = CancellationAwareNameSearch()
+        let repository = DefaultFoodSearchRepository(products: products, catalog: LoadingCatalog(),
+            remote: remote, recentFoods: products)
+        let first = Task { try await repository.searchRemote(query: "havre", owner: nil) }
+        try await waitUntil { remote.calls == 1 }
+        first.cancel()
+        do { _ = try await first.value; Issue.record("Expected cancellation") }
+        catch { #expect(error is CancellationError) }
+        #expect(remote.wasCancelled)
+        _ = try await repository.searchRemote(query: "havre", owner: nil)
+        #expect(remote.calls == 2)
+    }
+
     @Test func cancelledCallerDoesNotCancelSharedSearchOrPublishResults() async throws {
         let products = LoadingSearchProducts()
         let remote = CountingNameSearch()
@@ -251,5 +266,19 @@ private final class CountingNameSearch: ProductNameSearchService {
         calls += 1
         if suspend { return try await withCheckedThrowingContinuation { pending = $0 } }
         return result
+    }
+}
+
+@MainActor
+private final class CancellationAwareNameSearch: ProductNameSearchService {
+    var calls = 0
+    var wasCancelled = false
+    func searchProductsByNameOpenFoodFacts(_ query: String, scope: FoodSearchScope) async throws -> [Product] {
+        calls += 1
+        if calls == 1 {
+            do { try await Task.sleep(for: .milliseconds(200)) }
+            catch { wasCancelled = true; throw error }
+        }
+        return []
     }
 }
